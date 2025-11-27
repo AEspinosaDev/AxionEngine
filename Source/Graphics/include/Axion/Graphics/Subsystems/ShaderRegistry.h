@@ -1,35 +1,13 @@
 #pragma once
 #include "Axion/Common/Defines.h"
 #include "Axion/Graphics/Handle.h"
+#include "Axion/Graphics/ShaderCommon.h"
 #include <optional>
 #include <vector>
 
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
-
-namespace Shader {
-
-/// @brief Target binary format for shader compilation.
-enum NativeFormat : uchar
-{
-    DXIL,   ///< DirectX Intermediate Language (DirectX 12).
-    SPIR_V, ///< Standard Portable Intermediate Representation (Vulkan).
-    GLSL    ///< OpenGL Shading Language.
-};
-
-/// @brief Configuration descriptor for a shader source.
-struct Description {
-    std::string              path;                  ///< Path to the .slang source file.
-    std::vector<std::string> includePaths;          ///< Additional directories for import resolution.
-    NativeFormat             format = DXIL;         ///< Target binary format.
-    std::string              entryPoint;            ///< Name of the entry point function (e.g., "vsMain").
-    bool                     useReflection = false; ///< Whether to generate reflection data.
-};
-
-} // namespace Shader
-
-typedef Shader::Description ShaderDesc;
 
 /// @brief Interface for managing shader compilation, storage, and retrieval.
 /// Handles lifecycle, async compilation, and name-to-handle mapping.
@@ -44,86 +22,109 @@ public:
     IShaderRegistry( IShaderRegistry&& )                 = delete;
     IShaderRegistry& operator=( IShaderRegistry&& )      = delete;
 
-    /// @brief Fluent builder helper for configuring and registering shaders.
-    class Builder
-    {
-    public:
-        Builder( IShaderRegistry& reg, std::string name )
-            : _registry( reg )
-            , _name( std::move( name ) ) {}
-
-        /// @brief Sets the source file path.
-        Builder& path( const std::string& p ) {
-            _desc.path = p;
-            return *this;
-        }
-
-        /// @brief Adds an include directory for imports.
-        Builder& include( const std::string& inc ) {
-            _desc.includePaths.push_back( inc );
-            return *this;
-        }
-
-        /// @brief Sets target format to DXIL (DirectX 12).
-        Builder& asDXIL() {
-            _desc.format = Shader::DXIL;
-            return *this;
-        }
-
-        /// @brief Sets target format to SPIR-V (Vulkan).
-        Builder& asSPIRV() {
-            _desc.format = Shader::SPIR_V;
-            return *this;
-        }
-
-        /// @brief Sets the entry point function name.
-        Builder& entry( const std::string& name ) {
-            _desc.entryPoint = name;
-            return *this;
-        }
-
-        /// @brief Finalizes configuration and registers the shader.
-        /// @return The handle to the registered shader.
-        ShaderHandle load() {
-            return _registry.registerShader( _desc, _name );
-        }
-
-    private:
-        IShaderRegistry& _registry;
-        std::string      _name;
-        ShaderDesc       _desc;
-    };
+    class Builder;
 
     /// @brief Starts the fluent registration process for a new shader. To register it, call load()
     /// @param name Logical name for the shader (used for lookups).
-    Builder shader( const std::string& name ) {
-        return Builder( *this, name );
-    }
+    virtual Builder shader( const std::string& name ) = 0;
 
-    /// @brief Retrieves the compiled bytecode for a given handle.
-    /// Returns a static empty vector if handle is invalid or compilation failed.
-    virtual const std::vector<uchar>& getBytecode( ShaderHandle handle ) const = 0;
-
-    /// @brief Looks up a shader handle by its logical name.
+    virtual const ShaderBundle&         getBundle( ShaderHandle handle ) const      = 0;
     virtual std::optional<ShaderHandle> findShader( const std::string& name ) const = 0;
-
-    /// @brief Triggers compilation for a specific shader if not already ready.
-    virtual const std::vector<uchar>& compileShader( ShaderHandle handle ) = 0;
-
-    /// @brief Triggers compilation by name (Convenience method).
-    virtual const std::vector<uchar>& compileShader( const std::string& name ) = 0;
-
-    /// @brief Compiles all registered shaders that are not yet ready.
-    /// @param async If true, compilation happens on worker threads (not implemented yet).
-    virtual void compileAllShaders( bool async = false ) = 0;
+    virtual const ShaderBundle&         compileShader( ShaderHandle handle )        = 0;
+    virtual const ShaderBundle&         compileShader( const std::string& name )    = 0;
+    virtual void                        compileAllShaders( bool async = false )     = 0;
+    virtual uint                        size() const                                = 0;
 
 protected:
     IShaderRegistry() = default;
 
     /// @brief Internal method to register shader metadata without compiling.
-    virtual ShaderHandle registerShader( const ShaderDesc& desc, const std::string& name ) = 0;
+    virtual ShaderHandle registerShader( const ShaderDesc& desc ) = 0;
 
     friend class Builder;
+};
+
+/// @brief Fluent builder helper for configuring and registering shaders.
+class IShaderRegistry::Builder
+{
+public:
+    Builder( IShaderRegistry& reg, std::string name )
+        : _registry( reg ) {
+        _desc.name = std::move( name );
+    }
+
+    /// @brief Sets the source file path.
+    Builder& path( const std::string& p ) {
+        _desc.path = p;
+        return *this;
+    }
+
+    /// @brief Adds an include directory for imports.
+    Builder& include( const std::string& inc ) {
+        _desc.includePaths.push_back( inc );
+        return *this;
+    }
+
+    /// @brief Sets target format to DXIL (DirectX 12).
+    Builder& asDXIL() {
+        _desc.format = Shader::DXIL;
+        return *this;
+    }
+
+    /// @brief Sets target format to SPIR-V (Vulkan).
+    Builder& asSPIRV() {
+        _desc.format = Shader::SPIR_V;
+        return *this;
+    }
+
+    /// @brief Sets AutoReflect.
+    Builder& autoReflect( bool opt ) {
+        _desc.autoReflect = opt;
+        return *this;
+    }
+    // --- STAGES ---
+    Builder& vs( const std::string& entryName ) {
+        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Vertex } );
+        return *this;
+    }
+    Builder& ps( const std::string& entryName ) {
+        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Pixel } );
+        return *this;
+    }
+    Builder& cs( const std::string& entryName ) {
+        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Compute } );
+        return *this;
+    }
+    Builder& gs( const std::string& entryName ) {
+        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Geometry } );
+        return *this;
+    }
+    Builder& hs( const std::string& entryName ) {
+        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Hull } );
+        return *this;
+    }
+    Builder& ds( const std::string& entryName ) {
+        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Domain } );
+        return *this;
+    }
+    Builder& layout( const RHI::PipelineLayoutDesc& desc ) {
+        _desc.layoutDesc = desc;
+        _desc.autoReflect  = false;
+        return *this;
+    }
+    Builder& vertexAttributes( const std::vector<RHI::VertexAttribute>& attrs ) {
+        _desc.vertexAttributes = attrs;
+        return *this;
+    }
+    /// @brief Finalizes configuration and registers the shader.
+    /// @return The handle to the registered shader.
+    ShaderHandle load() {
+        return _registry.registerShader( _desc );
+    }
+
+private:
+    IShaderRegistry& _registry;
+    ShaderDesc       _desc;
 };
 } // namespace Graphics
 AXION_NAMESPACE_END

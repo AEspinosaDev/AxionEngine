@@ -44,6 +44,7 @@ Renderer::Renderer( const WindowPtr& wnd, const RendererSettings& settings )
     _resourcePool = NEW_U( GPUResourcePool )( _device.get() );
     // Init Registries
     _shaderRegistry = NEW_U( ShaderRegistry )();
+    _pipelineRegistry = NEW_U( PipelineRegistry )( _device.get(), *_shaderRegistry.get() );
 }
 
 Renderer::~Renderer() {
@@ -143,6 +144,10 @@ IGPUResourcePool& Renderer::resources() {
 
 IShaderRegistry& Renderer::shaders() {
     return *_shaderRegistry.get();
+}
+
+IPipelineRegistry& Renderer::pipelines() {
+    return *_pipelineRegistry.get();
 }
 
 void Renderer::windowCallback( const Extent2D& newSize ) {

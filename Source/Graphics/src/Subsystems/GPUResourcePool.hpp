@@ -13,17 +13,18 @@ public:
     explicit GPUResourcePool( RHI::IDevice* device );
     ~GPUResourcePool() override;
 
-    // BUFFER
-    BufferHandle                registerBuffer( const RHI::BufferDesc& desc, const void* initialData = nullptr, const std::string& name = "" ) override;
-    RHI::BufferPtr&             getBuffer( BufferHandle handle ) override;
+    BufferBuilder buffer( const std::string& name ) override { return BufferBuilder( *this, name ); }
+    // TODO: TextureBuilder texture( const std::string& name );
+
+    RHI::IBuffer*               getBuffer( BufferHandle handle ) override;
     std::optional<BufferHandle> findBuffer( const std::string& name ) const override;
     void                        destroyBuffer( BufferHandle handle ) override;
-
-    // TEXTURE
-
-    virtual void clear() override;
+    void                        clear() override;
+    uint                        size() const override { return (uint)_buffers.size(); };
 
 private:
+    BufferHandle createBuffer( const RHI::BufferDesc& desc, const void* initialData ) override;
+
     RHI::IDevice*      _device = nullptr;
     mutable std::mutex _mutex;
 
@@ -31,7 +32,8 @@ private:
     struct ResourceRecord {
         T           ptr = nullptr;
         std::string name;
-        bool        alive = false;
+        ushort      generation = 0;
+        bool        alive      = false;
     };
 
     // Buffers

@@ -1,5 +1,6 @@
 
 #pragma once
+#include "Axion/Graphics/RHI/Pipeline.h"
 #include "Axion/Graphics/Subsystems/ShaderRegistry.h"
 #include "ShaderCompiler.h"
 
@@ -15,15 +16,17 @@ public:
     explicit ShaderRegistry();
     ~ShaderRegistry() override;
 
-    const std::vector<uchar>& getBytecode( ShaderHandle handle ) const override;
-    // const ShaderLayoutDesc& getLayout( ShaderHandle handle ) const;
+    Builder shader( const std::string& name ) override { return Builder( *this, name ); }
+
+    const ShaderBundle&         getBundle( ShaderHandle handle ) const override;
     std::optional<ShaderHandle> findShader( const std::string& name ) const override;
-    const std::vector<uchar>&   compileShader( ShaderHandle handle ) override;
-    const std::vector<uchar>&   compileShader( const std::string& name ) override;
+    const ShaderBundle&         compileShader( ShaderHandle handle ) override;
+    const ShaderBundle&         compileShader( const std::string& name ) override;
     void                        compileAllShaders( bool async = false ) override;
+    uint                        size() const override { return (uint)_shaders.size(); };
 
 private:
-    ShaderHandle registerShader( const ShaderDesc& desc, const std::string& name ) override;
+    ShaderHandle registerShader( const ShaderDesc& desc ) override;
 
     enum class ShaderState : uint8_t
     {
@@ -33,12 +36,10 @@ private:
         Failed
     };
     struct ShaderRecord {
-        std::vector<uchar> bytecode;
-        ShaderDesc         desc;
-        // ShaderLayoutDesc   layout;
-        std::string name;
-        ShaderState state = ShaderState::Uncompiled;
-        bool        alive = false;
+        ShaderBundle bundle;
+        ShaderDesc   desc;
+        ShaderState  state = ShaderState::Uncompiled;
+        bool         alive = false;
     };
 
     ShaderCompiler _compiler;

@@ -4,6 +4,7 @@
 #include "GPUFrame.hpp"
 #include "Subsystems/GPUResourcePool.hpp"
 #include "Subsystems/ShaderRegistry.hpp"
+#include "Subsystems/PipelineRegistry.hpp"
 
 AXION_NAMESPACE_BEGIN
 
@@ -23,8 +24,9 @@ public:
     virtual void             setWindow( const WindowPtr& wnd ) override;
     virtual const Settings&  getSettings() const override;
 
-    virtual IGPUResourcePool& resources() override;
-    virtual IShaderRegistry&  shaders() override;
+    virtual IGPUResourcePool&  resources() override;
+    virtual IShaderRegistry&   shaders() override;
+    virtual IPipelineRegistry& pipelines() override;
 
     virtual const RHI::DevicePtr& getDevice() const override;
 
@@ -42,8 +44,8 @@ private:
     GPUResourcePoolPtr    _resourcePool = nullptr;
     std::vector<GPUFrame> _frames;
     // Pipelines & shaders
-    ShaderRegistryPtr _shaderRegistry = nullptr;
-    // PipelineRegistryPtr   _pipRegistry    = nullptr;
+    ShaderRegistryPtr   _shaderRegistry   = nullptr;
+    PipelineRegistryPtr _pipelineRegistry = nullptr;
     // Query
     uint       _currentFrame = 0;
     const uint _FRAMES_IN_FLIGHT;

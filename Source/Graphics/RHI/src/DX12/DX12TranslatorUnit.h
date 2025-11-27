@@ -473,6 +473,7 @@ constexpr D3D12_DESCRIPTOR_RANGE_TYPE get( DescriptorType type ) noexcept {
         case DescriptorType::StorageImage:
             return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
 
+        case DescriptorType::ReadonlyStorageBuffer:
         case DescriptorType::SampledImage:
         case DescriptorType::AccelerationStructure:
             return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;

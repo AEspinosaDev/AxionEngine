@@ -105,6 +105,10 @@ IShaderRegistry& HeadlessRenderer::shaders() {
     return *_shaderRegistry.get();
 }
 
+IPipelineRegistry& HeadlessRenderer::pipelines() {
+    return *_pipelineRegistry.get();
+}
+
 } // namespace Graphics
 
 AXION_NAMESPACE_END

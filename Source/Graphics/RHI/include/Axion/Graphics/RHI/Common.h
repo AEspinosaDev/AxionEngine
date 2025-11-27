@@ -24,7 +24,6 @@ using namespace Microsoft::WRL;
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 
-
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
@@ -547,6 +546,7 @@ enum class DescriptorType : uchar
 {
     UniformBuffer = 0,     // Constant buffer / UBO
     StorageBuffer,         // RW buffer / SSBO
+    ReadonlyStorageBuffer, // RO buffer / SSBO
     SampledImage,          // Texture SRV
     StorageImage,          // RW texture / UAV
     Sampler,               // Sampler object
@@ -811,7 +811,7 @@ private:
 };
 
 #define DEFINE_COM_PTR_FOR_TYPE( type, clean ) \
-    class type;                                   \
+    class type;                                \
     typedef Ptr<type> clean##Ptr;
 
 } // namespace RHI

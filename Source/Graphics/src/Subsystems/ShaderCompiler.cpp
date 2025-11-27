@@ -16,13 +16,13 @@ void ShaderCompiler::begin() {
     }
 }
 
-bool ShaderCompiler::compileFile( const ShaderDesc& desc, std::vector<uchar>& outCode ) {
+bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundle ) {
 
-    AXION_LOG_ASSERT( _globalSession, Logger::Module::GFX, "No Slang Compile Session Active" );
+    AXION_LOG_ASSERT( _globalSession, Logger::Module::GFX, "No Slang Session" );
 
-    SessionDesc sessionDesc {};
+    SessionDesc sessionDesc = {};
+    TargetDesc  targetDesc  = {};
 
-    TargetDesc targetDesc;
     switch ( desc.format )
     {
         case Shader::NativeFormat::DXIL:
@@ -52,12 +52,10 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, std::vector<uchar>& ou
     std::string moduleName = shaderFilePath.stem().string();
 
     std::vector<const char*> includePtrs;
-    includePtrs.reserve( desc.includePaths.size() + 1 ); // +1 para el directorio del shader
+    includePtrs.reserve( desc.includePaths.size() + 1 );
 
-    // Añadimos el directorio donde está el propio shader para que Slang lo encuentre
     includePtrs.push_back( shaderDir.c_str() );
 
-    // Añadimos los includes extra del usuario
     for ( auto& p : desc.includePaths )
         includePtrs.push_back( p.c_str() );
 
@@ -65,10 +63,6 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, std::vector<uchar>& ou
     sessionDesc.searchPathCount = (SlangInt)includePtrs.size();
     sessionDesc.targets         = &targetDesc;
     sessionDesc.targetCount     = 1;
-
-    // PreprocessorMacroDesc fancyFlag    = { "ENABLE_FANCY_FEATURE", "1" };
-    // sessionDesc.preprocessorMacros     = &fancyFlag;
-    // sessionDesc.preprocessorMacroCount = 1;
 
     Slang::ComPtr<ISession> session;
     _globalSession->createSession( sessionDesc, session.writeRef() );
@@ -87,39 +81,42 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, std::vector<uchar>& ou
         return false;
     }
 
-    // --------------------------------------------------------
-    // FETCH ENTRY POINT
-    // --------------------------------------------------------
-    Slang::ComPtr<slang::IEntryPoint> entryPoint;
+    std::vector<Slang::ComPtr<slang::IEntryPoint>> entryPointsKeepAlive;
+    std::vector<slang::IComponentType*>            rawComponents;
 
-    if ( !desc.entryPoint.empty() )
-    {
-        module->findEntryPointByName( desc.entryPoint.c_str(), entryPoint.writeRef() );
-    } else
-    {
-        AXION_LOG_WARN( Logger::Module::Shader, "Entry Point not Defined, automatically looking for an entry point" );
-        if ( module->getDefinedEntryPointCount() > 0 )
-        {
-            module->getDefinedEntryPoint( 0, entryPoint.writeRef() );
-        }
-    }
+    rawComponents.reserve( desc.entryPoints.size() + 1 );
+    rawComponents.push_back( module.get() );
 
-    if ( !entryPoint )
+    if ( desc.entryPoints.empty() )
     {
-        AXION_LOG_ERROR( Logger::Module::Shader,
-                         "Failed to find entry point '{}' in {}",
-                         desc.entryPoint.empty() ? "(auto)" : desc.entryPoint,
-                         desc.path );
+        AXION_LOG_ERROR( Logger::Module::Shader, "No entry points specified for shader: {}", desc.path.c_str() );
         return false;
     }
 
-    IComponentType*                      components[] = { module, entryPoint };
+    for ( const auto& epDesc : desc.entryPoints )
+    {
+        Slang::ComPtr<slang::IEntryPoint> entryPoint;
+        module->findEntryPointByName( epDesc.name.c_str(), entryPoint.writeRef() );
+
+        if ( !entryPoint )
+        {
+            AXION_LOG_ERROR( Logger::Module::Shader, "Entry point '{}' not found in {}", epDesc.name, desc.path );
+            return false;
+        }
+
+        // 2. Guardamos el ComPtr para que el objeto no muera al terminar esta iteración del for
+        entryPointsKeepAlive.push_back( entryPoint );
+
+        // 3. Añadimos el puntero crudo a la lista de componentes
+        rawComponents.push_back( entryPoint.get() );
+    }
+
     Slang::ComPtr<slang::IComponentType> composedProgram;
     {
         Slang::ComPtr<slang::IBlob> diagnostics;
         SlangResult                 result = session->createCompositeComponentType(
-            components,
-            2,
+            rawComponents.data(),
+            (SlangInt)rawComponents.size(),
             composedProgram.writeRef(),
             diagnostics.writeRef() );
 
@@ -134,25 +131,39 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, std::vector<uchar>& ou
     Slang::ComPtr<slang::IComponentType> linkedProgram;
     {
         Slang::ComPtr<slang::IBlob> diagnostics;
-        SlangResult                 result = composedProgram->link(
-            linkedProgram.writeRef(),
-            diagnostics.writeRef() );
+        SlangResult                 result = composedProgram->link( linkedProgram.writeRef(), diagnostics.writeRef() );
         if ( diagnostics )
         {
             const char* diagText = (const char*)diagnostics->getBufferPointer();
-            AXION_LOG_ERROR( Logger::Module::Shader, "{}", diagText );
+            AXION_LOG_ERROR( Logger::Module::Shader, "Link Error: {}", diagText );
         }
         SLANG_RETURN_ON_FAIL( result );
     }
 
-    // 7. Get Target Kernel Code
-    Slang::ComPtr<slang::IBlob> nativeCode;
+    if ( desc.autoReflect )
+    {
+        extractReflection( desc.name, linkedProgram, outBundle.layoutDesc );
+        extractVertexAttributes( linkedProgram, outBundle.vertexAttributes );
+    } else
+    {
+        if ( desc.layoutDesc.has_value() )
+        {
+            outBundle.layoutDesc = std::move( desc.layoutDesc.value() );
+        }
+        if ( desc.vertexAttributes.has_value() )
+        {
+            outBundle.vertexAttributes = std::move( desc.vertexAttributes.value() );
+        }
+    }
+
+    for ( size_t i = 0; i < desc.entryPoints.size(); ++i )
     {
         Slang::ComPtr<slang::IBlob> diagnostics;
+        Slang::ComPtr<slang::IBlob> kernelBlob;
         SlangResult                 result = linkedProgram->getEntryPointCode(
+            (int)i,
             0,
-            0,
-            nativeCode.writeRef(),
+            kernelBlob.writeRef(),
             diagnostics.writeRef() );
         if ( diagnostics )
         {
@@ -160,17 +171,278 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, std::vector<uchar>& ou
             AXION_LOG_ERROR( Logger::Module::Shader, "{}", diagText );
         }
         SLANG_RETURN_ON_FAIL( result );
+
+        std::vector<uchar> bytecode( kernelBlob->getBufferSize() );
+        std::memcpy( bytecode.data(), kernelBlob->getBufferPointer(), bytecode.size() );
+
+        RHI::ShaderType type                      = desc.entryPoints[i].type;
+        outBundle.stageBlobs[type].code           = std::move( bytecode );
+        outBundle.stageBlobs[type].entryPointName = desc.entryPoints[i].name;
     }
 
-    outCode.resize( nativeCode->getBufferSize() );
-    memcpy( outCode.data(), nativeCode->getBufferPointer(), outCode.size() );
-
-    AXION_LOG_INFO( Logger::Module::Shader, "Compiled {} bytes of native shader code", nativeCode->getBufferSize() );
-
+    AXION_LOG_INFO( Logger::Module::Shader, "Compiled Shader [{}] successfully.", desc.name );
     return true;
 }
+
 void ShaderCompiler::end() {
     _globalSession = nullptr;
+}
+SlangStage ShaderCompiler::stageToSlang( RHI::ShaderStage stage ) {
+    switch ( stage )
+    {
+        case RHI::ShaderStage::Vertex:
+            return SLANG_STAGE_VERTEX;
+        case RHI::ShaderStage::Pixel:
+            return SLANG_STAGE_FRAGMENT;
+        case RHI::ShaderStage::Compute:
+            return SLANG_STAGE_COMPUTE;
+        default:
+            return SLANG_STAGE_NONE;
+    }
+}
+RHI::DescriptorType ShaderCompiler::slangTypeToRHI( slang::TypeReflection* type ) {
+    using namespace slang;
+
+    if ( type->getKind() == TypeReflection::Kind::Array )
+    {
+        return slangTypeToRHI( type->getElementType() );
+    }
+
+    TypeReflection::Kind kind = type->getKind();
+
+    switch ( kind )
+    {
+        case TypeReflection::Kind::ConstantBuffer:
+            return RHI::DescriptorType::UniformBuffer; // cbuffer { ... }
+
+        case TypeReflection::Kind::Resource: {
+            SlangResourceShape  shape  = type->getResourceShape();
+            SlangResourceAccess access = type->getResourceAccess();
+
+            // 1. Texturas
+            if ( shape & SLANG_RESOURCE_BASE_SHAPE_MASK )
+            {
+                // Si es escritura (RWTexture) -> StorageImage (UAV)
+                if ( access == SLANG_RESOURCE_ACCESS_READ_WRITE || access == SLANG_RESOURCE_ACCESS_WRITE )
+                    return RHI::DescriptorType::StorageImage;
+
+                // Si es lectura -> SampledImage (SRV)
+                return RHI::DescriptorType::SampledImage;
+            }
+
+            // 2. Buffers (Structured, ByteAddress, etc.)
+            // En muchos RHIs (Vulkan/DX12), tanto SRV como UAV de buffers se tratan como StorageBuffer
+            // en el descriptor, aunque DX12 distingue rangos.
+            if ( shape & SLANG_STRUCTURED_BUFFER ||
+                 shape & SLANG_BYTE_ADDRESS_BUFFER )
+            {
+                return RHI::DescriptorType::StorageBuffer;
+            }
+
+            return RHI::DescriptorType::SampledImage; // Fallback
+        }
+
+        case TypeReflection::Kind::SamplerState:
+            return RHI::DescriptorType::Sampler;
+
+        // Nota: ParameterBlock se trataría aquí si decides usarlo en el futuro
+        case TypeReflection::Kind::ParameterBlock:
+            return RHI::DescriptorType::UniformBuffer; // Ojo: Esto depende de cómo lo implementes
+
+        default:
+            return RHI::DescriptorType::UniformBuffer; // Fallback
+    }
+}
+
+void ShaderCompiler::reflectParameter(
+    slang::VariableLayoutReflection*                     varLayout,
+    std::map<uint, std::vector<RHI::DescriptorBinding>>& tempSets ) {
+    slang::TypeReflection*      type = varLayout->getType();
+    slang::TypeReflection::Kind kind = type->getKind();
+
+    // --- CASO 1: Es un recurso directo (Buffer, Texture, Sampler) ---
+    // Reutilizamos la lógica de detección de tipo que te di antes
+    // Desentrañamos arrays primero
+    slang::TypeReflection* checkType = type;
+    while ( checkType->getKind() == slang::TypeReflection::Kind::Array )
+    {
+        checkType = checkType->getElementType();
+    }
+    slang::TypeReflection::Kind realKind = checkType->getKind();
+
+    bool isResource =
+        ( realKind == slang::TypeReflection::Kind::Resource ) ||
+        ( realKind == slang::TypeReflection::Kind::SamplerState ) ||
+        ( realKind == slang::TypeReflection::Kind::ConstantBuffer );
+
+    if ( isResource )
+    {
+        uint bindingIdx = (uint)varLayout->getBindingIndex();
+        uint spaceIdx   = (uint)varLayout->getBindingSpace();
+
+        // Si Slang dice "sin binding", lo ignoramos (o es un error del shader)
+        if ( bindingIdx == -1 )
+            return;
+
+        RHI::DescriptorBinding bindingInfo;
+        bindingInfo.binding   = bindingIdx;
+        bindingInfo.type      = slangTypeToRHI( type ); // Tu función de mapeo
+        bindingInfo.stageMask = RHI::ShaderStage::All;  // Asumimos visibilidad total
+        bindingInfo.arraySize = (uint)type->getElementCount();
+        if ( bindingInfo.arraySize == 0 )
+            bindingInfo.arraySize = 1;
+
+        // IMPORTANTE: Evitar duplicados si Slang reporta el mismo recurso en Global y en EntryPoint
+        // Simplemente sobrescribimos (o chequeamos si existe)
+        auto& bindings = tempSets[spaceIdx];
+        bool  exists   = false;
+        for ( auto& b : bindings )
+        {
+            if ( b.binding == bindingInfo.binding )
+            {
+                exists = true;
+                break;
+            }
+        }
+        if ( !exists )
+            bindings.push_back( bindingInfo );
+
+        return; // Ya procesamos este nodo, no necesitamos entrar más
+    }
+
+    // --- CASO 2: Es un Struct o Constant Buffer Block ---
+    // Si Slang ha agrupado cosas (o usamos ParameterBlock), entramos recursivamente.
+    if ( kind == slang::TypeReflection::Kind::Struct ||
+         kind == slang::TypeReflection::Kind::ParameterBlock )
+    {
+        // Un ParameterBlock tiene su propio sub-layout de campos
+        unsigned fieldCount = type->getFieldCount();
+        for ( unsigned i = 0; i < fieldCount; i++ )
+        {
+            // OJO: type->getFieldByIndex da TypeLayout, pero varLayout->getTypeLayout()->getFieldByIndex...
+            // La forma correcta de navegar la JERARQUÍA DE VARIABLES es usar getFieldByIndex del type
+            // pero necesitamos el VariableLayout correspondiente (offset/binding relativo).
+
+            // Slang a veces expone los hijos directamente si es un ParameterBlock
+            // Si es un struct normal usado como uniform, no tiene bindings dentro.
+            // PERO si es un struct usado como ParameterBlock, sí.
+
+            // Simplificación: En tu caso (Global Resources), suelen ser top-level.
+            // Si ese 'paramCount == 1' es un struct anónimo, esto lo cazaría.
+
+            // Nota: Navegar sub-campos de variables en Slang puede ser complejo porque
+            // depende de si es Offset-based (Uniforms) o Register-based.
+        }
+    }
+}
+void ShaderCompiler::extractReflection( const std::string& name, IComponentType* program, RHI::PipelineLayoutDesc& outDesc ) {
+
+    outDesc.sets.clear();
+    outDesc.pushConstant = {};
+
+    slang::ProgramLayout* slangLayout = program->getLayout();
+
+    std::map<uint, std::vector<RHI::DescriptorBinding>> tempSets;
+
+    uint paramCount = slangLayout->getParameterCount();
+
+    for ( uint i = 0; i < paramCount; ++i )
+    {
+        slang::VariableLayoutReflection* varLayout = slangLayout->getParameterByIndex( i );
+        slang::TypeReflection*           type      = varLayout->getType();
+
+        slang::TypeReflection* checkType = type;
+        if ( checkType->getKind() == slang::TypeReflection::Kind::Array )
+        {
+            checkType = checkType->getElementType();
+        }
+
+        slang::TypeReflection::Kind typeKind = checkType->getKind();
+
+        bool isDescriptor =
+            ( typeKind == slang::TypeReflection::Kind::Resource ) ||
+            ( typeKind == slang::TypeReflection::Kind::SamplerState ) ||
+            ( typeKind == slang::TypeReflection::Kind::ConstantBuffer ) ||
+            ( typeKind == slang::TypeReflection::Kind::ParameterBlock );
+
+        // Si es un float, int, struct normal (no CBuffer), lo ignoramos.
+        if ( !isDescriptor )
+            continue;
+
+        size_t bindingIdx = varLayout->getBindingIndex();
+        size_t spaceIdx   = varLayout->getBindingSpace();
+
+        // Si no tiene binding explícito y Slang no le asignó uno auto, lo saltamos con warning
+        // (Aunque para globales suele asignar auto si no usas register)
+        if ( bindingIdx == unsigned( -1 ) )
+        {
+            // Opcional: Log warning "Global resource X has no binding"
+            AXION_LOG_WARN( Logger::Module::Shader, "Global resource {} has no binding", name );
+            continue;
+        }
+
+        RHI::DescriptorBinding bindingInfo;
+        bindingInfo.binding   = (uint)bindingIdx;
+        bindingInfo.type      = slangTypeToRHI( type );
+        bindingInfo.stageMask = RHI::ShaderStage::All;
+
+        bindingInfo.arraySize = (uint)type->getElementCount();
+        if ( bindingInfo.arraySize == 0 )
+            bindingInfo.arraySize = 1;
+
+        tempSets[(uint)spaceIdx].push_back( bindingInfo );
+    }
+
+    if ( !tempSets.empty() )
+    {
+        uint maxSet = tempSets.rbegin()->first;
+        outDesc.sets.resize( maxSet + 1 );
+
+        for ( auto& [setIdx, bindings] : tempSets )
+        {
+            outDesc.sets[setIdx].bindings = bindings;
+        }
+    }
+
+    outDesc.debugName = "Shader " + name + " AutoLayout";
+}
+void ShaderCompiler::extractVertexAttributes( slang::IComponentType* program, std::vector<RHI::VertexAttribute>& outAttribs ) {
+    outAttribs.clear();
+    slang::ProgramLayout* layout = program->getLayout();
+
+    for ( uint i = 0; i < layout->getEntryPointCount(); ++i )
+    {
+        slang::EntryPointLayout* ep = layout->getEntryPointByIndex( i );
+        if ( ep->getStage() == SLANG_STAGE_VERTEX )
+        {
+            for ( uint j = 0; j < ep->getParameterCount(); ++j )
+            {
+                slang::VariableLayoutReflection* var = ep->getParameterByIndex( j );
+
+                if ( var->getCategory() == slang::ParameterCategory::VaryingInput )
+                {
+                    RHI::VertexAttribute attr;
+
+                    const char* semanticName = var->getSemanticName();
+                    attr.semanticName        = semanticName ? semanticName : "UNKNOWN";
+
+                    attr.semanticIndex = (uint)var->getSemanticIndex();
+
+                    attr.inputSlot = (uint)var->getBindingIndex();
+
+                    // Formato: Mapear var->getType() a DXGI_FORMAT/VkFormat es complejo.
+                    // Truco: Puedes usar el tamaño en bytes para adivinar float3/float4
+                    // o implementar un mapeo completo de tipos escalares.
+
+                    // Por defecto offset automatico
+                    attr.alignedByteOffset = AUTO_VAL;
+
+                    outAttribs.push_back( attr );
+                }
+            }
+            break;
+        }
+    }
 }
 } // namespace Graphics
 // namespace Graphics

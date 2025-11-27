@@ -19,10 +19,10 @@ public:
     void                   setCurrentFrame( uint index ) override;
     const CommandListDesc& getDescription() const override;
 
-    void barrier( const TexturePtr& texture, ResourceState newState ) override;
-    void barrier( const BufferPtr& buffer, ResourceState newState ) override;
-    void clearTexture( const TexturePtr& texture, const ClearValue& clearValue ) override;
-    void copyBuffer( const BufferPtr& dst, const BufferPtr& src, ulong numBytes, ulong dstOffset = 0, ulong srcOffset = 0 ) override;
+    void barrier( ITexture* texture, ResourceState newState ) override;
+    void barrier( IBuffer* buffer, ResourceState newState ) override;
+    void clearTexture( ITexture* texture, const ClearValue& clearValue ) override;
+    void copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset = 0, ulong srcOffset = 0 ) override;
 
     NativeObject       getNativeObject( ObjectType objectType ) override;
     void               setDebugName( const std::string& name ) override;

@@ -3,6 +3,7 @@
 #include "GPUFrame.hpp"
 #include "Subsystems/GPUResourcePool.hpp"
 #include "Subsystems/ShaderRegistry.hpp"
+#include "Subsystems/PipelineRegistry.hpp"
 
 AXION_NAMESPACE_BEGIN
 
@@ -14,19 +15,18 @@ class Renderer : public IRenderer
 public:
     virtual ~Renderer();
     virtual void render() override;
-    // virtual void render( const GPUSceneView& gpuScene ) override;
-    virtual void destroy() override;
-    virtual bool isHeadless() override;
 
-    virtual const WindowPtr& getWindow() override;
-    virtual void             setWindow( const WindowPtr& wnd ) override;
-    virtual const Settings&  getSettings() const override;
+    virtual IGPUResourcePool&  resources() override;
+    virtual IShaderRegistry&   shaders() override;
+    virtual IPipelineRegistry& pipelines() override;
 
-    virtual IGPUResourcePool& resources() override;
-    virtual IShaderRegistry&  shaders() override;
-
+    virtual const WindowPtr&      getWindow() override;
+    virtual void                  setWindow( const WindowPtr& wnd ) override;
+    virtual const Settings&       getSettings() const override;
     virtual const RHI::DevicePtr& getDevice() const override;
 
+    virtual bool        isHeadless() override;
+    virtual void        destroy() override;
     virtual std::string toString() const override;
 
     Renderer( const WindowPtr& wnd, const RendererSettings& settings );
@@ -43,8 +43,8 @@ private:
     GPUResourcePoolPtr    _resourcePool = nullptr;
     std::vector<GPUFrame> _frames;
     // Pipelines & shaders
-    ShaderRegistryPtr _shaderRegistry = nullptr;
-    // PipelineRegistryPtr   _pipRegistry    = nullptr;
+    ShaderRegistryPtr   _shaderRegistry   = nullptr;
+    PipelineRegistryPtr _pipelineRegistry = nullptr;
     // Window Related
     WindowPtr                                                                       _wnd            = nullptr;
     std::unique_ptr<Event::EventDispatcher<Event::WindowResizeEvent>::Subscription> _resizeCbHandle = nullptr;

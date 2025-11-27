@@ -25,10 +25,10 @@ public:
     virtual void               setCurrentFrame( uint index ) = 0;
     virtual const Description& getDescription() const        = 0;
 
-    virtual void barrier( const TexturePtr& texture, ResourceState newState )                                                          = 0;
-    virtual void barrier( const BufferPtr& buffer, ResourceState newState )                                                            = 0;
-    virtual void clearTexture( const TexturePtr& texture, const ClearValue& clearValue )                                               = 0;
-    virtual void copyBuffer( const BufferPtr& dst, const BufferPtr& src, ulong numBytes, ulong dstOffset = 0, ulong srcOffset = 0 ) = 0;
+    virtual void barrier( ITexture* texture, ResourceState newState )                                               = 0;
+    virtual void barrier( IBuffer* buffer, ResourceState newState )                                                 = 0;
+    virtual void clearTexture( ITexture* texture, const ClearValue& clearValue )                                    = 0;
+    virtual void copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset = 0, ulong srcOffset = 0 ) = 0;
 
     // virtual void beginRenderPass( /* ... */ ) = 0;
     // virtual void endRenderPass()              = 0;

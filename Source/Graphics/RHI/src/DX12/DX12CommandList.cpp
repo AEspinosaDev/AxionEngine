@@ -46,9 +46,8 @@ const CommandListDesc& DX12CommandList::getDescription() const {
     return _desc;
 }
 
-void DX12CommandList::barrier( const TexturePtr& texture, ResourceState newState ) {
-
-    auto& tracker = static_cast<DX12Texture*>( texture.get() )->stateTracker();
+void DX12CommandList::barrier( ITexture* texture, ResourceState newState ) {
+    auto& tracker = static_cast<DX12Texture*>( texture )->stateTracker();
 
     if ( !tracker.needsTransition( newState ) )
         return;
@@ -63,9 +62,8 @@ void DX12CommandList::barrier( const TexturePtr& texture, ResourceState newState
     tracker.setState( newState );
 }
 
-void DX12CommandList::barrier( const BufferPtr& buffer, ResourceState newState ) {
-
-    auto& tracker = static_cast<DX12Buffer*>( buffer.get() )->stateTracker();
+void DX12CommandList::barrier( IBuffer* buffer, ResourceState newState ) {
+    auto& tracker = static_cast<DX12Buffer*>( buffer )->stateTracker();
 
     if ( !tracker.needsTransition( newState ) )
         return;
@@ -80,8 +78,8 @@ void DX12CommandList::barrier( const BufferPtr& buffer, ResourceState newState )
     tracker.setState( newState );
 }
 
-void DX12CommandList::clearTexture( const TexturePtr& texture, const ClearValue& clearValue ) {
-    auto*              dxTex = static_cast<DX12Texture*>( texture.get() );
+void DX12CommandList::clearTexture( ITexture* texture, const ClearValue& clearValue ) {
+     auto*              dxTex = static_cast<DX12Texture*>( texture );
     const TextureDesc& desc  = dxTex->getDescription();
 
     // Clear RenderTarget
@@ -123,14 +121,14 @@ void DX12CommandList::clearTexture( const TexturePtr& texture, const ClearValue&
     }
 }
 
-void DX12CommandList::copyBuffer( const BufferPtr& dst, const BufferPtr& src, ulong numBytes, ulong dstOffset, ulong srcOffset ) {
-
-    barrier( dst, ResourceState::CopyDest );
+void DX12CommandList::copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset, ulong srcOffset ) {
+     barrier( dst, ResourceState::CopyDest );
     barrier( src, ResourceState::CopySource );
 
     _cmdList->CopyBufferRegion(
         dst->getNativeObject( ObjectTypes::DX12_Resource ), dstOffset, src->getNativeObject( ObjectTypes::DX12_Resource ), srcOffset, numBytes );
 }
+
 
 NativeObject DX12CommandList::getNativeObject( ObjectType objectType ) {
     switch ( objectType )

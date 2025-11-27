@@ -8,6 +8,7 @@ namespace Graphics::RHI {
 DX12PipelineLayout::DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc )
     : _desc( desc ) {
     buildRootSignature( device );
+    AXION_LOG_INFO( Logger::Module::RHI, "DX12 Pipeline Layout [{}] created", _desc.debugName );
 }
 DX12PipelineLayout::~DX12PipelineLayout() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Pipeline Layout [{}]", _desc.debugName );
@@ -322,14 +323,12 @@ std::string DX12ComputePipeline::toString() const {
 
 void DX12ComputePipeline::createPipelineState( const ComPtr<ID3D12Device2>& device ) {
 
-
     D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
     psoDesc.pRootSignature                    = _desc.layout->getNativeObject( ObjectTypes::DX12_RootSignature );
     psoDesc.CS                                = { _desc.shaderModule.code, _desc.shaderModule.codeSize };
     psoDesc.Flags                             = D3D12_PIPELINE_STATE_FLAG_NONE;
 
     DX_CHECK( device->CreateComputePipelineState( &psoDesc, IID_PPV_ARGS( &_pso ) ) );
-    
 }
 
 } // namespace Graphics::RHI

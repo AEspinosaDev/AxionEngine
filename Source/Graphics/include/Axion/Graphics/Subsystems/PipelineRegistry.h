@@ -20,21 +20,22 @@ public:
     class GraphicBuilder;
     class ComputeBuilder;
 
-    GraphicBuilder graphic( const std::string& name ) { return GraphicBuilder( *this, name ); }
-    ComputeBuilder compute( const std::string& name ) { return ComputeBuilder( *this, name ); }
+    virtual GraphicBuilder graphic( const std::string& name ) = 0;
+    virtual ComputeBuilder compute( const std::string& name ) = 0;
 
-    virtual const RHI::GraphicPipelinePtr& getGraphicPipeline( PipelineHandle handle )   = 0;
-    virtual const RHI::ComputePipelinePtr& getComputePipeline( PipelineHandle handle )   = 0;
-    virtual std::optional<PipelineHandle>  findPipeline( const std::string& name ) const = 0;
+    virtual RHI::IGraphicPipeline*        getGraphicPipeline( PipelineHandle handle )   = 0;
+    virtual RHI::IComputePipeline*        getComputePipeline( PipelineHandle handle )   = 0;
+    virtual std::optional<PipelineHandle> findPipeline( const std::string& name ) const = 0;
+    virtual void                          destroyPipeline( PipelineHandle handle )      = 0;
+    virtual uint                          size() const                                  = 0;
 
-    // Recargar pipelines (Hot-Reloading)
     virtual void reloadAll() = 0;
 
 protected:
     IPipelineRegistry() = default;
 
-    virtual PipelineHandle createGraphic( const std::string& name, const RHI::GraphicPipelineDesc& desc ) = 0;
-    virtual PipelineHandle createCompute( const std::string& name, const RHI::ComputePipelineDesc& desc ) = 0;
+    virtual PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName ) = 0;
+    virtual PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName ) = 0;
 
     friend class GraphicBuilder;
     friend class ComputeBuilder;
@@ -44,8 +45,8 @@ class IPipelineRegistry::GraphicBuilder
 {
 public:
     GraphicBuilder( IPipelineRegistry& reg, std::string name )
-        : _registry( reg )
-        , _name( std::move( name ) ) {
+        : _registry( reg ) {
+        _desc.debugName         = std::move( name );
         _desc.rasterizerState   = { RHI::FillMode::Solid,
                                     RHI::CullMode::Back,
                                     /*...*/ };
@@ -53,24 +54,8 @@ public:
         _desc.topology          = RHI::PrimitiveTopology::TriangleList;
     }
 
-    GraphicBuilder& vs( const std::string& shaderName ) {
-        _vsName = shaderName;
-        return *this;
-    }
-    GraphicBuilder& ps( const std::string& shaderName ) {
-        _psName = shaderName;
-        return *this;
-    }
-    GraphicBuilder& gs( const std::string& shaderName ) {
-        _gsName = shaderName;
-        return *this;
-    }
-    GraphicBuilder& hs( const std::string& shaderName ) {
-        _hsName = shaderName;
-        return *this;
-    }
-    GraphicBuilder& ds( const std::string& shaderName ) {
-        _dsName = shaderName;
+    GraphicBuilder& shader( const std::string& shaderName ) {
+        _shaderName = shaderName;
         return *this;
     }
 
@@ -107,23 +92,23 @@ public:
     }
 
     PipelineHandle create() {
-        return _registry.createGraphic( _name, _desc );
+        return _registry.createGraphic( _desc, _shaderName );
     }
 
 private:
     IPipelineRegistry&       _registry;
-    std::string              _name;
     RHI::GraphicPipelineDesc _desc;
 
-    std::string _vsName, _psName, _gsName, _hsName, _dsName;
+    std::string _shaderName;
 };
 
 class IPipelineRegistry::ComputeBuilder
 {
 public:
     ComputeBuilder( IPipelineRegistry& reg, std::string name )
-        : _registry( reg )
-        , _name( std::move( name ) ) {}
+        : _registry( reg ) {
+        _desc.debugName = std::move( name );
+    }
 
     /// @brief Define el shader de cómputo a utilizar (por nombre en ShaderRegistry).
     ComputeBuilder& shader( const std::string& shaderName ) {
@@ -139,12 +124,11 @@ public:
 
     /// @brief Construye el pipeline.
     PipelineHandle create() {
-        return _registry.createCompute( _name, _desc, _shaderName );
+        return _registry.createCompute( _desc, _shaderName );
     }
 
 private:
     IPipelineRegistry&       _registry;
-    std::string              _name;
     RHI::ComputePipelineDesc _desc;
 
     std::string _shaderName;

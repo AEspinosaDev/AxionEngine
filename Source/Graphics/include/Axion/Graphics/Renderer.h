@@ -2,6 +2,7 @@
 #include "Axion/Graphics/Platforms/Window.h"
 #include "Axion/Graphics/RHI/Device.h"
 #include "Axion/Graphics/Subsystems/GPUResourcePool.h"
+#include "Axion/Graphics/Subsystems/PipelineRegistry.h"
 #include "Axion/Graphics/Subsystems/ShaderRegistry.h"
 
 AXION_NAMESPACE_BEGIN
@@ -26,8 +27,9 @@ public:
     virtual void render() = 0;
 
     // Subsystems
-    virtual IGPUResourcePool& resources() = 0;
-    virtual IShaderRegistry&  shaders()   = 0;
+    virtual IGPUResourcePool&  resources() = 0;
+    virtual IShaderRegistry&   shaders()   = 0;
+    virtual IPipelineRegistry& pipelines() = 0;
 
     // Getters
     virtual const WindowPtr&      getWindow()                       = 0;

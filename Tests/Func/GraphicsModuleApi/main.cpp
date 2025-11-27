@@ -22,21 +22,13 @@ int main( /*int argc, char* argv[]*/ ) {
                                                       .presentMode   = Graphics::PresentMode::Vsync } );
 
         // Declare Reources
-        auto& res        = rnd->resources();
-        auto  bufferTest = res.registerBuffer( { .size = 16, .debugName = "TestBuffer" }, nullptr, "TestBuffer" );
-        auto  bufferPtr  = res.getBuffer( bufferTest );
-        // AXION_LOG_INFO( Logger::Module::Editor, "Buffer Count: {}", bufferPtr->getRefCount() );
-        res.destroyBuffer( bufferTest );
+        auto bufferHandle = rnd->resources().buffer( "TestBuffer" ).size( 16 ).create();
+        rnd->resources().destroyBuffer( bufferHandle );
 
-        // Shader
-        auto& shaders = rnd->shaders();
-        shaders.shader( "TestShader" ).asDXIL().path( AXION_SHADER_DIR "/Slang/TestShader.slang" ).load();
-        shaders.compileShader( "TestShader" );
+        rnd->shaders().shader( "TestShader" ).asDXIL().path( AXION_SHADER_DIR "/Slang/TestShader.slang" ).cs( "computeMain" ).load();
+        rnd->shaders().compileShader( "TestShader" );
 
-        // Pipelines
-        // rnd->pipelines().graphics( "PBR" ).vs( "PBR_Vertex" ) // El motor busca el blob Y la reflexión
-        //     .ps( "PBR_Pixel" )
-        //     .create();
+        auto cmc = rnd->pipelines().compute( "TestPipeline" ).shader( "TestShader" ).create();
 
         while ( !wnd->shouldClose() )
         {
@@ -76,3 +68,23 @@ int main( /*int argc, char* argv[]*/ ) {
 
     return EXIT_SUCCESS;
 }
+// Graphics::RHI::PipelineLayoutDesc manualLayout = {
+//     .sets = {
+//         { .bindings = {
+//               // binding 0: buffer0 (SRV)
+//               {
+//                   .binding   = 0,
+//                   .type      = Graphics::RHI::DescriptorType::ReadonlyStorageBuffer,
+//                   .stageMask = Graphics::RHI::ShaderStage::Compute,
+//                   .arraySize = 1 },
+//               // binding 1: buffer1 (SRV)
+//               {
+//                   .binding   = 1,
+//                   .type      = Graphics::RHI::DescriptorType::ReadonlyStorageBuffer,
+//                   .stageMask = Graphics::RHI::ShaderStage::Compute,
+//                   .arraySize = 1 } } },
+//         { .bindings = { { { .binding   = 0,
+//                             .type      = Graphics::RHI::DescriptorType::StorageBuffer, // RWBuffer suele ser StorageBuffer también
+//                             .stageMask = Graphics::RHI::ShaderStage::Compute,
+//                             .arraySize = 1 } } } } },
+//     .debugName = "Manual_Test_Layout" };

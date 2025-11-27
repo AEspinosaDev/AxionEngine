@@ -1,59 +1,89 @@
 #include "GPUResourcePool.hpp"
 
 AXION_NAMESPACE_BEGIN
+
 namespace Graphics {
 
 GPUResourcePool::GPUResourcePool( RHI::IDevice* device )
     : _device( device ) {
-    AXION_LOG_INFO( Logger::Module::GFX, "Renderer's Resource Pool Created Succesfully" );
+    AXION_LOG_INFO( Logger::Module::GFX, "GPU Resource Pool Initialized" );
 }
 
 GPUResourcePool::~GPUResourcePool() {
     clear();
-    AXION_LOG_INFO( Logger::Module::GFX, "Destroying Renderer's Resource Pool" );
+    AXION_LOG_INFO( Logger::Module::GFX, "GPU Resource Pool Destroyed" );
 }
-
-BufferHandle GPUResourcePool::registerBuffer( const RHI::BufferDesc& desc, const void* initialData, const std::string& name ) {
+BufferHandle GPUResourcePool::createBuffer( const RHI::BufferDesc& desc, const void* initialData ) {
     std::scoped_lock lock( _mutex );
 
-    auto buffer = _device->createBuffer( desc, initialData );
+    if ( !desc.debugName.empty() && _nameToHandle.count( desc.debugName ) )
+    {
+        AXION_LOG_WARN( Logger::Module::GFX, "Buffer name collision [{}]. Returning existing handle.", desc.debugName );
+        return _nameToHandle[desc.debugName];
+    }
 
-    // Find free slot
+    auto bufferPtr = _device->createBuffer( desc, initialData );
+    if ( !bufferPtr )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Failed to create buffer [{}]", desc.debugName );
+        return {};
+    }
+
     uint id = UINT32_MAX;
-    for ( uint i = 0; i < _buffers.size(); ++i )
+
+    // Optimización: Podrías tener una std::queue<uint> _freeIndices para evitar este bucle.
+    // Para < 1000 buffers, este bucle es despreciable.
+    for ( size_t i = 0; i < _buffers.size(); ++i )
     {
         if ( !_buffers[i].alive )
         {
-            id          = i;
-            _buffers[i] = { buffer, name, true };
+            id = (uint)i;
             break;
         }
     }
-    // Or append new one
+
     if ( id == UINT32_MAX )
     {
         id = (uint)_buffers.size();
-        _buffers.push_back( { buffer, name, true } );
+        _buffers.emplace_back();
     }
-    // Map name
-    if ( !name.empty() )
-        _nameToHandle[name] = { id };
 
+    auto& record = _buffers[id];
+    record.ptr   = std::move( bufferPtr );
+    record.name  = desc.debugName;
+    record.alive = true;
+    record.generation++;
+
+    if ( !desc.debugName.empty() )
+        _nameToHandle[desc.debugName] = { id };
+
+    AXION_LOG_INFO( Logger::Module::GFX, "Registered Buffer ID: {} [{}]", id, desc.debugName );
 
     return BufferHandle { id };
 }
 
-RHI::BufferPtr& GPUResourcePool::getBuffer( BufferHandle handle ) {
+RHI::IBuffer* GPUResourcePool::getBuffer( BufferHandle handle ) {
     std::scoped_lock lock( _mutex );
 
-    ResourceRecord<RHI::BufferPtr>& rec = _buffers[handle.id];
-    return rec.ptr; // Return a dummy/empty BufferPtr or throw an exception
+    if ( handle.id >= _buffers.size() )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Accessing invalid BufferHandle ID: {}", handle.id );
+        return nullptr;
+    }
+
+    auto& record = _buffers[handle.id];
+    if ( !record.alive )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Accessing dead BufferHandle" );
+        return nullptr;
+    }
+
+    return record.ptr.get();
 }
 
 std::optional<BufferHandle> GPUResourcePool::findBuffer( const std::string& name ) const {
     std::scoped_lock lock( _mutex );
-
-    auto it = _nameToHandle.find( name );
+    auto             it = _nameToHandle.find( name );
     if ( it == _nameToHandle.end() )
         return std::nullopt;
     return it->second;
@@ -62,35 +92,28 @@ std::optional<BufferHandle> GPUResourcePool::findBuffer( const std::string& name
 void GPUResourcePool::destroyBuffer( BufferHandle handle ) {
     std::scoped_lock lock( _mutex );
 
-    if ( !handle.isValid() || handle.id >= _buffers.size() )
+    if ( handle.id >= _buffers.size() )
         return;
 
-    auto& rec = _buffers[handle.id];
-    if ( rec.alive )
-    {
-        // rec.ptr   = nullptr;
-        // delete rec.ptr;
-        // rec.alive = false;
+    auto& record = _buffers[handle.id];
+    if ( !record.alive )
+        return;
 
-        if ( !rec.name.empty() )
-            _nameToHandle.erase( rec.name );
-    }
+    if ( !record.name.empty() )
+        _nameToHandle.erase( record.name );
+
+    record.ptr = nullptr;
+
+    record.alive = false;
+    
+    AXION_LOG_INFO( Logger::Module::GFX, "Destroyed Buffer [{}]", record.name );
+    record.name.clear();
 }
 
 void GPUResourcePool::clear() {
-    // std::scoped_lock lock( _mutex );
-
-    // for ( auto& rec : _buffers )
-    // {
-    //     if ( rec.alive )
-    //     {
-    //         delete rec.ptr;
-    //         rec.ptr   = nullptr;
-    //         rec.alive = false;
-    //     }
-    // }
-
-    // _nameToHandle.clear();
+    std::scoped_lock lock( _mutex );
+    _buffers.clear();
+    _nameToHandle.clear();
 }
 
 } // namespace Graphics
