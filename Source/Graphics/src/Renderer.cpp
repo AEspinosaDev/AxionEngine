@@ -38,57 +38,67 @@ Renderer::Renderer( const WindowPtr& wnd, const RendererSettings& settings )
     AXION_LOG_ASSERT( _wnd, Logger::Module::GFX, "Window is NULL | Renderer needs Window. If no window needed, use Headless Renderer" );
     _swapchain      = _device->createSwapchain( wnd->getNativeObject(), { .size = wnd->getSettings().size, .imageCount = _FRAMES_IN_FLIGHT, .presentMode = settings.presentMode } );
     _resizeCbHandle = _wnd->onResize().subscribe( [this]( const Event::WindowResizeEvent& e ) { this->windowCallback( { e.width, e.height } ); } );
-    _commandList    = _device->createCommandList( { .queueType = RHI::QueueType::Graphics, .numFrames = _FRAMES_IN_FLIGHT, .debugName = "Graphics Command List" } );
+    // Init Command List
+    _commandList = _device->createCommandList( { .queueType = RHI::QueueType::Graphics, .numFrames = _FRAMES_IN_FLIGHT, .debugName = "Graphics Command List" } );
 
     // Init Resource Pool
     _resourcePool = NEW_U( GPUResourcePool )( _device.get() );
+    generateSwapchainHandles();
     // Init Registries
-    _shaderRegistry = NEW_U( ShaderRegistry )();
+    _shaderRegistry   = NEW_U( ShaderRegistry )();
     _pipelineRegistry = NEW_U( PipelineRegistry )( _device.get(), *_shaderRegistry.get() );
+    // Init Render Graph
+    _renderGraph = NEW_U( RenderGraph )( *_resourcePool.get(), *_pipelineRegistry.get(), _setts.renderGraphAllocSize, (uint)_setts.GCMode );
 }
 
 Renderer::~Renderer() {
     destroy();
 }
-void Renderer::render() {
+
+void Renderer::render( RenderGraphSetupFunc setup ) {
 
     if ( _wnd->minimized() )
         return;
 
-    // Record
     _commandList->setCurrentFrame( _currentFrame );
     _commandList->begin();
-    _commandList->clearTexture( _swapchain->getSwapImages()[_currentFrame],
-                                ClearValue { .color = { 0.4f, 0.6f, 0.9f, 1.0f } } );
-    _commandList->barrier( _swapchain->getSwapImages()[_currentFrame],
-                           RHI::ResourceState::Present );
+
+    _renderGraph->execute( setup, _commandList.get() );
+
     _commandList->end();
 
-    // Submit + signal
-    _device->executeCommandLists( { _commandList.get() },
-                                  RHI::QueueType::Graphics,
-                                  _frameFences[_currentFrame] );
+    _device->executeCommandLists(
+        { _commandList.get() },
+        RHI::QueueType::Graphics,
+        _frameFences[_currentFrame] );
 
-    // Present
     _swapchain->present();
 
-    // Handle pending resize safely
     if ( _pendingResize )
     {
         _device->waitIdle();
+
+        for ( auto& handle : _swapchainHandles )
+        {
+            if ( handle.isValid() )
+                _resourcePool->destroyTexture( handle );
+        }
+
         auto desc = _swapchain->getDescription();
         desc.size = _wnd->getSettings().size;
         _swapchain->update( desc );
+
+        generateSwapchainHandles();
+
         _pendingResize = false;
     }
-    // Acquire current backbuffer
+
     _currentFrame = _swapchain->acquireNextImage();
 
     _device->waitForFrame( _frameFences[_currentFrame], RHI::QueueType::Graphics );
-}
 
-// void Renderer::render( const GPUSceneView& gpuScene ) {
-// }
+    _frameNumber++;
+}
 
 void Renderer::destroy() {
     _device->queueWaitIdle( RHI::QueueType::Graphics, _frameFences[_currentFrame] );
@@ -107,6 +117,10 @@ const RHI::DevicePtr& Renderer::getDevice() const {
     return _device;
 }
 
+TextureHandle Renderer::getCurrentBackbufferHandle() const {
+    return _swapchainHandles[_currentFrame];
+}
+
 std::string Renderer::toString() const {
     // return fmt::format(
     //     "Settings:\n"
@@ -119,7 +133,7 @@ std::string Renderer::toString() const {
     //     bufferingTypeToString( bufferingType ),
     //     debugMode,
     //     presentModeToString( presentMode ),
-    //     formatToString( outputFormat ) );
+    //     formatToString( backbufferFormat ) );
     return fmt::format(
         "Renderer Settings:\n"
         "  Buffering Type: {}\n"
@@ -154,7 +168,16 @@ void Renderer::windowCallback( const Extent2D& newSize ) {
     if ( newSize.width > 0 || newSize.height > 0 )
         _pendingResize = true;
 }
+void Renderer::generateSwapchainHandles() {
+    _swapchainHandles.clear();
+    auto images = _swapchain->getSwapImages();
 
+    for ( size_t i = 0; i < images.size(); ++i )
+    {
+        auto handle = _resourcePool->registerExternalTexture( images[i], "Backbuffer_" + std::to_string( i ) );
+        _swapchainHandles.push_back( handle );
+    }
+}
 } // namespace Graphics
 
 AXION_NAMESPACE_END

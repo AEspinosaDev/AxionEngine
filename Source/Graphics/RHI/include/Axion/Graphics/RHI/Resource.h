@@ -20,6 +20,20 @@ public:
         uint             arraySize   = 1;
         std::string      debugName   = "";
         TextureViewFlags viewFlags   = TextureViewShaderResource;
+
+        bool operator==( const Description& other ) const {
+            return size == other.size &&
+                   format == other.format &&
+                   dimension == other.dimension &&
+                   mipLevels == other.mipLevels &&
+                   sampleCount == other.sampleCount &&
+                   arraySize == other.arraySize &&
+                   debugName == other.debugName &&
+                   viewFlags == other.viewFlags;
+        }
+        bool operator!=( const Description& other ) const {
+            return !operator==( other );
+        }
     };
     virtual ~ITexture()                                         = default;
     virtual const ITexture::Description& getDescription() const = 0;
@@ -34,11 +48,24 @@ class IBuffer : public IResource
 public:
     struct Description {
         size_t          size       = 0;
-        uint            stride     = 0; // for structured buffers
+        uint            stride     = 1; // for structured buffers
         MemoryUsage     memoryType = MemoryUsage::GPUOnly;
         BufferUsage     usageFlags = BufferUsage::None;
         BufferViewFlags viewFlags  = BufferViewNone;
         std::string     debugName  = "";
+
+        bool operator==( const Description& other ) const {
+            return size == other.size &&
+                   stride == other.stride &&
+                   memoryType == other.memoryType &&
+                   usageFlags == other.usageFlags &&
+                   viewFlags == other.viewFlags &&
+                   debugName == other.debugName;
+        }
+
+        bool operator!=( const Description& other ) const {
+            return !operator==( other );
+        }
     };
 
     virtual ~IBuffer()                                = default;

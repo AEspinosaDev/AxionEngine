@@ -720,14 +720,17 @@ public:
         internalAddRef();
     }
 
+
     Ptr( const Ptr& other )
-        : _ptr( other._ptr ) {
+        : _ptr( other._ptr )
+        , _ownsReference( true ) {
         internalAddRef();
     }
-
     Ptr( Ptr&& other ) noexcept
-        : _ptr( other._ptr ) {
-        other._ptr = nullptr;
+        : _ptr( other._ptr )
+        , _ownsReference( other._ownsReference ) {
+        other._ptr           = nullptr;
+        other._ownsReference = false;
     }
 
     template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
@@ -741,9 +744,21 @@ public:
         : _ptr( other._ptr ) {
         other._ptr = nullptr;
     }
+    Ptr( T* raw, bool takeOwnership )
+        : _ptr( raw )
+        , _ownsReference( takeOwnership ) // Nuevo flag
+    {
+        if ( _ownsReference )
+        {
+            internalAddRef();
+        }
+    }
 
     ~Ptr() {
-        internalRelease();
+        if ( _ownsReference )
+        {
+            internalRelease();
+        }
     }
 
     Ptr& operator=( const Ptr& other ) {
@@ -804,7 +819,8 @@ private:
     }
 
 private:
-    T* _ptr;
+    T*   _ptr;
+    bool _ownsReference = true;
 
     template <typename>
     friend class Ptr;

@@ -16,10 +16,10 @@ GPUResourcePool::~GPUResourcePool() {
 BufferHandle GPUResourcePool::createBuffer( const RHI::BufferDesc& desc, const void* initialData ) {
     std::scoped_lock lock( _mutex );
 
-    if ( !desc.debugName.empty() && _nameToHandle.count( desc.debugName ) )
+    if ( !desc.debugName.empty() && _buffNameToHandle.count( desc.debugName ) )
     {
         AXION_LOG_WARN( Logger::Module::GFX, "Buffer name collision [{}]. Returning existing handle.", desc.debugName );
-        return _nameToHandle[desc.debugName];
+        return _buffNameToHandle[desc.debugName];
     }
 
     auto bufferPtr = _device->createBuffer( desc, initialData );
@@ -55,11 +55,60 @@ BufferHandle GPUResourcePool::createBuffer( const RHI::BufferDesc& desc, const v
     record.generation++;
 
     if ( !desc.debugName.empty() )
-        _nameToHandle[desc.debugName] = { id };
+        _buffNameToHandle[desc.debugName] = { id };
 
     AXION_LOG_INFO( Logger::Module::GFX, "Registered Buffer ID: {} [{}]", id, desc.debugName );
 
     return BufferHandle { id };
+}
+
+TextureHandle GPUResourcePool::createTexture( const RHI::TextureDesc& desc, const void* initialData ) {
+    std::scoped_lock lock( _mutex );
+
+    if ( !desc.debugName.empty() && _texNameToHandle.count( desc.debugName ) )
+    {
+        AXION_LOG_WARN( Logger::Module::GFX, "Texture name collision [{}]. Returning existing handle.", desc.debugName );
+        return _texNameToHandle[desc.debugName];
+    }
+
+    auto texturePtr = _device->createTexture( desc, initialData );
+    if ( !texturePtr )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Failed to create Texture [{}]", desc.debugName );
+        return {};
+    }
+
+    uint id = UINT32_MAX;
+
+    // Optimización: Podrías tener una std::queue<uint> _freeIndices para evitar este bucle.
+    // Para < 1000 buffers, este bucle es despreciable.
+    for ( size_t i = 0; i < _textures.size(); ++i )
+    {
+        if ( !_textures[i].alive )
+        {
+            id = (uint)i;
+            break;
+        }
+    }
+
+    if ( id == UINT32_MAX )
+    {
+        id = (uint)_textures.size();
+        _textures.emplace_back();
+    }
+
+    auto& record = _textures[id];
+    record.ptr   = std::move( texturePtr );
+    record.name  = desc.debugName;
+    record.alive = true;
+    record.generation++;
+
+    if ( !desc.debugName.empty() )
+        _texNameToHandle[desc.debugName] = { id };
+
+    AXION_LOG_INFO( Logger::Module::GFX, "Registered Texture ID: {} [{}]", id, desc.debugName );
+
+    return TextureHandle { id };
 }
 
 RHI::IBuffer* GPUResourcePool::getBuffer( BufferHandle handle ) {
@@ -83,8 +132,8 @@ RHI::IBuffer* GPUResourcePool::getBuffer( BufferHandle handle ) {
 
 std::optional<BufferHandle> GPUResourcePool::findBuffer( const std::string& name ) const {
     std::scoped_lock lock( _mutex );
-    auto             it = _nameToHandle.find( name );
-    if ( it == _nameToHandle.end() )
+    auto             it = _buffNameToHandle.find( name );
+    if ( it == _buffNameToHandle.end() )
         return std::nullopt;
     return it->second;
 }
@@ -100,20 +149,108 @@ void GPUResourcePool::destroyBuffer( BufferHandle handle ) {
         return;
 
     if ( !record.name.empty() )
-        _nameToHandle.erase( record.name );
+        _buffNameToHandle.erase( record.name );
 
     record.ptr = nullptr;
 
     record.alive = false;
-    
+
     AXION_LOG_INFO( Logger::Module::GFX, "Destroyed Buffer [{}]", record.name );
     record.name.clear();
+}
+
+RHI::ITexture* GPUResourcePool::getTexture( TextureHandle handle ) {
+    std::scoped_lock lock( _mutex );
+
+    if ( handle.id >= _textures.size() )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Accessing invalid TextureHandle ID: {}", handle.id );
+        return nullptr;
+    }
+
+    auto& record = _textures[handle.id];
+    if ( !record.alive )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Accessing dead TextureHandle" );
+        return nullptr;
+    }
+
+    return record.ptr.get();
+}
+
+std::optional<TextureHandle> GPUResourcePool::findTexture( const std::string& name ) const {
+    std::scoped_lock lock( _mutex );
+    auto             it = _texNameToHandle.find( name );
+    if ( it == _texNameToHandle.end() )
+        return std::nullopt;
+    return it->second;
+}
+
+void GPUResourcePool::destroyTexture( TextureHandle handle ) {
+    std::scoped_lock lock( _mutex );
+
+    if ( handle.id >= _textures.size() )
+        return;
+
+    auto& record = _textures[handle.id];
+    if ( !record.alive )
+        return;
+
+    if ( !record.name.empty() )
+        _texNameToHandle.erase( record.name );
+
+    record.ptr = nullptr;
+
+    record.alive = false;
+
+    AXION_LOG_INFO( Logger::Module::GFX, "Destroyed Texture [{}]", record.name );
+    record.name.clear();
+}
+
+TextureHandle GPUResourcePool::registerExternalTexture( RHI::ITexture* ptr, const std::string& name ) {
+    std::scoped_lock lock( _mutex );
+
+    uint id = UINT32_MAX;
+
+    // Optimización: Podrías tener una std::queue<uint> _freeIndices para evitar este bucle.
+    // Para < 1000 buffers, este bucle es despreciable.
+    for ( size_t i = 0; i < _textures.size(); ++i )
+    {
+        if ( !_textures[i].alive )
+        {
+            id = (uint)i;
+            break;
+        }
+    }
+
+    if ( id == UINT32_MAX )
+    {
+        id = (uint)_textures.size();
+        _textures.emplace_back();
+    }
+
+    auto& record = _textures[id];
+    record.ptr   = RHI::TexturePtr( ptr );
+    record.name  = name;
+    record.alive = true;
+    record.generation++;
+
+    if ( !name.empty() )
+        _texNameToHandle[name] = { id };
+
+    return TextureHandle { id };
+}
+
+BufferHandle GPUResourcePool::registerExternalBuffer( RHI::IBuffer* ptr, const std::string& name ) {
+    return BufferHandle();
 }
 
 void GPUResourcePool::clear() {
     std::scoped_lock lock( _mutex );
     _buffers.clear();
-    _nameToHandle.clear();
+    _buffNameToHandle.clear();
+    _textures.clear();
+    _texNameToHandle.clear();
 }
 
 } // namespace Graphics

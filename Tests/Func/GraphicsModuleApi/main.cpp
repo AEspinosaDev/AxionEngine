@@ -30,6 +30,8 @@ int main( /*int argc, char* argv[]*/ ) {
 
         auto cmc = rnd->pipelines().compute( "TestPipeline" ).shader( "TestShader" ).create();
 
+        auto gbufferAlbedo = rnd->resources().texture( "GBuffer_Albedo" ).extent( 1920, 1080 ).format( Axion::Graphics::Format::RGBA8_UNORM ).asRenderTarget().create();
+
         while ( !wnd->shouldClose() )
         {
             static uint64_t                           frameCounter   = 0;
@@ -45,17 +47,39 @@ int main( /*int argc, char* argv[]*/ ) {
             elapsedSeconds += deltaTime.count() * 1e-9;
             if ( elapsedSeconds > 1.0 )
             {
-                // wchar_t buffer[100];
-                // double  fps = frameCounter / elapsedSeconds;
-                // swprintf_s( buffer, 100, L"FPS: %.2f\n", fps ); // formatea con 2 decimales
-                // OutputDebugStringW( buffer );                   // Unicode, no necesitas la versión ANSI
-
                 frameCounter   = 0;
                 elapsedSeconds = 0.0;
             }
 
             wnd->processMessages();
-            rnd->render();
+
+            rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
+                using namespace Axion::Graphics;
+
+                // if ( rnd->getTotalFrameNumber() == 0 )
+                //     auto simData = builder.buffer( "SimParticles" )
+                //                        .size( 1024 * 4 )
+                //                        .create();
+
+                TextureHandle    backbufferHandle = rnd->getCurrentBackbufferHandle();
+                RGResourceHandle rgBackbuffer     = builder.import( "Backbuffer", backbufferHandle );
+
+                struct PassData {
+                    RGResourceHandle target;
+                };
+
+                builder.addPass<PassData>( "ClearPass", [&]( RenderPassBuilder& pb, PassData& data ) {
+                    data.target = pb.write( rgBackbuffer ); // Declaramos escritura
+                },
+
+                                           [&]( const PassData& data, RenderPassContext& ctx ) {
+                                            
+                auto* tex = ctx.getTexture( data.target );
+                
+                ctx.cmd->barrier( tex, RHI::ResourceState::RenderTarget );
+                ctx.cmd->clearTexture( tex, ClearValue { .color = { 0.4f, 0.6f, 0.9f, 1.0f } } );
+                ctx.cmd->barrier( tex, RHI::ResourceState::Present ); } );
+            } );
         };
 
     } catch ( const std::exception& e )

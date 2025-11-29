@@ -34,20 +34,27 @@ HeadlessRenderer::HeadlessRenderer( const RendererSettings& settings )
             //     break;
     }
 
-    _commandList = _device->createCommandList( { .queueType = RHI::QueueType::Graphics, .numFrames = _FRAMES_IN_FLIGHT } );
-#ifdef RAIKO_DEBUG
-    _commandList->setDebugName( "Graphics Command List" );
-#endif
+    // Init Command List
+    _commandList = _device->createCommandList( { .queueType = RHI::QueueType::Graphics, .numFrames = _FRAMES_IN_FLIGHT, .debugName = "Graphics Command List" } );
+
+    // Init Resource Pool
+    _resourcePool = NEW_U( GPUResourcePool )( _device.get() );
+    // Init Registries
+    _shaderRegistry   = NEW_U( ShaderRegistry )();
+    _pipelineRegistry = NEW_U( PipelineRegistry )( _device.get(), *_shaderRegistry.get() );
+    // Init Render Graph
+    _renderGraph = NEW_U( RenderGraph )( *_resourcePool.get(), *_pipelineRegistry.get(), _setts.renderGraphAllocSize, (uint)_setts.GCMode );
 }
 
 HeadlessRenderer::~HeadlessRenderer() {
     destroy();
 }
-void HeadlessRenderer::render() {
-
+void HeadlessRenderer::render( RenderGraphSetupFunc setup ) {
     // Record
     _commandList->setCurrentFrame( _currentFrame );
     _commandList->begin();
+
+    _renderGraph->execute( setup, _commandList.get() );
 
     _commandList->end();
 
@@ -61,9 +68,6 @@ void HeadlessRenderer::render() {
 
     _device->waitForFrame( _frameFences[_currentFrame], RHI::QueueType::Graphics );
 }
-
-// void HeadlessRenderer::render( const GPUSceneView& gpuScene ) {
-// }
 
 void HeadlessRenderer::destroy() {
     _device->queueWaitIdle( RHI::QueueType::Graphics, _frameFences[_currentFrame] );

@@ -3,8 +3,9 @@
 #include "Axion/Graphics/Renderer.h"
 #include "GPUFrame.hpp"
 #include "Subsystems/GPUResourcePool.hpp"
-#include "Subsystems/ShaderRegistry.hpp"
 #include "Subsystems/PipelineRegistry.hpp"
+#include "Subsystems/RenderGraph.hpp"
+#include "Subsystems/ShaderRegistry.hpp"
 
 AXION_NAMESPACE_BEGIN
 
@@ -15,14 +16,17 @@ class HeadlessRenderer : public IRenderer
 
 public:
     virtual ~HeadlessRenderer();
-    virtual void render() override;
-    // virtual void render( const GPUSceneView& gpuScene ) override;
+
+    virtual void render( RenderGraphSetupFunc setup ) override;
+
     virtual void destroy() override;
     virtual bool isHeadless() override;
 
     virtual const WindowPtr& getWindow() override;
     virtual void             setWindow( const WindowPtr& wnd ) override;
     virtual const Settings&  getSettings() const override;
+    virtual TextureHandle    getCurrentBackbufferHandle() const override { return TextureHandle { UINT32_MAX }; };
+    virtual ulong            getTotalFrameNumber() const override { return _frameNumber; };
 
     virtual IGPUResourcePool&  resources() override;
     virtual IShaderRegistry&   shaders() override;
@@ -46,9 +50,12 @@ private:
     // Pipelines & shaders
     ShaderRegistryPtr   _shaderRegistry   = nullptr;
     PipelineRegistryPtr _pipelineRegistry = nullptr;
+    // Render Graph
+    RenderGraphPtr _renderGraph = nullptr;
     // Query
     uint       _currentFrame = 0;
     const uint _FRAMES_IN_FLIGHT;
+    ulong      _frameNumber = 0;
 };
 
 } // namespace Graphics

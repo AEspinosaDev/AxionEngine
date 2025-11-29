@@ -71,6 +71,7 @@ public:
         DX12DescriptorHeap heapSRV;
         DX12DescriptorHeap heapRTV;
         DX12DescriptorHeap heapDSV;
+        DX12DescriptorHeap heapUAV;
 
         UploadContext uploadContext = {};
 

@@ -52,14 +52,14 @@
     inline bool operator!=( T a, uint32_t b ) { return uint32_t( a ) != b; }
 
 #define DEFINE_SHARED_PTR_FOR_TYPE( type, clean ) \
-    class type;                                      \
+    class type;                                   \
     typedef std::shared_ptr<type> clean##Ptr;
 
 #define NEW_S( type ) \
     std::make_shared<type>
 
 #define DEFINE_UNIQUE_PTR_FOR_TYPE( type, clean ) \
-    class type;                                      \
+    class type;                                   \
     typedef std::unique_ptr<type> clean##Ptr;
 
 #define NEW_U( type ) \
@@ -92,10 +92,10 @@ struct Extent2D {
     uint width { 0 };
     uint height { 0 };
 
-    inline bool operator==( Extent2D o ) {
+    inline bool operator==( const Extent2D o ) const {
         return width == o.width && height == o.height;
     }
-    inline bool operator!=( Extent2D o ) {
+    inline bool operator!=( const Extent2D o ) const {
         return width != o.width || height != o.height;
     }
 };
@@ -103,10 +103,10 @@ struct Position2D {
     uint x { 0 };
     uint y { 0 };
 
-    inline bool operator==( Position2D o ) {
+    inline bool operator==( const Position2D& o ) const {
         return x == o.x && y == o.y;
     }
-    inline bool operator!=( Position2D o ) {
+    inline bool operator!=( const Position2D& o ) const {
         return x != o.x && y != o.y;
     }
 };
@@ -115,10 +115,10 @@ struct Extent3D {
     uint height { 0 };
     uint depth { 0 };
 
-    inline bool operator==( Extent3D o ) {
+    inline bool operator==( const Extent3D& o ) const {
         return width == o.width && height == o.height && depth == o.depth;
     }
-    inline bool operator!=( Extent3D o ) {
+    inline bool operator!=( const Extent3D& o ) const {
         return width != o.width || height != o.height || depth != o.depth;
     }
 };
