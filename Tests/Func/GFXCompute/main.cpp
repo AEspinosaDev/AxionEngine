@@ -101,6 +101,7 @@ struct CopyPass {
     }
 };
 
+
 int main( /*int argc, char* argv[]*/ ) {
 
     try
@@ -159,9 +160,9 @@ int main( /*int argc, char* argv[]*/ ) {
             {
                 wchar_t buffer[100];
                 double  fps = frameCounter / elapsedSeconds;
-                swprintf_s( buffer, 100, L"FPS: %.2f\n", fps ); // formatea con 2 decimales
+                swprintf_s( buffer, 100, L"FPS: %.2f\n", fps ); 
 
-                OutputDebugStringW( buffer ); // Unicode, no necesitas la versión ANSI
+                OutputDebugStringW( buffer ); 
 
                 frameCounter   = 0;
                 elapsedSeconds = 0.0;
