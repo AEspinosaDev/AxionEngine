@@ -18,15 +18,38 @@ struct DescriptorLayoutDesc {
     std::vector<DescriptorBinding> bindings;
 };
 
-// class IDescriptorSet: public IResource
-// {
-// public:
-//     std::unordered_map<uint32_t, ResourceHandle> resources;
-//     virtual ~DescriptorSet()                                  = default;
-//     virtual void update( uint32_t binding, Texture* texture ) = 0;
-// };
+DEFINE_COM_PTR_FOR_TYPE( IDescriptorSet, DescriptorSet )
+
+class IDescriptorSet : public IResource
+{
+public:
+    virtual ~IDescriptorSet() = default;
+
+    virtual void bind( uint binding, ITexture* tex, ResourceState usage ) = 0;
+    virtual void bind( uint binding, IBuffer* buf, ResourceState usage )  = 0;
+};
+
+DEFINE_COM_PTR_FOR_TYPE( IDescriptorAllocator, DescriptorAllocator )
+class IPipelineLayout;
+
+class IDescriptorAllocator : public IResource
+{
+public:
+    struct Description {
+        uint        numDescriptors = 256;
+        std::string debugName;
+    };
+
+    virtual ~IDescriptorAllocator() = default;
+
+    virtual IDescriptorSet* allocate( IPipelineLayout* layout, uint setIndex ) = 0;
+    virtual void            reset()                                            = 0;
+
+    virtual const IDescriptorAllocator::Description& getDescription() const = 0;
+};
+
+typedef IDescriptorAllocator::Description DescriptorAllocatorDesc;
 
 } // namespace Graphics::RHI
 
 AXION_NAMESPACE_END
-

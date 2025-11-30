@@ -1,22 +1,22 @@
 # =============================
-# Doxyfile.in — Nigiri Engine
+# Doxyfile.in — Axion Engine
 # =============================
 
 PROJECT_NAME           = "@PROJECT_NAME@"
-PROJECT_BRIEF          = "Nigiri Engine — Modular Rendering and Editor Framework"
+PROJECT_BRIEF          = "Axion Engine — Modular Rendering and Editor Framework"
 OUTPUT_DIRECTORY       = "@CMAKE_CURRENT_BINARY_DIR@/docs"
 
 # -------------------------------------------------------
 # INPUT — all major engine modules under /Source
 # -------------------------------------------------------
 INPUT = \
-  "@PROJECT_SOURCE_DIR@/Source/EngineCore/include/Nigiri/EngineCore" \
+  "@PROJECT_SOURCE_DIR@/Source/EngineCore/include/Axion/EngineCore" \
   "@PROJECT_SOURCE_DIR@/Source/EngineCore/src" \
-  "@PROJECT_SOURCE_DIR@/Source/Renderer/include/Nigiri/Renderer" \
-  "@PROJECT_SOURCE_DIR@/Source/Renderer/src" \
-  "@PROJECT_SOURCE_DIR@/Source/RHI/include/Nigiri/RHI" \
+  "@PROJECT_SOURCE_DIR@/Source/Graphics/include/Axion/Graphics" \
+  "@PROJECT_SOURCE_DIR@/Source/Graphics/src" \
+  "@PROJECT_SOURCE_DIR@/Source/Graphics/RHI/include/Axion/Graphics/RHI" \
   "@PROJECT_SOURCE_DIR@/Source/RHI/src" \
-  "@PROJECT_SOURCE_DIR@/Source/Editor/include/Nigiri/Editor" \
+  "@PROJECT_SOURCE_DIR@/Source/Editor/include/Axion/Editor" \
   "@PROJECT_SOURCE_DIR@/Source/Editor/src"
 
 RECURSIVE              = YES
@@ -61,8 +61,8 @@ ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = NO
 PREDEFINED             = \
-  NIGIRI_NAMESPCE_BEGIN="namespace Nigiri {" \
-  NIGIRI_NAMESPCE_END="}" \
+  Axion_NAMESPCE_BEGIN="namespace Axion {" \
+  Axion_NAMESPCE_END="}" \
   DEFINE_HANDLE_FOR_TYPE(a,b)=
 
 # -------------------------------------------------------

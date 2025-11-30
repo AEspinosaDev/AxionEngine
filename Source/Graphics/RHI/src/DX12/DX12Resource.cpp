@@ -113,6 +113,42 @@ void DX12Texture::createViews( DX12Device::Context& ctx, bool useDescriptionPara
         _dsvHandle                            = ctx.heapDSV.allocateCPU();
         ctx.device->CreateDepthStencilView( _resource.Get(), useDescriptionParams ? &dsvDesc : nullptr, _dsvHandle );
     }
+    if ( _desc.viewFlags & TextureViewUnorderedAccess )
+    {
+        D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+        uavDesc.Format                           = DX12Translator::get( _desc.format );
+        uavDesc.ViewDimension                    = DX12Translator::getUAVDimension( _desc.dimension );
+        switch ( uavDesc.ViewDimension )
+        {
+            case D3D12_UAV_DIMENSION_TEXTURE2D:
+                uavDesc.Texture2D.MipSlice   = 0;
+                uavDesc.Texture2D.PlaneSlice = 0;
+                break;
+
+            case D3D12_UAV_DIMENSION_TEXTURE2DARRAY:
+                uavDesc.Texture2DArray.MipSlice        = 0;
+                uavDesc.Texture2DArray.FirstArraySlice = 0;
+                uavDesc.Texture2DArray.ArraySize       = _desc.arraySize;
+                break;
+
+            case D3D12_UAV_DIMENSION_TEXTURE3D:
+                uavDesc.Texture3D.MipSlice    = 0;
+                uavDesc.Texture3D.FirstWSlice = 0;
+                uavDesc.Texture3D.WSize       = -1;
+                break;
+
+            default:
+                break;
+        }
+
+        _uavHandle = ctx.heapSRV.allocateCPU();
+
+        ctx.device->CreateUnorderedAccessView(
+            _resource.Get(),
+            nullptr,
+            useDescriptionParams ? &uavDesc : nullptr,
+            _uavHandle );
+    }
 }
 
 void DX12Texture::uploadInitialData( DX12Device::Context& ctx, const void* initialData ) {

@@ -1,4 +1,3 @@
-#include "Axion/Graphics/Subsystems/RenderGraph.h"
 #include "RenderGraph.hpp"
 
 AXION_NAMESPACE_BEGIN
@@ -12,17 +11,20 @@ RHI::ITexture* RenderPassContext::getTexture( RGResourceHandle handle ) const {
     return graph.getPhysicalTexture( handle );
 }
 
-RGResourceHandle RenderPassBuilder::read( RGResourceHandle resource ) {
+RHI::IDescriptorSet* RenderPassContext::allocateSet( RHI::IPipelineLayout* layout, uint setIndex ) const {
+    return descriptors->allocate( layout, setIndex );
+}
+RGResourceHandle RenderPassBuilder::read( RGResourceHandle resource, RHI::ResourceState requiredState ) {
     if ( resource != RG_INVALID_HANDLE )
     {
-        _graph.registerDependency( _passIndex, resource, false );
+        _graph.registerDependency( _passIndex, resource, requiredState, false );
     }
     return resource;
 }
-RGResourceHandle RenderPassBuilder::write( RGResourceHandle resource ) {
+RGResourceHandle RenderPassBuilder::write( RGResourceHandle resource, RHI::ResourceState requiredState ) {
     if ( resource != RG_INVALID_HANDLE )
     {
-        _graph.registerDependency( _passIndex, resource, true );
+        _graph.registerDependency( _passIndex, resource, requiredState, true );
     }
     return resource;
 }
@@ -54,11 +56,20 @@ RGResourceHandle RenderGraphBuilder::import( const std::string& name, BufferHand
 // RENDER GRAPH IMPLEMENTATION
 // =============================================================================
 
-RenderGraph::RenderGraph( IGPUResourcePool& pool, IPipelineRegistry& pipelines, ulong allocSize, uint resourceTTL )
+RenderGraph::RenderGraph( RHI::IDevice* device, IGPUResourcePool& pool, IPipelineRegistry& pipelines, const RenderGraphDesc& desc )
     : _pool( pool )
     , _pipelines( pipelines )
-    , _kResourceTTL( resourceTTL ) {
-    _frameMemory.resize( allocSize );
+    , _desc( desc ) {
+    _frameMemory.resize( desc.passDataAllocSize );
+
+    for ( uint i = 0; i < desc.framesInFlight; ++i )
+    {
+        RHI::DescriptorAllocatorDesc allocDesc;
+        allocDesc.numDescriptors = desc.desciptorSetAllocSize;
+        allocDesc.debugName      = "RG_Allocator_Frame_" + std::to_string( i );
+
+        _descriptorAllocators.push_back( device->createDescriptorAllocator( allocDesc ) );
+    }
     AXION_LOG_INFO( Logger::Module::GFX, "RenderGraph Subsystem Initialized Succesfully" );
 }
 
@@ -107,6 +118,9 @@ void RenderGraph::reset() {
 
 void RenderGraph::execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) {
 
+    auto* currentAllocator = _descriptorAllocators[cmd->getCurrentFrame()].get();
+    currentAllocator->reset();
+
     reset();
     RenderGraphBuilder builder( *this );
     setup( builder );
@@ -120,11 +134,25 @@ void RenderGraph::execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) 
     compile();
 
     // Execute
-    RenderPassContext ctx { cmd, *this, _pipelines, _pool };
+    RenderPassContext ctx { cmd, currentAllocator, *this, _pipelines, _pool };
     for ( const auto& pass : _passes )
     {
-        // TODO: Insertar Barreras automáticas aquí antes de ejecutar
-        // _insertBarriers( pass, cmd );
+        // Call barriers
+        if ( _desc.autoSync )
+            for ( const auto& b : pass.barriers )
+            {
+                if ( _resources[b.handle].isBuffer )
+                {
+                    RHI::IBuffer* rawBuff = nullptr;
+                    rawBuff               = getPhysicalBuffer( b.handle );
+                    ctx.cmd->barrier( rawBuff, b.after );
+                } else
+                {
+                    RHI::ITexture* rawTex = nullptr;
+                    rawTex                = getPhysicalTexture( b.handle );
+                    ctx.cmd->barrier( rawTex, b.after );
+                }
+            }
 
         pass.executor( ctx );
     }
@@ -134,7 +162,13 @@ void RenderGraph::compile() {
     for ( auto& res : _resources )
     {
         if ( res.isImported )
+        {
+            if ( res.isBuffer )
+                res.internalState = _pool.getBuffer( std::get<BufferHandle>( res.physicalHandle ) )->getCurrentState();
+            else
+                res.internalState = _pool.getTexture( std::get<TextureHandle>( res.physicalHandle ) )->getCurrentState();
             continue;
+        }
 
         if ( !res.isBuffer )
         {
@@ -154,6 +188,7 @@ void RenderGraph::compile() {
                                          .flags( desc.viewFlags )
                                          .create();
             }
+            res.internalState = _pool.getTexture( std::get<TextureHandle>( res.physicalHandle ) )->getCurrentState();
         } else
         {
             const auto& desc = std::get<RHI::BufferDesc>( res.desc );
@@ -172,11 +207,41 @@ void RenderGraph::compile() {
                                          .view( desc.viewFlags )
                                          .create();
             }
+            res.internalState = _pool.getBuffer( std::get<BufferHandle>( res.physicalHandle ) )->getCurrentState();
         }
     }
-    // 2. (Futuro) Calcular Barreras
-    // Iterar pasadas, ver qué leen/escriben, comparar con estado actual del recurso,
-    // e insertar transiciones.}
+    // Go through passes to find barriers
+    if ( _desc.autoSync )
+        for ( auto& pass : _passes )
+        {
+            pass.barriers.clear();
+
+            for ( const auto& usage : pass.reads )
+            {
+                auto& res = _resources[usage.handle];
+
+                if ( res.internalState != usage.requiredState )
+                {
+                    pass.barriers.push_back( { usage.handle,
+                                               res.internalState,
+                                               usage.requiredState } );
+
+                    res.internalState = usage.requiredState;
+                }
+            }
+            for ( const auto& usage : pass.writes )
+            {
+                auto& res = _resources[usage.handle];
+
+                if ( res.internalState != usage.requiredState )
+                {
+                    pass.barriers.push_back( { usage.handle,
+                                               res.internalState,
+                                               usage.requiredState } );
+                    res.internalState = usage.requiredState;
+                }
+            }
+        }
 }
 
 // --- Helpers Internos ---
@@ -191,7 +256,7 @@ void RenderGraph::runGC() {
 
     for ( auto it = _textureCache.begin(); it != _textureCache.end(); )
     {
-        if ( _frameCounter - it->second.lastUsedFrame > _kResourceTTL )
+        if ( _frameCounter - it->second.lastUsedFrame > _desc.resourceTTL )
         {
             _pool.destroyTexture( it->second.handle );
             AXION_LOG_INFO( Logger::Module::GFX, "RenderGraph GC: Texture released due to inactivity" );
@@ -203,7 +268,7 @@ void RenderGraph::runGC() {
     }
     for ( auto it = _bufferCache.begin(); it != _bufferCache.end(); )
     {
-        if ( _frameCounter - it->second.lastUsedFrame > _kResourceTTL )
+        if ( _frameCounter - it->second.lastUsedFrame > _desc.resourceTTL )
         {
             _pool.destroyBuffer( it->second.handle );
             AXION_LOG_INFO( Logger::Module::GFX, "RenderGraph GC: Buffer released due to inactivity" );
@@ -221,13 +286,13 @@ void RenderGraph::registerPass( const std::string& name, std::function<void( Ren
     _passes.push_back( std::move( pass ) );
 }
 
-void RenderGraph::registerDependency( uint passIndex, RGResourceHandle resource, bool isWrite ) {
+void RenderGraph::registerDependency( uint passIndex, RGResourceHandle resource, RHI::ResourceState requiredState, bool isWrite ) {
     if ( passIndex < _passes.size() )
     {
         if ( isWrite )
-            _passes[passIndex].writes.push_back( resource );
+            _passes[passIndex].writes.push_back( { resource, requiredState } );
         else
-            _passes[passIndex].reads.push_back( resource );
+            _passes[passIndex].reads.push_back( { resource, requiredState } );
     }
 }
 
@@ -258,7 +323,11 @@ RHI::ITexture* RenderGraph::getPhysicalTexture( RGResourceHandle handle ) const 
 }
 
 void RenderGraph::setGarbageCollectionTTL( uint frames ) {
-    _kResourceTTL = frames;
+    _desc.resourceTTL = frames;
+}
+
+void RenderGraph::setAutoSync( bool enable ) {
+    _desc.autoSync = enable;
 }
 
 RGResourceHandle RenderGraph::createTexture( const std::string& name, const RHI::TextureDesc& desc ) {

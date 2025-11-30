@@ -1,0 +1,3 @@
+add_executable(GFXClearBackbufferTest  main.cpp)
+target_link_libraries(GFXClearBackbufferTest PRIVATE AxionGFX)
+add_test(NAME GFXClearBackbufferTest COMMAND GFXClearBackbufferTest)

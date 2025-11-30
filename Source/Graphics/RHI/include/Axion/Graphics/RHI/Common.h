@@ -594,6 +594,8 @@ constexpr ObjectType DX12_CommandAllocator           = 0x00010006;
 constexpr ObjectType DX12_SwapChain                  = 0x00010007;
 constexpr ObjectType DX12_PipelineState              = 0x00010008;
 constexpr ObjectType DX12_RootSignature              = 0x00010009;
+constexpr ObjectType DX12_DescriptorHeap             = 0x0001000a;
+constexpr ObjectType DX12_DescriptorSet              = 0x0001000b;
 
 constexpr ObjectType VK_Device                   = 0x00020001;
 constexpr ObjectType VK_PhysicalDevice           = 0x00020002;
@@ -719,7 +721,6 @@ public:
         : _ptr( raw ) {
         internalAddRef();
     }
-
 
     Ptr( const Ptr& other )
         : _ptr( other._ptr )

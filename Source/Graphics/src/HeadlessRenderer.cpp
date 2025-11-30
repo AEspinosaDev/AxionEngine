@@ -43,7 +43,13 @@ HeadlessRenderer::HeadlessRenderer( const RendererSettings& settings )
     _shaderRegistry   = NEW_U( ShaderRegistry )();
     _pipelineRegistry = NEW_U( PipelineRegistry )( _device.get(), *_shaderRegistry.get() );
     // Init Render Graph
-    _renderGraph = NEW_U( RenderGraph )( *_resourcePool.get(), *_pipelineRegistry.get(), _setts.renderGraphAllocSize, (uint)_setts.GCMode );
+    RenderGraphDesc RGDesc = {
+        .framesInFlight        = _FRAMES_IN_FLIGHT,
+        .passDataAllocSize     = _setts.RGAllocSize,
+        .desciptorSetAllocSize = _setts.RGDescriptorsPerFrame,
+        .resourceTTL           = (uint)_setts.GCMode,
+    };
+    _renderGraph = NEW_U( RenderGraph )( _device.get(), *_resourcePool.get(), *_pipelineRegistry.get(), RGDesc );
 }
 
 HeadlessRenderer::~HeadlessRenderer() {

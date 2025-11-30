@@ -311,6 +311,8 @@ NativeObject DX12ComputePipeline::getNativeObject( ObjectType objectType ) {
     {
         case ObjectTypes::DX12_PipelineState:
             return NativeObject( objectType, _pso.Get() );
+        case ObjectTypes::DX12_RootSignature:
+            return NativeObject( objectType, _desc.layout->getNativeObject( ObjectTypes::DX12_RootSignature ) );
         default:
             AXION_LOG_ERROR( Logger::Module::RHI, "DX12 Compute Pipeline | Wrong Object Type" );
             return nullptr;

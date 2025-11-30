@@ -462,6 +462,27 @@ constexpr D3D12_PRIMITIVE_TOPOLOGY_TYPE get( PrimitiveTopology topology ) noexce
             return D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
     }
 }
+constexpr D3D_PRIMITIVE_TOPOLOGY getD3DTopology( PrimitiveTopology topology ) noexcept {
+    switch ( topology )
+    {
+        case PrimitiveTopology::PointList:
+            return D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
+        case PrimitiveTopology::LineList:
+            return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+        case PrimitiveTopology::LineStrip:
+            return D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
+        case PrimitiveTopology::TriangleList:
+            return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+        case PrimitiveTopology::TriangleStrip:
+            return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
+        case PrimitiveTopology::TriangleFan:
+            return D3D_PRIMITIVE_TOPOLOGY_TRIANGLEFAN;
+        case PrimitiveTopology::PatchList:
+            return D3D_PRIMITIVE_TOPOLOGY_19_CONTROL_POINT_PATCHLIST;
+        default:
+            return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+    }
+}
 
 constexpr D3D12_DESCRIPTOR_RANGE_TYPE get( DescriptorType type ) noexcept {
     switch ( type )

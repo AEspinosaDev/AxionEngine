@@ -1,5 +1,6 @@
 #pragma once
 #include "Axion/Common/Helpers.h"
+#include "Axion/Graphics/RHI/Device.h"
 #include "Axion/Graphics/Subsystems/RenderGraph.h"
 
 AXION_NAMESPACE_BEGIN
@@ -10,8 +11,13 @@ DEFINE_UNIQUE_PTR_FOR_TYPE( RenderGraph, RenderGraph )
 class RenderGraph final : public IRenderGraph
 {
 public:
-    RenderGraph( IGPUResourcePool& pool, IPipelineRegistry& pipelines, ulong allocSize, uint resourceTTL );
+    RenderGraph( RHI::IDevice*          device,
+                 IGPUResourcePool&      pool,
+                 IPipelineRegistry&     pipelines,
+                 const RenderGraphDesc& desc );
     ~RenderGraph() override;
+
+    const Description& getDescription() const override { return _desc; }
 
     void reset() override;
     void execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) override;
@@ -20,6 +26,8 @@ public:
     RHI::ITexture* getPhysicalTexture( RGResourceHandle handle ) const override;
 
     void setGarbageCollectionTTL( uint frames ) override;
+    void setAutoSync( bool enable ) override;
+
 
 private:
     // Bridge methods
@@ -29,7 +37,7 @@ private:
     RGResourceHandle importBuffer( const std::string& name, BufferHandle handle ) override;
 
     void  registerPass( const std::string& name, std::function<void( RenderPassContext& )> executor ) override;
-    void  registerDependency( uint passIndex, RGResourceHandle resource, bool isWrite ) override;
+    void  registerDependency( uint passIndex, RGResourceHandle resource, RHI::ResourceState requiredState, bool isWrite ) override;
     void  storePassData( void* dataPtr, std::function<void()> destructor ) override;
     void* allocateFrameMemory( size_t size, size_t alignment ) override;
 
@@ -39,8 +47,12 @@ private:
 
     void compile();
 
-    IGPUResourcePool&  _pool;
-    IPipelineRegistry& _pipelines;
+    IGPUResourcePool&                        _pool;
+    IPipelineRegistry&                       _pipelines;
+    std::vector<RHI::DescriptorAllocatorPtr> _descriptorAllocators;
+
+    RenderGraphDesc _desc;
+
 
     //--------------------------
     // TRANSIENT DATA
@@ -50,16 +62,31 @@ private:
         std::string                                     name;
         std::variant<RHI::BufferDesc, RHI::TextureDesc> desc;
         std::variant<BufferHandle, TextureHandle>       physicalHandle;
-        bool                                            isImported = false;
-        bool                                            isBuffer   = false;
+        bool                                            isImported    = false;
+        bool                                            isBuffer      = false;
+        RHI::ResourceState                              internalState = RHI::ResourceState::Undefined;
+    };
+
+    struct RGUsage {
+        RGResourceHandle   handle;
+        RHI::ResourceState requiredState;
+    };
+
+    struct RGBarrier {
+        RGResourceHandle   handle;
+        RHI::ResourceState before;
+        RHI::ResourceState after;
     };
 
     struct RGPass {
         std::string                               name;
         std::function<void( RenderPassContext& )> executor;
-        std::vector<RGResourceHandle>             reads;
-        std::vector<RGResourceHandle>             writes;
+        std::vector<RGUsage>                      reads;
+        std::vector<RGUsage>                      writes;
+
+        std::vector<RGBarrier> barriers;
     };
+
 
     std::vector<RGResource>            _resources;
     std::vector<RGPass>                _passes;
@@ -71,8 +98,6 @@ private:
     //--------------------------
     // CACHED DATA
     //--------------------------
-
-    uint _kResourceTTL = 180;
 
     struct TextureDescHash {
         std::size_t operator()( const RHI::TextureDesc& d ) const {

@@ -48,7 +48,7 @@ int main( /*int argc, char* argv[]*/ ) {
             }
 
             wnd->processMessages();
-            rnd->render();
+            // rnd->render();
         };
 
     } catch ( const std::exception& e )

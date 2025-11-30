@@ -35,8 +35,9 @@ public:
             return !operator==( other );
         }
     };
-    virtual ~ITexture()                                         = default;
-    virtual const ITexture::Description& getDescription() const = 0;
+    virtual ~ITexture()                                          = default;
+    virtual const ITexture::Description& getDescription() const  = 0;
+    virtual  ResourceState        getCurrentState() const = 0;
 };
 
 typedef ITexture::Description TextureDesc;
@@ -68,8 +69,9 @@ public:
         }
     };
 
-    virtual ~IBuffer()                                = default;
-    virtual const Description& getDescription() const = 0;
+    virtual ~IBuffer()                                   = default;
+    virtual const Description&   getDescription() const  = 0;
+    virtual  ResourceState getCurrentState() const = 0;
 
     //
     // CPU access

@@ -28,16 +28,19 @@ const RGResourceHandle RG_INVALID_HANDLE = UINT32_MAX;
 /// @brief Context passed to the execution lambda of a render pass.
 /// Provides access to physical resources and command recording.
 struct RenderPassContext {
-    RHI::ICommandList* cmd;       ///< Command list for recording GPU commands.
-    const IRenderGraph& graph;    ///< Reference to the graph for handle resolution.
-    IPipelineRegistry& pipelines; ///< Access to compiled PSOs.
-    IGPUResourcePool&  resources; ///< Access to physical GPU resources.
+    RHI::ICommandList*         cmd;         ///< Command list for recording GPU commands.
+    RHI::IDescriptorAllocator* descriptors; ///< Descriptor Allocate to register GPU visible DescriptorSets.
+    const IRenderGraph&        graph;       ///< Reference to the graph for handle resolution.
+    IPipelineRegistry&         pipelines;   ///< Access to compiled PSOs.
+    IGPUResourcePool&          resources;   ///< Access to physical GPU resources.
 
     /// @brief Resolves a logical buffer handle to its physical pointer.
     RHI::IBuffer* getBuffer( RGResourceHandle handle ) const;
-    
+
     /// @brief Resolves a logical texture handle to its physical pointer.
     RHI::ITexture* getTexture( RGResourceHandle handle ) const;
+
+    RHI::IDescriptorSet* allocateSet( RHI::IPipelineLayout* layout, uint setIndex ) const;
 };
 
 /// @brief Helper class to declare resource usage during the Setup phase.
@@ -50,11 +53,11 @@ public:
 
     /// @brief Declares read access to a resource.
     /// @return The handle to use for reading.
-    RGResourceHandle read( RGResourceHandle resource );
+    RGResourceHandle read( RGResourceHandle resource, RHI::ResourceState requiredState = RHI::ResourceState::ShaderResource );
 
     /// @brief Declares write access to a resource.
     /// @return The handle to use for writing (supports renaming in future).
-    RGResourceHandle write( RGResourceHandle resource );
+    RGResourceHandle write( RGResourceHandle resource, RHI::ResourceState requiredState = RHI::ResourceState::UnorderedAccess );
 
 private:
     IRenderGraph& _graph;
@@ -73,13 +76,13 @@ public:
 
     /// @brief Starts building a transient texture description.
     TextureBuilder texture( const std::string& name );
-    
+
     /// @brief Starts building a transient buffer description.
     BufferBuilder buffer( const std::string& name );
 
     /// @brief Imports an existing physical texture into the graph.
     RGResourceHandle import( const std::string& name, TextureHandle handle );
-    
+
     /// @brief Imports an existing physical buffer into the graph.
     RGResourceHandle import( const std::string& name, BufferHandle handle );
 
@@ -90,9 +93,12 @@ public:
     /// @param execute Lambda for recording GPU commands.
     template <typename PassData>
     void addPass(
-        const std::string&                                                 name,
-        std::function<void( RenderPassBuilder&, PassData& )>               setup,
+        const std::string&                                         name,
+        std::function<void( RenderPassBuilder&, PassData& )>       setup,
         std::function<void( const PassData&, RenderPassContext& )> execute );
+
+    template <typename PassClass>
+    void addPass( const std::string& name, PassClass& passInstance );
 
 private:
     // Internal proxies calling virtual methods on IRenderGraph
@@ -109,36 +115,49 @@ using RenderGraphSetupFunc = std::function<void( RenderGraphBuilder& builder )>;
 class IRenderGraph
 {
 public:
+    struct Description {
+        uint  framesInFlight;
+        ulong passDataAllocSize;
+        uint  desciptorSetAllocSize;
+        uint  resourceTTL;
+        bool  autoSync = true;
+    };
+
     virtual ~IRenderGraph() = default;
+
+    virtual const Description& getDescription() const = 0;
 
     /// @brief Resets the graph state and recycles transient resources.
     virtual void reset() = 0;
-    
+
     /// @brief Compiles and executes the frame graph.
     /// @param setup User lambda defining the passes.
     /// @param cmd Command list to record into.
     virtual void execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) = 0;
 
     // -- Internal Access (Virtual) --
-    
-    virtual RHI::IBuffer* getPhysicalBuffer( RGResourceHandle handle ) const  = 0;
+
+    virtual RHI::IBuffer*  getPhysicalBuffer( RGResourceHandle handle ) const  = 0;
     virtual RHI::ITexture* getPhysicalTexture( RGResourceHandle handle ) const = 0;
 
     /// @brief Sets the Time-To-Live for cached transient resources.
     virtual void setGarbageCollectionTTL( uint frames ) = 0;
 
+    /// @brief Enables Automatic Barriers.
+    virtual void setAutoSync( bool enable ) = 0;
+
 protected:
     // -- Bridge Methods (Implemented by Concrete Class) --
-    
+
     virtual RGResourceHandle createTexture( const std::string& name, const RHI::TextureDesc& desc ) = 0;
     virtual RGResourceHandle createBuffer( const std::string& name, const RHI::BufferDesc& desc )   = 0;
     virtual RGResourceHandle importTexture( const std::string& name, TextureHandle handle )         = 0;
     virtual RGResourceHandle importBuffer( const std::string& name, BufferHandle handle )           = 0;
 
-    virtual void registerPass( const std::string& name, std::function<void( RenderPassContext& )> executor ) = 0;
-    virtual void registerDependency( uint passIndex, RGResourceHandle resource, bool isWrite )               = 0;
-    virtual void storePassData( void* dataPtr, std::function<void()> destructor )                            = 0;
-    virtual void* allocateFrameMemory( size_t size, size_t alignment )                                       = 0;
+    virtual void  registerPass( const std::string& name, std::function<void( RenderPassContext& )> executor )                     = 0;
+    virtual void  registerDependency( uint passIndex, RGResourceHandle resource, RHI::ResourceState requiredState, bool isWrite ) = 0;
+    virtual void  storePassData( void* dataPtr, std::function<void()> destructor )                                                = 0;
+    virtual void* allocateFrameMemory( size_t size, size_t alignment )                                                            = 0;
 
     virtual uint getCurrentPassIndex() const = 0;
 
@@ -146,18 +165,19 @@ protected:
     friend class RenderPassBuilder;
 };
 
+typedef IRenderGraph::Description RenderGraphDesc;
+
 // -----------------------------------------------------------------------------
 // TEMPLATE & BUILDER IMPLEMENTATIONS
 // -----------------------------------------------------------------------------
 
 template <typename PassData>
 void RenderGraphBuilder::addPass(
-    const std::string&                                                 name,
-    std::function<void( RenderPassBuilder&, PassData& )>               setup,
-    std::function<void( const PassData&, RenderPassContext& )> execute ) 
-{
+    const std::string&                                         name,
+    std::function<void( RenderPassBuilder&, PassData& )>       setup,
+    std::function<void( const PassData&, RenderPassContext& )> execute ) {
     // 1. Allocate Data (Linear Allocator)
-    void* rawMemory = _graph.allocateFrameMemory( sizeof( PassData ), alignof( PassData ) );
+    void*     rawMemory = _graph.allocateFrameMemory( sizeof( PassData ), alignof( PassData ) );
     PassData* data      = new ( rawMemory ) PassData();
 
     // 2. Register Destructor (No deallocation, just cleanup)
@@ -165,14 +185,19 @@ void RenderGraphBuilder::addPass(
         data->~PassData();
     } );
 
-    // 3. Setup Phase
-    RenderPassBuilder builder( _graph, _graph.getCurrentPassIndex() );
-    setup( builder, *data );
-
-    // 4. Register Execute Phase
+    // 3. Register Execute Phase
     _graph.registerPass( name, [execute, data]( RenderPassContext& ctx ) {
         execute( *data, ctx );
     } );
+    // 4. Setup Phase
+    RenderPassBuilder builder( _graph, _graph.getCurrentPassIndex() - 1 );
+    setup( builder, *data );
+}
+
+template <typename PassClass>
+void RenderGraphBuilder::addPass( const std::string& name, PassClass& passInstance ) {
+    using PassData = typename PassClass::Data;
+    addPass<PassData>( name, [&]( RenderPassBuilder& pb, PassData& data ) { passInstance.setup( pb, data ); }, [&]( const PassData& data, RenderPassContext& ctx ) { passInstance.execute( data, ctx ); } );
 }
 
 class RenderGraphBuilder::TextureBuilder : public TextureBuilderBase<TextureBuilder>

@@ -19,13 +19,15 @@ class IRenderer
 public:
     /// @brief Configuration settings for initializing the renderer.
     struct Settings {
-        API           gfxApi               = API::DirectX12;        ///< Underlying Graphics API backend.
-        BufferingType bufferingType        = BufferingType::Double; ///< Swapchain buffering (Double/Triple).
-        bool          debugMode            = true;                  ///< Enable API validation layers and debug markers.
-        PresentMode   presentMode          = PresentMode::Vsync;    ///< Presentation mode (Vsync/Immediate/Mailbox).
-        Format        backbufferFormat     = Format::RGBA8_UNORM;   ///< Swapchain backbuffer format.
-        ulong         renderGraphAllocSize = 1024 * 1024;           ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
-        GCMode        GCMode               = GCMode::AvgMemory;     ///< Garbage Collection aggressiveness for transient resources.
+        API           gfxApi                = API::DirectX12;        ///< Underlying Graphics API backend.
+        BufferingType bufferingType         = BufferingType::Double; ///< Swapchain buffering (Double/Triple).
+        bool          debugMode             = true;                  ///< Enable API validation layers and debug markers.
+        PresentMode   presentMode           = PresentMode::Vsync;    ///< Presentation mode (Vsync/Immediate/Mailbox).
+        Format        backbufferFormat      = Format::RGBA8_UNORM;   ///< Swapchain backbuffer format.
+        ulong         RGAllocSize           = 1024 * 1024;           ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
+        uint          RGDescriptorsPerFrame = 2048;                  ///< Initial memory reservation for per-frame DescriptorSet data.
+        GCMode        GCMode                = GCMode::AvgMemory;     ///< Garbage Collection aggressiveness for transient resources.
+        bool          autoSync              = true;                  ///< Automatic Barrier Insertion.
     };
 
     virtual ~IRenderer() = default;

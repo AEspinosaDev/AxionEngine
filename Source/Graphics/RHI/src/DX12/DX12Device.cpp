@@ -11,7 +11,7 @@ AXION_NAMESPACE_BEGIN
 namespace Graphics::RHI {
 
 DX12DevicePtr RHI::createDX12Device( const DX12DeviceDesc& desc ) {
-    DX12Device*      raw = new DX12Device( desc );
+    DX12Device*   raw = new DX12Device( desc );
     DX12DevicePtr dev;
     dev.attach( raw );
     return dev;
@@ -37,9 +37,9 @@ DX12Device::DX12Device( const IDX12Device::Description& desc ) {
         _ctx.computeQueue = createCommandQueue( QueueType::Compute, "Compute Queue" );
         _ctx.copyQueue    = createCommandQueue( QueueType::Transfer, "Copy Queue" );
 
-        _ctx.heapSRV.init( _ctx.device, DX12DescriptorHeap::Type::CBV_SRV_UAV, desc.shaderResourceViewHeapSize );
-        _ctx.heapRTV.init( _ctx.device, DX12DescriptorHeap::Type::RTV, desc.renderTargetViewHeapSize );
-        _ctx.heapDSV.init( _ctx.device, DX12DescriptorHeap::Type::DSV, desc.depthStencilViewHeapSize );
+        _ctx.heapSRV.init( _ctx.device.Get(), DX12DescriptorHeap::Type::CBV_SRV_UAV, desc.shaderResourceViewHeapSize );
+        _ctx.heapRTV.init( _ctx.device.Get(), DX12DescriptorHeap::Type::RTV, desc.renderTargetViewHeapSize );
+        _ctx.heapDSV.init( _ctx.device.Get(), DX12DescriptorHeap::Type::DSV, desc.depthStencilViewHeapSize );
 
         _ctx.uploadContext.init( _ctx.device );
     }
@@ -70,52 +70,59 @@ SwapchainPtr DX12Device::createSwapchain( const NativeObject& Ptr, const Swapcha
             AXION_LOG_ERROR( Logger::Module::RHI, "Unsupported platform for swapchain" );
             throw AxionException( "Unsupported platform for swapchain" );
     }
-    DX12Swapchain*  raw = new DX12Swapchain( hwnd, _ctx, desc );
-    SwapchainPtr swp;
+    DX12Swapchain* raw = new DX12Swapchain( hwnd, _ctx, desc );
+    SwapchainPtr   swp;
     swp.attach( raw );
     return swp;
 }
 
 CommandListPtr DX12Device::createCommandList( const CommandListDesc& desc ) {
-    DX12CommandList*  raw = new DX12CommandList( _ctx.device, desc );
-    CommandListPtr cmd;
+    DX12CommandList* raw = new DX12CommandList( _ctx.device, desc );
+    CommandListPtr   cmd;
     cmd.attach( raw );
     return cmd;
 }
 
 TexturePtr DX12Device::createTexture( const TextureDesc& desc, const void* initialData ) {
-    DX12Texture*  raw = new DX12Texture( desc, _ctx, initialData );
-    TexturePtr tex;
+    DX12Texture* raw = new DX12Texture( desc, _ctx, initialData );
+    TexturePtr   tex;
     tex.attach( raw );
     return tex;
 }
 
 BufferPtr RHI::DX12Device::createBuffer( const BufferDesc& desc, const void* initialData ) {
-    DX12Buffer*  raw = new DX12Buffer( desc, _ctx, initialData );
-    BufferPtr buff;
+    DX12Buffer* raw = new DX12Buffer( desc, _ctx, initialData );
+    BufferPtr   buff;
     buff.attach( raw );
     return buff;
 }
 
 PipelineLayoutPtr DX12Device::createPipelineLayout( const PipelineLayoutDesc& desc ) {
-    DX12PipelineLayout*  raw = new DX12PipelineLayout( _ctx.device, desc );
-    PipelineLayoutPtr layout;
+    DX12PipelineLayout* raw = new DX12PipelineLayout( _ctx.device, desc );
+    PipelineLayoutPtr   layout;
     layout.attach( raw );
     return layout;
 }
 
 GraphicPipelinePtr DX12Device::createGraphicPipeline( const GraphicPipelineDesc& desc ) {
-    DX12GraphicPipeline*  raw = new DX12GraphicPipeline( _ctx.device, desc );
-    GraphicPipelinePtr pip;
+    DX12GraphicPipeline* raw = new DX12GraphicPipeline( _ctx.device, desc );
+    GraphicPipelinePtr   pip;
     pip.attach( raw );
     return pip;
 }
 
 ComputePipelinePtr DX12Device::createComputePipeline( const ComputePipelineDesc& desc ) {
-    DX12ComputePipeline*  raw = new DX12ComputePipeline( _ctx.device, desc );
-    ComputePipelinePtr pip;
+    DX12ComputePipeline* raw = new DX12ComputePipeline( _ctx.device, desc );
+    ComputePipelinePtr   pip;
     pip.attach( raw );
     return pip;
+}
+
+DescriptorAllocatorPtr DX12Device::createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) {
+    DX12DescriptorAllocator* raw = new DX12DescriptorAllocator( _ctx.device.Get(), desc );
+    DescriptorAllocatorPtr   dAlloc;
+    dAlloc.attach( raw );
+    return dAlloc;
 }
 
 void DX12Device::executeCommandLists( const std::vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) {

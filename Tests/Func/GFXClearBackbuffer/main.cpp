@@ -14,23 +14,11 @@ int main( /*int argc, char* argv[]*/ ) {
         Axion::Logger::init( Logger::Level::Info, "Engine.log" );
 #endif
 
-        auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX API TEST" } );
-        // auto wnd = Axion::Graphics::createWindowForGLFW(  { .name = "Test Window" } );
+        auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX CLEAR TEST" } );
         auto rnd = Axion::Graphics::createRenderer( wnd,
                                                     { .gfxApi        = Graphics::API::DirectX12,
                                                       .bufferingType = Graphics::BufferingType::Double,
                                                       .presentMode   = Graphics::PresentMode::Vsync } );
-
-        // Declare Reources
-        auto bufferHandle = rnd->resources().buffer( "TestBuffer" ).size( 16 ).create();
-        rnd->resources().destroyBuffer( bufferHandle );
-
-        rnd->shaders().shader( "TestShader" ).asDXIL().path( AXION_SHADER_DIR "/Slang/TestShader.slang" ).cs( "computeMain" ).load();
-        rnd->shaders().compileShader( "TestShader" );
-
-        auto cmc = rnd->pipelines().compute( "TestPipeline" ).shader( "TestShader" ).create();
-
-        auto gbufferAlbedo = rnd->resources().texture( "GBuffer_Albedo" ).extent( 1920, 1080 ).format( Axion::Graphics::Format::RGBA8_UNORM ).asRenderTarget().create();
 
         while ( !wnd->shouldClose() )
         {
@@ -56,11 +44,6 @@ int main( /*int argc, char* argv[]*/ ) {
             rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
                 using namespace Axion::Graphics;
 
-                // if ( rnd->getTotalFrameNumber() == 0 )
-                //     auto simData = builder.buffer( "SimParticles" )
-                //                        .size( 1024 * 4 )
-                //                        .create();
-
                 TextureHandle    backbufferHandle = rnd->getCurrentBackbufferHandle();
                 RGResourceHandle rgBackbuffer     = builder.import( "Backbuffer", backbufferHandle );
 
@@ -69,7 +52,7 @@ int main( /*int argc, char* argv[]*/ ) {
                 };
 
                 builder.addPass<PassData>( "ClearPass", [&]( RenderPassBuilder& pb, PassData& data ) {
-                    data.target = pb.write( rgBackbuffer ); // Declaramos escritura
+                    data.target = pb.write( rgBackbuffer ); 
                 },
 
                                            [&]( const PassData& data, RenderPassContext& ctx ) {
@@ -92,23 +75,3 @@ int main( /*int argc, char* argv[]*/ ) {
 
     return EXIT_SUCCESS;
 }
-// Graphics::RHI::PipelineLayoutDesc manualLayout = {
-//     .sets = {
-//         { .bindings = {
-//               // binding 0: buffer0 (SRV)
-//               {
-//                   .binding   = 0,
-//                   .type      = Graphics::RHI::DescriptorType::ReadonlyStorageBuffer,
-//                   .stageMask = Graphics::RHI::ShaderStage::Compute,
-//                   .arraySize = 1 },
-//               // binding 1: buffer1 (SRV)
-//               {
-//                   .binding   = 1,
-//                   .type      = Graphics::RHI::DescriptorType::ReadonlyStorageBuffer,
-//                   .stageMask = Graphics::RHI::ShaderStage::Compute,
-//                   .arraySize = 1 } } },
-//         { .bindings = { { { .binding   = 0,
-//                             .type      = Graphics::RHI::DescriptorType::StorageBuffer, // RWBuffer suele ser StorageBuffer también
-//                             .stageMask = Graphics::RHI::ShaderStage::Compute,
-//                             .arraySize = 1 } } } } },
-//     .debugName = "Manual_Test_Layout" };

@@ -26,12 +26,14 @@ public:
     void                  setDebugName( const std::string& name ) override;
     const std::string&    getDebugName() const override;
     NativeObject          getNativeObject( ObjectType objectType ) override;
+    ResourceState         getCurrentState() const override { return _stateTracker.getCurrentState(); }
     ResourceStateTracker& stateTracker();
     std::string           toString() const override;
 
     D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getRTV() const { return _rtvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getDSV() const { return _dsvHandle; }
+    D3D12_CPU_DESCRIPTOR_HANDLE getUAV() const { return _uavHandle; }
 
 private:
     void createViews( DX12Device::Context& ctx, bool useDescriptionParams );
@@ -48,6 +50,7 @@ private:
 
     D3D12_CPU_DESCRIPTOR_HANDLE _rtvHandle = {};
     D3D12_CPU_DESCRIPTOR_HANDLE _dsvHandle = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE _uavHandle = {};
 };
 
 DEFINE_COM_PTR_FOR_TYPE( DX12Buffer, DX12Buffer )
@@ -68,6 +71,7 @@ public:
     const std::string&    getDebugName() const override { return _desc.debugName; }
     NativeObject          getNativeObject( ObjectType objectType ) override;
     std::string           toString() const override;
+    ResourceState         getCurrentState() const override { return _stateTracker.getCurrentState(); }
     ResourceStateTracker& stateTracker() { return _stateTracker; };
 
     D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }

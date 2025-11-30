@@ -1,6 +1,7 @@
 #pragma once
 #include "Axion/Common/Math.h"
 #include "Axion/Graphics/RHI/Common.h"
+#include "Axion/Graphics/RHI/Pipeline.h"
 #include "Axion/Graphics/RHI/Resource.h"
 
 AXION_NAMESPACE_BEGIN
@@ -23,18 +24,38 @@ public:
     virtual void               begin()                       = 0;
     virtual void               end()                         = 0;
     virtual void               setCurrentFrame( uint index ) = 0;
+    virtual uint               getCurrentFrame() const       = 0;
     virtual const Description& getDescription() const        = 0;
 
     virtual void barrier( ITexture* texture, ResourceState newState )                                               = 0;
     virtual void barrier( IBuffer* buffer, ResourceState newState )                                                 = 0;
     virtual void clearTexture( ITexture* texture, const ClearValue& clearValue )                                    = 0;
     virtual void copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset = 0, ulong srcOffset = 0 ) = 0;
+    virtual void copyTexture( ITexture* dst, ITexture* src )                                                        = 0;
 
-    // virtual void beginRenderPass( /* ... */ ) = 0;
-    // virtual void endRenderPass()              = 0;
-    // virtual void bindPipeline( /* ... */ ) = 0;
-    // virtual void draw( uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0 ) = 0;
-    // virtual void dispatch( uint32_t x, uint32_t y, uint32_t z )                                                                 = 0;
+    virtual void bindComputePipeline( IComputePipeline* pipeline )       = 0;
+    virtual void bindGraphicPipeline( IGraphicPipeline* pipeline )       = 0;
+    virtual void bindDescriptorSet( uint setIndex, IDescriptorSet* set ) = 0;
+
+    virtual void dispatch( const Extent3D& gridSize ) = 0;
+
+    template <typename T>
+    void pushConstants( uint rootIndex, const T& data, uint offset32Bit = 0 ) {
+        static_assert( sizeof( T ) % 4 == 0, "Push Constant struct size must be 4-byte aligned" );
+        auto size = sizeof( T ) / 4;
+        pushConstants( rootIndex, &data, size, offset32Bit );
+    }
+   
+
+protected:
+    enum class PipelineBindPoint : uchar
+    {
+        None,
+        Compute,
+        Graphic
+    };
+
+    virtual void pushConstants( uint setIndex, const void* data, uint numValues32Bit, uint offset32Bit = 0 ) = 0;
 };
 
 typedef ICommandList::Description CommandListDesc;

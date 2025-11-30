@@ -357,6 +357,59 @@ void ShaderCompiler::extractReflection( const std::string& name, IComponentType*
             checkType = checkType->getElementType();
         }
 
+        bool isPushConstant = false;
+
+        // Buscamos el atributo [[vk::push_constant]]
+        slang::VariableReflection* varReflection = varLayout->getVariable();
+        bool                       hasAttribute  = false;
+
+        if ( varReflection )
+        {
+            if ( varReflection->findUserAttributeByName( _globalSession, "vk::push_constant" ) != nullptr )
+            {
+                hasAttribute = true;
+            }
+        }
+
+        std::string name = varLayout->getName();
+        if ( name == "PushConstants" || name == "gPush" )
+        {
+            isPushConstant = true;
+        }
+
+        if ( isPushConstant )
+        {
+            slang::TypeLayoutReflection* typeLayout = varLayout->getTypeLayout();
+
+            // --- FIX: DESENVOLVER EL CBUFFER ---
+            // Si el tipo es un ConstantBuffer (el wrapper), queremos el tamaño de lo que hay DENTRO.
+            if ( typeLayout->getKind() == slang::TypeReflection::Kind::ConstantBuffer )
+            {
+                typeLayout = typeLayout->getElementTypeLayout();
+            }
+            // -----------------------------------
+
+            size_t sizeBytes = typeLayout->getSize();
+
+            // Fallback de seguridad por si acaso sigue siendo 0 (ej: struct vacío)
+            if ( sizeBytes == 0 )
+            {
+                AXION_LOG_WARN( Logger::Module::Shader, "PushConstant '{}' has 0 size. Defaulting to 4.", name );
+                sizeBytes = 4;
+            }
+
+            // Alinear a 4 bytes (DWORDs)
+            if ( sizeBytes % 4 != 0 )
+                sizeBytes += ( 4 - ( sizeBytes % 4 ) );
+
+            outDesc.pushConstant.size      = (uint)sizeBytes;
+            outDesc.pushConstant.stageMask = RHI::ShaderStage::All;
+
+            AXION_LOG_INFO( Logger::Module::Shader, "Detected Push Constants: {} ({} bytes)", name, sizeBytes );
+
+            continue;
+        }
+
         slang::TypeReflection::Kind typeKind = checkType->getKind();
 
         bool isDescriptor =
