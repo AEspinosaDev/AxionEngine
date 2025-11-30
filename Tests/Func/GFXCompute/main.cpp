@@ -115,7 +115,8 @@ int main( /*int argc, char* argv[]*/ ) {
         auto rnd = Axion::Graphics::createRenderer( wnd,
                                                     { .gfxApi        = Graphics::API::DirectX12,
                                                       .bufferingType = Graphics::BufferingType::Double,
-                                                      .presentMode   = Graphics::PresentMode::Immediate } );
+                                                      .presentMode   = Graphics::PresentMode::Immediate,
+                                                      .autoSync      = true } );
 
         //-------------------------------------
         // Dedclaring Shaders & Pipelines

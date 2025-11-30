@@ -66,20 +66,6 @@ void Renderer::render( RenderGraphSetupFunc setup ) {
     if ( _wnd->minimized() )
         return;
 
-    _commandList->setCurrentFrame( _currentFrame );
-    _commandList->begin();
-
-    _renderGraph->execute( setup, _commandList.get() );
-
-    _commandList->end();
-
-    _device->executeCommandLists(
-        { _commandList.get() },
-        RHI::QueueType::Graphics,
-        _frameFences[_currentFrame] );
-
-    _swapchain->present();
-
     if ( _pendingResize )
     {
         _device->waitIdle();
@@ -96,8 +82,24 @@ void Renderer::render( RenderGraphSetupFunc setup ) {
 
         generateSwapchainHandles();
 
+        _currentFrame = _swapchain->acquireNextImage();
+
         _pendingResize = false;
     }
+
+    _commandList->setCurrentFrame( _currentFrame );
+    _commandList->begin();
+
+    _renderGraph->execute( setup, _commandList.get() );
+
+    _commandList->end();
+
+    _device->executeCommandLists(
+        { _commandList.get() },
+        RHI::QueueType::Graphics,
+        _frameFences[_currentFrame] );
+
+    _swapchain->present();
 
     _currentFrame = _swapchain->acquireNextImage();
 

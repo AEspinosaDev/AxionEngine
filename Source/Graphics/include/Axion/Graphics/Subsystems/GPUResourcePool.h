@@ -78,8 +78,8 @@ protected:
     IGPUResourcePool() = default;
 
     // Internal creation methods called by builders
-    virtual BufferHandle  createBuffer( const RHI::BufferDesc& desc, const void* initialData )   = 0;
-    virtual TextureHandle createTexture( const RHI::TextureDesc& desc, const void* initialData ) = 0;
+    virtual BufferHandle  createBuffer( const RHI::BufferDesc& desc, const void* initialData, bool allowLookup = true )   = 0;
+    virtual TextureHandle createTexture( const RHI::TextureDesc& desc, const void* initialData, bool allowLookup = true ) = 0;
 
     friend class BufferBuilder;
     friend class TextureBuilder;
@@ -97,6 +97,12 @@ public:
         : TextureBuilderBase( std::move( name ) )
         , _pool( pool ) {}
 
+    /// @brief Marks resource as transient (Not fetchable by name).
+    TextureBuilder& transient() {
+        _allowLookup = false;
+        return *this;
+    }
+
     /// @brief Sets initial data to upload to the texture upon creation.
     TextureBuilder& withData( const void* data ) {
         _initialData = data;
@@ -105,12 +111,13 @@ public:
 
     /// @brief Finalizes configuration and creates the physical resource.
     TextureHandle create() {
-        return _pool.createTexture( _desc, _initialData );
+        return _pool.createTexture( _desc, _initialData, _allowLookup );
     }
 
 private:
     IGPUResourcePool& _pool;
-    const void* _initialData = nullptr;
+    const void*       _initialData = nullptr;
+    bool              _allowLookup = true;
 };
 
 /// @brief Fluent builder for configuring and creating Buffers in the pool.
@@ -121,21 +128,27 @@ public:
         : BufferBuilderBase( std::move( name ) )
         , _pool( pool ) {}
 
+    /// @brief Marks if name will be added as a key for future lookups.
+    BufferBuilder& transient() {
+        _allowLookup = false;
+        return *this;
+    }
+
     /// @brief Sets initial data to upload to the buffer upon creation.
     BufferBuilder& withData( const void* data ) {
         _initialData = data;
         return *this;
     }
 
-
     /// @brief Finalizes configuration and creates the physical resource.
     BufferHandle create() {
-        return _pool.createBuffer( _desc, _initialData );
+        return _pool.createBuffer( _desc, _initialData, _allowLookup );
     }
 
 private:
     IGPUResourcePool& _pool;
-    const void* _initialData = nullptr;
+    const void*       _initialData = nullptr;
+    bool              _allowLookup = true;
 };
 
 } // namespace Graphics

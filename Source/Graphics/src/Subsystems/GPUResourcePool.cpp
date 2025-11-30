@@ -13,10 +13,10 @@ GPUResourcePool::~GPUResourcePool() {
     clear();
     AXION_LOG_INFO( Logger::Module::GFX, "GPU Resource Pool Destroyed" );
 }
-BufferHandle GPUResourcePool::createBuffer( const RHI::BufferDesc& desc, const void* initialData ) {
+BufferHandle GPUResourcePool::createBuffer( const RHI::BufferDesc& desc, const void* initialData, bool allowLookup ) {
     std::scoped_lock lock( _mutex );
 
-    if ( !desc.debugName.empty() && _buffNameToHandle.count( desc.debugName ) )
+    if ( allowLookup && !desc.debugName.empty() && _buffNameToHandle.count( desc.debugName ) )
     {
         AXION_LOG_WARN( Logger::Module::GFX, "Buffer name collision [{}]. Returning existing handle.", desc.debugName );
         return _buffNameToHandle[desc.debugName];
@@ -54,7 +54,7 @@ BufferHandle GPUResourcePool::createBuffer( const RHI::BufferDesc& desc, const v
     record.alive = true;
     record.generation++;
 
-    if ( !desc.debugName.empty() )
+    if ( !desc.debugName.empty() && allowLookup )
         _buffNameToHandle[desc.debugName] = { id };
 
     AXION_LOG_INFO( Logger::Module::GFX, "Registered Buffer ID: {} [{}]", id, desc.debugName );
@@ -62,10 +62,10 @@ BufferHandle GPUResourcePool::createBuffer( const RHI::BufferDesc& desc, const v
     return BufferHandle { id };
 }
 
-TextureHandle GPUResourcePool::createTexture( const RHI::TextureDesc& desc, const void* initialData ) {
+TextureHandle GPUResourcePool::createTexture( const RHI::TextureDesc& desc, const void* initialData, bool allowLookup ) {
     std::scoped_lock lock( _mutex );
 
-    if ( !desc.debugName.empty() && _texNameToHandle.count( desc.debugName ) )
+    if ( allowLookup && !desc.debugName.empty() && _texNameToHandle.count( desc.debugName ) )
     {
         AXION_LOG_WARN( Logger::Module::GFX, "Texture name collision [{}]. Returning existing handle.", desc.debugName );
         return _texNameToHandle[desc.debugName];
@@ -103,7 +103,7 @@ TextureHandle GPUResourcePool::createTexture( const RHI::TextureDesc& desc, cons
     record.alive = true;
     record.generation++;
 
-    if ( !desc.debugName.empty() )
+    if ( allowLookup && !desc.debugName.empty() )
         _texNameToHandle[desc.debugName] = { id };
 
     AXION_LOG_INFO( Logger::Module::GFX, "Registered Texture ID: {} [{}]", id, desc.debugName );

@@ -23,7 +23,7 @@ public:
     std::optional<TextureHandle> findTexture( const std::string& name ) const override;
     void                         destroyTexture( TextureHandle handle ) override;
 
-    //Special functions for renderer interop
+    // Special functions for renderer interop
     TextureHandle registerExternalTexture( RHI::ITexture* ptr, const std::string& name );
     BufferHandle  registerExternalBuffer( RHI::IBuffer* ptr, const std::string& name );
 
@@ -32,8 +32,8 @@ public:
     uint texturesSize() const override { return (uint)_textures.size(); };
 
 private:
-    BufferHandle  createBuffer( const RHI::BufferDesc& desc, const void* initialData ) override;
-    TextureHandle createTexture( const RHI::TextureDesc& desc, const void* initialData ) override;
+    BufferHandle  createBuffer( const RHI::BufferDesc& desc, const void* initialData, bool allowLookup = true ) override;
+    TextureHandle createTexture( const RHI::TextureDesc& desc, const void* initialData, bool allowLookup = true ) override;
 
     RHI::IDevice*      _device = nullptr;
     mutable std::mutex _mutex;

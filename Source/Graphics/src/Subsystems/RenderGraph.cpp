@@ -186,6 +186,7 @@ void RenderGraph::compile() {
                                          .extent( desc.size.width, desc.size.height, desc.size.depth )
                                          .format( desc.format )
                                          .flags( desc.viewFlags )
+                                         .transient()
                                          .create();
             }
             res.internalState = _pool.getTexture( std::get<TextureHandle>( res.physicalHandle ) )->getCurrentState();
@@ -205,6 +206,7 @@ void RenderGraph::compile() {
                                          .size( desc.size )
                                          .usage( desc.usageFlags )
                                          .view( desc.viewFlags )
+                                         .transient()
                                          .create();
             }
             res.internalState = _pool.getBuffer( std::get<BufferHandle>( res.physicalHandle ) )->getCurrentState();
