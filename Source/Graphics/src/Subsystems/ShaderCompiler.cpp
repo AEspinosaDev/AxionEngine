@@ -254,6 +254,36 @@ RHI::DescriptorType ShaderCompiler::slangTypeToRHI( slang::TypeReflection* type 
     }
 }
 
+Format ShaderCompiler::slangFormatToRHI( slang::TypeReflection* type ) {
+    using namespace slang;
+    size_t          elemCount  = 1;
+    TypeReflection* scalarType = type;
+
+    if ( type->getKind() == TypeReflection::Kind::Vector )
+    {
+        elemCount  = type->getElementCount();
+        scalarType = type->getElementType();
+    }
+
+    if ( scalarType->getScalarType() == TypeReflection::ScalarType::Float32 )
+    {
+        switch ( elemCount )
+        {
+            case 1:
+                return Format::R32_FLOAT;
+            case 2:
+                return Format::RG32_FLOAT;
+            case 3:
+                return Format::RGB32_FLOAT;
+            case 4:
+                return Format::RGBA32_FLOAT;
+        }
+    }
+    // ... Int32, UInt32 ...
+
+    return Format::UNKNOWN;
+}
+
 void ShaderCompiler::reflectParameter(
     slang::VariableLayoutReflection*                     varLayout,
     std::map<uint, std::vector<RHI::DescriptorBinding>>& tempSets ) {
@@ -466,31 +496,67 @@ void ShaderCompiler::extractVertexAttributes( slang::IComponentType* program, st
     for ( uint i = 0; i < layout->getEntryPointCount(); ++i )
     {
         slang::EntryPointLayout* ep = layout->getEntryPointByIndex( i );
+
         if ( ep->getStage() == SLANG_STAGE_VERTEX )
         {
             for ( uint j = 0; j < ep->getParameterCount(); ++j )
             {
-                slang::VariableLayoutReflection* var = ep->getParameterByIndex( j );
+                slang::VariableLayoutReflection* paramVar = ep->getParameterByIndex( j );
 
-                if ( var->getCategory() == slang::ParameterCategory::VaryingInput )
+                if ( paramVar->getCategory() != slang::ParameterCategory::VaryingInput )
+                    continue;
+
+                slang::TypeLayoutReflection* typeLayout = paramVar->getTypeLayout();
+                slang::TypeReflection*       type       = typeLayout->getType();
+
+                // CASO A: El input es un Struct (lo normal: struct VSInput { ... })
+                if ( type->getKind() == slang::TypeReflection::Kind::Struct )
                 {
-                    RHI::VertexAttribute attr;
+                    uint fieldCount = type->getFieldCount();
+                    for ( uint k = 0; k < fieldCount; ++k )
+                    {
+                        slang::VariableLayoutReflection* fieldVar = typeLayout->getFieldByIndex( k );
 
-                    const char* semanticName = var->getSemanticName();
-                    attr.semanticName        = semanticName ? semanticName : "UNKNOWN";
+                        const char* semanticName = fieldVar->getSemanticName();
 
-                    attr.semanticIndex = (uint)var->getSemanticIndex();
+                        if ( semanticName )
+                        {
+                            RHI::VertexAttribute attr;
+                            attr.semanticName  = semanticName;
+                            attr.semanticIndex = (uint)fieldVar->getSemanticIndex();
 
-                    attr.inputSlot = (uint)var->getBindingIndex();
+                            // ¡OJO! Slang reporta offsets relativos dentro del struct.
+                            // Pero para el InputLayout, queremos el Binding (Slot) del buffer.
+                            // Slang suele asignar binding al parámetro padre ('input'), no a los campos.
+                            // Asumimos que todo el struct viene del Slot 0 (VBO 0).
+                            // Si soportas múltiples VBOs, necesitarías atributos custom o lógica extra.
+                            attr.inputSlot = (uint)paramVar->getBindingIndex();
 
-                    // Formato: Mapear var->getType() a DXGI_FORMAT/VkFormat es complejo.
-                    // Truco: Puedes usar el tamaño en bytes para adivinar float3/float4
-                    // o implementar un mapeo completo de tipos escalares.
+                            // Offset dentro del vértice
+                            // getOffset(SLANG_PARAMETER_CATEGORY_VARYING_INPUT)
+                            // attr.alignedByteOffset = (uint)fieldVar->getOffset( slang::ParameterCategory::VaryingInput );
+                            attr.alignedByteOffset = AUTO_VAL;
 
-                    // Por defecto offset automatico
-                    attr.alignedByteOffset = AUTO_VAL;
+                            attr.format = slangFormatToRHI( fieldVar->getType() );
 
-                    outAttribs.push_back( attr );
+                            outAttribs.push_back( attr );
+                        }
+                    }
+                }
+                // CASO B: Inputs sueltos (estilo antiguo: float3 pos : POSITION)
+                else
+                {
+                    const char* semanticName = paramVar->getSemanticName();
+                    if ( semanticName )
+                    {
+                        RHI::VertexAttribute attr;
+                        attr.semanticName      = semanticName;
+                        attr.semanticIndex     = (uint)paramVar->getSemanticIndex();
+                        attr.inputSlot         = (uint)paramVar->getBindingIndex();
+                        attr.alignedByteOffset = 0; // Es el único
+                        attr.format            = slangFormatToRHI( type );
+                        outAttribs.push_back( attr );
+                    }
                 }
             }
             break;

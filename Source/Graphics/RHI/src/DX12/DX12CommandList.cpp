@@ -162,7 +162,7 @@ void DX12CommandList::bindGraphicPipeline( IGraphicPipeline* pipeline ) {
     auto* dxPipeline = static_cast<DX12GraphicPipeline*>( pipeline );
     _cmdList->SetPipelineState( dxPipeline->getNativeObject( ObjectTypes::DX12_PipelineState ) );
 
-    _cmdList->SetComputeRootSignature( dxPipeline->getNativeObject( ObjectTypes::DX12_RootSignature ) );
+    _cmdList->SetGraphicsRootSignature( dxPipeline->getNativeObject( ObjectTypes::DX12_RootSignature ) );
 
     _cmdList->IASetPrimitiveTopology( DX12Translator::getD3DTopology( pipeline->getDescription().topology ) );
     _bindPoint = PipelineBindPoint::Graphic;
@@ -194,6 +194,92 @@ void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set ) {
 void DX12CommandList::dispatch( const Extent3D& gridSize ) {
     AXION_LOG_ASSERT( _bindPoint == PipelineBindPoint::Compute, Logger::Module::RHI, "Dispatch called without Compute Pipeline" );
     _cmdList->Dispatch( gridSize.width, gridSize.height, gridSize.depth );
+}
+
+void DX12CommandList::beginRendering( const RenderingDesc& info ) {
+
+    std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvHandles;
+
+    for ( const auto& att : info.colorAttachments )
+    {
+        if ( att.texture )
+        {
+            auto* dxTex = static_cast<DX12Texture*>( att.texture );
+            rtvHandles.push_back( dxTex->getRTV() );
+
+            if ( att.loadOp == LoadOp::Clear )
+            {
+                clearTexture( att.texture, att.clearValue );
+            }
+        }
+    }
+
+    D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = {};
+    bool                        hasDepth  = false;
+    if ( info.depthStencilAttachment.texture )
+    {
+        auto* dxDepth = static_cast<DX12Texture*>( info.depthStencilAttachment.texture );
+        dsvHandle     = dxDepth->getDSV();
+        hasDepth      = true;
+
+        if ( info.depthStencilAttachment.loadOp == LoadOp::Clear )
+        {
+            clearTexture( info.depthStencilAttachment.texture, info.depthStencilAttachment.clearValue );
+        }
+    }
+
+    _cmdList->OMSetRenderTargets(
+        (uint)rtvHandles.size(),
+        rtvHandles.data(),
+        FALSE, // Descriptores contiguos? No necesariamente, pasamos array
+        hasDepth ? &dsvHandle : nullptr );
+
+    D3D12_VIEWPORT vp = {};
+    vp.Width          = (float)info.renderArea.width;
+    vp.Height         = (float)info.renderArea.height;
+    vp.MinDepth       = 0.0f;
+    vp.MaxDepth       = 1.0f;
+    _cmdList->RSSetViewports( 1, &vp );
+
+    D3D12_RECT scissor = {};
+    scissor.right      = info.renderArea.width;
+    scissor.bottom     = info.renderArea.height;
+    _cmdList->RSSetScissorRects( 1, &scissor );
+}
+
+void DX12CommandList::endRendering() {
+    // DX12 Doesnt need it
+}
+
+void DX12CommandList::draw( uint vertexCount, uint instanceCount, uint firstVertex, uint firstInstance ) {
+    AXION_LOG_ASSERT( _bindPoint == PipelineBindPoint::Graphic, Logger::Module::RHI, "Draw called without Graphic Pipeline!" );
+    _cmdList->DrawInstanced(
+        vertexCount,
+        instanceCount,
+        firstVertex,
+        firstInstance );
+}
+
+void DX12CommandList::drawIndexed( uint indexCount, uint instanceCount, uint firstIndex, int vertexOffset, uint firstInstance ) {
+    AXION_LOG_ASSERT( _bindPoint == PipelineBindPoint::Graphic, Logger::Module::RHI, "Draw called without Graphic Pipeline!" );
+    _cmdList->DrawIndexedInstanced(
+        indexCount,
+        instanceCount,
+        firstIndex,
+        vertexOffset,
+        firstInstance );
+}
+
+void DX12CommandList::bindVertexBuffer( uint slot, IBuffer* buffer ) {
+    auto* dxBuf = static_cast<DX12Buffer*>( buffer );
+    auto  view  = dxBuf->getVBV();
+    _cmdList->IASetVertexBuffers( slot, 1, &view );
+}
+
+void DX12CommandList::bindIndexBuffer( IBuffer* buffer ) {
+    auto* dxBuf = static_cast<DX12Buffer*>( buffer );
+    auto  view  = dxBuf->getIBV();
+    _cmdList->IASetIndexBuffer( &view );
 }
 
 NativeObject DX12CommandList::getNativeObject( ObjectType objectType ) {

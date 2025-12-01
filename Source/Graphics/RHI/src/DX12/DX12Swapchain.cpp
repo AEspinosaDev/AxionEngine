@@ -115,8 +115,13 @@ DX12Swapchain::~DX12Swapchain() {
 void DX12Swapchain::updateImages() {
 
     _swapImages.resize( _desc.imageCount, nullptr );
-    TextureDesc         desc = { .debugName = "Swapchain Backbuffer", .viewFlags = TextureViewRenderTarget };
-    DX12Device::Context ctx  = { .device = _device, .heapRTV = _heapRTV };
+    TextureDesc desc = {
+        .size   = _desc.size.to3D(),
+        .format = _desc.format,
+
+        .debugName = "Swapchain Backbuffer",
+        .viewFlags = TextureViewRenderTarget };
+    DX12Device::Context ctx = { .device = _device, .heapRTV = _heapRTV };
     for ( uint i = 0; i < _desc.imageCount; ++i )
     {
         ComPtr<ID3D12Resource> backBuffer;

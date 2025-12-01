@@ -361,6 +361,14 @@ NativeObject DX12Buffer::getNativeObject( ObjectType objectType ) {
 std::string DX12Buffer::toString() const {
     return fmt::format( "" );
 }
+D3D12_VERTEX_BUFFER_VIEW DX12Buffer::getVBV() const {
+    AXION_LOG_ASSERT( _desc.usageFlags == BufferUsage::Vertex, Logger::Module::RHI, "Buffer Usage is not Vertex" );
+    return _vbv;
+}
+D3D12_INDEX_BUFFER_VIEW DX12Buffer::getIBV() const {
+    AXION_LOG_ASSERT( _desc.usageFlags == BufferUsage::Index, Logger::Module::RHI, "Buffer Usage is not Index" );
+    return _ibv;
+}
 void DX12Buffer::createViews( DX12Device::Context& ctx ) {
     // Constant Buffer
     if ( ( _desc.viewFlags & BufferViewConstantBuffer ) != BufferViewNone )
@@ -401,6 +409,19 @@ void DX12Buffer::createViews( DX12Device::Context& ctx ) {
         _uavHandle = ctx.heapSRV.allocateCPU();
         ctx.device->CreateUnorderedAccessView( _resource.Get(), nullptr, &desc, _srvHandle );
     }
+    // Special case for VBO/(IBO)
+    if ( _desc.usageFlags == BufferUsage::Index )
+    {
+        _ibv.BufferLocation = _resource->GetGPUVirtualAddress();
+        _ibv.SizeInBytes    = (UINT)_desc.size;
+        _ibv.Format         = DXGI_FORMAT_R32_UINT;
+    }
+    if ( _desc.usageFlags == BufferUsage::Vertex )
+    {
+        _vbv.BufferLocation = _resource->GetGPUVirtualAddress();
+        _vbv.SizeInBytes    = (UINT)_desc.size;
+        _vbv.StrideInBytes  = _desc.stride;
+    }
 }
 
 void DX12Buffer::uploadInitialData( DX12Device::Context& ctx, const void* initialData ) {
@@ -417,7 +438,8 @@ void DX12Buffer::uploadInitialData( DX12Device::Context& ctx, const void* initia
     DX12Buffer staging( DX12Buffer::Description {
                             .size       = _desc.size,
                             .memoryType = MemoryUsage::CPUVisible,
-                            .viewFlags  = BufferViewNone },
+                            .viewFlags  = BufferViewNone,
+                            .debugName  = _desc.debugName + " Staging" },
                         ctx );
 
     // Map & copy into staging

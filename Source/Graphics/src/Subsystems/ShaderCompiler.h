@@ -20,9 +20,11 @@ public:
 private:
     SlangStage          stageToSlang( RHI::ShaderStage stage );
     RHI::DescriptorType slangTypeToRHI( slang::TypeReflection* type );
-    void                reflectParameter( slang::VariableLayoutReflection* varLayout, std::map<uint32_t, std::vector<RHI::DescriptorBinding>>& tempSets );
-    void                extractReflection( const std::string& name, slang::IComponentType* program, RHI::PipelineLayoutDesc& outDesc );
-    void                extractVertexAttributes( slang::IComponentType* program, std::vector<RHI::VertexAttribute>& outAttribs );
+    Format              slangFormatToRHI( slang::TypeReflection* type );
+
+    void reflectParameter( slang::VariableLayoutReflection* varLayout, std::map<uint32_t, std::vector<RHI::DescriptorBinding>>& tempSets );
+    void extractReflection( const std::string& name, slang::IComponentType* program, RHI::PipelineLayoutDesc& outDesc );
+    void extractVertexAttributes( slang::IComponentType* program, std::vector<RHI::VertexAttribute>& outAttribs );
 
     Slang::ComPtr<IGlobalSession> _globalSession = nullptr;
 

@@ -104,7 +104,7 @@ public:
         PrimitiveTopology topology    = PrimitiveTopology::TriangleList;
         uint              sampleCount = 1;
 
-        std::vector<Format> renderTargetFormats; // empty -> no color outputs
+        std::vector<Format> renderTargetFormats; 
         Format              depthStencilFormat = Format::UNKNOWN;
 
         BlendState        blendState;

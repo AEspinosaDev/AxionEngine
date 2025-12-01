@@ -88,6 +88,7 @@ public:
     }
 };
 
+struct Extent3D;
 struct Extent2D {
     uint width { 0 };
     uint height { 0 };
@@ -98,6 +99,20 @@ struct Extent2D {
     inline bool operator!=( const Extent2D o ) const {
         return width != o.width || height != o.height;
     }
+    Extent3D    to3D() const;
+};
+struct Extent3D {
+    uint width { 0 };
+    uint height { 0 };
+    uint depth { 0 };
+    
+    inline bool operator==( const Extent3D& o ) const {
+        return width == o.width && height == o.height && depth == o.depth;
+    }
+    inline bool operator!=( const Extent3D& o ) const {
+        return width != o.width || height != o.height || depth != o.depth;
+    }
+    Extent2D    to2D() const;
 };
 struct Position2D {
     uint x { 0 };
@@ -108,18 +123,6 @@ struct Position2D {
     }
     inline bool operator!=( const Position2D& o ) const {
         return x != o.x && y != o.y;
-    }
-};
-struct Extent3D {
-    uint width { 0 };
-    uint height { 0 };
-    uint depth { 0 };
-
-    inline bool operator==( const Extent3D& o ) const {
-        return width == o.width && height == o.height && depth == o.depth;
-    }
-    inline bool operator!=( const Extent3D& o ) const {
-        return width != o.width || height != o.height || depth != o.depth;
     }
 };
 

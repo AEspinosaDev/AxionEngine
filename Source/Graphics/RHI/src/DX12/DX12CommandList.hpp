@@ -32,6 +32,17 @@ public:
 
     void dispatch( const Extent3D& gridSize ) override;
 
+    void beginRendering( const RenderingDesc& info ) override;
+    void endRendering() override;
+    void draw( uint vertexCount, uint instanceCount = 1, uint firstVertex = 0, uint firstInstance = 0 ) override;
+    void drawIndexed( uint indexCount,
+                      uint instanceCount = 1,
+                      uint firstIndex    = 0,
+                      int  vertexOffset  = 0,
+                      uint firstInstance = 0 ) override;
+    void bindVertexBuffer( uint slot, IBuffer* buffer ) override;
+    void bindIndexBuffer( IBuffer* buffer ) override;
+
     NativeObject       getNativeObject( ObjectType objectType ) override;
     void               setDebugName( const std::string& name ) override;
     const std::string& getDebugName() const override;

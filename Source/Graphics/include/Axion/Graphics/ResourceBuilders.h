@@ -5,8 +5,6 @@
 AXION_NAMESPACE_BEGIN
 namespace Graphics {
 
-
-
 /// @brief Base class for building Texture descriptions using Fluent Interface pattern (CRTP).
 /// @tparam T The derived builder class.
 template <typename T>
@@ -161,6 +159,14 @@ public:
         return static_cast<T&>( *this );
     }
 
+    /// @brief Configures as a constant buffer (CBO).
+    T& asCBO() {
+        _desc.usageFlags |= BufferUsage::Uniform;
+        _desc.viewFlags |= BufferViewFlags::BufferViewConstantBuffer;
+        _desc.size = Math::AlignUp( _desc.size, (size_t)256 );
+        return static_cast<T&>( *this );
+    }
+
     /// @brief Manually sets usage flags.
     T& usage( BufferUsage flags ) {
         _desc.usageFlags = flags;
@@ -172,7 +178,7 @@ public:
         _desc.viewFlags = flags;
         return static_cast<T&>( *this );
     }
-   
+
 protected:
     RHI::BufferDesc _desc;
 };

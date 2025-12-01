@@ -569,6 +569,26 @@ enum class ShaderStage : uint8_t
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( ShaderStage )
 
+enum class LoadOp
+{
+    Load,
+    Clear,
+    Discard
+};
+
+class ITexture;
+struct RenderingAttachment {
+    ITexture*  texture    = nullptr;
+    LoadOp     loadOp     = LoadOp::Clear;
+    ClearValue clearValue = { }; 
+};
+
+struct RenderingDesc {
+    std::vector<RenderingAttachment> colorAttachments;
+    RenderingAttachment              depthStencilAttachment;
+    Extent2D                         renderArea;
+};
+
 typedef uint ObjectType;
 
 // ObjectTypes namespace contains identifiers for various object types.

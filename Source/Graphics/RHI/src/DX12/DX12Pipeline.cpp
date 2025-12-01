@@ -137,6 +137,8 @@ NativeObject DX12GraphicPipeline::getNativeObject( ObjectType objectType ) {
     {
         case ObjectTypes::DX12_PipelineState:
             return NativeObject( objectType, _pso.Get() );
+        case ObjectTypes::DX12_RootSignature:
+            return NativeObject( objectType, _desc.layout->getNativeObject( ObjectTypes::DX12_RootSignature ) );
         default:
             AXION_LOG_ERROR( Logger::Module::RHI, "DX12 Graphic Pipeline | Wrong Object Type" );
             return nullptr;
@@ -269,11 +271,11 @@ D3D12_INPUT_LAYOUT_DESC DX12GraphicPipeline::makeInputLayout( const IGraphicPipe
                                          : D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
         e.InstanceDataStepRate     = a.instanceStepRate;
         // Handle offset
-        e.AlignedByteOffset = a.alignedByteOffset == AUTO_VAL ? D3D12_APPEND_ALIGNED_ELEMENT : a.alignedByteOffset;
+        // e.AlignedByteOffset = a.alignedByteOffset == AUTO_VAL ? D3D12_APPEND_ALIGNED_ELEMENT : a.alignedByteOffset;
+        e.AlignedByteOffset = offset;
+        offset += getFormatBytes( a.format );
 
         out.push_back( e );
-
-        offset += getFormatBytes( a.format );
     }
 
     D3D12_INPUT_LAYOUT_DESC ret;

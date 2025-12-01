@@ -45,9 +45,7 @@ private:
     ComPtr<ID3D12Resource> _resource;
 
     // CPU handles for views
-    D3D12_CPU_DESCRIPTOR_HANDLE _srvHandle    = {};
-    D3D12_GPU_DESCRIPTOR_HANDLE _srvGPUHandle = {};
-
+    D3D12_CPU_DESCRIPTOR_HANDLE _srvHandle = {};
     D3D12_CPU_DESCRIPTOR_HANDLE _rtvHandle = {};
     D3D12_CPU_DESCRIPTOR_HANDLE _dsvHandle = {};
     D3D12_CPU_DESCRIPTOR_HANDLE _uavHandle = {};
@@ -77,6 +75,8 @@ public:
     D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getCBV() const { return _cbvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getUAV() const { return _uavHandle; }
+    D3D12_VERTEX_BUFFER_VIEW    getVBV() const;
+    D3D12_INDEX_BUFFER_VIEW     getIBV() const;
 
 private:
     void createViews( DX12Device::Context& ctx );
@@ -89,11 +89,11 @@ private:
     ComPtr<ID3D12Resource> _resource;
 
     // CPU descriptor handles
-    D3D12_CPU_DESCRIPTOR_HANDLE _srvHandle    = {};
-    D3D12_GPU_DESCRIPTOR_HANDLE _srvGPUHandle = {};
-
+    D3D12_CPU_DESCRIPTOR_HANDLE _srvHandle = {};
     D3D12_CPU_DESCRIPTOR_HANDLE _cbvHandle = {};
     D3D12_CPU_DESCRIPTOR_HANDLE _uavHandle = {};
+    D3D12_VERTEX_BUFFER_VIEW    _vbv = {};
+    D3D12_INDEX_BUFFER_VIEW     _ibv = {};
 };
 
 } // namespace Graphics::RHI
