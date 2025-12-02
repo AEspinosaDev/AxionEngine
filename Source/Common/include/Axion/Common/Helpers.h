@@ -9,6 +9,11 @@ inline void hashCombine( size_t& seed, size_t value ) {
     seed ^= value + 0x9e3779b9 + ( seed << 6 ) + ( seed >> 2 );
 }
 
+template <typename T>
+constexpr T alignUp( T value, T alignment ) {
+    return ( value + alignment - 1 ) & ~( alignment - 1 );
+}
+
 class Clock
 {
 public:

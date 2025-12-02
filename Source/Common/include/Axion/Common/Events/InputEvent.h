@@ -5,7 +5,22 @@
 AXION_NAMESPACE_BEGIN
 
 namespace Event {
+ 
+enum class KeyCode : uint
+{
+    Unknown = 0,
+    
+    A, B, C, D, E, F, G, H, I, J, K, L, M, 
+    N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
 
+    Up, Down, Left, Right,
+
+    F1, F2, F3, F4,
+    Space, Escape, Enter, Shift, Control, Alt, Tab,
+
+    // ... 
+};
+    
 /**
  * @brief Base input event type.
  */
@@ -19,11 +34,11 @@ struct InputEvent : public Event {
  * @brief Keyboard event base.
  */
 struct KeyEvent : public InputEvent {
-    KeyEvent( void* h, uint k, bool pressed )
+    KeyEvent( void* h, KeyCode k, bool pressed )
         : InputEvent( h )
         , keyCode( k )
         , pressed( pressed ) {}
-    uint keyCode;
+    KeyCode keyCode;
     bool pressed;
 };
 

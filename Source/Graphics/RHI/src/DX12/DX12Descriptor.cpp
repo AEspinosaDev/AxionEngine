@@ -76,7 +76,7 @@ DX12DescriptorSet::DX12DescriptorSet( ID3D12Device*               device,
 DX12DescriptorSet::~DX12DescriptorSet() {
 }
 
-void DX12DescriptorSet::bind( uint binding, ITexture* tex, ResourceState usage ) {
+void DX12DescriptorSet::attach( uint binding, ITexture* tex, ResourceState bindingState ) {
     AXION_LOG_ASSERT( tex, Logger::Module::RHI, "Binding null texture!" );
     auto* dxTex = static_cast<DX12Texture*>( tex );
 
@@ -85,7 +85,7 @@ void DX12DescriptorSet::bind( uint binding, ITexture* tex, ResourceState usage )
 
     D3D12_CPU_DESCRIPTOR_HANDLE src;
 
-    if ( usage == ResourceState::UnorderedAccess )
+    if ( bindingState == ResourceState::UnorderedAccess )
         src = dxTex->getUAV();
     else
         src = dxTex->getSRV();
@@ -93,7 +93,7 @@ void DX12DescriptorSet::bind( uint binding, ITexture* tex, ResourceState usage )
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::bind( uint binding, IBuffer* buf, ResourceState usage ) {
+void DX12DescriptorSet::attach( uint binding, IBuffer* buf, ResourceState bindingState ) {
     AXION_LOG_ASSERT( buf, Logger::Module::RHI, "Binding null buffer!" );
     auto* dxBuf = static_cast<DX12Buffer*>( buf );
 
@@ -101,10 +101,21 @@ void DX12DescriptorSet::bind( uint binding, IBuffer* buf, ResourceState usage ) 
     dest.ptr += binding * _handleSize;
 
     D3D12_CPU_DESCRIPTOR_HANDLE src;
-    if ( usage == ResourceState::UnorderedAccess )
-        src = dxBuf->getUAV();
-    else
-        src = dxBuf->getSRV();
+    switch ( bindingState )
+    {
+        case ResourceState::UnorderedAccess:
+            src = dxBuf->getUAV();
+            break;
+        case ResourceState::ShaderResource:
+            src = dxBuf->getSRV();
+            break;
+        case ResourceState::ConstantBuffer:
+            src = dxBuf->getCBV();
+            break;
+
+        default:
+            break;
+    }
 
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }

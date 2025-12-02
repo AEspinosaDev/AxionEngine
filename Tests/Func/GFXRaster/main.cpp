@@ -6,11 +6,22 @@
 
 USING_AXION_NAMESPACE
 
+struct Camera {
+    Math::Vec3 camPos = { 0.0f, 0.0f, -2.0f };
+    float      fov    = 60.0f;
+
+    struct Payload {
+        Math::Mat4 viewProj;
+    };
+};
+
 struct TrianglePass {
     Graphics::PipelineHandle   pipeline;
     Graphics::BufferHandle     vbo;
     Graphics::BufferHandle     ibo;
     Graphics::RGResourceHandle output; // Backbuffer
+
+    Graphics::BufferHandle cameraBuffer; // Camera Uniform Buffer
 
     struct Data {
         Graphics::RGResourceHandle target;
@@ -25,6 +36,7 @@ struct TrianglePass {
         auto* targetTex = ctx.getTexture( data.target );
         auto* vb        = ctx.resources.getBuffer( vbo );
         auto* ib        = ctx.resources.getBuffer( ibo );
+        auto* ubo       = ctx.resources.getBuffer( cameraBuffer );
 
         Graphics::RHI::RenderingDesc info;
         info.renderArea = targetTex->getDescription().size.to2D();
@@ -34,6 +46,11 @@ struct TrianglePass {
         ctx.cmd->beginRendering( info );
 
         ctx.cmd->bindGraphicPipeline( pso );
+
+        auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
+        set0->attach( 0, ubo, Graphics::RHI::ResourceState::ConstantBuffer );
+
+        ctx.cmd->bindDescriptorSet( 0, set0 );
 
         ctx.cmd->bindVertexBuffer( 0, vb );
         ctx.cmd->bindIndexBuffer( ib );
@@ -54,13 +71,14 @@ int main( /*int argc, char* argv[]*/ ) {
 #endif
 
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX RASTER TEST" } );
-        // auto wnd = Axion::Graphics::createWindowForGLFW(  { .name = "GFX COMPUTE TEST" } );
 
-        auto rnd = Axion::Graphics::createRenderer( wnd,
-                                                    { .gfxApi        = Graphics::API::DirectX12,
-                                                      .bufferingType = Graphics::BufferingType::Double,
-                                                      .presentMode   = Graphics::PresentMode::Immediate,
-                                                      .autoSync      = true } );
+        auto       bufferingType    = Graphics::BufferingType::Double;
+        const uint FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
+        auto       rnd              = Axion::Graphics::createRenderer( wnd,
+                                                                       { .gfxApi        = Graphics::API::DirectX12,
+                                                                         .bufferingType = bufferingType,
+                                                                         .presentMode   = Graphics::PresentMode::Immediate,
+                                                                         .autoSync      = true } );
 
         //-------------------------------------
         // Dedclaring Shaders & Pipelines
@@ -72,18 +90,11 @@ int main( /*int argc, char* argv[]*/ ) {
         TrianglePass rpass;
         rpass.pipeline = rnd->pipelines().graphic( "RasterPipeline" ).shader( "DrawShader" ).addRenderTarget( rnd->getSettings().backbufferFormat ).cullNone().disableDepth().create();
 
-        // auto evnt = wnd->onKey().subscribe( [&rpass]( const Event::KeyEvent& e ) {
-        //     if ( e.keyCode == 38 && e.pressed ){
-        //     rpass.pushData.speed += 0.1;
-        // }
-        //     if ( e.keyCode == 40 && e.pressed ){
-        //     rpass.pushData.speed -= 0.1;
-
-        // } } );
-
         //-------------------------------------
         // Dedclaring Static Resources
         //-------------------------------------
+
+        // GEOMETRY
 
         struct Vertex {
             float x, y, z;
@@ -99,6 +110,33 @@ int main( /*int argc, char* argv[]*/ ) {
         auto iboHandle = rnd->resources().buffer( "IndexBuffer" ).asIBO().withData( indices.data() ).size( indices.size() * sizeof( uint ) ).create();
         rpass.vbo      = vboHandle;
         rpass.ibo      = iboHandle;
+
+        // UNIFORM CONSTANT BUFFER
+
+        std::vector<Graphics::BufferHandle> camBuffers( FRAMES_IN_FLIGHT );
+        for ( int i = 0; i < FRAMES_IN_FLIGHT; ++i )
+        {
+            camBuffers[i] = rnd->resources().buffer( "CamUniformBuffer_" + std::to_string( i ) ).size( sizeof( Camera::Payload ) ).asCBO().onCPU().create();
+        }
+
+        // CAMERA AND INPUT
+
+        Camera cam {};
+
+        auto evnt = wnd->onKey().subscribe( [&cam]( const Event::KeyEvent& e ) {
+            if ( e.keyCode == Event::KeyCode::W && e.pressed )
+                cam.camPos.z += 0.01f;
+            if ( e.keyCode == Event::KeyCode::S && e.pressed )
+                cam.camPos.z -= 0.01f;
+            if ( e.keyCode == Event::KeyCode::D && e.pressed )
+                cam.camPos.x += 0.01f;
+            if ( e.keyCode == Event::KeyCode::A && e.pressed )
+                cam.camPos.x -= 0.01f;
+            if ( e.keyCode == Event::KeyCode::Q && e.pressed )
+                cam.camPos.y += 0.01f;
+            if ( e.keyCode == Event::KeyCode::E && e.pressed )
+                cam.camPos.y -= 0.01f;
+        } );
 
         //-------------------------------------
         // Main Loop
@@ -132,10 +170,22 @@ int main( /*int argc, char* argv[]*/ ) {
 
             wnd->processMessages();
 
+            float aspect = (float)wnd->getSettings().size.width / (float)wnd->getSettings().size.height;
+            auto  proj   = Axion::Math::perspective( Math::radians( cam.fov ), aspect, 0.01f, 10.0f );
+            auto  view   = Axion::Math::lookAt( cam.camPos, { 0, 0, 0 }, { 0, 1, 0 } );
+
+            Camera::Payload camData;
+            camData.viewProj = proj * view;
+
+            auto  frameIndex = rnd->getCurrentFrameIndex();
+            auto* cbRaw      = rnd->resources().getBuffer( camBuffers[frameIndex] );
+            cbRaw->copyData( camData );
+
             rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
                 using namespace Axion::Graphics;
 
-                rpass.output = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
+                rpass.output       = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
+                rpass.cameraBuffer = camBuffers[frameIndex];
 
                 builder.addPass<TrianglePass>( "TrianglePass", rpass );
             } );

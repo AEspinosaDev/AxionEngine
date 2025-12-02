@@ -25,8 +25,8 @@ class IDescriptorSet : public IResource
 public:
     virtual ~IDescriptorSet() = default;
 
-    virtual void bind( uint binding, ITexture* tex, ResourceState usage ) = 0;
-    virtual void bind( uint binding, IBuffer* buf, ResourceState usage )  = 0;
+    virtual void attach( uint binding, ITexture* tex, ResourceState bindingState ) = 0;
+    virtual void attach( uint binding, IBuffer* buf, ResourceState bindingState )  = 0;
 };
 
 DEFINE_COM_PTR_FOR_TYPE( IDescriptorAllocator, DescriptorAllocator )

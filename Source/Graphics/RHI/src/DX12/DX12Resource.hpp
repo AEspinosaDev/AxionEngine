@@ -1,5 +1,5 @@
 #pragma once
-#include "Axion/Common/Math.h"
+#include "Axion/Common/Helpers.h"
 #include "Axion/Graphics/RHI/Resource.h"
 #include "DX12Device.hpp"
 #include "StateTracking.h"
@@ -63,8 +63,7 @@ public:
     ~DX12Buffer() override;
 
     const BufferDesc&     getDescription() const override { return _desc; }
-    void*                 map() override;
-    void                  unmap() override;
+    void                  copyData( const void* data, ulong size, ulong offset = 0 ) override;
     void                  setDebugName( const std::string& name ) override;
     const std::string&    getDebugName() const override { return _desc.debugName; }
     NativeObject          getNativeObject( ObjectType objectType ) override;
@@ -78,7 +77,10 @@ public:
     D3D12_VERTEX_BUFFER_VIEW    getVBV() const;
     D3D12_INDEX_BUFFER_VIEW     getIBV() const;
 
+    void* map() override;
+    void  unmap() override;
 private:
+
     void createViews( DX12Device::Context& ctx );
     void uploadInitialData( DX12Device::Context& ctx, const void* initialData );
 
@@ -92,8 +94,8 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE _srvHandle = {};
     D3D12_CPU_DESCRIPTOR_HANDLE _cbvHandle = {};
     D3D12_CPU_DESCRIPTOR_HANDLE _uavHandle = {};
-    D3D12_VERTEX_BUFFER_VIEW    _vbv = {};
-    D3D12_INDEX_BUFFER_VIEW     _ibv = {};
+    D3D12_VERTEX_BUFFER_VIEW    _vbv       = {};
+    D3D12_INDEX_BUFFER_VIEW     _ibv       = {};
 };
 
 } // namespace Graphics::RHI

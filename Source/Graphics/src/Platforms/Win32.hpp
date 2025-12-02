@@ -37,6 +37,28 @@ private:
     static LRESULT CALLBACK wndProcThunk( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
     LRESULT CALLBACK        wndProcMsg( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
 
+    constexpr static Event::KeyCode mapWin32Key( WPARAM wParam ) {
+        switch ( wParam ) {
+            case 'W':       return Event::KeyCode::W;
+            case 'A':       return Event::KeyCode::A;
+            case 'S':       return Event::KeyCode::S;
+            case 'D':       return Event::KeyCode::D;
+            case 'Q':       return Event::KeyCode::Q;
+            case 'E':       return Event::KeyCode::E;
+
+            case VK_UP:     return Event::KeyCode::Up;
+            case VK_DOWN:   return Event::KeyCode::Down;
+            case VK_LEFT:   return Event::KeyCode::Left;
+            case VK_RIGHT:  return Event::KeyCode::Right;
+
+            case VK_SPACE:  return Event::KeyCode::Space;
+            case VK_ESCAPE: return Event::KeyCode::Escape;
+            case VK_SHIFT:  return Event::KeyCode::Shift;
+
+            default:        return Event::KeyCode::Unknown;
+        }
+    }
+
     HWND      _hWnd         = nullptr; // Native type handle
     HINSTANCE _hInstance    = nullptr;
     LPCWSTR   _wndClassName = L"Win32Window";

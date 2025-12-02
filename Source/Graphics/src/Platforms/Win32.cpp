@@ -168,7 +168,7 @@ LRESULT Win32Window::wndProcMsg( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         // --- Keyboard ---
         case WM_KEYDOWN:
         case WM_SYSKEYDOWN: {
-            Event::KeyEvent evt( hwnd, (uint)wParam, true );
+            Event::KeyEvent evt( hwnd, mapWin32Key( wParam ), true );
             if ( wParam == VK_F11 )
                 setFullscreen( !_settings.fullscreen );
             _onKey.dispatch( evt );
@@ -177,7 +177,7 @@ LRESULT Win32Window::wndProcMsg( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 
         case WM_KEYUP:
         case WM_SYSKEYUP: {
-            Event::KeyEvent evt( hwnd, (uint)wParam, false );
+            Event::KeyEvent evt( hwnd, mapWin32Key( wParam ), false );
             _onKey.dispatch( evt );
             return 0;
         }

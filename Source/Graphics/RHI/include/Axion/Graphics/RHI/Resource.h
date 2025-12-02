@@ -37,7 +37,7 @@ public:
     };
     virtual ~ITexture()                                          = default;
     virtual const ITexture::Description& getDescription() const  = 0;
-    virtual  ResourceState        getCurrentState() const = 0;
+    virtual ResourceState                getCurrentState() const = 0;
 };
 
 typedef ITexture::Description TextureDesc;
@@ -69,13 +69,23 @@ public:
         }
     };
 
-    virtual ~IBuffer()                                   = default;
-    virtual const Description&   getDescription() const  = 0;
-    virtual  ResourceState getCurrentState() const = 0;
+    virtual ~IBuffer()                                 = default;
+    virtual const Description& getDescription() const  = 0;
+    virtual ResourceState      getCurrentState() const = 0;
 
-    //
-    // CPU access
-    //
+    virtual void copyData( const void* data, ulong size, ulong offset = 0 ) = 0;
+
+    template <typename T>
+    void copyData( const T& data, ulong offset = 0 ) {
+        copyData( &data, sizeof( T ), offset );
+    }
+    // --- Vector Helper ---
+    template <typename T>
+    void copyData( const std::vector<T>& data, size_t offset = 0 ) {
+        copyData( data.data(), data.size() * sizeof( T ), offset );
+    }
+
+protected:
     virtual void* map()   = 0;
     virtual void  unmap() = 0;
 };

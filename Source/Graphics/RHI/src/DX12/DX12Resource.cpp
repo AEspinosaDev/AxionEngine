@@ -298,6 +298,7 @@ DX12Buffer::DX12Buffer( const BufferDesc&    desc,
             heapProps    = CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_DEFAULT );
             break;
     }
+
     _stateTracker.setState( initialState );
 
     // Resource flags (for UAV)
@@ -342,6 +343,17 @@ void DX12Buffer::unmap() {
     _resource->Unmap( 0, nullptr );
 }
 
+void DX12Buffer::copyData( const void* data, ulong size, ulong offset )
+{
+    AXION_LOG_ASSERT( offset + size <= _desc.size, Logger::Module::RHI, "Buffer [{}] overflow!", _desc.debugName );
+    uchar* dstPtr = static_cast<uchar*>( this->map() );
+    if ( dstPtr )
+    {
+        std::memcpy( dstPtr + offset, data, size );
+        this->unmap();
+    }
+}
+
 void DX12Buffer::setDebugName( const std::string& name ) {
     _desc.debugName = name;
     _resource->SetName( std::wstring( name.begin(), name.end() ).c_str() );
@@ -376,10 +388,10 @@ void DX12Buffer::createViews( DX12Device::Context& ctx ) {
 
         D3D12_CONSTANT_BUFFER_VIEW_DESC cbv {};
         cbv.BufferLocation = _resource->GetGPUVirtualAddress();
-        cbv.SizeInBytes    = (UINT)Math::AlignUp( _desc.size, (size_t)256 );
+        cbv.SizeInBytes    = (UINT)Helpers::alignUp( _desc.size, (size_t)256 );
 
         _cbvHandle = ctx.heapSRV.allocateCPU();
-        ctx.device->CreateConstantBufferView( &cbv, _srvHandle );
+        ctx.device->CreateConstantBufferView( &cbv, _cbvHandle );
     }
 
     // SRV

@@ -129,6 +129,10 @@ TextureHandle Renderer::getCurrentBackbufferHandle() const {
     return _swapchainHandles[_currentFrame];
 }
 
+ulong Renderer::getCurrentFrameIndex() const {
+    return _currentFrame;
+}
+
 std::string Renderer::toString() const {
     // return fmt::format(
     //     "Settings:\n"

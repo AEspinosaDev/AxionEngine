@@ -28,6 +28,7 @@ public:
     virtual const RHI::DevicePtr& getDevice() const override;
     virtual TextureHandle         getCurrentBackbufferHandle() const override;
     virtual ulong                 getTotalFrameNumber() const override { return _frameNumber; };
+    virtual ulong                 getCurrentFrameIndex() const override;
 
     virtual bool        isHeadless() override;
     virtual void        destroy() override;

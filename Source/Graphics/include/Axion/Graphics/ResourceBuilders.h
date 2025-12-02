@@ -1,5 +1,6 @@
 #pragma once
 #include "Axion/Graphics/RHI/Resource.h"
+#include "Axion/Common/Helpers.h"
 #include <string>
 
 AXION_NAMESPACE_BEGIN
@@ -159,11 +160,11 @@ public:
         return static_cast<T&>( *this );
     }
 
-    /// @brief Configures as a constant buffer (CBO).
+    /// @brief Configures as a constant buffer, great for uniform handling (CBO).
     T& asCBO() {
         _desc.usageFlags |= BufferUsage::Uniform;
         _desc.viewFlags |= BufferViewFlags::BufferViewConstantBuffer;
-        _desc.size = Math::AlignUp( _desc.size, (size_t)256 );
+        _desc.size = Helpers::alignUp( _desc.size, (size_t)256 );
         return static_cast<T&>( *this );
     }
 

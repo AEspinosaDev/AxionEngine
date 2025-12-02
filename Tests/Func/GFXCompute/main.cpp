@@ -30,7 +30,7 @@ struct GenerationPass {
         auto* texOut = ctx.getTexture( data.outputHDR );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->bind( 0, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
+        set0->attach( 0, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
 
         ctx.cmd->bindComputePipeline( pso );
         ctx.cmd->bindDescriptorSet( 0, set0 );
@@ -64,8 +64,8 @@ struct ToneMappingPass {
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
         auto* set1 = ctx.allocateSet( pso->getDescription().layout, 1 );
-        set0->bind( 0, texIn, Graphics::RHI::ResourceState::ShaderResource );
-        set1->bind( 0, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
+        set0->attach( 0, texIn, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attach( 0, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
 
         ctx.cmd->bindComputePipeline( pso );
         ctx.cmd->bindDescriptorSet( 0, set0 );
@@ -132,11 +132,12 @@ int main( /*int argc, char* argv[]*/ ) {
         tpass.pipelineHandle = rnd->pipelines().compute( "TonemappingPipeline" ).shader( "TonemappingShader" ).create();
         CopyPass cpypass;
 
+        // Subscribe Input Events
         auto evnt = wnd->onKey().subscribe( [&gpass]( const Event::KeyEvent& e ) { 
-            if ( e.keyCode == 38 && e.pressed ){
+            if ( e.keyCode == Event::KeyCode::Up && e.pressed ){
             gpass.pushData.speed += 0.1;
         }
-            if ( e.keyCode == 40 && e.pressed ){
+            if ( e.keyCode == Event::KeyCode::Down && e.pressed ){
             gpass.pushData.speed -= 0.1;
 
         } } );
@@ -166,6 +167,8 @@ int main( /*int argc, char* argv[]*/ ) {
                 frameCounter   = 0;
                 elapsedSeconds = 0.0;
             }
+
+
 
             wnd->processMessages();
 

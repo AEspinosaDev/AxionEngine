@@ -119,6 +119,10 @@ IPipelineRegistry& HeadlessRenderer::pipelines() {
     return *_pipelineRegistry.get();
 }
 
+ulong HeadlessRenderer::getCurrentFrameIndex() const {
+    return _currentFrame;
+}
+
 } // namespace Graphics
 
 AXION_NAMESPACE_END

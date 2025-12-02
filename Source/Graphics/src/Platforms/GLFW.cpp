@@ -113,11 +113,11 @@ void GLFWWindow::setCallbacksFunctions() {
             instance->setFullscreen( !instance->_setts.fullscreen );
         if ( action == GLFW_PRESS || action == GLFW_REPEAT )
         {
-            Event::KeyEvent evt( w, (uint)key, true );
+            Event::KeyEvent evt( w,  mapGLFWKey( key ), true );
             instance->_onKey.dispatch( evt );
         } else if ( action == GLFW_RELEASE )
         {
-            Event::KeyEvent evt( w, (uint)key, false );
+            Event::KeyEvent evt( w,  mapGLFWKey( key ), false );
             instance->_onKey.dispatch( evt );
         }
     } );

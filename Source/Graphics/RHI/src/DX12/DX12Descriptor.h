@@ -50,8 +50,8 @@ public:
                        uint                        descriptorSize );
     ~DX12DescriptorSet() override;
 
-    void bind( uint binding, ITexture* tex, ResourceState usage ) override;
-    void bind( uint binding, IBuffer* buf, ResourceState usage ) override;
+    void attach( uint binding, ITexture* tex, ResourceState bindingState ) override;
+    void attach( uint binding, IBuffer* buf, ResourceState bindingState ) override;
 
     void               setDebugName( const std::string& name ) override;
     const std::string& getDebugName() const override;
