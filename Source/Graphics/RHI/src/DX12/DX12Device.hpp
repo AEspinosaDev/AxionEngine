@@ -18,6 +18,7 @@ public:
     CommandListPtr         createCommandList( const CommandListDesc& desc ) override;
     TexturePtr             createTexture( const TextureDesc& desc, const void* initialData = nullptr ) override;
     BufferPtr              createBuffer( const BufferDesc& desc, const void* initialData = nullptr ) override;
+    SamplerPtr             createSampler( const SamplerDesc& desc ) override;
     PipelineLayoutPtr      createPipelineLayout( const PipelineLayoutDesc& desc ) override;
     GraphicPipelinePtr     createGraphicPipeline( const GraphicPipelineDesc& desc ) override;
     ComputePipelinePtr     createComputePipeline( const ComputePipelineDesc& desc ) override;
@@ -74,6 +75,7 @@ public:
         DX12DescriptorHeap heapRTV;
         DX12DescriptorHeap heapDSV;
         DX12DescriptorHeap heapUAV;
+        DX12DescriptorHeap heapSamplers;
 
         UploadContext uploadContext = {};
 

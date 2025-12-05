@@ -100,6 +100,51 @@ public:
     virtual ~IAccel() = default;
 };
 
+DEFINE_COM_PTR_FOR_TYPE( ISampler, Sampler )
+
+class ISampler : public IResource
+{
+public:
+    virtual ~ISampler() = default;
+
+    struct Description {
+        Filter      minFilter     = Filter::Linear;
+        Filter      magFilter     = Filter::Linear;
+        Filter      mipFilter     = Filter::Linear;
+        AddressMode addressU      = AddressMode::Repeat;
+        AddressMode addressV      = AddressMode::Repeat;
+        AddressMode addressW      = AddressMode::Repeat;
+        uint        maxAnisotropy = 16;
+        float       maxLOD        = 12.0;
+        float       minLOD        = 0.0f;
+        float       mipLODBias    = 0.0f;
+        CompareOp   compareOp     = CompareOp::Never;
+        std::string debugName;
+
+        bool operator==( const Description& other ) const {
+            return minFilter == other.minFilter &&
+                   magFilter == other.magFilter &&
+                   mipFilter == other.mipFilter &&
+                   addressU == other.addressU &&
+                   addressV == other.addressV &&
+                   addressW == other.addressW &&
+                   maxAnisotropy == other.maxAnisotropy &&
+                   maxLOD == other.maxLOD &&
+                   minLOD == other.minLOD &&
+                   mipLODBias == other.mipLODBias &&
+                   compareOp == other.compareOp &&
+                   debugName == other.debugName;
+        }
+
+        bool operator!=( const Description& other ) const {
+            return !operator==( other );
+        }
+    };
+    virtual const Description& getDescription() const = 0;
+};
+
+using SamplerDesc = ISampler::Description;
+
 } // namespace Graphics::RHI
 
 AXION_NAMESPACE_END

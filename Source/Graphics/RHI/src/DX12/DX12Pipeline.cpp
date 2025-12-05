@@ -14,6 +14,18 @@ DX12PipelineLayout::~DX12PipelineLayout() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Pipeline Layout [{}]", _desc.debugName );
 }
 
+uint DX12PipelineLayout::getViewCount( uint setIndex ) const {
+    return setIndex < _desc.sets.size() ? _viewCountPerSet[setIndex] : 0;
+}
+
+uint DX12PipelineLayout::getSamplerCount( uint setIndex ) const {
+    return setIndex < _desc.sets.size() ? _samplerCountPerSet[setIndex] : 0;
+}
+
+uint DX12PipelineLayout::getAccelCount( uint setIndex ) const {
+    return setIndex < _desc.sets.size() ? _accelCountPerSet[setIndex] : 0;
+}
+
 void DX12PipelineLayout::setDebugName( const std::string& name ) {
     _desc.debugName = name;
     _rootSignature->SetName( std::wstring( ( _desc.debugName + " RootSig" ).begin(), ( _desc.debugName + " RootSig" ).end() ).c_str() );
@@ -33,44 +45,79 @@ NativeObject DX12PipelineLayout::getNativeObject( ObjectType objectType ) {
 std::string DX12PipelineLayout::toString() const {
     return std::string();
 }
-
 void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device ) {
-    std::vector<CD3DX12_ROOT_PARAMETER1>   rootParams;
-    std::vector<CD3DX12_DESCRIPTOR_RANGE1> ranges;
+    std::vector<CD3DX12_ROOT_PARAMETER1> rootParams;
 
-    // Reserve space
-    rootParams.reserve( _desc.sets.size() );
-    ranges.reserve( 32 );
+    std::vector<CD3DX12_DESCRIPTOR_RANGE1> allRanges;
+    allRanges.reserve( 64 );
 
-    for ( uint32_t setIndex = 0; setIndex < _desc.sets.size(); ++setIndex )
+    _rootIndexMap.resize( _desc.sets.size(), { -1, -1 } );
+    _viewCountPerSet.resize( _desc.sets.size(), 0 );
+    _samplerCountPerSet.resize( _desc.sets.size(), 0 );
+    _accelCountPerSet.resize( _desc.sets.size(), 0 );
+
+    for ( uint setIndex = 0; setIndex < _desc.sets.size(); ++setIndex )
     {
         const auto& set = _desc.sets[setIndex];
 
-        // Create one descriptor table per set
-        std::vector<CD3DX12_DESCRIPTOR_RANGE1> setRanges;
+        std::vector<CD3DX12_DESCRIPTOR_RANGE1> viewRanges;
+        std::vector<CD3DX12_DESCRIPTOR_RANGE1> samplerRanges;
+
         for ( const auto& binding : set.bindings )
         {
-            D3D12_DESCRIPTOR_RANGE_TYPE rangeType = DX12Translator::get( binding.type );
+            if ( binding.type == DescriptorType::Sampler )
+            {
+                _samplerCountPerSet[setIndex] += binding.arraySize;
+            } else
+            {
+                _viewCountPerSet[setIndex] += binding.arraySize;
+            }
 
-            CD3DX12_DESCRIPTOR_RANGE1 range;
+            D3D12_DESCRIPTOR_RANGE_TYPE rangeType = DX12Translator::get( binding.type );
+            CD3DX12_DESCRIPTOR_RANGE1   range;
+
             range.Init(
                 rangeType,
                 binding.arraySize,
-                binding.binding, // register index
-                setIndex,        // space = descriptor set index
+                binding.binding,
+                setIndex,
                 D3D12_DESCRIPTOR_RANGE_FLAG_NONE );
-            setRanges.push_back( range );
+
+            if ( rangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER )
+                samplerRanges.push_back( range );
+            else
+                viewRanges.push_back( range );
         }
 
-        uint32_t baseRangeIndex = static_cast<uint32_t>( ranges.size() );
-        ranges.insert( ranges.end(), setRanges.begin(), setRanges.end() );
+        if ( !viewRanges.empty() )
+        {
+            uint startIdx = (uint)allRanges.size();
+            allRanges.insert( allRanges.end(), viewRanges.begin(), viewRanges.end() );
 
-        CD3DX12_ROOT_PARAMETER1 param;
-        param.InitAsDescriptorTable(
-            static_cast<UINT>( setRanges.size() ),
-            &ranges[baseRangeIndex],
-            getShaderVisibility( set.bindings ) );
-        rootParams.push_back( param );
+            CD3DX12_ROOT_PARAMETER1 param;
+            param.InitAsDescriptorTable(
+                (UINT)viewRanges.size(),
+                &allRanges[startIdx],
+                getShaderVisibility( set.bindings ) );
+            rootParams.push_back( param );
+
+            _rootIndexMap[setIndex].first = (int)rootParams.size() - 1;
+        }
+
+        if ( !samplerRanges.empty() )
+        {
+            uint startIdx = (uint)allRanges.size();
+            allRanges.insert( allRanges.end(), samplerRanges.begin(), samplerRanges.end() );
+
+            CD3DX12_ROOT_PARAMETER1 param;
+            param.InitAsDescriptorTable(
+                (UINT)samplerRanges.size(),
+                &allRanges[startIdx],
+                getShaderVisibility( set.bindings ) );
+            rootParams.push_back( param );
+
+            _rootIndexMap[setIndex].second = (int)rootParams.size() - 1;
+        }
     }
 
     // Optional Push Constants

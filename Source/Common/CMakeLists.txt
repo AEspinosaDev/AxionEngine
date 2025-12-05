@@ -15,7 +15,7 @@ PUBLIC
 ${CMAKE_CURRENT_SOURCE_DIR}/include   
 )
 
-target_link_libraries(AxionCommon PUBLIC glm fmt::fmt)
+target_link_libraries(AxionCommon PUBLIC glm fmt::fmt stb_image)
 
 # RESOLVE RESOURCES PATH
 target_compile_definitions(AxionCommon PUBLIC

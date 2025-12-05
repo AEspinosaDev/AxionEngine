@@ -318,6 +318,20 @@ enum class BufferUsage : uint
 };
 AXION_ENUM_CLASS_FLAG_OPERATORS( BufferUsage )
 
+enum class Filter
+{
+    Nearest,
+    Linear
+};
+enum class AddressMode
+{
+    Repeat,
+    Wrap,
+    Clamp,
+    Mirror,
+    Border
+};
+
 struct ClearValue {
     Math::Vec4 color   = { 0.0, 0.0, 0.0, 1.0 }; // RGBA for RTV/UAV
     float      depth   = 1.0f;                   // depth for DSV
@@ -580,7 +594,7 @@ class ITexture;
 struct RenderingAttachment {
     ITexture*  texture    = nullptr;
     LoadOp     loadOp     = LoadOp::Clear;
-    ClearValue clearValue = { }; 
+    ClearValue clearValue = {};
 };
 
 struct RenderingDesc {
@@ -616,6 +630,7 @@ constexpr ObjectType DX12_PipelineState              = 0x00010008;
 constexpr ObjectType DX12_RootSignature              = 0x00010009;
 constexpr ObjectType DX12_DescriptorHeap             = 0x0001000a;
 constexpr ObjectType DX12_DescriptorSet              = 0x0001000b;
+constexpr ObjectType DX12_DescriptorSamplerHeap      = 0x0001000c;
 
 constexpr ObjectType VK_Device                   = 0x00020001;
 constexpr ObjectType VK_PhysicalDevice           = 0x00020002;

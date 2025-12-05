@@ -13,7 +13,8 @@ public:
     {
         CBV_SRV_UAV,
         RTV,
-        DSV
+        DSV,
+        Sampler
     };
 
     void init( ID3D12Device* device, Type type, uint numDescriptors, bool shaderVisible = false );
@@ -40,38 +41,51 @@ private:
     Type                         _type;
 };
 
+struct DescriptorHandleInfo {
+    D3D12_CPU_DESCRIPTOR_HANDLE startCPU;
+    D3D12_GPU_DESCRIPTOR_HANDLE startGPU;
+    uint                        handleSize;
+    ID3D12DescriptorHeap*       ownerHeap = nullptr;
+};
+
 class DX12DescriptorSet : public RefCounter<IDescriptorSet>
 {
 public:
-    DX12DescriptorSet( ID3D12Device*               device,
-                       ID3D12DescriptorHeap*       ownerHeap,
-                       D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle,
-                       D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle,
-                       uint                        descriptorSize );
+    DX12DescriptorSet( ID3D12Device*        device,
+                       DescriptorHandleInfo views,
+                       DescriptorHandleInfo samplers );
     ~DX12DescriptorSet() override;
 
     void attach( uint binding, ITexture* tex, ResourceState bindingState ) override;
     void attach( uint binding, IBuffer* buf, ResourceState bindingState ) override;
+    void attach( uint binding, ISampler* samp ) override;
 
     void               setDebugName( const std::string& name ) override;
     const std::string& getDebugName() const override;
     NativeObject       getNativeObject( ObjectType objectType ) override;
     std::string        toString() const override;
 
-    D3D12_GPU_DESCRIPTOR_HANDLE getGPUHandle() const { return _startGPU; }
-    ID3D12DescriptorHeap*       getOwnerHeap() const { return _ownerHeap; }
+    D3D12_GPU_DESCRIPTOR_HANDLE getViewGPUHandle() const { return _views.startGPU; }
+    ID3D12DescriptorHeap*       getViewOwnerHeap() const { return _views.ownerHeap; }
+    D3D12_GPU_DESCRIPTOR_HANDLE getSamplerGPUHandle() const { return _samplers.startGPU; }
+    ID3D12DescriptorHeap*       getSamplerOwnerHeap() const { return _samplers.ownerHeap; }
 
-    void reconfigure( D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle ) {
-        _startCPU = cpuHandle;
-        _startGPU = gpuHandle;
+    void reconfigure( D3D12_CPU_DESCRIPTOR_HANDLE cpuViewHandle,
+                      D3D12_GPU_DESCRIPTOR_HANDLE gpuViewHandle,
+                      D3D12_CPU_DESCRIPTOR_HANDLE cpuSamplerHandle,
+                      D3D12_GPU_DESCRIPTOR_HANDLE gpuSamplerHandle ) {
+        _views.startCPU    = cpuViewHandle;
+        _views.startGPU    = gpuViewHandle;
+        _samplers.startCPU = cpuSamplerHandle;
+        _samplers.startGPU = gpuSamplerHandle;
     }
 
 private:
-    ID3D12Device*               _device;
-    D3D12_CPU_DESCRIPTOR_HANDLE _startCPU;
-    D3D12_GPU_DESCRIPTOR_HANDLE _startGPU;
-    uint                        _handleSize;
-    ID3D12DescriptorHeap*       _ownerHeap = nullptr;
+    ID3D12Device* _device;
+    // Views
+    DescriptorHandleInfo _views = {};
+    // Samplers
+    DescriptorHandleInfo _samplers = {};
 };
 
 class DX12DescriptorAllocator : public RefCounter<IDescriptorAllocator>
@@ -93,10 +107,13 @@ private:
     ID3D12Device*           _device;
     DescriptorAllocatorDesc _desc;
 
-    DX12DescriptorHeap _heap;
+    DX12DescriptorHeap _viewHeap;
+    uint               _currentViewOffset = 0;
+    uint               _viewHandleSize    = 0;
 
-    uint _currentOffset = 0;
-    uint _handleSize    = 0;
+    DX12DescriptorHeap _samplerHeap;
+    uint               _currentSamplerOffset = 0;
+    uint               _samplerHandleSize    = 0;
 
     // Pooling
     std::vector<std::unique_ptr<DX12DescriptorSet>> _setPool;

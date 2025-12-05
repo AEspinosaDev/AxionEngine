@@ -40,6 +40,7 @@ DX12Device::DX12Device( const IDX12Device::Description& desc ) {
         _ctx.heapSRV.init( _ctx.device.Get(), DX12DescriptorHeap::Type::CBV_SRV_UAV, desc.shaderResourceViewHeapSize );
         _ctx.heapRTV.init( _ctx.device.Get(), DX12DescriptorHeap::Type::RTV, desc.renderTargetViewHeapSize );
         _ctx.heapDSV.init( _ctx.device.Get(), DX12DescriptorHeap::Type::DSV, desc.depthStencilViewHeapSize );
+        _ctx.heapSamplers.init( _ctx.device.Get(), DX12DescriptorHeap::Type::Sampler, desc.samplerHeapSize );
 
         _ctx.uploadContext.init( _ctx.device );
     }
@@ -95,6 +96,13 @@ BufferPtr RHI::DX12Device::createBuffer( const BufferDesc& desc, const void* ini
     BufferPtr   buff;
     buff.attach( raw );
     return buff;
+}
+
+SamplerPtr DX12Device::createSampler( const SamplerDesc& desc ) {
+    DX12Sampler* raw = new DX12Sampler( desc, _ctx );
+    SamplerPtr   sampler;
+    sampler.attach( raw );
+    return sampler;
 }
 
 PipelineLayoutPtr DX12Device::createPipelineLayout( const PipelineLayoutDesc& desc ) {

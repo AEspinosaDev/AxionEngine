@@ -60,3 +60,7 @@ set(FMT_TEST OFF CACHE BOOL "" FORCE)
 set(FMT_DOC OFF CACHE BOOL "" FORCE)           
 set(FMT_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/fmt)
+# ----------------------------------------------------------------------------
+# STB - IMAGE 
+# ----------------------------------------------------------------------------
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/stb_image)

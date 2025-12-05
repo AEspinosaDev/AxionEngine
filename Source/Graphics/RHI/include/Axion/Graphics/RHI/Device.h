@@ -24,6 +24,7 @@ public:
     virtual CommandListPtr         createCommandList( const CommandListDesc& desc )                            = 0;
     virtual TexturePtr             createTexture( const TextureDesc& desc, const void* initialData = nullptr ) = 0;
     virtual BufferPtr              createBuffer( const BufferDesc& desc, const void* initialData = nullptr )   = 0;
+    virtual SamplerPtr             createSampler( const SamplerDesc& desc )                                    = 0;
     virtual PipelineLayoutPtr      createPipelineLayout( const PipelineLayoutDesc& desc )                      = 0;
     virtual GraphicPipelinePtr     createGraphicPipeline( const GraphicPipelineDesc& desc )                    = 0;
     virtual ComputePipelinePtr     createComputePipeline( const ComputePipelineDesc& desc )                    = 0;

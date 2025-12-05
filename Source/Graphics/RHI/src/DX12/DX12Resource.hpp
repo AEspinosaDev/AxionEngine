@@ -79,8 +79,8 @@ public:
 
     void* map() override;
     void  unmap() override;
-private:
 
+private:
     void createViews( DX12Device::Context& ctx );
     void uploadInitialData( DX12Device::Context& ctx, const void* initialData );
 
@@ -96,6 +96,26 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE _uavHandle = {};
     D3D12_VERTEX_BUFFER_VIEW    _vbv       = {};
     D3D12_INDEX_BUFFER_VIEW     _ibv       = {};
+};
+
+class DX12Sampler : public RefCounter<ISampler>
+{
+public:
+    DX12Sampler( const SamplerDesc& desc, DX12Device::Context& ctx );
+    ~DX12Sampler() override;
+
+    const Description& getDescription() const override { return _desc; };
+    void               setDebugName( const std::string& name ) override;
+    const std::string& getDebugName() const override { return _desc.debugName; }
+    NativeObject       getNativeObject( ObjectType objectType ) override;
+    std::string        toString() const override;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE getSamplerHandle() const { return _samplerHandle; }
+
+private:
+    SamplerDesc _desc;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE _samplerHandle = {};
 };
 
 } // namespace Graphics::RHI

@@ -30,8 +30,11 @@ public:
         PushConstantDesc                  pushConstant;
         std::string                       debugName = "";
     };
-    virtual ~IPipelineLayout()                        = default;
-    virtual const Description& getDescription() const = 0;
+    virtual ~IPipelineLayout()                                         = default;
+    virtual const Description& getDescription() const                  = 0;
+    virtual uint               getViewCount( uint setIndex ) const    = 0;
+    virtual uint               getSamplerCount( uint setIndex ) const = 0;
+    virtual uint               getAccelCount( uint setIndex ) const    = 0;
 };
 
 typedef IPipelineLayout::Description PipelineLayoutDesc;
@@ -104,7 +107,7 @@ public:
         PrimitiveTopology topology    = PrimitiveTopology::TriangleList;
         uint              sampleCount = 1;
 
-        std::vector<Format> renderTargetFormats; 
+        std::vector<Format> renderTargetFormats;
         Format              depthStencilFormat = Format::UNKNOWN;
 
         BlendState        blendState;

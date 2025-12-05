@@ -155,10 +155,9 @@ void DX12Texture::uploadInitialData( DX12Device::Context& ctx, const void* initi
 
     size_t bufferSize = _desc.size.width * _desc.size.height * _desc.size.depth * getFormatBytes( _desc.format );
     // Calculate required footprint size
-    D3D12_RESOURCE_DESC texDesc = _resource->GetDesc();
-
-    UINT64                             totalBytes = 0;
+    D3D12_RESOURCE_DESC                texDesc = _resource->GetDesc();
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
+    UINT64                             totalBytes = 0;
     UINT                               numRows;
     UINT64                             rowSizeInBytes;
 
@@ -172,13 +171,12 @@ void DX12Texture::uploadInitialData( DX12Device::Context& ctx, const void* initi
         &rowSizeInBytes,
         &totalBytes );
 
-    // totalBytes now includes 256-byte row alignment requirement
-
     DX12Buffer staging(
         DX12Buffer::Description {
-            .size       = totalBytes, // ✅ Use padded size
+            .size       = totalBytes,
             .memoryType = MemoryUsage::CPUVisible,
-            .viewFlags  = BufferViewNone },
+            .viewFlags  = BufferViewNone,
+            .debugName  = _desc.debugName + " Staging" },
         ctx );
 
     // Copy initial data into padded upload memory
@@ -214,26 +212,9 @@ void DX12Texture::uploadInitialData( DX12Device::Context& ctx, const void* initi
         cmd->ResourceBarrier( 1, &barrierTex );
 
         // Copy buffer -> texture
-        D3D12_TEXTURE_COPY_LOCATION dstLoc {};
-        dstLoc.pResource            = _resource.Get();
-        dstLoc.Type                 = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-        dstLoc.SubresourceIndex     = 0;
-        D3D12_RESOURCE_DESC dstDesc = _resource->GetDesc();
-
-        D3D12_TEXTURE_COPY_LOCATION srcLoc {};
-        srcLoc.pResource = staging.getNativeObject( ObjectTypes::DX12_Resource );
-        srcLoc.Type      = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-        ctx.device->GetCopyableFootprints(
-            &dstDesc,
-            0,
-            1,
-            0,
-            &srcLoc.PlacedFootprint,
-            nullptr,
-            nullptr,
-            nullptr );
-
-        cmd->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
+        CD3DX12_TEXTURE_COPY_LOCATION dst( _resource.Get(), 0 );
+        CD3DX12_TEXTURE_COPY_LOCATION src( staging.getNativeObject( ObjectTypes::DX12_Resource ), footprint );
+        cmd->CopyTextureRegion( &dst, 0, 0, 0, &src, nullptr );
 
         // Transition texture back to first use
         CD3DX12_RESOURCE_BARRIER barrierBack = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -343,8 +324,7 @@ void DX12Buffer::unmap() {
     _resource->Unmap( 0, nullptr );
 }
 
-void DX12Buffer::copyData( const void* data, ulong size, ulong offset )
-{
+void DX12Buffer::copyData( const void* data, ulong size, ulong offset ) {
     AXION_LOG_ASSERT( offset + size <= _desc.size, Logger::Module::RHI, "Buffer [{}] overflow!", _desc.debugName );
     uchar* dstPtr = static_cast<uchar*>( this->map() );
     if ( dstPtr )
@@ -517,7 +497,53 @@ DX12Buffer::~DX12Buffer() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Buffer [{}]", _desc.debugName );
 }
 #pragma endregion
+#pragma region Sampler
 
+DX12Sampler::DX12Sampler( const SamplerDesc& desc, DX12Device::Context& ctx )
+    : _desc( desc ) {
+    AXION_LOG_INFO( Logger::Module::RHI, "DX12 Sampler Created [{}]", _desc.debugName );
+
+    _samplerHandle = ctx.heapSamplers.allocateCPU();
+
+    D3D12_SAMPLER_DESC dxDesc = {};
+    dxDesc.Filter   = DX12Translator::get( desc.minFilter, desc.magFilter, desc.mipFilter );
+    dxDesc.AddressU = DX12Translator::get( desc.addressU );
+    dxDesc.AddressV = DX12Translator::get( desc.addressV );
+    dxDesc.AddressW = DX12Translator::get( desc.addressW );
+    dxDesc.MipLODBias     = desc.mipLODBias;                       
+    dxDesc.MaxAnisotropy  = desc.maxAnisotropy;                    
+    dxDesc.ComparisonFunc = DX12Translator::get( desc.compareOp ); 
+    dxDesc.MinLOD = desc.minLOD;
+    dxDesc.MaxLOD = desc.maxLOD;
+
+    ctx.device->CreateSampler( &dxDesc, _samplerHandle );
+
+    setDebugName( desc.debugName );
+    AXION_LOG_INFO( Logger::Module::RHI, "DX12 Sampler Created [{}]", _desc.debugName );
+}
+
+DX12Sampler::~DX12Sampler() {
+    AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Sampler [{}]", _desc.debugName );
+}
+
+void DX12Sampler::setDebugName( const std::string& name ) {
+    _desc.debugName = name;
+}
+
+NativeObject DX12Sampler::getNativeObject( ObjectType objectType ) {
+    switch ( objectType )
+    {
+        default:
+            AXION_LOG_ERROR( Logger::Module::RHI, "DX12 Sampler | Wrong Object Type" );
+            return nullptr;
+    }
+}
+
+std::string DX12Sampler::toString() const {
+    return std::string();
+}
+
+#pragma endregion
 } // namespace Graphics::RHI
 
 AXION_NAMESPACE_END

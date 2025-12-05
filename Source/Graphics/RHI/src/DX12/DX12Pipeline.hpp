@@ -11,15 +11,23 @@ DEFINE_COM_PTR_FOR_TYPE( DX12PipelineLayout, DX12PipelineLayout )
 class DX12PipelineLayout final : public RefCounter<IPipelineLayout>
 {
 public:
-    
     DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc );
     ~DX12PipelineLayout() override;
 
     const Description& getDescription() const override { return _desc; }
+    uint               getViewCount( uint setIndex ) const override;
+    uint               getSamplerCount( uint setIndex ) const override;
+    uint               getAccelCount( uint setIndex ) const override;
     void               setDebugName( const std::string& name ) override;
     const std::string& getDebugName() const override { return _desc.debugName; }
     NativeObject       getNativeObject( ObjectType objectType ) override;
     std::string        toString() const override;
+
+    std::pair<int, int> getRootIndices( uint setIndex ) const {
+        if ( setIndex >= _rootIndexMap.size() )
+            return { -1, -1 };
+        return _rootIndexMap[setIndex];
+    }
 
 private:
     void                           buildRootSignature( const ComPtr<ID3D12Device2>& device );
@@ -27,6 +35,12 @@ private:
 
     PipelineLayoutDesc          _desc;
     ComPtr<ID3D12RootSignature> _rootSignature;
+
+    std::vector<uint> _viewCountPerSet;
+    std::vector<uint> _samplerCountPerSet;
+    std::vector<uint> _accelCountPerSet;
+
+    std::vector<std::pair<int, int>> _rootIndexMap;
 };
 
 DEFINE_COM_PTR_FOR_TYPE( DX12GraphicPipeline, DX12GraphicPipeline )
@@ -66,7 +80,7 @@ public:
     std::string        toString() const override;
 
 private:
-    void                           createPipelineState( const ComPtr<ID3D12Device2>& device );
+    void createPipelineState( const ComPtr<ID3D12Device2>& device );
 
     Description                 _desc;
     ComPtr<ID3D12PipelineState> _pso;

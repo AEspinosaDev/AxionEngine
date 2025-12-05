@@ -27,6 +27,7 @@ public:
 
     virtual void attach( uint binding, ITexture* tex, ResourceState bindingState ) = 0;
     virtual void attach( uint binding, IBuffer* buf, ResourceState bindingState )  = 0;
+    virtual void attach( uint binding, ISampler* samp )                            = 0;
 };
 
 DEFINE_COM_PTR_FOR_TYPE( IDescriptorAllocator, DescriptorAllocator )
@@ -37,6 +38,8 @@ class IDescriptorAllocator : public IResource
 public:
     struct Description {
         uint        numDescriptors = 256;
+        uint        numViews       = 256;
+        uint        numSamplers    = 64;
         std::string debugName;
     };
 

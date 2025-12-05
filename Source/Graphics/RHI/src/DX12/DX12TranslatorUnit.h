@@ -504,7 +504,7 @@ constexpr D3D12_DESCRIPTOR_RANGE_TYPE get( DescriptorType type ) noexcept {
 
         case DescriptorType::CombinedImageSampler:
             // Vulkan-only combined type — not valid in DX12
-            AXION_LOG_ASSERT( false, Logger::Module::RHI, "CombinedImageSampler not supported in DX12 (split SRV + SAMPLER)." );
+            AXION_LOG_ASSERT( false, Logger::Module::RHI, "CombinedImageSampler not supported anymore (split SRV + SAMPLER)." );
             return D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // fallback to SRV for debug builds
     }
 
@@ -537,6 +537,33 @@ constexpr D3D12_SHADER_VISIBILITY get( ShaderStage stages ) noexcept {
             return D3D12_SHADER_VISIBILITY_ALL;
     }
 }
+
+constexpr D3D12_TEXTURE_ADDRESS_MODE get( AddressMode mode ) noexcept {
+    switch ( mode )
+    {
+        case AddressMode::Repeat:
+            return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+        case AddressMode::Clamp:
+            return D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+        case AddressMode::Mirror:
+            return D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+        case AddressMode::Border:
+            return D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+        default:
+            return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    }
+}
+
+constexpr D3D12_FILTER get( Filter min, Filter mag, Filter mip ) noexcept {
+    if ( min == Filter::Linear && mag == Filter::Linear && mip == Filter::Linear )
+        return D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    if ( min == Filter::Nearest && mag == Filter::Nearest && mip == Filter::Nearest )
+        return D3D12_FILTER_MIN_MAG_MIP_POINT;
+
+    return D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+}
+
+
 
 // Full D3D12_PRIMITIVE_TOPOLOGY (needed when calling IASetPrimitiveTopology)
 constexpr D3D12_PRIMITIVE_TOPOLOGY getFullTopology( PrimitiveTopology topology ) noexcept {

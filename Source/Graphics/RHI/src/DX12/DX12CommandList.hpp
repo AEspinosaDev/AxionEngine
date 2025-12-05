@@ -57,8 +57,12 @@ private:
     uint            _currentFrame = 0;
     CommandListDesc _desc;
 
-    PipelineBindPoint     _bindPoint   = PipelineBindPoint::None;
-    ID3D12DescriptorHeap* _currentHeap = nullptr;
+    PipelineBindPoint _bindPoint = PipelineBindPoint::None;
+
+    ID3D12DescriptorHeap* _currentViewHeap    = nullptr;
+    ID3D12DescriptorHeap* _currentSamplerHeap = nullptr;
+    
+    IPipelineLayout*      _currentLayout      = nullptr;
 };
 
 } // namespace Graphics::RHI

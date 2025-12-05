@@ -1,7 +1,7 @@
 #include "Tonemappers.slang"
 
 Texture2D<float4> gInput : register(t0, space0); 
-RWTexture2D<float4> gOutput : register(u0, space1);
+RWTexture2D<float4> gOutput : register(u1, space0);
 
 
 [shader("compute")]

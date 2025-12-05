@@ -63,13 +63,13 @@ struct ToneMappingPass {
         auto* texOut = ctx.getTexture( data.outputLDR );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        auto* set1 = ctx.allocateSet( pso->getDescription().layout, 1 );
+        // auto* set1 = ctx.allocateSet( pso->getDescription().layout, 1 );
         set0->attach( 0, texIn, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attach( 0, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
+        set0->attach( 1, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
 
         ctx.cmd->bindComputePipeline( pso );
         ctx.cmd->bindDescriptorSet( 0, set0 );
-        ctx.cmd->bindDescriptorSet( 1, set1 );
+        // ctx.cmd->bindDescriptorSet( 1, set1 );
 
         ctx.cmd->dispatch( texIn->getDescription().size );
     }
