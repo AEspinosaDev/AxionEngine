@@ -610,6 +610,33 @@ struct RenderingDesc {
     Extent2D                         renderArea;
 };
 
+enum class AccelType
+{
+    BottomLevel, // BLAS: Geometry data (triangles, AABBs)
+    TopLevel     // TLAS: Instances of BLAS
+};
+
+enum class AccelBuildFlags : uchar
+{
+    None            = 0,
+    PreferFastTrace = 1 << 0, // Good for static geometry, slower build
+    PreferFastBuild = 1 << 1, // Good for dynamic geometry, faster build
+    AllowUpdate     = 1 << 2, // Allows refitting without full rebuild
+    MinimizeMemory  = 1 << 3
+};
+
+AXION_ENUM_CLASS_FLAG_OPERATORS( AccelBuildFlags )
+
+enum class AccelInstanceFlags : uchar
+{
+    None                = 0,
+    TriangleCullDisable = 0x1,
+    ForceOpaque         = 0x4,
+    ForceNonOpaque      = 0x8
+};
+
+AXION_ENUM_CLASS_FLAG_OPERATORS( AccelInstanceFlags )
+
 typedef uint ObjectType;
 
 // ObjectTypes namespace contains identifiers for various object types.

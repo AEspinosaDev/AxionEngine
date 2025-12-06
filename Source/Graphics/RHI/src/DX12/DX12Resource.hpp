@@ -98,6 +98,30 @@ private:
     D3D12_INDEX_BUFFER_VIEW     _ibv       = {};
 };
 
+DEFINE_COM_PTR_FOR_TYPE( DX12Accel, DX12Accel )
+
+class DX12Accel : public RefCounter<IAccel>
+{
+public:
+    DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx );
+    ~DX12Accel() override;
+
+    const Description& getDescription() const override { return _desc; };
+    void               setDebugName( const std::string& name ) override;
+    const std::string& getDebugName() const override { return _desc.debugName; }
+    NativeObject       getNativeObject( ObjectType objectType ) override;
+    std::string        toString() const override;
+
+    AccelType getType() const override;
+    ulong     getDeviceAddress() const override;
+
+private:
+    AccelDesc _desc;
+
+    std::unique_ptr<DX12Buffer> _asBuffer      = nullptr;
+    ulong                       _deviceAddress = 0;
+};
+
 class DX12Sampler : public RefCounter<ISampler>
 {
 public:

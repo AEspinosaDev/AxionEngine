@@ -155,7 +155,6 @@ int main( /*int argc, char* argv[]*/ ) {
         // Main Loop
         //-------------------------------------
 
-        static auto startTime = std::chrono::high_resolution_clock::now();
         while ( !wnd->shouldClose() )
         {
             static uint64_t                           frameCounter   = 0;

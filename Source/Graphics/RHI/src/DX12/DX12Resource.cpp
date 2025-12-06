@@ -564,6 +564,67 @@ std::string DX12Sampler::toString() const {
 }
 
 #pragma endregion
+#pragma region Accel
+
+DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx )
+    : _desc( desc ) {
+
+    // auto prebuildInfo = GetPrebuildInfo( desc );
+
+    // DX12Buffer::Description asBufferDesc {
+    //     .size       = prebuildInfo.ResultSize,
+    //     .memoryType = MemoryUsage::CPUVisible,
+    //     .viewFlags  = BufferViewNone,
+    //     .debugName  = _desc.debugName + " Buffer" };
+    // _asBuffer = NEW_U( DX12Buffer )( asBufferDesc, ctx );
+
+    // // _asBuffer = device->CreateBuffer( prebuildInfo.ResultSize, HeapType::Default, State::RaytracingAccel );
+
+    // // Opción B: Pedir a un RingBuffer del Device (más pro)
+    // IResource* tempScratch = device->CreateTemporaryBuffer( prebuildInfo.ScratchSize );
+
+    // // 4. Obtener el CommandList de "inicialización" que mencionaste
+    // auto cmdList = device->GetInitCommandList();
+
+    // // 5. Grabar la construcción
+    // // Aquí conviertes tus AccelGeometryDesc a D3D12_RAYTRACING_GEOMETRY_DESC
+    // BuildAS( cmdList, this->asBuffer, tempScratch, desc );
+
+    // // 6. Barrera importante:
+    // // Aseguramos que la construcción termine antes de usarla.
+    // // Como es el cmdList de init, suele ejecutarse antes del frame, así que perfecto.
+    // cmdList->UAVBarrier( this->asBuffer );
+
+    AXION_LOG_INFO( Logger::Module::RHI, "DX12 Acceleration Structure Created [{}]", _desc.debugName );
+}
+
+DX12Accel::~DX12Accel() {
+    AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Acceleration Structure [{}]", _desc.debugName );
+}
+void DX12Accel::setDebugName( const std::string& name ) {
+    _desc.debugName = name;
+    _asBuffer->setDebugName( name + " Buffer" );
+}
+NativeObject DX12Accel::getNativeObject( ObjectType objectType ) {
+    switch ( objectType )
+    {
+        case ObjectTypes::DX12_Resource:
+            return _asBuffer->getNativeObject( ObjectTypes::DX12_Resource );
+        default:
+            AXION_LOG_ERROR( Logger::Module::RHI, "DX12 Acceleration Structure | Wrong Object Type" );
+            return nullptr;
+    }
+}
+std::string DX12Accel::toString() const {
+    return std::string();
+}
+AccelType DX12Accel::getType() const {
+    return _desc.type;
+}
+ulong DX12Accel::getDeviceAddress() const {
+    return _deviceAddress;
+}
+#pragma endregion
 } // namespace Graphics::RHI
 
 AXION_NAMESPACE_END

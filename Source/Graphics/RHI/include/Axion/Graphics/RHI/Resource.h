@@ -5,6 +5,8 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
+#pragma region Texture
+
 DEFINE_COM_PTR_FOR_TYPE( ITexture, Texture )
 
 // Texture are always GPU. If you waNT TO wark with CPU ones, use a buffer.
@@ -20,7 +22,7 @@ public:
         uint             arraySize   = 1;
         std::string      debugName   = "";
         TextureViewFlags viewFlags   = TextureViewShaderResource;
-        ClearValue       clearValue  = { .color = { 0.0f, 0.0f, 0.0f, 1.0f }, .depth = { 1.0f } }; //Only if RenderTarget or DepthStencil
+        ClearValue       clearValue  = { .color = { 0.0f, 0.0f, 0.0f, 1.0f }, .depth = { 1.0f } }; // Only if RenderTarget or DepthStencil
 
         bool operator==( const Description& other ) const {
             return size == other.size &&
@@ -42,6 +44,9 @@ public:
 };
 
 typedef ITexture::Description TextureDesc;
+
+#pragma endregion
+#pragma region Buffer
 
 DEFINE_COM_PTR_FOR_TYPE( IBuffer, Buffer )
 
@@ -93,13 +98,92 @@ protected:
 
 using BufferDesc = IBuffer::Description;
 
+#pragma endregion
+#pragma region Accel
+
 DEFINE_COM_PTR_FOR_TYPE( IAccel, Accel )
+
+// Description for a single geometry piece (Mesh) inside a BLAS
+struct AccelGeometryDesc {
+    ulong  vertexBufferAddress;
+    ulong  indexBufferAddress; //(optional)
+    uint   vertexCount;
+    uint   indexCount;
+    uint   vertexStride; // Stride in bytes
+    Format vertexFormat;
+    bool   isOpaque; // Optimization flag: no any-hit shader needed
+
+    bool operator==( const AccelGeometryDesc& other ) const {
+        return vertexBufferAddress == other.vertexBufferAddress &&
+               indexBufferAddress == other.indexBufferAddress &&
+               vertexCount == other.vertexCount &&
+               indexCount == other.indexCount &&
+               vertexStride == other.vertexStride &&
+               vertexFormat == other.vertexFormat &&
+               isOpaque == other.isOpaque;
+    }
+    bool operator!=( const AccelGeometryDesc& other ) const {
+        return !operator==( other );
+    }
+};
+
+// Description for an instance inside a TLAS
+struct AccelInstanceDesc {
+    float              transform[3][4];     // 3x4 Row-major matrix (standard for DXR/Vulkan)
+    uint               instanceID;          // Custom ID to access in shader (gl_InstanceCustomIndex)
+    uint               instanceMask = 0xFF; // Visibility mask (0xFF usually)
+    uint               hitGroupIndex;       // Offset in the Shader Binding Table
+    AccelInstanceFlags flags;               // Instance specific flags
+    ulong              blasDeviceAddress;   // The address of the BLAS this instance represents
+
+    bool operator==( const AccelInstanceDesc& other ) const {
+        return instanceID == other.instanceID &&
+               instanceMask == other.instanceMask &&
+               hitGroupIndex == other.hitGroupIndex &&
+               flags == other.flags &&
+               blasDeviceAddress == other.blasDeviceAddress;
+    }
+    bool operator!=( const AccelInstanceDesc& other ) const {
+        return !operator==( other );
+    }
+};
 
 class IAccel : public IResource
 {
 public:
+    struct Description {
+        AccelType                      type;
+        AccelBuildFlags                flags;
+        std::vector<AccelGeometryDesc> geometries; // Only valid if type == AccelType::BottomLevel
+        std::vector<AccelInstanceDesc> instances;  // Only valid if type == AccelType::TopLevel
+        std::string                    debugName = nullptr;
+
+        bool operator==( const Description& other ) const {
+            return type == other.type &&
+                   flags == other.flags &&
+                   geometries == other.geometries &&
+                   instances == other.instances &&
+                   debugName == other.debugName;
+        }
+        bool operator!=( const Description& other ) const {
+            return !operator==( other );
+        }
+    };
+
     virtual ~IAccel() = default;
+
+    virtual const Description& getDescription() const   = 0;
+    virtual AccelType          getType() const          = 0;
+    virtual ulong              getDeviceAddress() const = 0;
+
+    // 'scratchBuffer' might be needed ??
+    // virtual void build( void* commandList ) = 0;
 };
+
+using AccelDesc = IAccel::Description;
+
+#pragma endregion
+#pragma region Sampler
 
 DEFINE_COM_PTR_FOR_TYPE( ISampler, Sampler )
 

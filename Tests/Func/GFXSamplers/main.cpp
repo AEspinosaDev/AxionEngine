@@ -235,24 +235,9 @@ int main( /*int argc, char* argv[]*/ ) {
             camBuffers[i] = rnd->resources().buffer( "CamUniformBuffer_" + std::to_string( i ) ).size( sizeof( Camera::Payload ) ).asCBO().onCPU().create();
         }
 
-        // CAMERA AND INPUT
+        // CAMERA
 
         Camera cam {};
-
-        auto evnt = wnd->onKey().subscribe( [&cam]( const Event::KeyEvent& e ) {
-            if ( e.keyCode == Event::KeyCode::W && e.pressed )
-                cam.camPos.z += 0.01f;
-            if ( e.keyCode == Event::KeyCode::S && e.pressed )
-                cam.camPos.z -= 0.01f;
-            if ( e.keyCode == Event::KeyCode::D && e.pressed )
-                cam.camPos.x += 0.01f;
-            if ( e.keyCode == Event::KeyCode::A && e.pressed )
-                cam.camPos.x -= 0.01f;
-            if ( e.keyCode == Event::KeyCode::Q && e.pressed )
-                cam.camPos.y += 0.01f;
-            if ( e.keyCode == Event::KeyCode::E && e.pressed )
-                cam.camPos.y -= 0.01f;
-        } );
 
         //-------------------------------------
         // Main Loop
