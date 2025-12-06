@@ -64,7 +64,7 @@ struct ForwardPass {
         Graphics::RHI::RenderingDesc info;
 
         info.renderArea = targetTex->getDescription().size.to2D();
-        info.colorAttachments.push_back( { .texture    = targetTex } );
+        info.colorAttachments.push_back( { .texture = targetTex } );
         info.depthStencilAttachment = { .texture = depthTex };
 
         ctx.cmd->beginRendering( info );
@@ -163,18 +163,36 @@ int main( /*int argc, char* argv[]*/ ) {
                                                                          .autoSync      = true } );
 
         //-------------------------------------
-        // Dedclaring Shaders & Pipelines
+        // Declaring Shaders & Pipelines
         //-------------------------------------
 
-        rnd->shaders().shader( "DrawShader" ).asDXIL().path( AXION_SHADER_DIR "/Slang/Testing/Samplers.slang" ).vs( "vsMain" ).ps( "psMain" ).load();
-        rnd->shaders().shader( "TonemappingShader" ).asDXIL().path( AXION_SHADER_DIR "/Slang/Postpro/Tonemapping.slang" ).include( AXION_SHADER_DIR "/Slang/Common" ).cs( "computeMain" ).load();
+        rnd->shaders()
+            .shader( "DrawShader" )
+            .asDXIL()
+            .path( AXION_SHADER_DIR "/Slang/Testing/Samplers.slang" )
+            .vs( "vsMain" )
+            .ps( "psMain" )
+            .load();
+
+        rnd->shaders()
+            .shader( "TonemappingShader" )
+            .asDXIL()
+            .path( AXION_SHADER_DIR "/Slang/Postpro/Tonemapping.slang" )
+            .include( AXION_SHADER_DIR "/Slang/Common" )
+            .cs( "computeMain" )
+            .load();
+
         rnd->shaders().compileAllShaders();
 
         ForwardPass fwPass {};
-        fwPass.pipeline = rnd->pipelines().graphic( "FwPipeline" ).shader( "DrawShader" ).addRenderTarget( Axion::Graphics::Format::RGBA16_FLOAT ) // HDR Format
-                              .setDepthFormat( Graphics::Format::D32 )                                                                             // Depth Format
-                              .cullNone()                                                                                                          // Enable culling later if needed
+        fwPass.pipeline = rnd->pipelines()
+                              .graphic( "FwPipeline" )
+                              .shader( "DrawShader" )
+                              .addRenderTarget( Axion::Graphics::Format::RGBA16_FLOAT ) // HDR Format
+                              .setDepthFormat( Graphics::Format::D32 )                  // Depth Format
+                              .cullNone()                                               // Enable culling later if needed
                               .create();
+
         ToneMappingPass tmPass {};
         tmPass.pipeline = rnd->pipelines().compute( "TmPipeline" ).shader( "TonemappingShader" ).create();
 
@@ -186,12 +204,29 @@ int main( /*int argc, char* argv[]*/ ) {
 
         // TEXTURE
         auto imageData          = Axion::Helpers::loadImage( SAMPLER_TEST_DIR "Axion.png" );
-        fwPass.cubeData.texture = rnd->resources().texture( "CubeTexture" ).format( Axion::Graphics::Format::RGBA8_UNORM ).extent( imageData.width, imageData.height, 1 ).withData( imageData.getData() ).create();
+        fwPass.cubeData.texture = rnd->resources()
+                                      .texture( "CubeTexture" )
+                                      .format( Axion::Graphics::Format::RGBA8_UNORM )
+                                      .extent( imageData.width, imageData.height, 1 )
+                                      .withData( imageData.getData() )
+                                      .create();
         fwPass.cubeData.sampler = rnd->resources().sampler( "LinearSampler" ).create();
 
         // GEOMETRY
-        fwPass.cubeData.vbo = rnd->resources().buffer( "VertexBuffer" ).asVBO().withData( fwPass.cubeData.vertices.data() ).stride( sizeof( Vertex ) ).size( fwPass.cubeData.vertices.size() * sizeof( Vertex ) ).create();
-        fwPass.cubeData.ibo = rnd->resources().buffer( "IndexBuffer" ).asIBO().withData( fwPass.cubeData.indices.data() ).size( fwPass.cubeData.indices.size() * sizeof( uint ) ).create();
+        fwPass.cubeData.vbo = rnd->resources()
+                                  .buffer( "VertexBuffer" )
+                                  .asVBO()
+                                  .withData( fwPass.cubeData.vertices.data() )
+                                  .stride( sizeof( Vertex ) )
+                                  .size( fwPass.cubeData.vertices.size() * sizeof( Vertex ) )
+                                  .create();
+
+        fwPass.cubeData.ibo = rnd->resources()
+                                  .buffer( "IndexBuffer" )
+                                  .asIBO()
+                                  .withData( fwPass.cubeData.indices.data() )
+                                  .size( fwPass.cubeData.indices.size() * sizeof( uint ) )
+                                  .create();
 
         // UNIFORM CONSTANT BUFFER
         std::vector<Graphics::BufferHandle> camBuffers( FRAMES_IN_FLIGHT );
@@ -253,8 +288,8 @@ int main( /*int argc, char* argv[]*/ ) {
 
             float aspect = (float)wnd->getSettings().size.width / (float)wnd->getSettings().size.height;
             auto  proj   = Axion::Math::perspective( Math::radians( cam.fov ), aspect, 0.01f, 10.0f );
-            
-            auto  view   = Axion::Math::lookAt( cam.camPos, { 0, 0, 0 }, { 0, 1, 0 } );
+
+            auto view = Axion::Math::lookAt( cam.camPos, { 0, 0, 0 }, { 0, 1, 0 } );
 
             float time  = std::chrono::duration<float>( t1 - startTime ).count();
             auto  model = Axion::Math::identity();
@@ -263,7 +298,7 @@ int main( /*int argc, char* argv[]*/ ) {
 
             Camera::Payload camData;
             camData.viewModelProj = proj * view * model;
-            camData.viewModelProj = Axion::Math::transpose(   camData.viewModelProj );
+            camData.viewModelProj = Axion::Math::transpose( camData.viewModelProj );
 
             auto  frameIndex = rnd->getCurrentFrameIndex();
             auto* cbRaw      = rnd->resources().getBuffer( camBuffers[frameIndex] );

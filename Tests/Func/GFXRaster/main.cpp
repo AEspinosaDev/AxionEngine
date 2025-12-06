@@ -1,13 +1,12 @@
 #pragma once
 #include "Axion/Common/Defines.h"
-#include "Axion/Graphics/Platforms/GLFW.h"
 #include "Axion/Graphics/Platforms/Win32.h"
 #include "Axion/Graphics/Renderer.h"
 
 USING_AXION_NAMESPACE
 
 struct Camera {
-    Math::Vec3 camPos = { 0.0f, 0.0f, -2.0f };
+    Math::Vec3 camPos = { 0.0f, 0.0f, -1.5f };
     float      fov    = 60.0f;
 
     struct Payload {
@@ -40,7 +39,7 @@ struct TrianglePass {
 
         Graphics::RHI::RenderingDesc info;
         info.renderArea = targetTex->getDescription().size.to2D();
-        info.colorAttachments.push_back( { .texture    = targetTex } );
+        info.colorAttachments.push_back( { .texture = targetTex } );
 
         ctx.cmd->beginRendering( info );
 
@@ -87,10 +86,16 @@ int main( /*int argc, char* argv[]*/ ) {
         rnd->shaders().compileAllShaders();
 
         TrianglePass rpass;
-        rpass.pipeline = rnd->pipelines().graphic( "RasterPipeline" ).shader( "DrawShader" ).addRenderTarget( rnd->getSettings().backbufferFormat ).cullNone().disableDepth().create();
+        rpass.pipeline = rnd->pipelines()
+                             .graphic( "RasterPipeline" )
+                             .shader( "DrawShader" )
+                             .addRenderTarget( rnd->getSettings().backbufferFormat )
+                             .cullNone()
+                             .disableDepth()
+                             .create();
 
         //-------------------------------------
-        // Dedclaring Static Resources
+        // Declaring Static Resources
         //-------------------------------------
 
         // GEOMETRY
@@ -105,12 +110,19 @@ int main( /*int argc, char* argv[]*/ ) {
             { -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f } };
         std::vector<uint> indices = { 0, 1, 2 };
 
-        auto vboHandle = rnd->resources().buffer( "VertexBuffer" ).asVBO().withData( vertices.data() ).stride( sizeof( Vertex ) ).size( vertices.size() * sizeof( Vertex ) ).create();
-        auto iboHandle = rnd->resources().buffer( "IndexBuffer" ).asIBO().withData( indices.data() ).size( indices.size() * sizeof( uint ) ).create();
-        rpass.vbo      = vboHandle;
-        rpass.ibo      = iboHandle;
+        rpass.vbo = rnd->resources()
+                        .buffer( "VertexBuffer" )
+                        .asVBO()
+                        .withData( vertices.data() )
+                        .stride( sizeof( Vertex ) )
+                        .size( vertices.size() * sizeof( Vertex ) )
+                        .create();
 
+        rpass.ibo = rnd->resources().buffer( "IndexBuffer" ).asIBO().withData( indices.data() ).size( indices.size() * sizeof( uint ) ).create();
+
+        //-------------------------------------
         // UNIFORM CONSTANT BUFFER
+        //-------------------------------------
 
         std::vector<Graphics::BufferHandle> camBuffers( FRAMES_IN_FLIGHT );
         for ( int i = 0; i < FRAMES_IN_FLIGHT; ++i )
@@ -118,7 +130,9 @@ int main( /*int argc, char* argv[]*/ ) {
             camBuffers[i] = rnd->resources().buffer( "CamUniformBuffer_" + std::to_string( i ) ).size( sizeof( Camera::Payload ) ).asCBO().onCPU().create();
         }
 
+        //-------------------------------------
         // CAMERA AND INPUT
+        //-------------------------------------
 
         Camera cam {};
 
@@ -169,24 +183,28 @@ int main( /*int argc, char* argv[]*/ ) {
 
             wnd->processMessages();
 
+            // Process Uniforms
+
             float aspect = (float)wnd->getSettings().size.width / (float)wnd->getSettings().size.height;
             auto  proj   = Axion::Math::perspective( Math::radians( cam.fov ), aspect, 0.01f, 10.0f );
             auto  view   = Axion::Math::lookAt( cam.camPos, { 0, 0, 0 }, { 0, 1, 0 } );
 
             Camera::Payload camData;
             camData.viewProj = proj * view;
+            camData.viewProj = Axion::Math::transpose( camData.viewProj );
 
             auto  frameIndex = rnd->getCurrentFrameIndex();
             auto* cbRaw      = rnd->resources().getBuffer( camBuffers[frameIndex] );
             cbRaw->copyData( camData );
 
+            // Call render func and feed it with a lambda building the RenderGraph
             rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
-                using namespace Axion::Graphics;
 
                 rpass.output       = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
                 rpass.cameraBuffer = camBuffers[frameIndex];
 
                 builder.addPass<TrianglePass>( "TrianglePass", rpass );
+
             } );
         };
 

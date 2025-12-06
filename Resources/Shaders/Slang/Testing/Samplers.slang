@@ -31,7 +31,7 @@ VSOutput vsMain(VSInput input) {
 [shader("fragment")]
 float4 psMain(VSOutput input) : SV_Target {
 
-    float4 color = gTexture.Sample(gSampler, input.uv);
-    return color;
-    // return float4( input.uv.x, input.uv.y, 0.0, 1.0 );
+    float4 color = gTexture.Sample( gSampler, input.uv );
+    float  gamma = 2.2;
+    return pow(color, gamma);
 }
