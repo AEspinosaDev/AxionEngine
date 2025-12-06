@@ -6,9 +6,14 @@
 
 [Documentation](https://aespinosadev.github.io/AxionEngine/) | [Features](#key-features-) | [Building](#building-)
 
-</div>
 
 <br>
+
+> 🚀 **Latest Update:** GFX Module is now `Production Ready` (excluding RTX).
+
+<br>
+
+</div>
 
 ## Engine Structure 🗃️
 
@@ -18,6 +23,8 @@ Axion is built with a modular design philosophy:
 - **Graphics Module:** High-level rendering abstraction (includes the **RHI** submodule).
 - **Core Module:** Scene management and high-level logic.
 - **Editor App:** The sandbox environment.
+
+You can use the Axion Editor as a full Render Engine, or simply take specific modules to build your own engine on top of them.
 
 ## Key Features ✨
 
@@ -64,6 +71,220 @@ Axion is built with a modular design philosophy:
    ```
 
 ## Usage Example 🚀
+
+### Raster Pipeline
+
+This example demonstrates how to set up a complete Raster Pipeline that generates the typical triangle.
+
+Notice how Resource Barriers, Descriptor Sets, and Layouts are handled implicitly by the engine's RenderGraph and Reflection systems.
+
+In less than 200 lines of code you have a complete rasterization framework built on top of DX12/Vulkan, Uniform Buffers and Geometry running.
+
+ ```cpp
+#pragma once
+#include "Axion/Common/Defines.h"
+#include "Axion/Graphics/Platforms/Win32.h"
+#include "Axion/Graphics/Renderer.h"
+
+USING_AXION_NAMESPACE
+
+struct Camera {
+    Math::Vec3 camPos = { 0.0f, 0.0f, -1.5f };
+    float      fov    = 60.0f;
+
+    struct Payload {
+        Math::Mat4 viewProj;
+    };
+};
+
+struct TrianglePass {
+    Graphics::PipelineHandle   pipeline;
+    Graphics::BufferHandle     vbo;
+    Graphics::BufferHandle     ibo;
+    Graphics::RGResourceHandle output; // Backbuffer
+
+    Graphics::BufferHandle cameraBuffer; // Camera Uniform Buffer
+
+    struct Data {
+        Graphics::RGResourceHandle target;
+    };
+
+    void setup( Graphics::RenderPassBuilder& pb, Data& data ) {
+        data.target = pb.write( output, Graphics::RHI::ResourceState::RenderTarget );
+    }
+
+    void execute( const Data& data, Graphics::RenderPassContext& ctx ) {
+        auto* pso       = ctx.pipelines.getGraphicPipeline( pipeline );
+        auto* targetTex = ctx.getTexture( data.target );
+        auto* vb        = ctx.resources.getBuffer( vbo );
+        auto* ib        = ctx.resources.getBuffer( ibo );
+        auto* ubo       = ctx.resources.getBuffer( cameraBuffer );
+
+        Graphics::RHI::RenderingDesc info;
+        info.renderArea = targetTex->getDescription().size.to2D();
+        info.colorAttachments.push_back( { .texture = targetTex } );
+
+        ctx.cmd->beginRendering( info );
+
+        ctx.cmd->bindGraphicPipeline( pso );
+
+        auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
+        set0->attach( 0, ubo, Graphics::RHI::ResourceState::ConstantBuffer );
+
+        ctx.cmd->bindDescriptorSet( 0, set0 );
+
+        ctx.cmd->bindVertexBuffer( 0, vb );
+        ctx.cmd->bindIndexBuffer( ib );
+        ctx.cmd->drawIndexed( 3 );
+
+        ctx.cmd->endRendering();
+
+        ctx.cmd->barrier( targetTex, Graphics::RHI::ResourceState::Present );
+    }
+};
+
+int main( /*int argc, char* argv[]*/ ) {
+
+    try
+    {
+#ifdef AXION_DEBUG
+        Axion::Logger::init( Logger::Level::Info, "Engine.log" );
+#endif
+
+        auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX RASTER TEST" } );
+
+        auto       bufferingType    = Graphics::BufferingType::Double;
+        const uint FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
+        auto       rnd              = Axion::Graphics::createRenderer( wnd,
+                                                                       { .gfxApi        = Graphics::API::DirectX12,
+                                                                         .bufferingType = bufferingType,
+                                                                         .presentMode   = Graphics::PresentMode::Immediate,
+                                                                         .autoSync      = true } );
+
+        //-------------------------------------
+        // Dedclaring Shaders & Pipelines
+        //-------------------------------------
+
+        rnd->shaders().shader( "DrawShader" ).asDXIL().path( AXION_SHADER_DIR "/Slang/Testing/Raster.slang" ).vs( "vsMain" ).ps( "psMain" ).load();
+        rnd->shaders().compileAllShaders();
+
+        TrianglePass rpass;
+        rpass.pipeline = rnd->pipelines()
+                             .graphic( "RasterPipeline" )
+                             .shader( "DrawShader" )
+                             .addRenderTarget( rnd->getSettings().backbufferFormat )
+                             .cullNone()
+                             .disableDepth()
+                             .create();
+
+        //-------------------------------------
+        // Declaring Static Resources
+        //-------------------------------------
+
+        // GEOMETRY
+
+        struct Vertex {
+            float x, y, z;
+            float r, g, b;
+        };
+        std::vector<Vertex> vertices = {
+            { 0.0f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f },
+            { 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f },
+            { -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f } };
+        std::vector<uint> indices = { 0, 1, 2 };
+
+        rpass.vbo = rnd->resources()
+                        .buffer( "VertexBuffer" )
+                        .asVBO()
+                        .withData( vertices.data() )
+                        .stride( sizeof( Vertex ) )
+                        .size( vertices.size() * sizeof( Vertex ) )
+                        .create();
+
+        rpass.ibo = rnd->resources().buffer( "IndexBuffer" ).asIBO().withData( indices.data() ).size( indices.size() * sizeof( uint ) ).create();
+
+        //-------------------------------------
+        // UNIFORM CONSTANT BUFFER
+        //-------------------------------------
+
+        std::vector<Graphics::BufferHandle> camBuffers( FRAMES_IN_FLIGHT );
+        for ( int i = 0; i < FRAMES_IN_FLIGHT; ++i )
+        {
+            camBuffers[i] = rnd->resources().buffer( "CamUniformBuffer_" + std::to_string( i ) ).size( sizeof( Camera::Payload ) ).asCBO().onCPU().create();
+        }
+
+        //-------------------------------------
+        // CAMERA AND INPUT
+        //-------------------------------------
+
+        Camera cam {};
+
+        auto evnt = wnd->onKey().subscribe( [&cam]( const Event::KeyEvent& e ) {
+            if ( e.keyCode == Event::KeyCode::W && e.pressed )
+                cam.camPos.z += 0.01f;
+            if ( e.keyCode == Event::KeyCode::S && e.pressed )
+                cam.camPos.z -= 0.01f;
+            if ( e.keyCode == Event::KeyCode::D && e.pressed )
+                cam.camPos.x += 0.01f;
+            if ( e.keyCode == Event::KeyCode::A && e.pressed )
+                cam.camPos.x -= 0.01f;
+            if ( e.keyCode == Event::KeyCode::Q && e.pressed )
+                cam.camPos.y += 0.01f;
+            if ( e.keyCode == Event::KeyCode::E && e.pressed )
+                cam.camPos.y -= 0.01f;
+        } );
+
+        //-------------------------------------
+        // Main Loop
+        //-------------------------------------
+
+        static auto startTime = std::chrono::high_resolution_clock::now();
+        while ( !wnd->shouldClose() )
+        {
+        
+            wnd->processMessages();
+
+            // Process Uniforms
+
+            float aspect = (float)wnd->getSettings().size.width / (float)wnd->getSettings().size.height;
+            auto  proj   = Axion::Math::perspective( Math::radians( cam.fov ), aspect, 0.01f, 10.0f );
+            auto  view   = Axion::Math::lookAt( cam.camPos, { 0, 0, 0 }, { 0, 1, 0 } );
+
+            Camera::Payload camData;
+            camData.viewProj = proj * view;
+            camData.viewProj = Axion::Math::transpose( camData.viewProj );
+
+            auto  frameIndex = rnd->getCurrentFrameIndex();
+            auto* cbRaw      = rnd->resources().getBuffer( camBuffers[frameIndex] );
+            cbRaw->copyData( camData );
+
+            // Call render func and feed it with a lambda building the RenderGraph
+            rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
+
+                rpass.output       = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
+                rpass.cameraBuffer = camBuffers[frameIndex];
+
+                builder.addPass<TrianglePass>( "TrianglePass", rpass );
+
+            } );
+        };
+
+    } catch ( const std::exception& e )
+    {
+        return EXIT_FAILURE;
+    }
+#ifdef AXION_DEBUG
+    Axion::Logger::shutdown();
+#endif
+
+    return EXIT_SUCCESS;
+}
+
+ ```
+
+<div align="center"> <img src="https://github.com/user-attachments/assets/f43e7b55-b4a9-46df-899d-413e33621a5d" width="600" alt="Axion Engine Raster Output"> <p><i>Raster Shader output running on DX12 backend.</i></p> </div>
+
+### Compute Pipeline
 
 This example demonstrates how to set up a complete Compute Pipeline that generates an HDR image, applies Tone Mapping, and blits the result to the Backbuffer.
 
@@ -267,3 +488,4 @@ int main() {
 
 
    <div align="center"> <img src="https://github.com/user-attachments/assets/d1af24cf-0474-418e-8d8c-f15346d6d697" width="600" alt="Axion Engine Compute Output"> <p><i>Compute Shader output with dynamic tone mapping running on DX12 backend.</i></p> </div>
+
