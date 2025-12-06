@@ -27,7 +27,7 @@ Axion is built with a modular design philosophy:
 - **Core Module:** Scene management and high-level logic.
 - **Editor App:** The sandbox environment.
 
-You can use the Axion Editor as a full Render Engine, or simply take specific modules to build your own engine on top of them.
+`You can use the Axion Editor as a full Render Engine, or simply take specific modules to build your own engine on top of them.`
 
 ## Key Features ✨
 
@@ -491,5 +491,6 @@ int main() {
 
 
    <div align="center"> <img src="https://github.com/user-attachments/assets/d1af24cf-0474-418e-8d8c-f15346d6d697" width="600" alt="Axion Engine Compute Output"> <p><i>Compute Shader output with dynamic tone mapping running on DX12 backend.</i></p> </div>
+
 
 
