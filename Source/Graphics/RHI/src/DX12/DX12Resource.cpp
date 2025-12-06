@@ -43,12 +43,32 @@ DX12Texture::DX12Texture( const TextureDesc& desc, DX12Device::Context& ctx, con
     ResourceState           initialState = DX12Translator::getInitialState( desc.viewFlags );
     CD3DX12_HEAP_PROPERTIES heapProps    = CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_DEFAULT );
 
+    // Clearing
+    D3D12_CLEAR_VALUE  clearVal  = {};
+    D3D12_CLEAR_VALUE* pClearVal = nullptr;
+
+    bool canHaveClearValue = ( dx12Desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET ) ||
+                             ( dx12Desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL );
+    if ( canHaveClearValue )
+    {
+        clearVal.Format = dx12Desc.Format;
+        if ( desc.viewFlags & TextureViewDepthStencil )
+        {
+            clearVal.DepthStencil.Depth   = desc.clearValue.depth;
+            clearVal.DepthStencil.Stencil = desc.clearValue.stencil;
+        } else
+        {
+            memcpy( clearVal.Color, &desc.clearValue.color, sizeof( float ) * 4 );
+        }
+        pClearVal = &clearVal;
+    }
+
     DX_CHECK( ctx.device->CreateCommittedResource(
         &heapProps,
         D3D12_HEAP_FLAG_NONE,
         &dx12Desc,
         DX12Translator::get( initialState ),
-        nullptr,
+        pClearVal,
         IID_PPV_ARGS( &_resource ) ) );
 
     _stateTracker.setState( initialState );
@@ -506,15 +526,15 @@ DX12Sampler::DX12Sampler( const SamplerDesc& desc, DX12Device::Context& ctx )
     _samplerHandle = ctx.heapSamplers.allocateCPU();
 
     D3D12_SAMPLER_DESC dxDesc = {};
-    dxDesc.Filter   = DX12Translator::get( desc.minFilter, desc.magFilter, desc.mipFilter );
-    dxDesc.AddressU = DX12Translator::get( desc.addressU );
-    dxDesc.AddressV = DX12Translator::get( desc.addressV );
-    dxDesc.AddressW = DX12Translator::get( desc.addressW );
-    dxDesc.MipLODBias     = desc.mipLODBias;                       
-    dxDesc.MaxAnisotropy  = desc.maxAnisotropy;                    
-    dxDesc.ComparisonFunc = DX12Translator::get( desc.compareOp ); 
-    dxDesc.MinLOD = desc.minLOD;
-    dxDesc.MaxLOD = desc.maxLOD;
+    dxDesc.Filter             = DX12Translator::get( desc.minFilter, desc.magFilter, desc.mipFilter );
+    dxDesc.AddressU           = DX12Translator::get( desc.addressU );
+    dxDesc.AddressV           = DX12Translator::get( desc.addressV );
+    dxDesc.AddressW           = DX12Translator::get( desc.addressW );
+    dxDesc.MipLODBias         = desc.mipLODBias;
+    dxDesc.MaxAnisotropy      = desc.maxAnisotropy;
+    dxDesc.ComparisonFunc     = DX12Translator::get( desc.compareOp );
+    dxDesc.MinLOD             = desc.minLOD;
+    dxDesc.MaxLOD             = desc.maxLOD;
 
     ctx.device->CreateSampler( &dxDesc, _samplerHandle );
 

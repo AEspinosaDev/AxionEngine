@@ -111,6 +111,55 @@ TextureHandle GPUResourcePool::createTexture( const RHI::TextureDesc& desc, cons
     return TextureHandle { id };
 }
 
+SamplerHandle GPUResourcePool::createSampler( const RHI::SamplerDesc& desc, bool allowLookup ) {
+    std::scoped_lock lock( _mutex );
+
+    if ( allowLookup && !desc.debugName.empty() && _samplerNameToHandle.count( desc.debugName ) )
+    {
+        AXION_LOG_WARN( Logger::Module::GFX, "Sampler name collision [{}]. Returning existing handle.", desc.debugName );
+        return _samplerNameToHandle[desc.debugName];
+    }
+
+    auto samplerPtr = _device->createSampler( desc );
+    if ( !samplerPtr )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Failed to create Sampler [{}]", desc.debugName );
+        return {};
+    }
+
+    uint id = UINT32_MAX;
+
+    // Optimización: Podrías tener una std::queue<uint> _freeIndices para evitar este bucle.
+    // Para < 1000 buffers, este bucle es despreciable.
+    for ( size_t i = 0; i < _samplers.size(); ++i )
+    {
+        if ( !_samplers[i].alive )
+        {
+            id = (uint)i;
+            break;
+        }
+    }
+
+    if ( id == UINT32_MAX )
+    {
+        id = (uint)_samplers.size();
+        _samplers.emplace_back();
+    }
+
+    auto& record = _samplers[id];
+    record.ptr   = std::move( samplerPtr );
+    record.name  = desc.debugName;
+    record.alive = true;
+    record.generation++;
+
+    if ( allowLookup && !desc.debugName.empty() )
+        _samplerNameToHandle[desc.debugName] = { id };
+
+    AXION_LOG_INFO( Logger::Module::GFX, "Registered Sampler ID: {} [{}]", id, desc.debugName );
+
+    return SamplerHandle { id };
+}
+
 RHI::IBuffer* GPUResourcePool::getBuffer( BufferHandle handle ) {
     std::scoped_lock lock( _mutex );
 
@@ -207,6 +256,54 @@ void GPUResourcePool::destroyTexture( TextureHandle handle ) {
     record.name.clear();
 }
 
+RHI::ISampler* GPUResourcePool::getSampler( SamplerHandle handle ) {
+    std::scoped_lock lock( _mutex );
+
+    if ( handle.id >= _samplers.size() )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Accessing invalid SamplerHandle ID: {}", handle.id );
+        return nullptr;
+    }
+
+    auto& record = _samplers[handle.id];
+    if ( !record.alive )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Accessing dead SamplerHandle" );
+        return nullptr;
+    }
+
+    return record.ptr.get();
+}
+
+std::optional<SamplerHandle> GPUResourcePool::findSampler( const std::string& name ) const {
+    std::scoped_lock lock( _mutex );
+    auto             it = _samplerNameToHandle.find( name );
+    if ( it == _samplerNameToHandle.end() )
+        return std::nullopt;
+    return it->second;
+}
+
+void GPUResourcePool::destroySampler( SamplerHandle handle ) {
+    std::scoped_lock lock( _mutex );
+
+    if ( handle.id >= _samplers.size() )
+        return;
+
+    auto& record = _samplers[handle.id];
+    if ( !record.alive )
+        return;
+
+    if ( !record.name.empty() )
+        _samplerNameToHandle.erase( record.name );
+
+    record.ptr = nullptr;
+
+    record.alive = false;
+
+    AXION_LOG_INFO( Logger::Module::GFX, "Destroyed Sampler [{}]", record.name );
+    record.name.clear();
+}
+
 TextureHandle GPUResourcePool::registerExternalTexture( RHI::ITexture* ptr, const std::string& name ) {
     std::scoped_lock lock( _mutex );
 
@@ -245,12 +342,18 @@ BufferHandle GPUResourcePool::registerExternalBuffer( RHI::IBuffer* ptr, const s
     return BufferHandle();
 }
 
+SamplerHandle GPUResourcePool::registerExternalSampler( RHI::ISampler* ptr, const std::string& name ) {
+    return SamplerHandle();
+}
+
 void GPUResourcePool::clear() {
     std::scoped_lock lock( _mutex );
     _buffers.clear();
     _buffNameToHandle.clear();
     _textures.clear();
     _texNameToHandle.clear();
+    _samplers.clear();
+    _samplerNameToHandle.clear();
 }
 
 } // namespace Graphics

@@ -20,6 +20,7 @@ public:
         uint             arraySize   = 1;
         std::string      debugName   = "";
         TextureViewFlags viewFlags   = TextureViewShaderResource;
+        ClearValue       clearValue  = { .color = { 0.0f, 0.0f, 0.0f, 1.0f }, .depth = { 1.0f } }; //Only if RenderTarget or DepthStencil
 
         bool operator==( const Description& other ) const {
             return size == other.size &&

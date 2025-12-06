@@ -234,12 +234,23 @@ void DX12CommandList::beginRendering( const RenderingDesc& info ) {
     {
         if ( att.texture )
         {
-            auto* dxTex = static_cast<DX12Texture*>( att.texture );
-            rtvHandles.push_back( dxTex->getRTV() );
+            auto* dxTex     = static_cast<DX12Texture*>( att.texture );
+            auto  rtvHandle = dxTex->getRTV();
+            rtvHandles.push_back( rtvHandle );
 
             if ( att.loadOp == LoadOp::Clear )
             {
-                clearTexture( att.texture, att.clearValue );
+                const float* colorPtr = nullptr;
+
+                if ( att.clearValue.has_value() )
+                {
+                    colorPtr = &att.clearValue->color.x;
+                } else
+                {
+                    colorPtr = &dxTex->getDescription().clearValue.color.x;
+                }
+
+                _cmdList->ClearRenderTargetView( rtvHandle, colorPtr, 0, nullptr );
             }
         }
     }
@@ -254,7 +265,26 @@ void DX12CommandList::beginRendering( const RenderingDesc& info ) {
 
         if ( info.depthStencilAttachment.loadOp == LoadOp::Clear )
         {
-            clearTexture( info.depthStencilAttachment.texture, info.depthStencilAttachment.clearValue );
+            float depth   = 0.0f;
+            uchar stencil = 0;
+
+            if ( info.depthStencilAttachment.clearValue.has_value() )
+            {
+                depth   = info.depthStencilAttachment.clearValue->depth;
+                stencil = info.depthStencilAttachment.clearValue->stencil;
+            } else
+            {
+                depth   = dxDepth->getDescription().clearValue.depth;
+                stencil = dxDepth->getDescription().clearValue.stencil;
+            }
+
+            _cmdList->ClearDepthStencilView(
+                dsvHandle,
+                D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+                depth,
+                stencil,
+                0,
+                nullptr );
         }
     }
 

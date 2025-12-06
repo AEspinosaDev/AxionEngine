@@ -20,6 +20,8 @@ struct BufferTag {
 };
 struct TextureTag {
 };
+struct SamplerTag {
+};
 struct ShaderTag {
 };
 struct PipelineTag {
@@ -27,6 +29,7 @@ struct PipelineTag {
 
 using BufferHandle   = Handle<struct BufferTag>;
 using TextureHandle  = Handle<struct TextureTag>;
+using SamplerHandle  = Handle<struct SamplerTag>;
 using ShaderHandle   = Handle<struct ShaderTag>;
 using PipelineHandle = Handle<struct PipelineTag>;
 

@@ -74,6 +74,18 @@ inline const float* value_ptr( const Vec3& v ) {
     return glm::value_ptr( v );
 }
 
+inline Mat4 rotate( const Mat4& m, float angle, const Vec3& axis ) {
+    return glm::rotate( m, angle, axis );
+}
+
+inline Mat4 identity() {
+    return Mat4( 1.0f );
+}
+
+inline Mat4 transpose( const Mat4& m ) {
+    return glm::transpose( m );
+}
+
 } // namespace Math
 
 AXION_NAMESPACE_END

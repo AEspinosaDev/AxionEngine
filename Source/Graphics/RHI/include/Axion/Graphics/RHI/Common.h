@@ -336,6 +336,13 @@ struct ClearValue {
     Math::Vec4 color   = { 0.0, 0.0, 0.0, 1.0 }; // RGBA for RTV/UAV
     float      depth   = 1.0f;                   // depth for DSV
     uchar      stencil = 0;                      // stencil for DSV
+
+    inline bool operator==( const ClearValue o ) const {
+        return color == o.color && depth == o.depth && stencil == o.stencil;
+    }
+    inline bool operator!=( const ClearValue o ) const {
+        return !operator==( o );
+    }
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -592,9 +599,9 @@ enum class LoadOp
 
 class ITexture;
 struct RenderingAttachment {
-    ITexture*  texture    = nullptr;
-    LoadOp     loadOp     = LoadOp::Clear;
-    ClearValue clearValue = {};
+    ITexture*                 texture = nullptr;
+    LoadOp                    loadOp  = LoadOp::Clear;
+    std::optional<ClearValue> clearValue;
 };
 
 struct RenderingDesc {

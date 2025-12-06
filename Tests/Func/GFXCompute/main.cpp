@@ -63,13 +63,11 @@ struct ToneMappingPass {
         auto* texOut = ctx.getTexture( data.outputLDR );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        // auto* set1 = ctx.allocateSet( pso->getDescription().layout, 1 );
         set0->attach( 0, texIn, Graphics::RHI::ResourceState::ShaderResource );
         set0->attach( 1, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
 
         ctx.cmd->bindComputePipeline( pso );
         ctx.cmd->bindDescriptorSet( 0, set0 );
-        // ctx.cmd->bindDescriptorSet( 1, set1 );
 
         ctx.cmd->dispatch( texIn->getDescription().size );
     }
@@ -123,7 +121,7 @@ int main( /*int argc, char* argv[]*/ ) {
         //-------------------------------------
 
         rnd->shaders().shader( "GenerationShader" ).asDXIL().path( AXION_SHADER_DIR "/Slang/Testing/Generation.slang" ).cs( "computeMain" ).load();
-        rnd->shaders().shader( "TonemappingShader" ).asDXIL().path( AXION_SHADER_DIR "/Slang/Testing/Tonemapping.slang" ).include( AXION_SHADER_DIR "/Slang/Common" ).cs( "computeMain" ).load();
+        rnd->shaders().shader( "TonemappingShader" ).asDXIL().path( AXION_SHADER_DIR "/Slang/Postpro/Tonemapping.slang" ).include( AXION_SHADER_DIR "/Slang/Common" ).cs( "computeMain" ).load();
         rnd->shaders().compileAllShaders();
 
         GenerationPass gpass;

@@ -1,11 +1,12 @@
 #pragma once
-#include "Axion/Graphics/RHI/Resource.h"
 #include "Axion/Common/Helpers.h"
+#include "Axion/Graphics/RHI/Resource.h"
 #include <string>
 
 AXION_NAMESPACE_BEGIN
 namespace Graphics {
 
+#pragma region Texture
 /// @brief Base class for building Texture descriptions using Fluent Interface pattern (CRTP).
 /// @tparam T The derived builder class.
 template <typename T>
@@ -24,6 +25,14 @@ public:
     T& extent( uint width, uint height, uint depth = 1 ) {
         _desc.size = { width, height, depth };
         if ( depth > 1 )
+            _desc.dimension = TextureDimension::Texture3D;
+        return static_cast<T&>( *this );
+    }
+
+    /// @brief Sets texture dimensions.
+    T& extent( const Extent3D& extent ) {
+        _desc.size = extent;
+        if ( extent.depth > 1 )
             _desc.dimension = TextureDimension::Texture3D;
         return static_cast<T&>( *this );
     }
@@ -73,7 +82,7 @@ public:
 
     /// @brief Enables Depth/Stencil usage.
     T& asDepthStencil() {
-        _desc.viewFlags |= TextureViewFlags::TextureViewDepthStencil;
+        _desc.viewFlags = TextureViewFlags::TextureViewDepthStencil;
         return static_cast<T&>( *this );
     }
 
@@ -89,9 +98,17 @@ public:
         return static_cast<T&>( *this );
     }
 
+    T& clearValue( const ClearValue& val ) {
+        _desc.clearValue = val; 
+        return static_cast<T&>( *this );
+    }
+
 protected:
     RHI::TextureDesc _desc;
 };
+
+#pragma endregion
+#pragma region Buffer
 
 /// @brief Base class for building Buffer descriptions using Fluent Interface pattern (CRTP).
 /// @tparam T The derived builder class.
@@ -184,5 +201,73 @@ protected:
     RHI::BufferDesc _desc;
 };
 
+#pragma endregion
+#pragma region Sampler
+
+template <typename T>
+class SamplerBuilderBase
+{
+public:
+    SamplerBuilderBase( std::string name ) {
+        _desc.debugName = std::move( name );
+        _desc.minFilter = Filter::Linear;
+        _desc.magFilter = Filter::Linear;
+        _desc.mipFilter = Filter::Linear;
+        _desc.addressU  = AddressMode::Repeat;
+        _desc.addressV  = AddressMode::Repeat;
+        _desc.addressW  = AddressMode::Repeat;
+    }
+
+    T& filter( Filter min, Filter mag, Filter mip ) {
+        _desc.minFilter = min;
+        _desc.magFilter = mag;
+        _desc.mipFilter = mip;
+        return static_cast<T&>( *this );
+    }
+
+    /// @brief Configures Texture Address Mode for each direction equally (U,V,W).
+    T& address( AddressMode mode ) {
+        _desc.addressU = _desc.addressV = _desc.addressW = mode;
+        return static_cast<T&>( *this );
+    }
+
+    /// @brief Configures Texture Address Mode for each direction individually (U,V,W)
+    T& address( AddressMode u, AddressMode v, AddressMode w ) {
+        _desc.addressU = u;
+        _desc.addressV = v;
+        _desc.addressW = w;
+        return static_cast<T&>( *this );
+    }
+
+    /// @brief Max Anysotropic Filtering
+    T& anisotropy( uint maxAniso ) {
+        _desc.maxAnisotropy = maxAniso;
+        return static_cast<T&>( *this );
+    }
+
+    /// @brief Sets LOD for mipmapping
+    T& mipLOD( float min, float max ) {
+        _desc.minLOD = min;
+        _desc.maxLOD = max;
+        return static_cast<T&>( *this );
+    }
+
+    /// @brief Sets LOD bias for mipmapping
+    T& mipLODBias( float bias ) {
+        _desc.mipLODBias = bias;
+        return static_cast<T&>( *this );
+    }
+
+    /// @brief Sets Compare Operation
+    T& compareOP( RHI::CompareOp op ) {
+        _desc.compareOp = op;
+        return static_cast<T&>( *this );
+    }
+
+protected:
+    RHI::SamplerDesc _desc;
+};
+
+#pragma endregion
 } // namespace Graphics
 AXION_NAMESPACE_END

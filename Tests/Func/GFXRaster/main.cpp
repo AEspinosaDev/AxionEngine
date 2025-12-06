@@ -40,8 +40,7 @@ struct TrianglePass {
 
         Graphics::RHI::RenderingDesc info;
         info.renderArea = targetTex->getDescription().size.to2D();
-        info.colorAttachments.push_back( { .texture    = targetTex,
-                                           .clearValue = { .color = { 0.5f, 0.5f, 0.5f, 1.0f } } } );
+        info.colorAttachments.push_back( { .texture    = targetTex } );
 
         ctx.cmd->beginRendering( info );
 

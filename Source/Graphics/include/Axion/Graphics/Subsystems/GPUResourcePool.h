@@ -24,6 +24,7 @@ public:
     // Forward declarations of nested builders
     class BufferBuilder;
     class TextureBuilder;
+    class SamplerBuilder;
 
     // -------------------------------------------------------------------------
     // ENTRY POINTS
@@ -36,6 +37,10 @@ public:
     /// @brief Starts the fluent construction of a GPU Texture.
     /// @param name Debug name for the resource.
     virtual TextureBuilder texture( const std::string& name ) = 0;
+
+    /// @brief Starts the fluent construction of a GPU Sampler.
+    /// @param name Debug name for the resource.
+    virtual SamplerBuilder sampler( const std::string& name ) = 0;
 
     // -------------------------------------------------------------------------
     // RUNTIME ACCESS
@@ -61,6 +66,16 @@ public:
     /// @brief Destroys the texture and frees GPU memory immediately.
     virtual void destroyTexture( TextureHandle handle ) = 0;
 
+    /// @brief Retrieves the raw RHI sampler pointer associated with a handle.
+    /// @return Pointer to ISampler or nullptr if handle is invalid/dead.
+    virtual RHI::ISampler* getSampler( SamplerHandle handle ) = 0;
+
+    /// @brief Looks up a sampler handle by its debug name.
+    virtual std::optional<SamplerHandle> findSampler( const std::string& name ) const = 0;
+
+    /// @brief Destroys the sampler and frees GPU memory immediately.
+    virtual void destroySampler( SamplerHandle handle ) = 0;
+
     // -------------------------------------------------------------------------
     // LIFECYCLE & UTILS
     // -------------------------------------------------------------------------
@@ -68,11 +83,14 @@ public:
     /// @brief Destroys ALL resources in the pool. Use with caution.
     virtual void clear() = 0;
 
-    /// @brief Returns the total number of buffer slots occupied.
-    virtual uint buffersSize() const = 0;
+    /// @brief Returns the total number of buffer slots occupied (whether they are alive or not).
+    virtual uint bufferCount() const = 0;
 
-    /// @brief Returns the total number of texture slots occupied.
-    virtual uint texturesSize() const = 0;
+    /// @brief Returns the total number of texture slots occupied (whether they are alive or not).
+    virtual uint textureCount() const = 0;
+
+    /// @brief Returns the total number of samplers slots occupied (whether they are alive or not).
+    virtual uint samplerCount() const = 0;
 
 protected:
     IGPUResourcePool() = default;
@@ -80,9 +98,11 @@ protected:
     // Internal creation methods called by builders
     virtual BufferHandle  createBuffer( const RHI::BufferDesc& desc, const void* initialData, bool allowLookup = true )   = 0;
     virtual TextureHandle createTexture( const RHI::TextureDesc& desc, const void* initialData, bool allowLookup = true ) = 0;
+    virtual SamplerHandle createSampler( const RHI::SamplerDesc& desc, bool allowLookup = true )                          = 0;
 
     friend class BufferBuilder;
     friend class TextureBuilder;
+    friend class SamplerBuilder;
 };
 
 // -----------------------------------------------------------------------------
@@ -148,6 +168,30 @@ public:
 private:
     IGPUResourcePool& _pool;
     const void*       _initialData = nullptr;
+    bool              _allowLookup = true;
+};
+
+/// @brief Fluent builder for configuring and creating Textures in the pool.
+class IGPUResourcePool::SamplerBuilder : public SamplerBuilderBase<SamplerBuilder>
+{
+public:
+    SamplerBuilder( IGPUResourcePool& pool, std::string name )
+        : SamplerBuilderBase( std::move( name ) )
+        , _pool( pool ) {}
+
+    /// @brief Marks if name will be added as a key for future lookups.
+    SamplerBuilder& transient() {
+        _allowLookup = false;
+        return *this;
+    }
+
+    /// @brief Finalizes configuration and creates the physical resource.
+    SamplerHandle create() {
+        return _pool.createSampler( _desc, _allowLookup );
+    }
+
+private:
+    IGPUResourcePool& _pool;
     bool              _allowLookup = true;
 };
 
