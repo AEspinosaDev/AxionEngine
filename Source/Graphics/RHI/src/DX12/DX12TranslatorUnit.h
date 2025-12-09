@@ -563,7 +563,63 @@ constexpr D3D12_FILTER get( Filter min, Filter mag, Filter mip ) noexcept {
     return D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 }
 
+constexpr D3D12_RAYTRACING_INSTANCE_FLAGS get( AccelInstanceFlags flags ) noexcept {
+    D3D12_RAYTRACING_INSTANCE_FLAGS outFlags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
 
+    auto val = static_cast<unsigned char>( flags );
+
+    if ( val & static_cast<unsigned char>( AccelInstanceFlags::TriangleCullDisable ) )
+        outFlags |= D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE;
+
+    if ( val & static_cast<unsigned char>( AccelInstanceFlags::ForceOpaque ) )
+        outFlags |= D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE;
+
+    if ( val & static_cast<unsigned char>( AccelInstanceFlags::ForceNonOpaque ) )
+        outFlags |= D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_NON_OPAQUE;
+
+    return outFlags;
+}
+
+constexpr D3D12_RAYTRACING_GEOMETRY_DESC get( const AccelGeometryDesc& geom ) noexcept {
+    D3D12_RAYTRACING_GEOMETRY_DESC desc = {};
+    desc.Type                           = geom.primitiveType == AccelPrimitive::Triangles ? D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES : D3D12_RAYTRACING_GEOMETRY_TYPE_PROCEDURAL_PRIMITIVE_AABBS;
+
+    // Optimization: Opaque geometries don't invoke any-hit shaders
+    desc.Flags = geom.isOpaque ? D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE
+                               : D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
+
+    // For now support for triangles only
+    desc.Triangles.VertexBuffer.StartAddress  = geom.vertexBufferAddress;
+    desc.Triangles.VertexBuffer.StrideInBytes = geom.vertexStride;
+    desc.Triangles.VertexCount                = geom.vertexCount;
+    desc.Triangles.VertexFormat               = get( geom.vertexFormat );
+
+    if ( geom.indexCount > 0 )
+    {
+        desc.Triangles.IndexBuffer = geom.indexBufferAddress;
+        desc.Triangles.IndexCount  = geom.indexCount;
+        desc.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT; // Assuming 32-bit indices for now
+    } else
+    {
+        desc.Triangles.IndexFormat = DXGI_FORMAT_UNKNOWN;
+    }
+
+    return desc;
+}
+
+static D3D12_RAYTRACING_INSTANCE_DESC get( const AccelInstanceDesc& inst ) {
+    D3D12_RAYTRACING_INSTANCE_DESC desc = {};
+
+    std::memcpy( desc.Transform, inst.transform, sizeof( desc.Transform ) );
+
+    desc.InstanceID                          = inst.instanceID;        // 24-bit user ID
+    desc.InstanceMask                        = inst.instanceMask;      // 8-bit visibility mask
+    desc.InstanceContributionToHitGroupIndex = inst.hitGroupIndex;     // Shader binding table offset
+    desc.Flags                               = get( inst.flags );      // Cast enum to UINT
+    desc.AccelerationStructure               = inst.blasDeviceAddress; // GPU Address of the BLAS
+
+    return desc;
+}
 
 // Full D3D12_PRIMITIVE_TOPOLOGY (needed when calling IASetPrimitiveTopology)
 constexpr D3D12_PRIMITIVE_TOPOLOGY getFullTopology( PrimitiveTopology topology ) noexcept {

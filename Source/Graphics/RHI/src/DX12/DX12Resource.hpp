@@ -98,6 +98,28 @@ private:
     D3D12_INDEX_BUFFER_VIEW     _ibv       = {};
 };
 
+
+class DX12Sampler : public RefCounter<ISampler>
+{
+public:
+    DX12Sampler( const SamplerDesc& desc, DX12Device::Context& ctx );
+    ~DX12Sampler() override;
+
+    const Description& getDescription() const override { return _desc; };
+    void               setDebugName( const std::string& name ) override;
+    const std::string& getDebugName() const override { return _desc.debugName; }
+    NativeObject       getNativeObject( ObjectType objectType ) override;
+    std::string        toString() const override;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE getSamplerHandle() const { return _samplerHandle; }
+
+private:
+    SamplerDesc _desc;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE _samplerHandle = {};
+};
+
+
 DEFINE_COM_PTR_FOR_TYPE( DX12Accel, DX12Accel )
 
 class DX12Accel : public RefCounter<IAccel>
@@ -118,28 +140,8 @@ public:
 private:
     AccelDesc _desc;
 
-    std::unique_ptr<DX12Buffer> _asBuffer      = nullptr;
+    std::unique_ptr<DX12Buffer> _buffer      = nullptr;
     ulong                       _deviceAddress = 0;
-};
-
-class DX12Sampler : public RefCounter<ISampler>
-{
-public:
-    DX12Sampler( const SamplerDesc& desc, DX12Device::Context& ctx );
-    ~DX12Sampler() override;
-
-    const Description& getDescription() const override { return _desc; };
-    void               setDebugName( const std::string& name ) override;
-    const std::string& getDebugName() const override { return _desc.debugName; }
-    NativeObject       getNativeObject( ObjectType objectType ) override;
-    std::string        toString() const override;
-
-    D3D12_CPU_DESCRIPTOR_HANDLE getSamplerHandle() const { return _samplerHandle; }
-
-private:
-    SamplerDesc _desc;
-
-    D3D12_CPU_DESCRIPTOR_HANDLE _samplerHandle = {};
 };
 
 } // namespace Graphics::RHI

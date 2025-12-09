@@ -569,31 +569,116 @@ std::string DX12Sampler::toString() const {
 DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx )
     : _desc( desc ) {
 
-    // auto prebuildInfo = GetPrebuildInfo( desc );
+    // ComPtr<ID3D12Device5> device5;
+    // ctx.device->QueryInterface( IID_PPV_ARGS( &device5 ) );
 
-    // DX12Buffer::Description asBufferDesc {
-    //     .size       = prebuildInfo.ResultSize,
-    //     .memoryType = MemoryUsage::CPUVisible,
-    //     .viewFlags  = BufferViewNone,
-    //     .debugName  = _desc.debugName + " Buffer" };
-    // _asBuffer = NEW_U( DX12Buffer )( asBufferDesc, ctx );
+    // // 1. SETUP BUILD INPUTS
+    // D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
+    // inputs.DescsLayout                                          = D3D12_ELEMENTS_LAYOUT_ARRAY;
 
-    // // _asBuffer = device->CreateBuffer( prebuildInfo.ResultSize, HeapType::Default, State::RaytracingAccel );
+    // // Map build flags
+    // inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_NONE;
+    // if ( desc.flags & ASBuildPreferFastTrace )
+    //     inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+    // if ( desc.flags & ASBuildAllowUpdate )
+    //     inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE;
+    // if ( desc.flags & ASBuildPreferFastBuild )
+    //     inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
 
-    // // Opción B: Pedir a un RingBuffer del Device (más pro)
-    // IResource* tempScratch = device->CreateTemporaryBuffer( prebuildInfo.ScratchSize );
+    // std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> nativeGeoms;
+    // if ( desc.type == AccelType::BottomLevel )
+    // {
+    //     inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
 
-    // // 4. Obtener el CommandList de "inicialización" que mencionaste
-    // auto cmdList = device->GetInitCommandList();
+    //     nativeGeoms.reserve( desc.geometries.size() );
+    //     for ( const auto& g : desc.geometries )
+    //         nativeGeoms.push_back( DX12Translator::get( g ) );
 
-    // // 5. Grabar la construcción
-    // // Aquí conviertes tus AccelGeometryDesc a D3D12_RAYTRACING_GEOMETRY_DESC
-    // BuildAS( cmdList, this->asBuffer, tempScratch, desc );
+    //     inputs.pGeometryDescs = nativeGeoms.data();
+    //     inputs.NumDescs       = (UINT)nativeGeoms.size();
 
-    // // 6. Barrera importante:
-    // // Aseguramos que la construcción termine antes de usarla.
-    // // Como es el cmdList de init, suele ejecutarse antes del frame, así que perfecto.
-    // cmdList->UAVBarrier( this->asBuffer );
+    // } else // TopLevel
+    // {
+    //     inputs.Type     = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
+    //     inputs.NumDescs = (UINT)desc.instances.size();
+    //     // Instance data is provided via GPU buffer later, not here.
+    // }
+
+    // // 2. QUERY MEMORY REQUIREMENTS (GetPrebuildInfo)
+    // D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuildInfo = {};
+    // device5->GetRaytracingAccelerationStructurePrebuildInfo( &inputs, &prebuildInfo );
+
+    // // Align size to D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT (256 bytes) if needed
+    // // Usually the driver returns aligned sizes, but good to be safe.
+
+    // // 3. ALLOCATE BUFFERS
+
+    // // A. Result Buffer: This is the persistent AS resource
+    // _buffer = NEW_U( DX12Buffer )( BufferDesc {
+    //                                    .size       = prebuildInfo.ResultDataMaxSizeInBytes,
+    //                                    .memoryType = MemoryUsage::GPUOnly,
+    //                                    .usageFlags = BufferUsage::AccelerationStructure,
+    //                                    .viewFlags  = BufferViewUnorderedAccess,
+    //                                    .debugName  = _desc.debugName + " Buffer" },
+    //                                ctx );
+
+    // // Scratch buffer
+    // DX12Buffer scratchBuffer( BufferDesc {
+    //                               .size       = prebuildInfo.ScratchDataSizeInBytes,
+    //                               .memoryType = MemoryUsage::GPUOnly,
+    //                               .usageFlags = BufferUsage::Storage,
+    //                               .viewFlags  = BufferViewUnorderedAccess,
+    //                               .debugName  = _desc.debugName + " Scratch Buffer" },
+    //                           ctx );
+
+    // // 4. PREPARE INSTANCE DATA (TLAS ONLY)
+    // // TLAS build requires instances to be in a GPU buffer.
+    // DX12Buffer* instancesBuffer = nullptr;
+
+    // if ( desc.type == AccelType::TopLevel && !desc.instances.empty() )
+    // {
+    //     std::vector<D3D12_RAYTRACING_INSTANCE_DESC> rawInstances;
+    //     rawInstances.reserve( desc.instances.size() );
+
+    //     for ( const auto& inst : desc.instances )
+    //         rawInstances.push_back( DX12Translator::get( inst ) );
+
+    //     // Upload this data to GPU.
+    //     // Assuming CreateBufferFromData creates a buffer on Default Heap and handles upload internally
+    //     // or creates an Upload Heap buffer directly. State must be generic read.
+    //     instancesBuffer = new DX12Buffer( BufferDesc {
+    //                                           .size       = rawInstances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ),
+    //                                           .memoryType = MemoryUsage::GPUOnly,
+    //                                           .usageFlags = BufferUsage::None,
+    //                                           .viewFlags  = BufferViewNone,
+    //                                           .debugName  = _desc.debugName + " TLAS Instances Buffer" },
+    //                                       ctx,
+    //                                       rawInstances.data() );
+
+    //     // Point the input struct to the GPU address of the instances
+    //     inputs.InstanceDescs = instancesBuffer->GetGPUVirtualAddress();
+    // }
+
+    // // 5. SETUP BUILD DESCRIPTOR
+    // D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};
+    // buildDesc.Inputs                                             = inputs;
+    // buildDesc.DestAccelerationStructureData                      = m_buffer->GetGPUVirtualAddress();
+    // buildDesc.ScratchAccelerationStructureData                   = scratchBuffer->GetGPUVirtualAddress();
+
+    // // 6. EXECUTE COMMANDS
+    // ctx.uploadContext.oneTimeSubmit( ctx.primaryQueue, [&]( const ComPtr<ID3D12GraphicsCommandList>& cmd ) {
+    //     ComPtr<ID3D12GraphicsCommandList4> cmd4;
+    //     cmd->QueryInterface( IID_PPV_ARGS( &cmd4 ) );
+
+    //     cmd4->BuildRaytracingAccelerationStructure( &buildDesc, 0, nullptr );
+
+    //     // 7. SYNCHRONIZATION BARRIER
+    //     auto uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV( _buffer->getNativeObject( ObjectTypes::DX12_Resource ) );
+    //     cmd4->ResourceBarrier( 1, &uavBarrier );
+    // } );
+
+    // if ( instancesBuffer )
+    //     delete instancesBuffer;
 
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 Acceleration Structure Created [{}]", _desc.debugName );
 }
@@ -603,13 +688,13 @@ DX12Accel::~DX12Accel() {
 }
 void DX12Accel::setDebugName( const std::string& name ) {
     _desc.debugName = name;
-    _asBuffer->setDebugName( name + " Buffer" );
+    _buffer->setDebugName( name + " Buffer" );
 }
 NativeObject DX12Accel::getNativeObject( ObjectType objectType ) {
     switch ( objectType )
     {
         case ObjectTypes::DX12_Resource:
-            return _asBuffer->getNativeObject( ObjectTypes::DX12_Resource );
+            return _buffer->getNativeObject( ObjectTypes::DX12_Resource );
         default:
             AXION_LOG_ERROR( Logger::Module::RHI, "DX12 Acceleration Structure | Wrong Object Type" );
             return nullptr;

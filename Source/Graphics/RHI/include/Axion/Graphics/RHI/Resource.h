@@ -103,51 +103,6 @@ using BufferDesc = IBuffer::Description;
 
 DEFINE_COM_PTR_FOR_TYPE( IAccel, Accel )
 
-// Description for a single geometry piece (Mesh) inside a BLAS
-struct AccelGeometryDesc {
-    ulong  vertexBufferAddress;
-    ulong  indexBufferAddress; //(optional)
-    uint   vertexCount;
-    uint   indexCount;
-    uint   vertexStride; // Stride in bytes
-    Format vertexFormat;
-    bool   isOpaque; // Optimization flag: no any-hit shader needed
-
-    bool operator==( const AccelGeometryDesc& other ) const {
-        return vertexBufferAddress == other.vertexBufferAddress &&
-               indexBufferAddress == other.indexBufferAddress &&
-               vertexCount == other.vertexCount &&
-               indexCount == other.indexCount &&
-               vertexStride == other.vertexStride &&
-               vertexFormat == other.vertexFormat &&
-               isOpaque == other.isOpaque;
-    }
-    bool operator!=( const AccelGeometryDesc& other ) const {
-        return !operator==( other );
-    }
-};
-
-// Description for an instance inside a TLAS
-struct AccelInstanceDesc {
-    float              transform[3][4];     // 3x4 Row-major matrix (standard for DXR/Vulkan)
-    uint               instanceID;          // Custom ID to access in shader (gl_InstanceCustomIndex)
-    uint               instanceMask = 0xFF; // Visibility mask (0xFF usually)
-    uint               hitGroupIndex;       // Offset in the Shader Binding Table
-    AccelInstanceFlags flags;               // Instance specific flags
-    ulong              blasDeviceAddress;   // The address of the BLAS this instance represents
-
-    bool operator==( const AccelInstanceDesc& other ) const {
-        return instanceID == other.instanceID &&
-               instanceMask == other.instanceMask &&
-               hitGroupIndex == other.hitGroupIndex &&
-               flags == other.flags &&
-               blasDeviceAddress == other.blasDeviceAddress;
-    }
-    bool operator!=( const AccelInstanceDesc& other ) const {
-        return !operator==( other );
-    }
-};
-
 class IAccel : public IResource
 {
 public:

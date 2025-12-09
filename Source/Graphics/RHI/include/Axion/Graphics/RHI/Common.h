@@ -307,14 +307,15 @@ AXION_ENUM_CLASS_FLAG_OPERATORS( MemoryUsage )
 
 enum class BufferUsage : uint
 {
-    None        = 0,
-    Vertex      = 1 << 0,
-    Index       = 1 << 1,
-    Uniform     = 1 << 2, // CB / UBO
-    Storage     = 1 << 3, // UAV / SSBO
-    Indirect    = 1 << 4,
-    TransferSrc = 1 << 5,
-    TransferDst = 1 << 6,
+    None                  = 0,
+    Vertex                = 1 << 0,
+    Index                 = 1 << 1,
+    Uniform               = 1 << 2, // CB / UBO
+    Storage               = 1 << 3, // UAV / SSBO
+    Indirect              = 1 << 4,
+    TransferSrc           = 1 << 5,
+    TransferDst           = 1 << 6,
+    AccelerationStructure = 1 << 7,
 };
 AXION_ENUM_CLASS_FLAG_OPERATORS( BufferUsage )
 
@@ -616,13 +617,13 @@ enum class AccelType
     TopLevel     // TLAS: Instances of BLAS
 };
 
-enum class AccelBuildFlags : uchar
+enum AccelBuildFlags : uchar
 {
-    None            = 0,
-    PreferFastTrace = 1 << 0, // Good for static geometry, slower build
-    PreferFastBuild = 1 << 1, // Good for dynamic geometry, faster build
-    AllowUpdate     = 1 << 2, // Allows refitting without full rebuild
-    MinimizeMemory  = 1 << 3
+    ASBuildNone            = 0,
+    ASBuildPreferFastTrace = 1 << 0, // Good for static geometry, slower build
+    ASBuildPreferFastBuild = 1 << 1, // Good for dynamic geometry, faster build
+    ASBuildAllowUpdate     = 1 << 2, // Allows refitting without full rebuild
+    ASBuildMinimizeMemory  = 1 << 3
 };
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( AccelBuildFlags )
@@ -636,6 +637,59 @@ enum class AccelInstanceFlags : uchar
 };
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( AccelInstanceFlags )
+
+enum class AccelPrimitive : uchar
+{
+    Triangles,
+    AABBs,
+};
+
+// Description for a single geometry piece (Mesh) inside a BLAS
+struct AccelGeometryDesc {
+    AccelPrimitive primitiveType;
+    ulong          vertexBufferAddress;
+    ulong          indexBufferAddress; //(optional)
+    uint           vertexCount;
+    uint           indexCount;
+    uint           vertexStride; // Stride in bytes
+    Format         vertexFormat;
+    bool           isOpaque; // Optimization flag: no any-hit shader needed
+
+    bool operator==( const AccelGeometryDesc& other ) const {
+        return primitiveType == other.primitiveType &&
+               vertexBufferAddress == other.vertexBufferAddress &&
+               indexBufferAddress == other.indexBufferAddress &&
+               vertexCount == other.vertexCount &&
+               indexCount == other.indexCount &&
+               vertexStride == other.vertexStride &&
+               vertexFormat == other.vertexFormat &&
+               isOpaque == other.isOpaque;
+    }
+    bool operator!=( const AccelGeometryDesc& other ) const {
+        return !operator==( other );
+    }
+};
+
+// Description for an instance inside a TLAS
+struct AccelInstanceDesc {
+    float              transform[3][4];     // 3x4 Row-major matrix (standard for DXR/Vulkan)
+    uint               instanceID;          // Custom ID to access in shader (gl_InstanceCustomIndex)
+    uint               instanceMask = 0xFF; // Visibility mask (0xFF usually)
+    uint               hitGroupIndex;       // Offset in the Shader Binding Table
+    AccelInstanceFlags flags;               // Instance specific flags
+    ulong              blasDeviceAddress;   // The address of the BLAS this instance represents
+
+    bool operator==( const AccelInstanceDesc& other ) const {
+        return instanceID == other.instanceID &&
+               instanceMask == other.instanceMask &&
+               hitGroupIndex == other.hitGroupIndex &&
+               flags == other.flags &&
+               blasDeviceAddress == other.blasDeviceAddress;
+    }
+    bool operator!=( const AccelInstanceDesc& other ) const {
+        return !operator==( other );
+    }
+};
 
 typedef uint ObjectType;
 
