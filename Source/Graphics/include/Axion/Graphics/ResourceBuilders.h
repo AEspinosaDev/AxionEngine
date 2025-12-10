@@ -99,7 +99,7 @@ public:
     }
 
     T& clearValue( const ClearValue& val ) {
-        _desc.clearValue = val; 
+        _desc.clearValue = val;
         return static_cast<T&>( *this );
     }
 
@@ -268,6 +268,120 @@ protected:
     RHI::SamplerDesc _desc;
 };
 
+#pragma endregion
+#pragma region Accel
+
+template <typename T>
+class AccelBuilderBase
+{
+public:
+    AccelBuilderBase( std::string name ) {
+        _desc.debugName = std::move( name );
+        _desc.type      = RHI::AccelType::BottomLevel;
+        _desc.flags     = RHI::ASBuildNone;
+    }
+
+    /// @brief Sets the AS type to Bottom Level (Geometry container).
+    T& asBLAS() {
+        _desc.type = RHI::AccelType::BottomLevel;
+        return static_cast<T&>( *this );
+    }
+
+    /// @brief Sets the AS type to Top Level (Instance container).
+    T& asTLAS() {
+        _desc.type = RHI::AccelType::TopLevel;
+        return static_cast<T&>( *this );
+    }
+
+    /// @brief Optimization: Prefer faster ray tracing at the cost of slower build time.
+    /// Good for static geometry.
+    T& fastTrace() {
+        _desc.flags |= RHI::ASBuildPreferFastTrace;
+        return static_cast<T&>( *this );
+    }
+
+    /// @brief Optimization: Prefer faster build time at the cost of slower tracing.
+    /// Good for dynamic geometry.
+    T& fastBuild() {
+        _desc.flags |= RHI::ASBuildPreferFastBuild;
+        return static_cast<T&>( *this );
+    }
+
+    /// @brief Allows the AS to be updated (refitted) later without a full rebuild.
+    /// Essential for skinned animation.
+    T& allowUpdate() {
+        _desc.flags |= RHI::ASBuildAllowUpdate;
+        return static_cast<T&>( *this );
+    }
+
+    /// @brief Minimizes memory usage at the cost of build performance.
+    T& minimizeMemory() {
+        _desc.flags |= RHI::ASBuildMinimizeMemory;
+        return static_cast<T&>( *this );
+    }
+
+    // Geometry (BLAS)
+    // ------------------------------------------------------------------------
+
+    /// @brief Adds a raw geometry description (BLAS only).
+    T& withGeometry( const RHI::AccelGeometryDesc& geom ) {
+        _desc.geometries.push_back( geom );
+        return static_cast<T&>( *this );
+    }
+
+    /// @brief Helper to add a mesh geometry from raw buffer addresses (BLAS only).
+    T& withGeometry( ulong  vertexAddress,
+                     uint   vertexCount,
+                     uint   vertexStride,
+                     Format vertexFormat,
+                     ulong  indexAddress = 0,
+                     uint   indexCount   = 0,
+                     bool   isOpaque     = true ) {
+        RHI::AccelGeometryDesc geom;
+        geom.vertexBufferAddress = vertexAddress;
+        geom.vertexCount         = vertexCount;
+        geom.vertexStride        = vertexStride;
+        geom.vertexFormat        = vertexFormat;
+        geom.indexBufferAddress  = indexAddress;
+        geom.indexCount          = indexCount;
+        geom.isOpaque            = isOpaque;
+
+        _desc.geometries.push_back( geom );
+        return static_cast<T&>( *this );
+    }
+
+    // Instances (TLAS)
+    // ------------------------------------------------------------------------
+
+    /// @brief Adds a raw instance description (TLAS only).
+    T& withInstance( const RHI::AccelInstanceDesc& inst ) {
+        _desc.instances.push_back( inst );
+        return static_cast<T&>( *this );
+    }
+
+    /// @brief Helper to add an instance pointing to a BLAS (TLAS only).
+    /// @param transform 3x4 Row-major matrix.
+    T& withInstance( ulong                   blasAddress,
+                     const float             transform[3][4],
+                     uint                    instanceID,
+                     uint                    hitGroupIndex = 0,
+                     uint                    mask          = 0xFF,
+                     RHI::AccelInstanceFlags flags         = RHI::AccelInstanceFlags::None ) {
+        RHI::AccelInstanceDesc inst;
+        std::memcpy( inst.transform, transform, sizeof( float ) * 12 );
+        inst.instanceID        = instanceID;
+        inst.instanceMask      = mask;
+        inst.hitGroupIndex     = hitGroupIndex;
+        inst.flags             = flags;
+        inst.blasDeviceAddress = blasAddress;
+
+        _desc.instances.push_back( inst );
+        return static_cast<T&>( *this );
+    }
+
+protected:
+    RHI::AccelDesc _desc;
+};
 #pragma endregion
 } // namespace Graphics
 AXION_NAMESPACE_END

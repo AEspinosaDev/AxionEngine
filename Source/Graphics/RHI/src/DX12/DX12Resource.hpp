@@ -30,6 +30,8 @@ public:
     ResourceStateTracker& stateTracker();
     std::string           toString() const override;
 
+    ulong getDeviceAddress() const override { return _resource->GetGPUVirtualAddress(); }
+
     D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getRTV() const { return _rtvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getDSV() const { return _dsvHandle; }
@@ -67,9 +69,11 @@ public:
     void                  setDebugName( const std::string& name ) override;
     const std::string&    getDebugName() const override { return _desc.debugName; }
     NativeObject          getNativeObject( ObjectType objectType ) override;
-    std::string           toString() const override;
     ResourceState         getCurrentState() const override { return _stateTracker.getCurrentState(); }
     ResourceStateTracker& stateTracker() { return _stateTracker; };
+    std::string           toString() const override;
+
+    ulong getDeviceAddress() const override { return _resource->GetGPUVirtualAddress(); }
 
     D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getCBV() const { return _cbvHandle; }
@@ -98,7 +102,6 @@ private:
     D3D12_INDEX_BUFFER_VIEW     _ibv       = {};
 };
 
-
 class DX12Sampler : public RefCounter<ISampler>
 {
 public:
@@ -118,7 +121,6 @@ private:
 
     D3D12_CPU_DESCRIPTOR_HANDLE _samplerHandle = {};
 };
-
 
 DEFINE_COM_PTR_FOR_TYPE( DX12Accel, DX12Accel )
 
@@ -140,7 +142,7 @@ public:
 private:
     AccelDesc _desc;
 
-    std::unique_ptr<DX12Buffer> _buffer      = nullptr;
+    std::unique_ptr<DX12Buffer> _buffer        = nullptr;
     ulong                       _deviceAddress = 0;
 };
 

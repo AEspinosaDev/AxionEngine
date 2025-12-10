@@ -25,6 +25,7 @@ public:
     class BufferBuilder;
     class TextureBuilder;
     class SamplerBuilder;
+    class AccelBuilder;
 
     // -------------------------------------------------------------------------
     // ENTRY POINTS
@@ -41,6 +42,10 @@ public:
     /// @brief Starts the fluent construction of a GPU Sampler.
     /// @param name Debug name for the resource.
     virtual SamplerBuilder sampler( const std::string& name ) = 0;
+
+    /// @brief Starts the fluent construction of a GPU Acceleration Structure.
+    /// @param name Debug name for the resource.
+    virtual AccelBuilder accel( const std::string& name ) = 0;
 
     // -------------------------------------------------------------------------
     // RUNTIME ACCESS
@@ -76,6 +81,16 @@ public:
     /// @brief Destroys the sampler and frees GPU memory immediately.
     virtual void destroySampler( SamplerHandle handle ) = 0;
 
+    /// @brief Retrieves the raw RHI Acccel pointer associated with a handle.
+    /// @return Pointer to IAccel or nullptr if handle is invalid/dead.
+    virtual RHI::IAccel* getAccel( AccelHandle handle ) = 0;
+
+    /// @brief Looks up a accel handle by its debug name.
+    virtual std::optional<AccelHandle> findAccel( const std::string& name ) const = 0;
+
+    /// @brief Destroys the accel and frees GPU memory immediately.
+    virtual void destroyAccel( AccelHandle handle ) = 0;
+
     // -------------------------------------------------------------------------
     // LIFECYCLE & UTILS
     // -------------------------------------------------------------------------
@@ -92,6 +107,9 @@ public:
     /// @brief Returns the total number of samplers slots occupied (whether they are alive or not).
     virtual uint samplerCount() const = 0;
 
+    /// @brief Returns the total number of samplers slots occupied (whether they are alive or not).
+    virtual uint accelCount() const = 0;
+
 protected:
     IGPUResourcePool() = default;
 
@@ -99,10 +117,12 @@ protected:
     virtual BufferHandle  createBuffer( const RHI::BufferDesc& desc, const void* initialData, bool allowLookup = true )   = 0;
     virtual TextureHandle createTexture( const RHI::TextureDesc& desc, const void* initialData, bool allowLookup = true ) = 0;
     virtual SamplerHandle createSampler( const RHI::SamplerDesc& desc, bool allowLookup = true )                          = 0;
+    virtual AccelHandle   createAccel( const RHI::AccelDesc& desc, bool allowLookup = true )                              = 0;
 
     friend class BufferBuilder;
     friend class TextureBuilder;
     friend class SamplerBuilder;
+    friend class AccelBuilder;
 };
 
 // -----------------------------------------------------------------------------
@@ -171,7 +191,7 @@ private:
     bool              _allowLookup = true;
 };
 
-/// @brief Fluent builder for configuring and creating Textures in the pool.
+/// @brief Fluent builder for configuring and creating Samplers in the pool.
 class IGPUResourcePool::SamplerBuilder : public SamplerBuilderBase<SamplerBuilder>
 {
 public:
@@ -188,6 +208,56 @@ public:
     /// @brief Finalizes configuration and creates the physical resource.
     SamplerHandle create() {
         return _pool.createSampler( _desc, _allowLookup );
+    }
+
+private:
+    IGPUResourcePool& _pool;
+    bool              _allowLookup = true;
+};
+
+/// @brief Fluent builder for configuring and creating Accleration Structures in the pool.
+class IGPUResourcePool::AccelBuilder : public AccelBuilderBase<AccelBuilder>
+{
+public:
+    AccelBuilder( IGPUResourcePool& pool, std::string name )
+        : AccelBuilderBase( std::move( name ) )
+        , _pool( pool ) {}
+
+    // AccelBuilder& addGeometry( const std::string& vertexBufferName,
+    //                             Format             vertexFormat,
+    //                             const std::string& indexBufferName,
+    //                             bool               isOpaque = true ) {
+
+    //     auto* vb = _pool.getBuffer( _pool.findBuffer( vertexBufferName ).value() );
+    //     auto* ib = _pool.getBuffer( _pool.findBuffer( indexBufferName ).value() );
+
+    //     // Validate that buffers exist
+    //     if ( !vb || !ib )
+    //     {
+    //         AXION_LOG_ERROR( Logger::Module::GFX, "Buffers not found for BLAS creation" );
+    //         return *this;
+    //     }
+
+    //     // Call the low-level raw implementation
+    //     return withGeometry(
+    //         vb->getDeviceAddress(),
+    //         vb->getDescription().size,
+    //         vb->getDescription().stride,
+    //         vertexFormat,
+    //         ib->getDeviceAddress(),
+    //         ib->getDescription().size,
+    //         isOpaque );
+    // }
+
+    /// @brief Marks if name will be added as a key for future lookups.
+    AccelBuilder& transient() {
+        _allowLookup = false;
+        return *this;
+    }
+
+    /// @brief Finalizes configuration and creates the physical resource.
+    AccelHandle create() {
+        return _pool.createAccel( _desc, _allowLookup );
     }
 
 private:

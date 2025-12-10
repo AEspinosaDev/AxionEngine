@@ -8,7 +8,7 @@ namespace Graphics::Passes {
 /// @brief Base interface for render passes.
 /// Allows storing different passes in a container (e.g., for initialization).
 struct IPass {
-    virtual ~IPassBase() = default;
+    virtual ~IPass() = default;
 
     /// @brief Called once at engine startup to create pipelines and shaders.
     virtual void init( IRenderer& rnd ) = 0;

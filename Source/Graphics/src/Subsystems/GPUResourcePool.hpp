@@ -16,6 +16,7 @@ public:
     BufferBuilder  buffer( const std::string& name ) override { return BufferBuilder( *this, name ); }
     TextureBuilder texture( const std::string& name ) override { return TextureBuilder( *this, name ); }
     SamplerBuilder sampler( const std::string& name ) override { return SamplerBuilder( *this, name ); }
+    AccelBuilder   accel( const std::string& name ) override { return AccelBuilder( *this, name ); }
 
     RHI::IBuffer*                getBuffer( BufferHandle handle ) override;
     std::optional<BufferHandle>  findBuffer( const std::string& name ) const override;
@@ -26,22 +27,27 @@ public:
     RHI::ISampler*               getSampler( SamplerHandle handle ) override;
     std::optional<SamplerHandle> findSampler( const std::string& name ) const override;
     void                         destroySampler( SamplerHandle handle ) override;
+    RHI::IAccel*                 getAccel( AccelHandle handle ) override;
+    std::optional<AccelHandle>   findAccel( const std::string& name ) const override;
+    void                         destroyAccel( AccelHandle handle ) override;
 
     // Special functions for renderer interop
     TextureHandle registerExternalTexture( RHI::ITexture* ptr, const std::string& name );
     BufferHandle  registerExternalBuffer( RHI::IBuffer* ptr, const std::string& name );
     SamplerHandle registerExternalSampler( RHI::ISampler* ptr, const std::string& name );
+    AccelHandle   registerExternalAccel( RHI::IAccel* ptr, const std::string& name );
 
     void clear() override;
     uint bufferCount() const override { return (uint)_buffers.size(); };
     uint textureCount() const override { return (uint)_textures.size(); };
     uint samplerCount() const override { return (uint)_samplers.size(); };
-
+    uint accelCount() const override { return (uint)_accels.size(); };
 
 private:
     BufferHandle  createBuffer( const RHI::BufferDesc& desc, const void* initialData, bool allowLookup = true ) override;
     TextureHandle createTexture( const RHI::TextureDesc& desc, const void* initialData, bool allowLookup = true ) override;
     SamplerHandle createSampler( const RHI::SamplerDesc& desc, bool allowLookup = true ) override;
+    AccelHandle   createAccel( const RHI::AccelDesc& desc, bool allowLookup = true ) override;
 
 private:
     RHI::IDevice*      _device = nullptr;
@@ -64,6 +70,9 @@ private:
     // Samplers
     std::vector<ResourceRecord<RHI::SamplerPtr>>   _samplers;
     std::unordered_map<std::string, SamplerHandle> _samplerNameToHandle;
+    // Acceleration Structures
+    std::vector<ResourceRecord<RHI::AccelPtr>>   _accels;
+    std::unordered_map<std::string, AccelHandle> _accelNameToHandle;
 };
 
 } // namespace Graphics

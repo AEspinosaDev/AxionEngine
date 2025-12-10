@@ -24,6 +24,8 @@ using namespace Microsoft::WRL;
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 
+#define ALIGN( _size, _alignment ) ( ( ( _size ) + ( _alignment ) - 1 ) & ~( ( _alignment ) - 1 ) )
+
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics {

@@ -38,9 +38,10 @@ public:
             return !operator==( other );
         }
     };
-    virtual ~ITexture()                                          = default;
-    virtual const ITexture::Description& getDescription() const  = 0;
-    virtual ResourceState                getCurrentState() const = 0;
+    virtual ~ITexture()                                           = default;
+    virtual const ITexture::Description& getDescription() const   = 0;
+    virtual ResourceState                getCurrentState() const  = 0;
+    virtual ulong                        getDeviceAddress() const = 0;
 };
 
 typedef ITexture::Description TextureDesc;
@@ -75,9 +76,10 @@ public:
         }
     };
 
-    virtual ~IBuffer()                                 = default;
-    virtual const Description& getDescription() const  = 0;
-    virtual ResourceState      getCurrentState() const = 0;
+    virtual ~IBuffer()                                  = default;
+    virtual const Description& getDescription() const   = 0;
+    virtual ResourceState      getCurrentState() const  = 0;
+    virtual ulong              getDeviceAddress() const = 0;
 
     virtual void copyData( const void* data, ulong size, ulong offset = 0 ) = 0;
 
@@ -111,7 +113,7 @@ public:
         AccelBuildFlags                flags;
         std::vector<AccelGeometryDesc> geometries; // Only valid if type == AccelType::BottomLevel
         std::vector<AccelInstanceDesc> instances;  // Only valid if type == AccelType::TopLevel
-        std::string                    debugName = nullptr;
+        std::string                    debugName = "";
 
         bool operator==( const Description& other ) const {
             return type == other.type &&

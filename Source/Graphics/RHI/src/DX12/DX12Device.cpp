@@ -105,6 +105,13 @@ SamplerPtr DX12Device::createSampler( const SamplerDesc& desc ) {
     return sampler;
 }
 
+AccelPtr DX12Device::createAccel( const AccelDesc& desc ) {
+    DX12Accel* raw = new DX12Accel( desc, _ctx );
+    AccelPtr  acc;
+    acc.attach( raw );
+    return acc;
+}
+
 PipelineLayoutPtr DX12Device::createPipelineLayout( const PipelineLayoutDesc& desc ) {
     DX12PipelineLayout* raw = new DX12PipelineLayout( _ctx.device, desc );
     PipelineLayoutPtr   layout;
