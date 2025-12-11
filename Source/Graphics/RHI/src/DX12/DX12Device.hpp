@@ -23,6 +23,7 @@ public:
     PipelineLayoutPtr      createPipelineLayout( const PipelineLayoutDesc& desc ) override;
     GraphicPipelinePtr     createGraphicPipeline( const GraphicPipelineDesc& desc ) override;
     ComputePipelinePtr     createComputePipeline( const ComputePipelineDesc& desc ) override;
+    RayTracingPipelinePtr  createRayTracingPipeline( const RayTracingPipelineDesc& desc ) override;
     DescriptorAllocatorPtr createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) override;
 
     void executeCommandLists( const std::vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) override;

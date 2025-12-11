@@ -30,11 +30,11 @@ public:
         PushConstantDesc                  pushConstant;
         std::string                       debugName = "";
     };
-    virtual ~IPipelineLayout()                                         = default;
-    virtual const Description& getDescription() const                  = 0;
+    virtual ~IPipelineLayout()                                        = default;
+    virtual const Description& getDescription() const                 = 0;
     virtual uint               getViewCount( uint setIndex ) const    = 0;
     virtual uint               getSamplerCount( uint setIndex ) const = 0;
-    virtual uint               getAccelCount( uint setIndex ) const    = 0;
+    virtual uint               getAccelCount( uint setIndex ) const   = 0;
 };
 
 typedef IPipelineLayout::Description PipelineLayoutDesc;
@@ -142,6 +142,40 @@ public:
 };
 
 typedef IComputePipeline::Description ComputePipelineDesc;
+
+DEFINE_COM_PTR_FOR_TYPE( IRayTracingPipeline, RayTracingPipeline )
+
+struct HitGroupDesc {
+    std::string name;               // The name to use in the Shader Binding Table
+    std::string closestHitShader;   // Entry point name (export) for Closest Hit
+    std::string anyHitShader;       // Entry point name (export) for Any Hit (optional)
+    std::string intersectionShader; // Entry point name (export) for Intersection (optional)
+    std::string callableShader;     // Entry point name (export) for Callables (optional)
+
+    bool isProcedural() const { return !intersectionShader.empty(); }
+};
+
+class IRayTracingPipeline : public IResource
+{
+public:
+    struct Description {
+        std::vector<ShaderModule> shaderModules;
+        IPipelineLayout*          layout = nullptr;
+        std::vector<HitGroupDesc> hitGroups;
+        // Configuration
+        uint maxDepth         = 1; // How many times rays can bounce (TraceRay calls)
+        uint maxPayloadSize   = 0; // sizeof(RayPayload)
+        uint maxAttributeSize = 8; // sizeof(BuiltInTriangleIntersectionAttributes) is 8 (float2)
+
+        std::string debugName = "";
+    };
+
+    virtual ~IRayTracingPipeline()                                                        = default;
+    virtual const Description& getDescription() const                                     = 0;
+    virtual void*              getShaderIdentifier( const std::string& exportName ) const = 0;
+};
+
+typedef IRayTracingPipeline::Description RayTracingPipelineDesc;
 
 } // namespace Graphics::RHI
 

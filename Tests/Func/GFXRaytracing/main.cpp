@@ -240,7 +240,7 @@ int main( /*int argc, char* argv[]*/ ) {
         auto* ib = rnd->resources().getBuffer( rtPass.cubeData.ibo );
 
         rtPass.cubeData.accel = rnd->resources()
-                                    .accel( "dd" )
+                                    .accel( "Cube BLAS" )
                                     .asBLAS()
                                     .withGeometry( vb->getDeviceAddress(),
                                                    vb->getDescription().size,

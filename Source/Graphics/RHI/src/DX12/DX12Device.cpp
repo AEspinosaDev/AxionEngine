@@ -107,7 +107,7 @@ SamplerPtr DX12Device::createSampler( const SamplerDesc& desc ) {
 
 AccelPtr DX12Device::createAccel( const AccelDesc& desc ) {
     DX12Accel* raw = new DX12Accel( desc, _ctx );
-    AccelPtr  acc;
+    AccelPtr   acc;
     acc.attach( raw );
     return acc;
 }
@@ -129,6 +129,13 @@ GraphicPipelinePtr DX12Device::createGraphicPipeline( const GraphicPipelineDesc&
 ComputePipelinePtr DX12Device::createComputePipeline( const ComputePipelineDesc& desc ) {
     DX12ComputePipeline* raw = new DX12ComputePipeline( _ctx.device, desc );
     ComputePipelinePtr   pip;
+    pip.attach( raw );
+    return pip;
+}
+
+RayTracingPipelinePtr DX12Device::createRayTracingPipeline( const RayTracingPipelineDesc& desc ) {
+    DX12RayTracingPipeline* raw = new DX12RayTracingPipeline( _ctx.device, desc );
+    RayTracingPipelinePtr   pip;
     pip.attach( raw );
     return pip;
 }

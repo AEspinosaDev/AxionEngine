@@ -721,6 +721,8 @@ constexpr ObjectType DX12_RootSignature              = 0x00010009;
 constexpr ObjectType DX12_DescriptorHeap             = 0x0001000a;
 constexpr ObjectType DX12_DescriptorSet              = 0x0001000b;
 constexpr ObjectType DX12_DescriptorSamplerHeap      = 0x0001000c;
+constexpr ObjectType DX12_StateObject                = 0x0001000d;
+constexpr ObjectType DX12_StateProps                 = 0x0001000e;
 
 constexpr ObjectType VK_Device                   = 0x00020001;
 constexpr ObjectType VK_PhysicalDevice           = 0x00020002;

@@ -86,6 +86,31 @@ private:
     ComPtr<ID3D12PipelineState> _pso;
 };
 
+DEFINE_COM_PTR_FOR_TYPE( DX12RayTracingPipeline, DX12RayTracingPipeline )
+
+class DX12RayTracingPipeline : public RefCounter<IRayTracingPipeline>
+{
+public:
+    DX12RayTracingPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc );
+    ~DX12RayTracingPipeline() override;
+
+    const Description& getDescription() const override { return _desc; }
+    void*              getShaderIdentifier( const std::string& exportName ) const override;
+
+    void               setDebugName( const std::string& name ) override;
+    const std::string& getDebugName() const override { return _desc.debugName; }
+    NativeObject       getNativeObject( ObjectType objectType ) override;
+    std::string        toString() const override;
+
+private:
+    void createStateObject( const ComPtr<ID3D12Device5>& device );
+
+    Description _desc;
+
+    ComPtr<ID3D12StateObject>           _so;
+    ComPtr<ID3D12StateObjectProperties> _props;
+};
+
 } // namespace Graphics::RHI
 
 AXION_NAMESPACE_END

@@ -163,9 +163,8 @@ DX12GraphicPipeline::DX12GraphicPipeline( const ComPtr<ID3D12Device2>& device, c
             psModule = &m;
     }
 
-    AXION_LOG_ASSERT( vsModule && psModule, Logger::Module::GFX, "DX12 Graphic Pipeline requires at least VS and PS modules." );
+    AXION_LOG_ASSERT( vsModule && psModule, Logger::Module::RHI, "DX12 Graphic Pipeline requires at least VS and PS modules." );
 
-    // createRootSignature( device );
     createPipelineState( device );
 
     setDebugName( _desc.debugName );
@@ -337,7 +336,7 @@ DX12ComputePipeline::DX12ComputePipeline( const ComPtr<ID3D12Device2>& device, c
     const ShaderModule* compModule = nullptr;
     compModule                     = &_desc.shaderModule;
 
-    AXION_LOG_ASSERT( compModule, Logger::Module::GFX, "DX12 Compute Pipeline requires a Compute module." );
+    AXION_LOG_ASSERT( compModule, Logger::Module::RHI, "DX12 Compute Pipeline requires a Compute module." );
 
     createPipelineState( device );
 
@@ -380,6 +379,176 @@ void DX12ComputePipeline::createPipelineState( const ComPtr<ID3D12Device2>& devi
     psoDesc.Flags                             = D3D12_PIPELINE_STATE_FLAG_NONE;
 
     DX_CHECK( device->CreateComputePipelineState( &psoDesc, IID_PPV_ARGS( &_pso ) ) );
+}
+
+DX12RayTracingPipeline::DX12RayTracingPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc ) {
+
+    // Basic validation: need at least vertex and pixel for graphics PSO
+    const ShaderModule* rgenModule = nullptr;
+    const ShaderModule* rmisModule = nullptr;
+    const ShaderModule* chitModule = nullptr;
+    for ( const auto& m : desc.shaderModules )
+    {
+        if ( m.type == ShaderType::RayGeneration )
+            rgenModule = &m;
+        if ( m.type == ShaderType::Miss )
+            rmisModule = &m;
+        if ( m.type == ShaderType::ClosestHit )
+            chitModule = &m;
+    }
+
+    AXION_LOG_ASSERT( rgenModule && rmisModule, Logger::Module::RHI, "DX12 RT Pipeline requires at least RayGen and RayMiss shader modules." );
+    if ( !chitModule )
+        AXION_LOG_WARN( Logger::Module::RHI, "Creating DX12 RT Pipeline without closest hit shader ." );
+    AXION_LOG_ASSERT( _desc.layout, Logger::Module::RHI, "DX12 RT Pipeline requires a Descriptor Layout." );
+
+    ComPtr<ID3D12Device5> device5;
+    device->QueryInterface( IID_PPV_ARGS( &device5 ) );
+
+    createStateObject( device5 );
+
+    setDebugName( _desc.debugName );
+
+    AXION_LOG_INFO( Logger::Module::RHI, "DX12 RayTracing Pipeline [{}] created", _desc.debugName );
+}
+
+DX12RayTracingPipeline::~DX12RayTracingPipeline() {
+    AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 RayTracing Pipeline [{}]", _desc.debugName );
+}
+
+void* DX12RayTracingPipeline::getShaderIdentifier( const std::string& exportName ) const {
+    if ( !_props )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "Attempting to get Shader ID from invalid pipeline props" );
+        return nullptr;
+    }
+
+    std::wstring wName( exportName.begin(), exportName.end() );
+    void*        id = _props->GetShaderIdentifier( wName.c_str() );
+
+    if ( !id )
+        AXION_LOG_ERROR( Logger::Module::RHI, "Shader Identifier [{}] not found in RT Pipeline [{}]", exportName, _desc.debugName );
+    return id;
+}
+
+void DX12RayTracingPipeline::setDebugName( const std::string& name ) {
+    _desc.debugName = name;
+    if ( _so )
+        _so->SetName( std::wstring( name.begin(), name.end() ).c_str() );
+}
+
+NativeObject DX12RayTracingPipeline::getNativeObject( ObjectType objectType ) {
+    switch ( objectType )
+    {
+        case ObjectTypes::DX12_StateObject:
+        case ObjectTypes::DX12_PipelineState: // Legacy Fallback
+            return NativeObject( objectType, _so.Get() );
+
+        case ObjectTypes::DX12_RootSignature:
+            return NativeObject( objectType, _desc.layout->getNativeObject( ObjectTypes::DX12_RootSignature ) );
+
+        default:
+            AXION_LOG_ERROR( Logger::Module::RHI, "DX12 RayTracing Pipeline | Wrong Object Type" );
+            return nullptr;
+    }
+}
+
+std::string DX12RayTracingPipeline::toString() const {
+    return std::string();
+}
+
+void DX12RayTracingPipeline::createStateObject( const ComPtr<ID3D12Device5>& device ) {
+
+    CD3DX12_STATE_OBJECT_DESC dxrPipelineDesc( D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE );
+
+    std::vector<std::wstring>          exportedNames;
+    std::vector<D3D12_SHADER_BYTECODE> stableBytecodes;
+
+    size_t moduleCount = _desc.shaderModules.size();
+    exportedNames.reserve( moduleCount );
+    stableBytecodes.reserve( moduleCount );
+
+    // 2. DXIL Libraries Construction
+    for ( const auto& mod : _desc.shaderModules )
+    {
+        // Filter for Ray Tracing shaders only
+        bool isRTShader = ( mod.type == ShaderType::RayGeneration ||
+                            mod.type == ShaderType::Miss ||
+                            mod.type == ShaderType::ClosestHit ||
+                            mod.type == ShaderType::AnyHit ||
+                            mod.type == ShaderType::Intersection );
+
+        if ( !isRTShader )
+            continue;
+
+        auto* lib = dxrPipelineDesc.CreateSubobject<CD3DX12_DXIL_LIBRARY_SUBOBJECT>();
+
+        D3D12_SHADER_BYTECODE currentBytecode = {};
+        currentBytecode.pShaderBytecode       = mod.code;
+        currentBytecode.BytecodeLength        = mod.codeSize;
+
+        stableBytecodes.push_back( currentBytecode );
+
+        lib->SetDXILLibrary( &stableBytecodes.back() );
+
+        // Handle Entry Point Name
+        if ( !mod.entryPoint.empty() && mod.entryPoint != "main" )
+        {
+            exportedNames.emplace_back( mod.entryPoint.begin(), mod.entryPoint.end() );
+            lib->DefineExport( exportedNames.back().c_str() );
+        }
+    }
+
+    std::vector<std::wstring> hitGroupNames;
+    std::vector<std::wstring> hitGroupImports;
+    hitGroupNames.reserve( _desc.hitGroups.size() );
+    hitGroupImports.reserve( _desc.hitGroups.size() * 3 );
+
+    for ( const auto& hg : _desc.hitGroups )
+    {
+        auto* hitGroup = dxrPipelineDesc.CreateSubobject<CD3DX12_HIT_GROUP_SUBOBJECT>();
+
+        // 1. Nombre del Hit Group (Export)
+        hitGroupNames.emplace_back( hg.name.begin(), hg.name.end() );
+        hitGroup->SetHitGroupExport( hitGroupNames.back().c_str() );
+
+        hitGroup->SetHitGroupType( hg.isProcedural() ? D3D12_HIT_GROUP_TYPE_PROCEDURAL_PRIMITIVE : D3D12_HIT_GROUP_TYPE_TRIANGLES );
+
+        // 2. Closest Hit
+        if ( !hg.closestHitShader.empty() )
+        {
+            hitGroupImports.emplace_back( hg.closestHitShader.begin(), hg.closestHitShader.end() );
+            hitGroup->SetClosestHitShaderImport( hitGroupImports.back().c_str() );
+        }
+
+        // 3. Any Hit
+        if ( !hg.anyHitShader.empty() )
+        {
+            hitGroupImports.emplace_back( hg.anyHitShader.begin(), hg.anyHitShader.end() );
+            hitGroup->SetAnyHitShaderImport( hitGroupImports.back().c_str() );
+        }
+
+        // 4. Intersection
+        if ( !hg.intersectionShader.empty() )
+        {
+            hitGroupImports.emplace_back( hg.intersectionShader.begin(), hg.intersectionShader.end() );
+            hitGroup->SetIntersectionShaderImport( hitGroupImports.back().c_str() );
+        }
+    }
+
+    auto* shaderConfig = dxrPipelineDesc.CreateSubobject<CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT>();
+    shaderConfig->Config( _desc.maxPayloadSize, _desc.maxAttributeSize );
+
+    auto*                globalRootSigDesc = dxrPipelineDesc.CreateSubobject<CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT>();
+    ID3D12RootSignature* rootSig           = _desc.layout->getNativeObject( ObjectTypes::DX12_RootSignature );
+    AXION_LOG_ASSERT( rootSig, Logger::Module::RHI, "Failed to retrieve RootSignature for RT Pipeline" );
+    globalRootSigDesc->SetRootSignature( rootSig );
+
+    auto* pipelineConfig = dxrPipelineDesc.CreateSubobject<CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT>();
+    pipelineConfig->Config( _desc.maxDepth );
+
+    DX_CHECK( device->CreateStateObject( dxrPipelineDesc, IID_PPV_ARGS( &_so ) ) );
+    DX_CHECK( _so->QueryInterface( IID_PPV_ARGS( &_props ) ) );
 }
 
 } // namespace Graphics::RHI
