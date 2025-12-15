@@ -25,6 +25,7 @@ public:
         PresentMode   presentMode           = PresentMode::Vsync;    ///< Presentation mode (Vsync/Immediate/Mailbox).
         Format        backbufferFormat      = Format::RGBA8_UNORM;   ///< Swapchain backbuffer format.
         ulong         RGAllocSize           = 1024 * 1024;           ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
+        ulong         RGAllocSBTSize        = 1024 * 1024;           ///< Initial memory reservation for per-frame Shader Binding Tables data (1MB default).
         uint          RGDescriptorsPerFrame = 2048;                  ///< Initial memory reservation for per-frame DescriptorSet data.
         GCMode        GCMode                = GCMode::AvgMemory;     ///< Garbage Collection aggressiveness for transient resources.
         bool          autoSync              = true;                  ///< Automatic Barrier Insertion.
@@ -73,13 +74,12 @@ public:
     /// @brief Returns the texture handle of the current frame's swapchain image.
     /// Use this to import the backbuffer into the RenderGraph.
     virtual TextureHandle getCurrentBackbufferHandle() const = 0;
-    
+
     /// @brief Returns current frame index.
     virtual ulong getCurrentFrameIndex() const = 0;
-    
+
     /// @brief Returns the total number of frames rendered since initialization.
     virtual ulong getTotalFrameNumber() const = 0;
-
 
     // -------------------------------------------------------------------------
     // LIFECYCLE

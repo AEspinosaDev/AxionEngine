@@ -16,6 +16,10 @@ constexpr T alignUp( T value, T alignment ) {
     return ( value + alignment - 1 ) & ~( alignment - 1 );
 }
 
+constexpr uint alignu( uint value, uint alignment ) {
+    return ( value + alignment - 1 ) & ~( alignment - 1 );
+}
+
 struct ImageData {
     uint width = 0;
     uint height = 0;

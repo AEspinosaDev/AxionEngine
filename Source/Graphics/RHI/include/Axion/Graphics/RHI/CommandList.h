@@ -3,6 +3,7 @@
 #include "Axion/Graphics/RHI/Common.h"
 #include "Axion/Graphics/RHI/Pipeline.h"
 #include "Axion/Graphics/RHI/Resource.h"
+#include "Axion/Graphics/RHI/ShaderBindingTable.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -37,7 +38,8 @@ public:
     virtual void bindGraphicPipeline( IGraphicPipeline* pipeline )       = 0;
     virtual void bindDescriptorSet( uint setIndex, IDescriptorSet* set ) = 0;
 
-    virtual void dispatch( const Extent3D& gridSize ) = 0;
+    virtual void dispatch( const Extent3D& gridSize )                                             = 0;
+    virtual void dispatchRays( const SBT::BufferView& sbtBufferView, const Extent3D& screenSize ) = 0;
 
     virtual void beginRendering( const RenderingDesc& info )                                                    = 0;
     virtual void endRendering()                                                                                 = 0;

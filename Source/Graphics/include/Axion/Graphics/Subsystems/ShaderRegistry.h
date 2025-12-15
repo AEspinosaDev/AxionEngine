@@ -138,14 +138,34 @@ public:
         _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Domain } );
         return *this;
     }
+    /// @brief Adds a Raygen Shader entry point.
+    Builder& raygen( const std::string& entryName ) {
+        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::RayGeneration } );
+        return *this;
+    }
+    /// @brief Adds a Miss Shader entry point.
+    Builder& miss( const std::string& entryName ) {
+        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Miss } );
+        return *this;
+    }
+    /// @brief Adds a Closest Hit Shader entry point.
+    Builder& closestHit( const std::string& entryName ) {
+        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::ClosestHit } );
+        return *this;
+    }
+    /// @brief Adds a Callable Shader entry point.
+    Builder& callable( const std::string& entryName ) {
+        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Callable } );
+        return *this;
+    }
 
     // --- MANUAL CONFIGURATION ---
 
     /// @brief Manually defines the Pipeline Layout (Root Signature).
     /// Disables auto-reflection. Useful for fixing layout mismatches or optimization.
     Builder& layout( const RHI::PipelineLayoutDesc& desc ) {
-        _desc.layoutDesc = desc;
-        _desc.autoReflect  = false;
+        _desc.layoutDesc  = desc;
+        _desc.autoReflect = false;
         return *this;
     }
 

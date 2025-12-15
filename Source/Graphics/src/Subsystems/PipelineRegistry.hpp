@@ -15,11 +15,13 @@ public:
     explicit PipelineRegistry( RHI::IDevice* device, IShaderRegistry& shaderReg );
     ~PipelineRegistry() override;
 
-    GraphicBuilder graphic( const std::string& name ) override { return GraphicBuilder( *this, name ); }
-    ComputeBuilder compute( const std::string& name ) override { return ComputeBuilder( *this, name ); }
+    GraphicBuilder    graphic( const std::string& name ) override { return GraphicBuilder( *this, name ); }
+    ComputeBuilder    compute( const std::string& name ) override { return ComputeBuilder( *this, name ); }
+    RayTracingBuilder raytracing( const std::string& name ) override { return RayTracingBuilder( *this, name ); }
 
     RHI::IGraphicPipeline*        getGraphicPipeline( PipelineHandle handle ) override;
     RHI::IComputePipeline*        getComputePipeline( PipelineHandle handle ) override;
+    RHI::IRayTracingPipeline*     getRaytracingPipeline( PipelineHandle handle ) override;
     std::optional<PipelineHandle> findPipeline( const std::string& name ) const override;
     void                          destroyPipeline( PipelineHandle handle ) override;
     uint                          size() const override { return (uint)_pipelines.size(); };
@@ -30,16 +32,21 @@ public:
 private:
     PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName ) override;
     PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName ) override;
+    PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) override;
 
     RHI::IDevice*    _device = nullptr;
     IShaderRegistry& _shaderReg;
     std::mutex       _mutex;
 
     struct PipelineRecord {
-        std::string                                                                    name;
-        bool                                                                           alive = false;
-        std::variant<std::monostate, RHI::GraphicPipelinePtr, RHI::ComputePipelinePtr> pipeline;
-        RHI::PipelineLayoutPtr                                                         layoutOwner = nullptr;
+        std::string name;
+        bool        alive = false;
+        std::variant<std::monostate,
+                     RHI::GraphicPipelinePtr,
+                     RHI::ComputePipelinePtr,
+                     RHI::RayTracingPipelinePtr>
+                               pipeline;
+        RHI::PipelineLayoutPtr layoutOwner = nullptr;
     };
 
     std::vector<PipelineRecord>                     _pipelines;

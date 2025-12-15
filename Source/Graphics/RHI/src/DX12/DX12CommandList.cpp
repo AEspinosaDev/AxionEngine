@@ -21,10 +21,18 @@ DX12CommandList::DX12CommandList( const ComPtr<ID3D12Device2>& device, const Com
 
     DX_CHECK( _cmdList->Close() );
 
+    if ( FAILED( _cmdList->QueryInterface( IID_PPV_ARGS( &_cmdList4 ) ) ) )
+        _cmdList4 = nullptr;
+
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 Command List [{}] created", _desc.debugName );
 }
 
 DX12CommandList::~DX12CommandList() {
+    if ( _cmdList4 )
+    {
+        _cmdList4->Release();
+        _cmdList4 = nullptr;
+    }
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Command List [{}]", _desc.debugName );
 }
 
@@ -224,6 +232,57 @@ void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set ) {
 void DX12CommandList::dispatch( const Extent3D& gridSize ) {
     AXION_LOG_ASSERT( _bindPoint == PipelineBindPoint::Compute, Logger::Module::RHI, "Dispatch called without Compute Pipeline" );
     _cmdList->Dispatch( gridSize.width, gridSize.height, gridSize.depth );
+}
+
+void DX12CommandList::dispatchRays( const SBT::BufferView& sbtBufferView, const Extent3D& screenSize ) {
+
+    if ( !_cmdList4 )
+    {
+        AXION_LOG_WARN_ONCE( Logger::Module::RHI, "Attempting DispatchRays on unsupported hardware" );
+        return;
+    }
+
+    D3D12_DISPATCH_RAYS_DESC desc = {};
+
+    // 1. Gen
+    desc.RayGenerationShaderRecord.StartAddress = sbtBufferView.rayGenAddress;
+    desc.RayGenerationShaderRecord.SizeInBytes  = D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES;
+
+    // 2. Miss Table
+    desc.MissShaderTable.StartAddress  = sbtBufferView.missRegion.startAddress;
+    desc.MissShaderTable.SizeInBytes   = sbtBufferView.missRegion.sizeInBytes;
+    desc.MissShaderTable.StrideInBytes = sbtBufferView.missRegion.strideInBytes;
+
+    // 3. Hit Group Table
+    desc.HitGroupTable.StartAddress  = sbtBufferView.hitRegion.startAddress;
+    desc.HitGroupTable.SizeInBytes   = sbtBufferView.hitRegion.sizeInBytes;
+    desc.HitGroupTable.StrideInBytes = sbtBufferView.hitRegion.strideInBytes;
+
+    // 4. Callable Table
+    if ( sbtBufferView.callableRegion.sizeInBytes > 0 )
+    {
+        desc.CallableShaderTable.StartAddress  = sbtBufferView.callableRegion.startAddress;
+        desc.CallableShaderTable.SizeInBytes   = sbtBufferView.callableRegion.sizeInBytes;
+        desc.CallableShaderTable.StrideInBytes = sbtBufferView.callableRegion.strideInBytes;
+    }
+
+    // 5. Dimensiones (Lo que te faltaba)
+    desc.Width  = screenSize.width;
+    desc.Height = screenSize.height;
+    desc.Depth  = screenSize.depth;
+
+    ComPtr<ID3D12GraphicsCommandList4> cmdList4;
+    _cmdList.As( &cmdList4 ); // O _cmdList->QueryInterface(IID_PPV_ARGS(&cmdList4));
+
+    if ( cmdList4 )
+    {
+        cmdList4->DispatchRays( &desc );
+    } else
+    {
+        // Log Error: Tu dispositivo o driver no soporta DXR o falló el cast
+        AXION_LOG_ERROR( Logger::Module::RHI, "Failed to cast to ID3D12GraphicsCommandList4 for DispatchRays" );
+    }
+    _cmdList4->DispatchRays( &desc );
 }
 
 void DX12CommandList::beginRendering( const RenderingDesc& info ) {

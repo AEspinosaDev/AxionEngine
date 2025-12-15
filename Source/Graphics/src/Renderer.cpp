@@ -52,6 +52,7 @@ Renderer::Renderer( const WindowPtr& wnd, const RendererSettings& settings )
         .framesInFlight        = _FRAMES_IN_FLIGHT,
         .passDataAllocSize     = _setts.RGAllocSize,
         .desciptorSetAllocSize = _setts.RGDescriptorsPerFrame,
+        .sbtAllocSize          = _setts.RGAllocSBTSize,
         .resourceTTL           = (uint)_setts.GCMode,
         .autoSync              = _setts.autoSync };
     _renderGraph = NEW_U( RenderGraph )( _device.get(), *_resourcePool.get(), *_pipelineRegistry.get(), RGDesc );

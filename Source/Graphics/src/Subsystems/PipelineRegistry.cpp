@@ -156,6 +156,73 @@ PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, 
     return PipelineHandle { id };
 }
 
+PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) {
+    std::scoped_lock lock( _mutex );
+
+    if ( auto it = _nameToHandle.find( desc.debugName ); it != _nameToHandle.end() )
+    {
+        AXION_LOG_WARN( Logger::Module::GFX, "Pipeline [{}] already exists.", desc.debugName );
+        return it->second;
+    }
+
+    RHI::PipelineLayoutPtr layoutPtr    = nullptr;
+    auto                   shaderHandle = _shaderReg.findShader( shaderName );
+    if ( !shaderHandle.has_value() )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Shader [{}] not found for pipeline.", shaderName );
+        return {};
+    }
+    const auto& shaderBundle = _shaderReg.getBundle( shaderHandle.value() );
+    desc.shaderModules.clear();
+    desc.shaderModules.reserve( shaderBundle.stageBlobs.size() );
+    for ( const auto& [type, blob] : shaderBundle.stageBlobs )
+    {
+        desc.shaderModules.push_back( { .type       = type, // Casting de Stage a Type
+                                        .code       = blob.code.data(),
+                                        .codeSize   = blob.code.size(),
+                                        .entryPoint = blob.entryPointName } );
+    }
+
+    layoutPtr   = _device->createPipelineLayout( shaderBundle.layoutDesc );
+    desc.layout = layoutPtr.get();
+
+    auto pipelinePtr = _device->createRayTracingPipeline( desc );
+    if ( !pipelinePtr )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Failed creation for Pipeline [{}]", desc.debugName );
+        return {};
+    }
+
+    uint id = UINT32_MAX;
+    for ( uint i = 0; i < _pipelines.size(); ++i )
+    {
+        if ( !_pipelines[i].alive )
+        {
+            id = i;
+            break;
+        }
+    }
+
+    if ( id == UINT32_MAX )
+    {
+        id = (uint)_pipelines.size();
+        _pipelines.emplace_back();
+    }
+
+    // Rellenar Record
+    auto& record       = _pipelines[id];
+    record.name        = desc.debugName;
+    record.alive       = true;
+    record.pipeline    = std::move( pipelinePtr );
+    record.layoutOwner = std::move( layoutPtr );
+
+    _nameToHandle[desc.debugName] = { id };
+
+    AXION_LOG_INFO( Logger::Module::GFX, "Registered Raytracing Pipeline [{}]", desc.debugName );
+
+    return PipelineHandle { id };
+}
+
 RHI::IGraphicPipeline* PipelineRegistry::getGraphicPipeline( PipelineHandle handle ) {
     if ( handle.id >= _pipelines.size() )
     {
@@ -197,6 +264,31 @@ RHI::IComputePipeline* PipelineRegistry::getComputePipeline( PipelineHandle hand
     }
 
     auto* pipPtr = std::get_if<RHI::ComputePipelinePtr>( &record.pipeline );
+
+    if ( pipPtr )
+    {
+        return pipPtr->get();
+    }
+
+    return nullptr;
+}
+
+RHI::IRayTracingPipeline* PipelineRegistry::getRaytracingPipeline( PipelineHandle handle ) {
+    if ( handle.id >= _pipelines.size() )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Accessing invalid PipelineHandle ID: {}", handle.id );
+        return nullptr;
+    }
+
+    auto& record = _pipelines[handle.id];
+
+    if ( !record.alive )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Accessing dead PipelineHandle" );
+        return nullptr;
+    }
+
+    auto* pipPtr = std::get_if<RHI::RayTracingPipelinePtr>( &record.pipeline );
 
     if ( pipPtr )
     {

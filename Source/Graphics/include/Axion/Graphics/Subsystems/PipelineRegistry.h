@@ -22,6 +22,7 @@ public:
 
     class GraphicBuilder;
     class ComputeBuilder;
+    class RayTracingBuilder;
 
     // -------------------------------------------------------------------------
     // ENTRY POINTS
@@ -35,6 +36,10 @@ public:
     /// @param name Unique debug name for the pipeline.
     virtual ComputeBuilder compute( const std::string& name ) = 0;
 
+    /// @brief Starts the fluent construction of a Raytracing Pipeline.
+    /// @param name Unique debug name for the pipeline.
+    virtual RayTracingBuilder raytracing( const std::string& name ) = 0;
+
     // -------------------------------------------------------------------------
     // RUNTIME ACCESS
     // -------------------------------------------------------------------------
@@ -46,6 +51,10 @@ public:
     /// @brief Retrieves the raw Compute PSO pointer associated with a handle.
     /// @return Raw pointer or nullptr if handle is invalid or type mismatch.
     virtual RHI::IComputePipeline* getComputePipeline( PipelineHandle handle ) = 0;
+
+    /// @brief Retrieves the raw Raytracing PSO pointer associated with a handle.
+    /// @return Raw pointer or nullptr if handle is invalid or type mismatch.
+    virtual RHI::IRayTracingPipeline* getRaytracingPipeline( PipelineHandle handle ) = 0;
 
     /// @brief Looks up a pipeline handle by its debug name.
     virtual std::optional<PipelineHandle> findPipeline( const std::string& name ) const = 0;
@@ -64,11 +73,13 @@ protected:
     IPipelineRegistry() = default;
 
     // Internal factory methods called by Builders
-    virtual PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName ) = 0;
-    virtual PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName ) = 0;
+    virtual PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName )       = 0;
+    virtual PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName )       = 0;
+    virtual PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) = 0;
 
     friend class GraphicBuilder;
     friend class ComputeBuilder;
+    friend class RaytracingBuilder;
 };
 
 // -----------------------------------------------------------------------------
@@ -81,7 +92,7 @@ class IPipelineRegistry::GraphicBuilder
 public:
     GraphicBuilder( IPipelineRegistry& reg, std::string name )
         : _registry( reg ) {
-        _desc.debugName         = std::move( name );
+        _desc.debugName = std::move( name );
         // Default sane state
         _desc.rasterizerState   = { RHI::FillMode::Solid, RHI::CullMode::Back };
         _desc.depthStencilState = { true, true, RHI::CompareOp::Less };
@@ -147,9 +158,9 @@ public:
     }
 
 private:
-    IPipelineRegistry&           _registry;
-    RHI::GraphicPipelineDesc     _desc;
-    std::string                  _shaderName;
+    IPipelineRegistry&       _registry;
+    RHI::GraphicPipelineDesc _desc;
+    std::string              _shaderName;
 };
 
 // -----------------------------------------------------------------------------
@@ -172,16 +183,66 @@ public:
         return *this;
     }
 
-
     /// @brief Finalizes configuration and creates the PSO.
     PipelineHandle create() {
         return _registry.createCompute( _desc, _shaderName );
     }
 
 private:
-    IPipelineRegistry&           _registry;
-    RHI::ComputePipelineDesc     _desc;
-    std::string                  _shaderName;
+    IPipelineRegistry&       _registry;
+    RHI::ComputePipelineDesc _desc;
+    std::string              _shaderName;
+};
+
+// -----------------------------------------------------------------------------
+// RAYTRACING BUILDER
+// -----------------------------------------------------------------------------
+
+class IPipelineRegistry::RayTracingBuilder
+{
+public:
+    RayTracingBuilder( IPipelineRegistry& reg, std::string name )
+        : _registry( reg ) {
+        _desc.debugName      = std::move( name );
+        _desc.maxDepth       = 8;
+        _desc.maxPayloadSize = 256;
+    }
+
+    /// @brief Sets the Raytracing Shader to use.
+    /// Looks up the shader in ShaderRegistry by name.
+    RayTracingBuilder& shader( const std::string& shaderName ) {
+        _shaderName = shaderName;
+        return *this;
+    }
+
+    RayTracingBuilder& defineHitGroup(
+        const std::string& groupName,
+        const std::string& closestHitImport,
+        const std::string& anyHitImport       = "",
+        const std::string& intersectionImport = "" ) {
+        _desc.hitGroups.push_back( { groupName, closestHitImport, anyHitImport, intersectionImport } );
+        return *this;
+    }
+
+    RayTracingBuilder& setMaxDepth( uint depth ) {
+        _desc.maxDepth = depth;
+        return *this;
+    }
+
+    RayTracingBuilder& setPayloadSize( uint bytes ) {
+        _desc.maxPayloadSize = bytes;
+        return *this;
+    }
+
+    /// @brief Finalizes configuration and creates the PSO.
+    PipelineHandle create() {
+        return _registry.createRaytracing( _desc, _shaderName );
+    }
+
+private:
+    IPipelineRegistry&          _registry;
+    RHI::RayTracingPipelineDesc _desc;
+    std::string                 _shaderName;
 };
 
 } // namespace Graphics

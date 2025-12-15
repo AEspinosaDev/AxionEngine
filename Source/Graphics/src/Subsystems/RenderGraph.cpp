@@ -14,6 +14,10 @@ RHI::ITexture* RenderPassContext::getTexture( RGResourceHandle handle ) const {
 RHI::IDescriptorSet* RenderPassContext::allocateSet( RHI::IPipelineLayout* layout, uint setIndex ) const {
     return descriptors->allocate( layout, setIndex );
 }
+
+RHI::SBT::BufferView RenderPassContext::allocateSBT( const RHI::SBT& sbt, RHI::IRayTracingPipeline* pip ) const {
+    return sbtAllocator->allocate( sbt, pip );
+}
 RGResourceHandle RenderPassBuilder::read( RGResourceHandle resource, RHI::ResourceState requiredState ) {
     if ( resource != RG_INVALID_HANDLE )
     {
@@ -69,6 +73,15 @@ RenderGraph::RenderGraph( RHI::IDevice* device, IGPUResourcePool& pool, IPipelin
         allocDesc.debugName      = "RG_Allocator_Frame_" + std::to_string( i );
 
         _descriptorAllocators.push_back( device->createDescriptorAllocator( allocDesc ) );
+
+        if ( desc.sbtAllocSize > 0 )
+        {
+            RHI::SBTAllocatorDesc sbtAllocDesc;
+            sbtAllocDesc.sizeInBytes = desc.sbtAllocSize;
+            sbtAllocDesc.debugName   = "RG_SBT_Allocator_Frame_" + std::to_string( i );
+
+            _sbtAllocators.push_back( device->createSBTAllocator( sbtAllocDesc ) );
+        }
     }
     AXION_LOG_INFO( Logger::Module::GFX, "RenderGraph Subsystem Initialized Succesfully" );
 }
@@ -120,6 +133,8 @@ void RenderGraph::execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) 
 
     auto* currentAllocator = _descriptorAllocators[cmd->getCurrentFrame()].get();
     currentAllocator->reset();
+    auto* currentSBTAllocator = _sbtAllocators[cmd->getCurrentFrame()].get();
+    currentSBTAllocator->reset();
 
     reset();
     RenderGraphBuilder builder( *this );
@@ -127,14 +142,14 @@ void RenderGraph::execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) 
 
     if ( _passes.empty() )
     {
-        AXION_LOG_WARN( Logger::Module::GFX, "RenderGraph has no Passes registered. Skipping execution." );
+        AXION_LOG_WARN_ONCE( Logger::Module::GFX, "RenderGraph has no Passes registered. Skipping execution." );
         return;
     }
 
     compile();
 
     // Execute
-    RenderPassContext ctx { cmd, currentAllocator, *this, _pipelines, _pool };
+    RenderPassContext ctx { cmd, currentAllocator, currentSBTAllocator, *this, _pipelines, _pool };
     for ( const auto& pass : _passes )
     {
         // Call barriers

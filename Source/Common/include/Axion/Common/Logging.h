@@ -168,11 +168,23 @@ AXION_NAMESPACE_END
         }                                                  \
     } while ( 0 )
 
+#define AXION_LOG_WARN_ONCE( module, fmt, ... )    \
+    do                                             \
+    {                                              \
+        static bool _axion_log_once_guard = false; \
+        if ( !_axion_log_once_guard )              \
+        {                                          \
+            AXION_LOG_WARN( module, fmt, __VA_ARGS__  ); \
+            _axion_log_once_guard = true;          \
+        }                                          \
+    } while ( 0 )
+
 #else
 
 #define AXION_LOG_INFO( ... ) ( (void)0 )
 #define AXION_LOG_WARN( ... ) ( (void)0 )
 #define AXION_LOG_ERROR( ... ) ( (void)0 )
 #define AXION_LOG_ASSERT( cond, module, msg, ... ) ( (void)0 )
+#define AXION_LOG_WARN_ONCE( ... ) ( (void)0 )
 
 #endif

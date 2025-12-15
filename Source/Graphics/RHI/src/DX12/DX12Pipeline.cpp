@@ -431,7 +431,7 @@ void* DX12RayTracingPipeline::getShaderIdentifier( const std::string& exportName
     return id;
 }
 
-void DX12RayTracingPipeline::setDebugName( const std::string& name ) {
+void DX12RayTracingPipeline::   setDebugName( const std::string& name ) {
     _desc.debugName = name;
     if ( _so )
         _so->SetName( std::wstring( name.begin(), name.end() ).c_str() );

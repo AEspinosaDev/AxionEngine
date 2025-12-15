@@ -28,11 +28,12 @@ const RGResourceHandle RG_INVALID_HANDLE = UINT32_MAX;
 /// @brief Context passed to the execution lambda of a render pass.
 /// Provides access to physical resources and command recording.
 struct RenderPassContext {
-    RHI::ICommandList*         cmd;         ///< Command list for recording GPU commands.
-    RHI::IDescriptorAllocator* descriptors; ///< Descriptor Allocate to register GPU visible DescriptorSets.
-    const IRenderGraph&        graph;       ///< Reference to the graph for handle resolution.
-    IPipelineRegistry&         pipelines;   ///< Access to compiled PSOs.
-    IGPUResourcePool&          resources;   ///< Access to physical GPU resources.
+    RHI::ICommandList*         cmd;          ///< Command list for recording GPU commands.
+    RHI::IDescriptorAllocator* descriptors;  ///< Descriptor Allocate to register GPU visible DescriptorSets.
+    RHI::ISBTAllocator*        sbtAllocator; ///< SBT AllocatOR to register GPU visible Shader Groups for RTX.
+    const IRenderGraph&        graph;        ///< Reference to the graph for handle resolution.
+    IPipelineRegistry&         pipelines;    ///< Access to compiled PSOs.
+    IGPUResourcePool&          resources;    ///< Access to physical GPU resources.
 
     /// @brief Resolves a logical buffer handle to its physical pointer.
     RHI::IBuffer* getBuffer( RGResourceHandle handle ) const;
@@ -41,6 +42,7 @@ struct RenderPassContext {
     RHI::ITexture* getTexture( RGResourceHandle handle ) const;
 
     RHI::IDescriptorSet* allocateSet( RHI::IPipelineLayout* layout, uint setIndex ) const;
+    RHI::SBT::BufferView allocateSBT( const RHI::SBT& sbt, RHI::IRayTracingPipeline* pip ) const;
 };
 
 /// @brief Helper class to declare resource usage during the Setup phase.
@@ -119,6 +121,7 @@ public:
         uint  framesInFlight;
         ulong passDataAllocSize;
         uint  desciptorSetAllocSize;
+        ulong sbtAllocSize = 0;
         uint  resourceTTL;
         bool  autoSync = true;
     };

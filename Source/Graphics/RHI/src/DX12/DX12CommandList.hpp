@@ -31,6 +31,7 @@ public:
     void bindDescriptorSet( uint setIndex, IDescriptorSet* set ) override;
 
     void dispatch( const Extent3D& gridSize ) override;
+    void dispatchRays( const SBT::BufferView& sbtBufferView, const Extent3D& screenSize ) override;
 
     void beginRendering( const RenderingDesc& info ) override;
     void endRendering() override;
@@ -61,8 +62,11 @@ private:
 
     ID3D12DescriptorHeap* _currentViewHeap    = nullptr;
     ID3D12DescriptorHeap* _currentSamplerHeap = nullptr;
-    
-    IPipelineLayout*      _currentLayout      = nullptr;
+
+    IPipelineLayout* _currentLayout = nullptr;
+
+    // To support RTX
+    ID3D12GraphicsCommandList4* _cmdList4 = nullptr;
 };
 
 } // namespace Graphics::RHI

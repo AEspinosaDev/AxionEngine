@@ -25,6 +25,7 @@ public:
     ComputePipelinePtr     createComputePipeline( const ComputePipelineDesc& desc ) override;
     RayTracingPipelinePtr  createRayTracingPipeline( const RayTracingPipelineDesc& desc ) override;
     DescriptorAllocatorPtr createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) override;
+    SBTAllocatorPtr        createSBTAllocator( const SBTAllocatorDesc& desc ) override;
 
     void executeCommandLists( const std::vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) override;
     void waitForFrame( const Fence& frameFence, QueueType workingQueue ) override;

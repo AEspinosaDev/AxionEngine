@@ -3,6 +3,7 @@
 #include "DX12Debug.hpp"
 #include "DX12Pipeline.hpp"
 #include "DX12Resource.hpp"
+#include "DX12SBTAllocator.h"
 #include "DX12Swapchain.hpp"
 #include "DX12TranslatorUnit.h"
 
@@ -145,6 +146,13 @@ DescriptorAllocatorPtr DX12Device::createDescriptorAllocator( const DescriptorAl
     DescriptorAllocatorPtr   dAlloc;
     dAlloc.attach( raw );
     return dAlloc;
+}
+
+SBTAllocatorPtr DX12Device::createSBTAllocator( const SBTAllocatorDesc& desc ) {
+    DX12SBTAllocator* raw = new DX12SBTAllocator( _ctx.device.Get(), desc );
+    SBTAllocatorPtr   sbtAlloc;
+    sbtAlloc.attach( raw );
+    return sbtAlloc;
 }
 
 void DX12Device::executeCommandLists( const std::vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) {

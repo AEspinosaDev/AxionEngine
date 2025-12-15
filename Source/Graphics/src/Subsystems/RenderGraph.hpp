@@ -28,7 +28,6 @@ public:
     void setGarbageCollectionTTL( uint frames ) override;
     void setAutoSync( bool enable ) override;
 
-
 private:
     // Bridge methods
     RGResourceHandle createTexture( const std::string& name, const RHI::TextureDesc& desc ) override;
@@ -50,9 +49,9 @@ private:
     IGPUResourcePool&                        _pool;
     IPipelineRegistry&                       _pipelines;
     std::vector<RHI::DescriptorAllocatorPtr> _descriptorAllocators;
+    std::vector<RHI::SBTAllocatorPtr>        _sbtAllocators;
 
     RenderGraphDesc _desc;
-
 
     //--------------------------
     // TRANSIENT DATA
@@ -86,7 +85,6 @@ private:
 
         std::vector<RGBarrier> barriers;
     };
-
 
     std::vector<RGResource>            _resources;
     std::vector<RGPass>                _passes;
