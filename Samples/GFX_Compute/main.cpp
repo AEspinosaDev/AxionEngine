@@ -120,8 +120,8 @@ int main( /*int argc, char* argv[]*/ ) {
         // Dedclaring Shaders & Pipelines
         //-------------------------------------
 
-        rnd->shaders().shader( "GenerationShader" ).asDXIL().path( AXION_SHADER_DIR "/Slang/Testing/Generation.slang" ).cs( "computeMain" ).load();
-        rnd->shaders().shader( "TonemappingShader" ).asDXIL().path( AXION_SHADER_DIR "/Slang/Postpro/Tonemapping.slang" ).include( AXION_SHADER_DIR "/Slang/Common" ).cs( "computeMain" ).load();
+        rnd->shaders().shader( "GenerationShader" ).asDXIL().path( AXION_SAMPLES_RESOURCE_DIR "/Shaders/Generation.slang" ).cs( "computeMain" ).load();
+        rnd->shaders().shader( "TonemappingShader" ).asDXIL().path( AXION_SAMPLES_RESOURCE_DIR "/Shaders/Tonemapping.slang" ).include( AXION_SHADER_DIR "/Slang/Common" ).cs( "computeMain" ).load();
         rnd->shaders().compileAllShaders();
 
         GenerationPass gpass;
@@ -165,8 +165,6 @@ int main( /*int argc, char* argv[]*/ ) {
                 frameCounter   = 0;
                 elapsedSeconds = 0.0;
             }
-
-
 
             wnd->processMessages();
 

@@ -169,7 +169,7 @@ int main( /*int argc, char* argv[]*/ ) {
         rnd->shaders()
             .shader( "DrawShader" )
             .asDXIL()
-            .path( AXION_SHADER_DIR "/Slang/Testing/Samplers.slang" )
+            .path( AXION_SAMPLES_RESOURCE_DIR "/Shaders/Samplers.slang" )
             .vs( "vsMain" )
             .ps( "psMain" )
             .load();
@@ -203,7 +203,7 @@ int main( /*int argc, char* argv[]*/ ) {
         //-------------------------------------
 
         // TEXTURE
-        auto imageData          = Axion::Helpers::loadImage( SAMPLER_TEST_DIR "Axion.png" );
+        auto imageData          = Axion::Helpers::loadImage( AXION_SAMPLES_RESOURCE_DIR "/Misc/Axion.png" );
         fwPass.cubeData.texture = rnd->resources()
                                       .texture( "CubeTexture" )
                                       .format( Axion::Graphics::Format::RGBA8_UNORM )

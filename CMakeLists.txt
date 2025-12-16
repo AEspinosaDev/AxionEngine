@@ -10,6 +10,7 @@ project(AxionEngine)
 # User Configuration
 # =========================================================================
 option(AXION_ENABLE_TESTS "Enable building of the tests" ON)
+option(AXION_ENABLE_SAMPLES "Enable building of the samples" ON)
 
 
 # Solo para MSVC, usa /std:c++20
@@ -60,6 +61,12 @@ add_subdirectory(Source/Editor)
 # =========================================================================
 
 
+# =========================================================================
+# Samples Configuration
+# =========================================================================
+if(AXION_ENABLE_SAMPLES)
+    add_subdirectory(Samples)
+endif()
 # =========================================================================
 # Tests Configuration
 # =========================================================================

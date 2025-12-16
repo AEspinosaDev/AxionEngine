@@ -82,7 +82,7 @@ int main( /*int argc, char* argv[]*/ ) {
         // Dedclaring Shaders & Pipelines
         //-------------------------------------
 
-        rnd->shaders().shader( "DrawShader" ).asDXIL().path( AXION_SHADER_DIR "/Slang/Testing/Raster.slang" ).vs( "vsMain" ).ps( "psMain" ).load();
+        rnd->shaders().shader( "DrawShader" ).asDXIL().path( AXION_SAMPLES_RESOURCE_DIR "/Shaders/Raster.slang" ).vs( "vsMain" ).ps( "psMain" ).load();
         rnd->shaders().compileAllShaders();
 
         TrianglePass rpass;

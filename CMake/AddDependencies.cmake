@@ -1,6 +1,8 @@
 # =============================================================================
 # Helper for Axion Engine to handle third-party libraries
 # =============================================================================
+set(CMAKE_FOLDER "ThirdParty")
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # ----------------------------------------------------------------------------
@@ -64,3 +66,6 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/fmt)
 # STB - IMAGE 
 # ----------------------------------------------------------------------------
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/stb_image)
+
+
+unset(CMAKE_FOLDER)
