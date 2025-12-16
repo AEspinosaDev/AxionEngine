@@ -107,7 +107,7 @@ int main( /*int argc, char* argv[]*/ ) {
         Axion::Logger::init( Logger::Level::Info, "Engine.log" );
 #endif
 
-        auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX COMPUTE TEST" } );
+        auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX Compute Sample" } );
         // auto wnd = Axion::Graphics::createWindowForGLFW(  { .name = "GFX COMPUTE TEST" } );
 
         auto rnd = Axion::Graphics::createRenderer( wnd,

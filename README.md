@@ -68,9 +68,10 @@ Axion is built with a modular design philosophy:
 
    Note: The CMake configuration automatically locates and links system dependencies (except Vulkan SDK). It is designed to work out-of-the-box with VS Code or Visual Studio.
    
-3. **Options: To disable building tests:**
+3. **Options: To disable building tests or examples:**
    ```bash
     cmake -DAXION_ENABLE_TESTS=OFF ..
+    cmake -DAXION_ENABLE_SAMPLES=OFF ..
    ```
 
 ## Usage Example 🚀

@@ -582,7 +582,8 @@ constexpr D3D12_RAYTRACING_INSTANCE_FLAGS get( AccelInstanceFlags flags ) noexce
 
 constexpr D3D12_RAYTRACING_GEOMETRY_DESC get( const AccelGeometryDesc& geom ) noexcept {
     D3D12_RAYTRACING_GEOMETRY_DESC desc = {};
-    desc.Type                           = geom.primitiveType == AccelPrimitive::Triangles ? D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES : D3D12_RAYTRACING_GEOMETRY_TYPE_PROCEDURAL_PRIMITIVE_AABBS;
+    // desc.Type                           = geom.primitiveType == AccelPrimitive::Triangles ? D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES : D3D12_RAYTRACING_GEOMETRY_TYPE_PROCEDURAL_PRIMITIVE_AABBS;
+    desc.Type                        =   D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES ;
 
     // Optimization: Opaque geometries don't invoke any-hit shaders
     desc.Flags = geom.isOpaque ? D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE
@@ -605,12 +606,18 @@ constexpr D3D12_RAYTRACING_GEOMETRY_DESC get( const AccelGeometryDesc& geom ) no
     }
 
     return desc;
+
+    
 }
 
 static D3D12_RAYTRACING_INSTANCE_DESC get( const AccelInstanceDesc& inst ) {
     D3D12_RAYTRACING_INSTANCE_DESC desc = {};
 
-    std::memcpy( desc.Transform, inst.transform, sizeof( desc.Transform ) );
+    glm::mat4 transposedMat = glm::transpose( inst.transform );
+
+    // 2. Copiar solo los primeros 12 floats (3 filas x 4 columnas)
+    // desc.Transform es float[3][4] (48 bytes).
+    std::memcpy( desc.Transform, glm::value_ptr(transposedMat), sizeof( desc.Transform ) );
 
     desc.InstanceID                          = inst.instanceID;        // 24-bit user ID
     desc.InstanceMask                        = inst.instanceMask;      // 8-bit visibility mask

@@ -179,6 +179,21 @@ void DX12CommandList::bindGraphicPipeline( IGraphicPipeline* pipeline ) {
     _currentLayout = pipeline->getDescription().layout;
 }
 
+void DX12CommandList::bindRaytracingPipeline( IRayTracingPipeline* pipeline ) {
+    AXION_LOG_ASSERT( pipeline, Logger::Module::RHI, "Binding NULL Raytracing Pipeline" );
+
+    if ( !_cmdList4 )
+        return;
+
+    auto* dxPipeline = static_cast<DX12RayTracingPipeline*>( pipeline );
+    _cmdList4->SetPipelineState1( dxPipeline->getNativeObject( ObjectTypes::DX12_StateObject ) );
+
+    _cmdList->SetComputeRootSignature( dxPipeline->getNativeObject( ObjectTypes::DX12_RootSignature ) );
+
+    _bindPoint     = PipelineBindPoint::RTX;
+    _currentLayout = pipeline->getDescription().layout;
+}
+
 void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set ) {
     AXION_LOG_ASSERT( set, Logger::Module::RHI, "Binding NULL Descriptor Set" );
 
@@ -211,7 +226,7 @@ void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set ) {
     {
         D3D12_GPU_DESCRIPTOR_HANDLE handle = dxSet->getViewGPUHandle();
 
-        if ( _bindPoint == PipelineBindPoint::Compute )
+        if ( _bindPoint == PipelineBindPoint::Compute || _bindPoint == PipelineBindPoint::RTX )
             _cmdList->SetComputeRootDescriptorTable( indices.first, handle );
         else
             _cmdList->SetGraphicsRootDescriptorTable( indices.first, handle );
@@ -222,7 +237,7 @@ void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set ) {
     {
         D3D12_GPU_DESCRIPTOR_HANDLE handle = dxSet->getSamplerGPUHandle();
 
-        if ( _bindPoint == PipelineBindPoint::Compute )
+        if ( _bindPoint == PipelineBindPoint::Compute || _bindPoint == PipelineBindPoint::RTX )
             _cmdList->SetComputeRootDescriptorTable( indices.second, handle );
         else
             _cmdList->SetGraphicsRootDescriptorTable( indices.second, handle );
@@ -235,7 +250,7 @@ void DX12CommandList::dispatch( const Extent3D& gridSize ) {
 }
 
 void DX12CommandList::dispatchRays( const SBT::BufferView& sbtBufferView, const Extent3D& screenSize ) {
-
+    AXION_LOG_ASSERT( _bindPoint == PipelineBindPoint::RTX, Logger::Module::RHI, "Dispatch called without Raytracing Pipeline" );
     if ( !_cmdList4 )
     {
         AXION_LOG_WARN_ONCE( Logger::Module::RHI, "Attempting DispatchRays on unsupported hardware" );
@@ -282,7 +297,6 @@ void DX12CommandList::dispatchRays( const SBT::BufferView& sbtBufferView, const 
         // Log Error: Tu dispositivo o driver no soporta DXR o falló el cast
         AXION_LOG_ERROR( Logger::Module::RHI, "Failed to cast to ID3D12GraphicsCommandList4 for DispatchRays" );
     }
-    _cmdList4->DispatchRays( &desc );
 }
 
 void DX12CommandList::beginRendering( const RenderingDesc& info ) {

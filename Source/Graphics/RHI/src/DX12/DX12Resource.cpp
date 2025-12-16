@@ -680,6 +680,9 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx )
     if ( instancesBuffer )
         delete instancesBuffer;
 
+    if ( desc.type == AccelType::TopLevel )
+        createView( ctx );
+
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 Acceleration Structure Created [{}]", _desc.debugName );
 }
 
@@ -708,6 +711,18 @@ AccelType DX12Accel::getType() const {
 }
 ulong DX12Accel::getDeviceAddress() const {
     return _buffer->getDeviceAddress();
+}
+void DX12Accel::createView( DX12Device::Context& ctx ) {
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC desc {};
+    desc.Format                                   = DXGI_FORMAT_UNKNOWN;
+    desc.ViewDimension                            = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+    desc.Shader4ComponentMapping                  = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    desc.RaytracingAccelerationStructure.Location = _buffer->getDeviceAddress();
+
+    _srvHandle = ctx.heapSRV.allocateCPU();
+
+    ctx.device->CreateShaderResourceView( nullptr, &desc, _srvHandle );
 }
 #pragma endregion
 } // namespace Graphics::RHI

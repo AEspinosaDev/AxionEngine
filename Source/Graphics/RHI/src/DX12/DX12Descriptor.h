@@ -59,6 +59,7 @@ public:
     void attach( uint binding, ITexture* tex, ResourceState bindingState ) override;
     void attach( uint binding, IBuffer* buf, ResourceState bindingState ) override;
     void attach( uint binding, ISampler* samp ) override;
+    void attach( uint binding, IAccel* accel ) override;
 
     void               setDebugName( const std::string& name ) override;
     const std::string& getDebugName() const override;

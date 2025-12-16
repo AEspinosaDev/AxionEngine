@@ -55,7 +55,7 @@ class IBuffer : public IResource
 {
 public:
     struct Description {
-        size_t          size       = 0;
+        ulong           size       = 0;
         uint            stride     = 1; // for structured buffers
         MemoryUsage     memoryType = MemoryUsage::GPUOnly;
         BufferUsage     usageFlags = BufferUsage::None;

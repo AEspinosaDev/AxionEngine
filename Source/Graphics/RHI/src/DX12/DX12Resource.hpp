@@ -139,11 +139,16 @@ public:
     AccelType getType() const override;
     ulong     getDeviceAddress() const override;
 
+    D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }
+
 private:
+    void      createView( DX12Device::Context& ctx );
     AccelDesc _desc;
 
     std::unique_ptr<DX12Buffer> _buffer        = nullptr;
     ulong                       _deviceAddress = 0;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE _srvHandle = {};
 };
 
 } // namespace Graphics::RHI

@@ -28,6 +28,7 @@ public:
 
     void bindComputePipeline( IComputePipeline* pipeline ) override;
     void bindGraphicPipeline( IGraphicPipeline* pipeline ) override;
+    void bindRaytracingPipeline( IRayTracingPipeline* pipeline ) override;
     void bindDescriptorSet( uint setIndex, IDescriptorSet* set ) override;
 
     void dispatch( const Extent3D& gridSize ) override;

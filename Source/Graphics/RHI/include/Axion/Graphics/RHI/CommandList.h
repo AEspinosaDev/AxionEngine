@@ -36,6 +36,7 @@ public:
 
     virtual void bindComputePipeline( IComputePipeline* pipeline )       = 0;
     virtual void bindGraphicPipeline( IGraphicPipeline* pipeline )       = 0;
+    virtual void bindRaytracingPipeline( IRayTracingPipeline* pipeline ) = 0;
     virtual void bindDescriptorSet( uint setIndex, IDescriptorSet* set ) = 0;
 
     virtual void dispatch( const Extent3D& gridSize )                                             = 0;
@@ -64,7 +65,8 @@ protected:
     {
         None,
         Compute,
-        Graphic
+        Graphic,
+        RTX
     };
 
     virtual void pushConstants( uint setIndex, const void* data, uint numValues32Bit, uint offset32Bit = 0 ) = 0;

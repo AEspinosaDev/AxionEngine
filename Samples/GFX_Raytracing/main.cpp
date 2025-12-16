@@ -17,106 +17,56 @@ struct Camera {
 };
 
 struct Cube {
+
     Graphics::BufferHandle vbo;
     Graphics::BufferHandle ibo;
     Graphics::AccelHandle  accel;
-
-    Graphics::TextureHandle texture;
-    Graphics::SamplerHandle sampler;
 
     std::vector<Vertex> vertices = cubeVertices;
     std::vector<uint>   indices  = cubeIndices;
 };
 
 struct RTXPass {
-    Graphics::PipelineHandle pipeline;
+    Graphics::PipelineHandle rtPipeline;
 
-    Cube cubeData = {};
+    Cube cubeData;
 
-    Graphics::RGResourceHandle output;      // ColorBuffer
-    Graphics::RGResourceHandle depthOutput; // DepthBuffer
-
-    Graphics::BufferHandle cameraBuffer; // Camera Uniform Buffer
+    Graphics::RGResourceHandle output;       // ColorBuffer
+    Graphics::BufferHandle     cameraBuffer; // Camera Uniform Buffer
+    Graphics::AccelHandle      accelHandle;  // TLAS
 
     struct Data {
         Graphics::RGResourceHandle target;
-        Graphics::RGResourceHandle depthTarget;
     };
 
     void setup( Graphics::RenderPassBuilder& pb, Data& data ) {
-        data.target      = pb.write( output, Graphics::RHI::ResourceState::RenderTarget );
-        data.depthTarget = pb.write( depthOutput, Graphics::RHI::ResourceState::DepthWrite );
+        data.target = pb.write( output, Graphics::RHI::ResourceState::UnorderedAccess );
     }
 
     void execute( const Data& data, Graphics::RenderPassContext& ctx ) {
         // PSO
-        auto* pso = ctx.pipelines.getGraphicPipeline( pipeline );
-
+        auto* pso = ctx.pipelines.getRaytracingPipeline( rtPipeline );
         // RTs
         auto* targetTex = ctx.getTexture( data.target );
-        auto* depthTex  = ctx.getTexture( data.depthTarget );
+        // UBOs
+        // auto* ubo = ctx.resources.getBuffer( cameraBuffer );
+        // Accel
+        auto* accel = ctx.resources.getAccel( accelHandle );
 
-        // Cube Related
-        auto* vb      = ctx.resources.getBuffer( cubeData.vbo );
-        auto* ib      = ctx.resources.getBuffer( cubeData.ibo );
-        auto* ubo     = ctx.resources.getBuffer( cameraBuffer );
-        auto* sampler = ctx.resources.getSampler( cubeData.sampler );
-        auto* texture = ctx.resources.getTexture( cubeData.texture );
-
-        Graphics::RHI::RenderingDesc info;
-
-        info.renderArea = targetTex->getDescription().size.to2D();
-        info.colorAttachments.push_back( { .texture = targetTex } );
-        info.depthStencilAttachment = { .texture = depthTex };
-
-        ctx.cmd->beginRendering( info );
-        ctx.cmd->bindGraphicPipeline( pso );
+        ctx.cmd->bindRaytracingPipeline( pso );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, ubo, Graphics::RHI::ResourceState::ConstantBuffer );
-        set0->attach( 1, texture, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 0, sampler );
-
+        set0->attach( 0, accel );
+        set0->attach( 1, targetTex, Graphics::RHI::ResourceState::UnorderedAccess );
         ctx.cmd->bindDescriptorSet( 0, set0 );
 
-        ctx.cmd->bindVertexBuffer( 0, vb );
-        ctx.cmd->bindIndexBuffer( ib );
-        ctx.cmd->drawIndexed( (uint)cubeData.indices.size() );
+        Graphics::RHI::SBT sbt;
+        sbt.setRayGen( "raygenMain" );
+        sbt.addMiss( "missMain" );
+        sbt.addHitGroup( "RedGroup" );
 
-        ctx.cmd->endRendering();
-    }
-};
-
-struct ToneMappingPass {
-
-    Graphics::PipelineHandle   pipeline;
-    Graphics::RGResourceHandle inputHandle;
-    Graphics::RGResourceHandle outputHandle;
-
-    struct Data {
-        Graphics::RGResourceHandle inputHDR;
-        Graphics::RGResourceHandle outputLDR;
-    };
-
-    void setup( Graphics::RenderPassBuilder& builder, Data& data ) {
-        data.inputHDR  = builder.read( inputHandle );
-        data.outputLDR = builder.write( outputHandle );
-    }
-
-    void execute( const Data& data, Graphics::RenderPassContext& ctx ) {
-        auto* pso = ctx.pipelines.getComputePipeline( pipeline );
-
-        auto* texIn  = ctx.getTexture( data.inputHDR );
-        auto* texOut = ctx.getTexture( data.outputLDR );
-
-        auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, texIn, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 1, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
-
-        ctx.cmd->bindComputePipeline( pso );
-        ctx.cmd->bindDescriptorSet( 0, set0 );
-
-        ctx.cmd->dispatch( texIn->getDescription().size );
+        auto sbtView = ctx.allocateSBT( sbt, pso );
+        ctx.cmd->dispatchRays( sbtView, targetTex->getDescription().size );
     }
 };
 
@@ -154,7 +104,7 @@ int main( /*int argc, char* argv[]*/ ) {
         Axion::Logger::init( Logger::Level::Info, "Engine.log" );
 #endif
 
-        auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX SAMPLER TEST" } );
+        auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX Raytracing Sample" } );
 
         auto       bufferingType    = Graphics::BufferingType::Double;
         const uint FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
@@ -169,53 +119,30 @@ int main( /*int argc, char* argv[]*/ ) {
         //-------------------------------------
 
         rnd->shaders()
-            .shader( "DrawShader" )
+            .shader( "RTXShader" )
             .asDXIL()
-            .path( AXION_SHADER_DIR "/Slang/Testing/Samplers.slang" )
-            .vs( "vsMain" )
-            .ps( "psMain" )
-            .load();
-
-        rnd->shaders()
-            .shader( "TonemappingShader" )
-            .asDXIL()
-            .path( AXION_SHADER_DIR "/Slang/Postpro/Tonemapping.slang" )
-            .include( AXION_SHADER_DIR "/Slang/Common" )
-            .cs( "computeMain" )
+            .path( AXION_SAMPLES_RESOURCE_DIR "/Shaders/Raytracing.slang" )
+            .raygen( "raygenMain" )
+            .miss( "missMain" )
+            .closestHit( "hitRedMain" )
             .load();
 
         rnd->shaders().compileAllShaders();
 
         RTXPass rtPass {};
-        // fwPass.pipeline = rnd->pipelines()
-        //                       .graphic( "FwPipeline" )
-        //                       .shader( "DrawShader" )
-        //                       .addRenderTarget( Axion::Graphics::Format::RGBA16_FLOAT ) // HDR Format
-        //                       .setDepthFormat( Graphics::Format::D32 )                  // Depth Format
-        //                       .cullNone()                                               // Enable culling later if needed
-        //                       .create();
+        rtPass.rtPipeline = rnd->pipelines()
+                                .raytracing( "RTXPipeline" )
+                                .shader( "RTXShader" )
+                                .defineHitGroup( "RedGroup", "hitRedMain" )
+                                .setMaxDepth( 1 )
+                                .setPayloadSize( sizeof( Axion::Math::Vec4 ) )
+                                .create();
 
-        Axion::Graphics::Passes::ToneMapping tmPass {};
-        tmPass.init( *rnd.get() );
-
-        // ToneMappingPass tmPass {};
-        // tmPass.pipeline = rnd->pipelines().compute( "TmPipeline" ).shader( "TonemappingShader" ).create();
-
-        // CopyPass cpypass;
+        CopyPass cpypass {};
 
         //-------------------------------------
         // Dedclaring Static Resources
         //-------------------------------------
-
-        // TEXTURE
-        // auto imageData          = Axion::Helpers::loadImage( SAMPLER_TEST_DIR "Axion.png" );
-        // fwPass.cubeData.texture = rnd->resources()
-        //                               .texture( "CubeTexture" )
-        //                               .format( Axion::Graphics::Format::RGBA8_UNORM )
-        //                               .extent( imageData.width, imageData.height, 1 )
-        //                               .withData( imageData.getData() )
-        //                               .create();
-        // fwPass.cubeData.sampler = rnd->resources().sampler( "LinearSampler" ).create();
 
         // GEOMETRY
         rtPass.cubeData.vbo = rnd->resources()
@@ -243,11 +170,11 @@ int main( /*int argc, char* argv[]*/ ) {
                                     .accel( "Cube BLAS" )
                                     .asBLAS()
                                     .withGeometry( vb->getDeviceAddress(),
-                                                   vb->getDescription().size,
+                                                   rtPass.cubeData.vertices.size(),
                                                    vb->getDescription().stride,
                                                    Axion::Graphics::Format::RGB32_FLOAT,
                                                    ib->getDeviceAddress(),
-                                                   ib->getDescription().size,
+                                                   rtPass.cubeData.indices.size(),
                                                    true ).create();
 
         // 2. TLAS (Top Level Acceleration Structure)
@@ -256,12 +183,13 @@ int main( /*int argc, char* argv[]*/ ) {
 
         Axion::Graphics::RHI::AccelInstanceDesc instance = {};
         instance.instanceID                              = 0;
-        instance.instanceMask                            = 0xFF; // Visible to all
-        // instance.transform                               = Axion::Math::identity(); // Identity matrix (World Position)
+        instance.instanceMask                            = 0xFF;                    // Visible to all
+        instance.transform                               = Axion::Math::identity(); // Identity matrix (World Position)
         // instance.flags                                   = Graphics::Raytracing::InstanceFlags::None;
+        instance.hitGroupIndex     = 0;
         instance.blasDeviceAddress = cubeBlas->getDeviceAddress();
 
-        auto TLASHandle = rnd->resources()
+        rtPass.accelHandle = rnd->resources()
                               .accel( "TLAS" )
                               .asTLAS()
                               .withInstance( instance ) // Pass the instance description
@@ -318,8 +246,8 @@ int main( /*int argc, char* argv[]*/ ) {
 
             float time  = std::chrono::duration<float>( t1 - startTime ).count();
             auto  model = Axion::Math::identity();
-            model       = Axion::Math::rotate( model, time * 1.5f, Math::Vec3( 0.0f, 1.0f, 0.0f ) );
-            model       = Axion::Math::rotate( model, time * 0.5f, Math::Vec3( 1.0f, 0.0f, 0.0f ) );
+            // model       = Axion::Math::rotate( model, time * 1.5f, Math::Vec3( 0.0f, 1.0f, 0.0f ) );
+            // model       = Axion::Math::rotate( model, time * 0.5f, Math::Vec3( 1.0f, 0.0f, 0.0f ) );
 
             Camera::Payload camData;
             camData.viewModelProj = proj * view * model;
@@ -330,37 +258,24 @@ int main( /*int argc, char* argv[]*/ ) {
             cbRaw->copyData( camData );
 
             rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
-                // using namespace Axion::Graphics;
+                using namespace Axion::Graphics;
 
-                // auto rtExtent = wnd->getSettings().size.to3D();
+                auto rtExtent = wnd->getSettings().size.to3D();
 
-                // // 1. HDR Color Buffer (Transient)
-                // fwPass.output = builder.texture( "ColorBuffer" )
-                //                     .asRenderTarget()
-                //                     .asStorage()                    // Allow reading as SRV in next pass
-                //                     .format( Format::RGBA16_FLOAT ) // HDR
-                //                     .extent( rtExtent )
-                //                     .clearValue( { .color = { 0.2f, 0.2f, 0.2f, 1.0f } } )
-                //                     .create();
+                // 1. Color Buffer (Transient)
+                rtPass.output = builder.texture( "ColorBuffer" )
+                                    .asStorage()
+                                    .format( Format::RGBA8_UNORM )
+                                    .extent( rtExtent )
+                                    .create();
 
-                // // 2. Depth Buffer (Transient)
-                // fwPass.depthOutput = builder.texture( "DepthBuffer" )
-                //                          .asDepthStencil()
-                //                          .format( Format::D32 ) // Explicit Depth Format
-                //                          .extent( rtExtent )
-                //                          .create();
-                // fwPass.cameraBuffer = camBuffers[frameIndex];
+                rtPass.cameraBuffer = camBuffers[frameIndex];
 
-                // builder.addPass<ForwardPass>( "ForwardPass", fwPass );
+                builder.addPass<RTXPass>( "RTPass", rtPass );
 
-                // tmPass.inputHandle  = fwPass.output;
-                // tmPass.outputHandle = builder.texture( "LDRIntermidiate" ).format( Format::RGBA8_UNORM ).extent( rtExtent ).asStorage().create();
-
-                // builder.addPass<ToneMappingPass>( "TonemappingPass", tmPass );
-
-                // cpypass.inputHandle  = tmPass.outputHandle;
-                // cpypass.outputHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
-                // builder.addPass<CopyPass>( "CopyPass", cpypass );
+                cpypass.inputHandle  = rtPass.output;
+                cpypass.outputHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
+                builder.addPass<CopyPass>( "CopyPass", cpypass );
             } );
         };
 

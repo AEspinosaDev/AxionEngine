@@ -381,7 +381,7 @@ void DX12ComputePipeline::createPipelineState( const ComPtr<ID3D12Device2>& devi
     DX_CHECK( device->CreateComputePipelineState( &psoDesc, IID_PPV_ARGS( &_pso ) ) );
 }
 
-DX12RayTracingPipeline::DX12RayTracingPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc ) {
+DX12RayTracingPipeline::DX12RayTracingPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc ) : _desc( desc ) {
 
     // Basic validation: need at least vertex and pixel for graphics PSO
     const ShaderModule* rgenModule = nullptr;
@@ -400,7 +400,8 @@ DX12RayTracingPipeline::DX12RayTracingPipeline( const ComPtr<ID3D12Device2>& dev
     AXION_LOG_ASSERT( rgenModule && rmisModule, Logger::Module::RHI, "DX12 RT Pipeline requires at least RayGen and RayMiss shader modules." );
     if ( !chitModule )
         AXION_LOG_WARN( Logger::Module::RHI, "Creating DX12 RT Pipeline without closest hit shader ." );
-    AXION_LOG_ASSERT( _desc.layout, Logger::Module::RHI, "DX12 RT Pipeline requires a Descriptor Layout." );
+    // AXION_LOG_ASSERT( _desc.layout, Logger::Module::RHI, "DX12 RT Pipeline requires a Descriptor Layout." );
+    
 
     ComPtr<ID3D12Device5> device5;
     device->QueryInterface( IID_PPV_ARGS( &device5 ) );

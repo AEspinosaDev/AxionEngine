@@ -219,6 +219,11 @@ RHI::DescriptorType ShaderCompiler::slangTypeToRHI( slang::TypeReflection* type 
             SlangResourceShape  shape  = type->getResourceShape();
             SlangResourceAccess access = type->getResourceAccess();
 
+            // 0. Accel
+            if ( shape == SLANG_ACCELERATION_STRUCTURE )
+            {
+                return RHI::DescriptorType::AccelerationStructure;
+            }
             // 1. Texturas
             if ( shape & SLANG_RESOURCE_BASE_SHAPE_MASK )
             {
@@ -238,7 +243,6 @@ RHI::DescriptorType ShaderCompiler::slangTypeToRHI( slang::TypeReflection* type 
             {
                 return RHI::DescriptorType::StorageBuffer;
             }
-
             return RHI::DescriptorType::SampledImage; // Fallback
         }
 

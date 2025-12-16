@@ -640,7 +640,7 @@ enum class AccelInstanceFlags : uchar
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( AccelInstanceFlags )
 
-enum class AccelPrimitive : uchar
+enum class AccelPrimitive : uint
 {
     Triangles,
     AABBs,
@@ -674,7 +674,7 @@ struct AccelGeometryDesc {
 
 // Description for an instance inside a TLAS
 struct AccelInstanceDesc {
-    float              transform[3][4];     // 3x4 Row-major matrix (standard for DXR/Vulkan)
+    Math::Mat4         transform;           
     uint               instanceID;          // Custom ID to access in shader (gl_InstanceCustomIndex)
     uint               instanceMask = 0xFF; // Visibility mask (0xFF usually)
     uint               hitGroupIndex;       // Offset in the Shader Binding Table

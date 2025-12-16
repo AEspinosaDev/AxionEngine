@@ -68,7 +68,7 @@ int main( /*int argc, char* argv[]*/ ) {
         Axion::Logger::init( Logger::Level::Info, "Engine.log" );
 #endif
 
-        auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX RASTER TEST" } );
+        auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX Raster Sample" } );
 
         auto       bufferingType    = Graphics::BufferingType::Double;
         const uint FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;

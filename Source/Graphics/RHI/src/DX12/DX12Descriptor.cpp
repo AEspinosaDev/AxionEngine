@@ -129,6 +129,19 @@ void DX12DescriptorSet::attach( uint binding, ISampler* samp ) {
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER );
 }
 
+void DX12DescriptorSet::attach( uint binding, IAccel* accel ) {
+    AXION_LOG_ASSERT( accel, Logger::Module::RHI, "Binding null Accel!" );
+    auto* dxAccel = static_cast<DX12Accel*>( accel );
+
+    D3D12_CPU_DESCRIPTOR_HANDLE dest = _views.startCPU;
+    dest.ptr += binding * _views.handleSize;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE src;
+    src = dxAccel->getSRV();
+
+    _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+}
+
 void DX12DescriptorSet::setDebugName( const std::string& name ) {
 }
 
