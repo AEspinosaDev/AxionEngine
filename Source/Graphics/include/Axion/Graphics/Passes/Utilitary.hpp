@@ -21,7 +21,7 @@ struct BlitToBackBuffer : public IPassRecipe<BlitData> {
 
     void init( IRenderer& rnd ) override {}
 
-    void setup( RenderPassBuilder& builder, ToneMappingData& data ) override {
+    void setup( RenderPassBuilder& builder, BlitData& data ) override {
         data.input  = builder.read( inputHandle, RHI::ResourceState::CopySource );
         data.output = builder.write( outputHandle, RHI::ResourceState::CopySource );
     }

@@ -185,12 +185,12 @@ int main( /*int argc, char* argv[]*/ ) {
             // Process Uniforms
 
             float aspect = (float)wnd->getSettings().size.width / (float)wnd->getSettings().size.height;
-            auto  proj   = Axion::Math::perspective( Math::radians( cam.fov ), aspect, 0.01f, 10.0f );
-            auto  view   = Axion::Math::lookAt( cam.camPos, { 0, 0, 0 }, { 0, 1, 0 } );
+            auto  proj   = Axion::Math::MTX::perspective( Math::radians( cam.fov ), aspect, 0.01f, 10.0f );
 
+            auto            view = Axion::Math::MTX::lookAt( cam.camPos, { 0, 0, 0 }, { 0, 1, 0 } );
             Camera::Payload camData;
             camData.viewProj = proj * view;
-            camData.viewProj = Axion::Math::transpose( camData.viewProj );
+            camData.viewProj = Axion::Math::MTX::transpose( camData.viewProj );
 
             auto  frameIndex = rnd->getCurrentFrameIndex();
             auto* cbRaw      = rnd->resources().getBuffer( camBuffers[frameIndex] );
@@ -198,12 +198,10 @@ int main( /*int argc, char* argv[]*/ ) {
 
             // Call render func and feed it with a lambda building the RenderGraph
             rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
-
                 rpass.output       = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
                 rpass.cameraBuffer = camBuffers[frameIndex];
 
                 builder.addPass<TrianglePass>( "TrianglePass", rpass );
-
             } );
         };
 

@@ -178,8 +178,9 @@ IPipelineRegistry& Renderer::pipelines() {
 }
 
 void Renderer::windowCallback( const Extent2D& newSize ) {
-    if ( newSize.width > 0 || newSize.height > 0 )
+    if ( newSize.width > 0 || newSize.height > 0 ){
         _pendingResize = true;
+    }
 }
 void Renderer::generateSwapchainHandles() {
     _swapchainHandles.clear();

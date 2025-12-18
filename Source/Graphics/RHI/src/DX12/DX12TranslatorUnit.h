@@ -613,11 +613,12 @@ constexpr D3D12_RAYTRACING_GEOMETRY_DESC get( const AccelGeometryDesc& geom ) no
 static D3D12_RAYTRACING_INSTANCE_DESC get( const AccelInstanceDesc& inst ) {
     D3D12_RAYTRACING_INSTANCE_DESC desc = {};
 
-    glm::mat4 transposedMat = glm::transpose( inst.transform );
+    // glm::mat4 transposedMat = glm::transpose( inst.transform );
 
     // 2. Copiar solo los primeros 12 floats (3 filas x 4 columnas)
     // desc.Transform es float[3][4] (48 bytes).
-    std::memcpy( desc.Transform, glm::value_ptr(transposedMat), sizeof( desc.Transform ) );
+    std::memcpy( desc.Transform, glm::value_ptr(inst.transform), sizeof( desc.Transform ) );
+    
 
     desc.InstanceID                          = inst.instanceID;        // 24-bit user ID
     desc.InstanceMask                        = inst.instanceMask;      // 8-bit visibility mask

@@ -353,6 +353,12 @@ public:
     // Instances (TLAS)
     // ------------------------------------------------------------------------
 
+    /// @brief Adds a set of instancea description (TLAS only).
+    T& intances( const std::vector<RHI::AccelInstanceDesc>& insts ) {
+        _desc.instances = insts;
+        return static_cast<T&>( *this );
+    }
+
     /// @brief Adds a raw instance description (TLAS only).
     T& withInstance( const RHI::AccelInstanceDesc& inst ) {
         _desc.instances.push_back( inst );

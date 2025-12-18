@@ -22,6 +22,8 @@ typedef glm::mat3  Mat3;
 
 // --- Transformation Wrappers ---
 
+namespace MTX {
+
 /// @brief Creates a View Matrix (Camera).
 /// @param eye Position of the camera.
 /// @param center Point the camera is looking at.
@@ -50,6 +52,32 @@ inline Mat4 perspective( float fovY, float aspect, float zNear, float zFar ) {
     return m;
 }
 
+inline Mat4 rotate( const Mat4& m, float angle, const Vec3& axis ) {
+    return glm::rotate( m, angle, axis );
+}
+
+inline Mat4 translate( const Mat4& m, const Vec3& v ) {
+    return glm::translate( m, v );
+}
+
+inline Mat4 scale( const Mat4& m, const Vec3& v ) {
+    return glm::scale( m, v );
+}
+
+inline Mat4 identity() {
+    return Mat4( 1.0f );
+}
+
+inline Mat4 transpose( const Mat4& m ) {
+    return glm::transpose( m );
+}
+
+inline Mat4 inverse( const Mat4& m ) {
+    return glm::inverse( m );
+}
+
+} // namespace MTX
+
 // --- Utility Helpers ---
 
 /// @brief Converts degrees to radians.
@@ -72,18 +100,6 @@ inline const float* value_ptr( const Mat4& m ) {
 /// @brief Returns a raw pointer to the vector data (float*).
 inline const float* value_ptr( const Vec3& v ) {
     return glm::value_ptr( v );
-}
-
-inline Mat4 rotate( const Mat4& m, float angle, const Vec3& axis ) {
-    return glm::rotate( m, angle, axis );
-}
-
-inline Mat4 identity() {
-    return Mat4( 1.0f );
-}
-
-inline Mat4 transpose( const Mat4& m ) {
-    return glm::transpose( m );
 }
 
 } // namespace Math

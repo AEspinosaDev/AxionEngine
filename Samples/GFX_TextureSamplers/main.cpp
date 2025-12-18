@@ -272,18 +272,18 @@ int main( /*int argc, char* argv[]*/ ) {
             wnd->processMessages();
 
             float aspect = (float)wnd->getSettings().size.width / (float)wnd->getSettings().size.height;
-            auto  proj   = Axion::Math::perspective( Math::radians( cam.fov ), aspect, 0.01f, 10.0f );
+            auto  proj   = Axion::Math::MTX::perspective( Math::radians( cam.fov ), aspect, 0.01f, 10.0f );
 
-            auto view = Axion::Math::lookAt( cam.camPos, { 0, 0, 0 }, { 0, 1, 0 } );
+            auto view = Axion::Math::MTX::lookAt( cam.camPos, { 0, 0, 0 }, { 0, 1, 0 } );
 
             float time  = std::chrono::duration<float>( t1 - startTime ).count();
-            auto  model = Axion::Math::identity();
-            model       = Axion::Math::rotate( model, time * 1.5f, Math::Vec3( 0.0f, 1.0f, 0.0f ) );
-            model       = Axion::Math::rotate( model, time * 0.5f, Math::Vec3( 1.0f, 0.0f, 0.0f ) );
+            auto  model = Axion::Math::MTX::identity();
+            model       = Axion::Math::MTX::rotate( model, time * 1.5f, Math::Vec3( 0.0f, 1.0f, 0.0f ) );
+            model       = Axion::Math::MTX::rotate( model, time * 0.5f, Math::Vec3( 1.0f, 0.0f, 0.0f ) );
 
             Camera::Payload camData;
             camData.viewModelProj = proj * view * model;
-            camData.viewModelProj = Axion::Math::transpose( camData.viewModelProj );
+            camData.viewModelProj = Axion::Math::MTX::transpose( camData.viewModelProj );
 
             auto  frameIndex = rnd->getCurrentFrameIndex();
             auto* cbRaw      = rnd->resources().getBuffer( camBuffers[frameIndex] );
