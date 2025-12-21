@@ -15,7 +15,7 @@
 <br>
 
 <img width="75%" alt="Screenshot (253)" src="https://github.com/user-attachments/assets/6ae452b5-773d-42bf-a478-3de6bc0cd6f8" />
-<img width="75%" alt="image" src="https://github.com/user-attachments/assets/92b3532c-dbf7-4aee-9ddb-e1198f1331ed" />
+<img width="75%" alt="image" src="https://github.com/user-attachments/assets/0abed45a-cfde-492f-afca-3f412a55e80e" />
 
 <p><i> Top: Raster / Bottom: Real-Time Path-Tracing</i></p>
 </div>
@@ -494,6 +494,7 @@ int main() {
 
 
    <div align="center"> <img src="https://github.com/user-attachments/assets/d1af24cf-0474-418e-8d8c-f15346d6d697" width="600" alt="Axion Engine Compute Output"> <p><i>Compute Shader output with dynamic tone mapping running on DX12 backend.</i></p> </div>
+
 
 
 
