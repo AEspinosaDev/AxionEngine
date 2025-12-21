@@ -1,4 +1,5 @@
 #include "DX12Device.hpp"
+#include "../TransientAllocator.h"
 #include "DX12CommandList.hpp"
 #include "DX12Debug.hpp"
 #include "DX12Pipeline.hpp"
@@ -113,10 +114,6 @@ AccelPtr DX12Device::createAccel( const AccelDesc& desc ) {
     return acc;
 }
 
-bool DX12Device::updateAccel( IAccel* accel, const AccelDesc& desc ) {
-    return false;
-}
-
 PipelineLayoutPtr DX12Device::createPipelineLayout( const PipelineLayoutDesc& desc ) {
     DX12PipelineLayout* raw = new DX12PipelineLayout( _ctx.device, desc );
     PipelineLayoutPtr   layout;
@@ -153,10 +150,17 @@ DescriptorAllocatorPtr DX12Device::createDescriptorAllocator( const DescriptorAl
 }
 
 SBTAllocatorPtr DX12Device::createSBTAllocator( const SBTAllocatorDesc& desc ) {
-    DX12SBTAllocator* raw = new DX12SBTAllocator( _ctx.device.Get(), desc );
+    DX12SBTAllocator* raw = new DX12SBTAllocator( desc, _ctx );
     SBTAllocatorPtr   sbtAlloc;
     sbtAlloc.attach( raw );
     return sbtAlloc;
+}
+
+TransientAllocatorPtr DX12Device::createTransientAllocator( const TransientAllocatorDesc& desc ) {
+    TransientAllocator*   raw = new TransientAllocator( this, desc );
+    TransientAllocatorPtr transAlloc;
+    transAlloc.attach( raw );
+    return transAlloc;
 }
 
 void DX12Device::executeCommandLists( const std::vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) {

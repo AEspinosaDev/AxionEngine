@@ -81,7 +81,8 @@ public:
     virtual ResourceState      getCurrentState() const  = 0;
     virtual ulong              getDeviceAddress() const = 0;
 
-    virtual void copyData( const void* data, ulong size, ulong offset = 0 ) = 0;
+    virtual void  copyData( const void* data, ulong size, ulong offset = 0 ) = 0;
+    virtual void* getData() const                                            = 0;
 
     template <typename T>
     void copyData( const T& data, ulong offset = 0 ) {

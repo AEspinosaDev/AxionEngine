@@ -66,6 +66,7 @@ public:
 
     const BufferDesc&     getDescription() const override { return _desc; }
     void                  copyData( const void* data, ulong size, ulong offset = 0 ) override;
+    void*                 getData() const override;
     void                  setDebugName( const std::string& name ) override;
     const std::string&    getDebugName() const override { return _desc.debugName; }
     NativeObject          getNativeObject( ObjectType objectType ) override;
@@ -100,6 +101,9 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE _uavHandle = {};
     D3D12_VERTEX_BUFFER_VIEW    _vbv       = {};
     D3D12_INDEX_BUFFER_VIEW     _ibv       = {};
+    
+    // Raw mapped data
+    void* _mappedPtr = nullptr;
 };
 
 class DX12Sampler : public RefCounter<ISampler>
@@ -141,11 +145,14 @@ public:
 
     D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }
 
+    DX12Buffer* getScratchBuffer() { return _scratchBuffer.get(); }
+
 private:
     void      createView( DX12Device::Context& ctx );
     AccelDesc _desc;
 
     std::unique_ptr<DX12Buffer> _buffer        = nullptr;
+    std::unique_ptr<DX12Buffer> _scratchBuffer = nullptr;
     ulong                       _deviceAddress = 0;
 
     D3D12_CPU_DESCRIPTOR_HANDLE _srvHandle = {};

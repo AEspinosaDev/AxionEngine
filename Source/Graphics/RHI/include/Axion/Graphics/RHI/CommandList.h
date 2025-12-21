@@ -4,6 +4,7 @@
 #include "Axion/Graphics/RHI/Pipeline.h"
 #include "Axion/Graphics/RHI/Resource.h"
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
+#include "Axion/Graphics/RHI/Memory.hpp"
 
 AXION_NAMESPACE_BEGIN
 
@@ -33,14 +34,15 @@ public:
     virtual void clearTexture( ITexture* texture, const ClearValue& clearValue )                                    = 0;
     virtual void copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset = 0, ulong srcOffset = 0 ) = 0;
     virtual void copyTexture( ITexture* dst, ITexture* src )                                                        = 0;
+    virtual void updateAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator )             = 0;
 
     virtual void bindComputePipeline( IComputePipeline* pipeline )       = 0;
     virtual void bindGraphicPipeline( IGraphicPipeline* pipeline )       = 0;
     virtual void bindRaytracingPipeline( IRayTracingPipeline* pipeline ) = 0;
     virtual void bindDescriptorSet( uint setIndex, IDescriptorSet* set ) = 0;
 
-    virtual void dispatch( const Extent3D& gridSize )                                             = 0;
-    virtual void dispatchRays( const SBT::BufferView& sbtBufferView, const Extent3D& screenSize ) = 0;
+    virtual void dispatch( const Extent3D& gridSize )                                 = 0;
+    virtual void dispatchRays( const SBT::View& sbtView, const Extent3D& screenSize ) = 0;
 
     virtual void beginRendering( const RenderingDesc& info )                                                    = 0;
     virtual void endRendering()                                                                                 = 0;

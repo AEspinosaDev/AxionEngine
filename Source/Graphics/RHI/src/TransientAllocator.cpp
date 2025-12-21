@@ -1,0 +1,49 @@
+#include "TransientAllocator.h"
+
+AXION_NAMESPACE_BEGIN
+namespace Graphics::RHI {
+
+TransientAllocator::TransientAllocator( IDevice* device, const Description& desc )
+    : _desc( desc ) {
+    // 1. SCRATCH (GPU Only / UAV)
+    {
+        BufferDesc bDesc  = {};
+        bDesc.size        = desc.scratchSize;
+        bDesc.memoryType  = MemoryUsage::GPUOnly;
+        bDesc.viewFlags   = BufferViewUnorderedAccess;
+        bDesc.debugName   = desc.debugName + "_ScratchBuffer";
+        _scratchBuffer    = device->createBuffer( bDesc );
+        _scratchAllocator = NEW_U( LinearAllocator )( _scratchBuffer.get() );
+    }
+
+    // 2. UPLOAD (CPU Visible)
+    {
+        BufferDesc bDesc = {};
+        bDesc.size       = desc.uploadSize;
+        bDesc.memoryType = MemoryUsage::CPUVisible;
+        bDesc.viewFlags  = BufferViewNone;
+        bDesc.debugName  = desc.debugName + "_UploadBuffer";
+        _uploadBuffer    = device->createBuffer( bDesc );
+        // _uploadBuffer->map();
+        _uploadAllocator = NEW_U( LinearAllocator )( _uploadBuffer.get() );
+    }
+}
+
+TransientAllocator::~TransientAllocator() {
+}
+
+BufferView TransientAllocator::allocateScratch( ulong size, ulong alignment ) {
+    return _scratchAllocator->allocate( size, alignment );
+}
+
+BufferView TransientAllocator::allocateUpload( ulong size, ulong alignment ) {
+    return _uploadAllocator->allocate( size, alignment );
+}
+
+void TransientAllocator::reset() {
+    _scratchAllocator->reset();
+    _uploadAllocator->reset();
+}
+
+} // namespace Graphics::RHI
+AXION_NAMESPACE_END

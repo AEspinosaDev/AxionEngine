@@ -67,6 +67,17 @@
 
 #define AUTO_VAL 0xffffffff
 
+#if defined(_MSC_VER)
+    // Visual Studio (MSVC)
+    #define AXION_FORCE_INLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+    // GCC y Clang
+    #define AXION_FORCE_INLINE __attribute__((always_inline)) inline
+#else
+    // Fallback estándar
+    #define AXION_FORCE_INLINE inline
+#endif
+
 // ---------------------------------------------------------------------------
 // Handle Data Definitions
 // ---------------------------------------------------------------------------

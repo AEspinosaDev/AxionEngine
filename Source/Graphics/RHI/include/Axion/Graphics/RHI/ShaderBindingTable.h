@@ -22,7 +22,7 @@ struct ShaderBindingTable {
     };
 
     /** @brief Describes the GPU memory layout of an uploaded SBT, used for DispatchRays. */
-    struct BufferView {
+    struct View {
         ulong rayGenAddress; ///< GPU Virtual Address of the Ray Generation record.
         struct Region {
             ulong startAddress;  ///< GPU Virtual Address of the table region.
@@ -56,7 +56,6 @@ struct ShaderBindingTable {
 
 typedef ShaderBindingTable SBT;
 
-
 DEFINE_COM_PTR_FOR_TYPE( ISBTAllocator, SBTAllocator )
 
 /**
@@ -79,7 +78,7 @@ public:
      * @param pip The pipeline used to retrieve Shader Identifiers.
      * @return The buffer view required for the DispatchRays command.
      */
-    virtual SBT::BufferView allocate( const ShaderBindingTable& sbt, IRayTracingPipeline* pip ) = 0;
+    virtual SBT::View allocate( const ShaderBindingTable& sbt, IRayTracingPipeline* pip ) = 0;
 
     /** @brief Returns the allocator description. */
     virtual const Description& getDescription() const = 0;

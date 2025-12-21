@@ -308,7 +308,7 @@ DX12Buffer::DX12Buffer( const BufferDesc&    desc,
     // Resource flags (for UAV or AS)
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
     if ( ( desc.viewFlags & BufferViewUnorderedAccess ) != BufferViewNone ||
-         ( desc.usageFlags & BufferUsage::AccelerationStructure ) != BufferUsage::None ) 
+         ( desc.usageFlags & BufferUsage::AccelerationStructure ) != BufferUsage::None )
         flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
     auto resourceDesc = CD3DX12_RESOURCE_DESC::Buffer( desc.size, flags );
@@ -338,24 +338,40 @@ void* DX12Buffer::map() {
         Logger::Module::RHI,
         "Map called on non-CPU buffer" );
 
-    void*         ptr = nullptr;
+    if ( _mappedPtr )
+        return _mappedPtr;
+
     CD3DX12_RANGE range( 0, 0 );
-    _resource->Map( 0, &range, &ptr );
-    return ptr;
+    HRESULT       hr = _resource->Map( 0, &range, &_mappedPtr );
+    DX_CHECK( hr );
+
+    return _mappedPtr;
 }
 
 void DX12Buffer::unmap() {
-    _resource->Unmap( 0, nullptr );
+    if ( _mappedPtr )
+    {
+        _resource->Unmap( 0, nullptr );
+        _mappedPtr = nullptr;
+    }
 }
 
 void DX12Buffer::copyData( const void* data, ulong size, ulong offset ) {
     AXION_LOG_ASSERT( offset + size <= _desc.size, Logger::Module::RHI, "Buffer [{}] overflow!", _desc.debugName );
-    uchar* dstPtr = static_cast<uchar*>( this->map() );
+
+    bool   alreadyMapped = ( _mappedPtr != nullptr );
+    uchar* dstPtr        = static_cast<uchar*>( this->map() );
+
     if ( dstPtr )
     {
         std::memcpy( dstPtr + offset, data, size );
-        this->unmap();
+        if ( !alreadyMapped )
+            this->unmap();
     }
+}
+
+void* DX12Buffer::getData() const {
+    return _mappedPtr;
 }
 
 void DX12Buffer::setDebugName( const std::string& name ) {
@@ -623,13 +639,13 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx )
                                    ctx );
 
     // Scratch buffer
-    DX12Buffer scratchBuffer( BufferDesc {
-                                  .size       = prebuildInfo.ScratchDataSizeInBytes,
-                                  .memoryType = MemoryUsage::GPUOnly,
-                                  .usageFlags = BufferUsage::Storage,
-                                  .viewFlags  = BufferViewUnorderedAccess,
-                                  .debugName  = _desc.debugName + " Scratch Buffer" },
-                              ctx );
+    _scratchBuffer = NEW_U( DX12Buffer )( BufferDesc {
+                                              .size       = prebuildInfo.ScratchDataSizeInBytes,
+                                              .memoryType = MemoryUsage::GPUOnly,
+                                              .usageFlags = BufferUsage::Storage,
+                                              .viewFlags  = BufferViewUnorderedAccess,
+                                              .debugName  = _desc.debugName + " Scratch Buffer" },
+                                          ctx );
 
     // 4. PREPARE INSTANCE DATA (TLAS ONLY)
     // TLAS build requires instances to be in a GPU buffer.
@@ -663,7 +679,7 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx )
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};
     buildDesc.Inputs                                             = inputs;
     buildDesc.DestAccelerationStructureData                      = _buffer->getDeviceAddress();
-    buildDesc.ScratchAccelerationStructureData                   = scratchBuffer.getDeviceAddress();
+    buildDesc.ScratchAccelerationStructureData                   = _scratchBuffer->getDeviceAddress();
 
     // 6. EXECUTE COMMANDS
     ctx.uploadContext.oneTimeSubmit( ctx.primaryQueue, [&]( const ComPtr<ID3D12GraphicsCommandList>& cmd ) {

@@ -153,6 +153,90 @@ void DX12CommandList::copyTexture( ITexture* dst, ITexture* src ) {
     _cmdList->CopyResource( dst->getNativeObject( ObjectTypes::DX12_Resource ), src->getNativeObject( ObjectTypes::DX12_Resource ) );
 }
 
+void DX12CommandList::updateAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) {
+    // auto* dxAccel = static_cast<DX12Accel*>( accel );
+
+    // if ( !dxAccel || !allocator )
+    // {
+    //     AXION_LOG_ERROR( Logger::Module::RHI, "Invalid arguments for updateAccel" );
+    //     return;
+    // }
+
+    // if ( !( dxAccel->getDescription().flags & ASBuildAllowUpdate ) )
+    // {
+    //     AXION_LOG_WARN( Logger::Module::RHI, "AS Update requested but AllowUpdate flag not set: {}", dxAccel->getDescription().debugName );
+    //     return;
+    // }
+
+    // // 1. Obtener inputs cacheados (geometría, flags, etc.)
+    // // Asumimos que DX12Accel guarda una copia de los inputs de construcción originales
+    // D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = dxAccel->getCachedInputs();
+
+    // // Forzamos el flag de update
+    // inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
+
+    // // 2. Gestión de INSTANCIAS (Solo para TLAS)
+    // // Si las instancias se han movido, necesitamos subir las nuevas matrices a la GPU.
+    // if ( newDesc.type == AccelType::TopLevel )
+    // {
+    //     uint instanceDataSize = (uint)( newDesc.instances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
+
+    //     // Pedimos memoria de subida (Upload Heap)
+    //     auto instanceMem = allocator->allocateUpload( instanceDataSize, 16 );
+
+    //     if ( !instanceMem.isValid() )
+    //     {
+    //         AXION_LOG_ERROR( Logger::Module::RHI, "OOM in Transient Upload Heap during AS update" );
+    //         return;
+    //     }
+
+    //     // Copiamos y transformamos los datos al formato de DX12
+    //     auto* dst = reinterpret_cast<D3D12_RAYTRACING_INSTANCE_DESC*>( instanceMem.cpuAddress );
+    //     for ( size_t i = 0; i < newDesc.instances.size(); ++i )
+    //     {
+    //         dst[i] = DX12Translator::get( newDesc.instances[i] );
+    //     }
+
+    //     inputs.InstanceDescs = instanceMem.gpuAddress;
+    //     inputs.NumDescs      = (UINT)newDesc.instances.size();
+    // }
+
+    // // 3. Gestión de SCRATCH (Memoria temporal GPU)
+    // // D3D12 requiere alineación de 256 bytes para el buffer scratch
+    // size_t scratchSize = dxAccel->getUpdateScratchSize();
+
+    // // Pedimos memoria local (Default Heap / UAV)
+    // auto scratchMem = allocator->allocateScratch( scratchSize, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT );
+
+    // if ( !scratchMem.isValid() )
+    // {
+    //     AXION_LOG_ERROR( Logger::Module::RHI, "OOM in Transient Scratch Heap during AS update" );
+    //     return;
+    // }
+
+    // // 4. Barreras y Construcción
+    // auto* resourceNative = dxAccel->getNativeObject( ObjectTypes::DX12_Resource );
+
+    // // Barrera UAV: Esperar a que cualquier uso previo del AS termine
+    // CD3DX12_RESOURCE_BARRIER barrierBefore = CD3DX12_RESOURCE_BARRIER::UAV( resourceNative );
+    // _cmdList4->ResourceBarrier( 1, &barrierBefore );
+
+    // // Descripción del comando de construcción
+    // D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};
+    // buildDesc.Inputs                                             = inputs;
+    // buildDesc.SourceAccelerationStructureData                    = dxAccel->getGPUAddress(); // Input (Old)
+    // buildDesc.DestAccelerationStructureData                      = dxAccel->getGPUAddress(); // Output (New - In Place)
+    // buildDesc.ScratchAccelerationStructureData                   = scratchMem.gpuAddress;
+
+    // // Ejecutar comando
+    // _cmdList4->BuildRaytracingAccelerationStructure( &buildDesc, 0, nullptr );
+
+    // // Barrera UAV: Nadie puede usar este AS hasta que el update termine
+    // CD3DX12_RESOURCE_BARRIER barrierAfter = CD3DX12_RESOURCE_BARRIER::UAV( resourceNative );
+    // _cmdList4->ResourceBarrier( 1, &barrierAfter );
+
+}
+
 void DX12CommandList::bindComputePipeline( IComputePipeline* pipeline ) {
     AXION_LOG_ASSERT( pipeline, Logger::Module::RHI, "Binding NULL Compute Pipeline" );
 
@@ -249,7 +333,7 @@ void DX12CommandList::dispatch( const Extent3D& gridSize ) {
     _cmdList->Dispatch( gridSize.width, gridSize.height, gridSize.depth );
 }
 
-void DX12CommandList::dispatchRays( const SBT::BufferView& sbtBufferView, const Extent3D& screenSize ) {
+void DX12CommandList::dispatchRays( const SBT::View& sbtView, const Extent3D& screenSize ) {
     AXION_LOG_ASSERT( _bindPoint == PipelineBindPoint::RTX, Logger::Module::RHI, "Dispatch called without Raytracing Pipeline" );
     if ( !_cmdList4 )
     {
@@ -260,25 +344,25 @@ void DX12CommandList::dispatchRays( const SBT::BufferView& sbtBufferView, const 
     D3D12_DISPATCH_RAYS_DESC desc = {};
 
     // 1. Gen
-    desc.RayGenerationShaderRecord.StartAddress = sbtBufferView.rayGenAddress;
+    desc.RayGenerationShaderRecord.StartAddress = sbtView.rayGenAddress;
     desc.RayGenerationShaderRecord.SizeInBytes  = D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES;
 
     // 2. Miss Table
-    desc.MissShaderTable.StartAddress  = sbtBufferView.missRegion.startAddress;
-    desc.MissShaderTable.SizeInBytes   = sbtBufferView.missRegion.sizeInBytes;
-    desc.MissShaderTable.StrideInBytes = sbtBufferView.missRegion.strideInBytes;
+    desc.MissShaderTable.StartAddress  = sbtView.missRegion.startAddress;
+    desc.MissShaderTable.SizeInBytes   = sbtView.missRegion.sizeInBytes;
+    desc.MissShaderTable.StrideInBytes = sbtView.missRegion.strideInBytes;
 
     // 3. Hit Group Table
-    desc.HitGroupTable.StartAddress  = sbtBufferView.hitRegion.startAddress;
-    desc.HitGroupTable.SizeInBytes   = sbtBufferView.hitRegion.sizeInBytes;
-    desc.HitGroupTable.StrideInBytes = sbtBufferView.hitRegion.strideInBytes;
+    desc.HitGroupTable.StartAddress  = sbtView.hitRegion.startAddress;
+    desc.HitGroupTable.SizeInBytes   = sbtView.hitRegion.sizeInBytes;
+    desc.HitGroupTable.StrideInBytes = sbtView.hitRegion.strideInBytes;
 
     // 4. Callable Table
-    if ( sbtBufferView.callableRegion.sizeInBytes > 0 )
+    if ( sbtView.callableRegion.sizeInBytes > 0 )
     {
-        desc.CallableShaderTable.StartAddress  = sbtBufferView.callableRegion.startAddress;
-        desc.CallableShaderTable.SizeInBytes   = sbtBufferView.callableRegion.sizeInBytes;
-        desc.CallableShaderTable.StrideInBytes = sbtBufferView.callableRegion.strideInBytes;
+        desc.CallableShaderTable.StartAddress  = sbtView.callableRegion.startAddress;
+        desc.CallableShaderTable.SizeInBytes   = sbtView.callableRegion.sizeInBytes;
+        desc.CallableShaderTable.StrideInBytes = sbtView.callableRegion.strideInBytes;
     }
 
     // 5. Dimensiones (Lo que te faltaba)

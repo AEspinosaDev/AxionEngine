@@ -6,34 +6,33 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
-DX12SBTAllocator::DX12SBTAllocator( ID3D12Device* device, const SBTAllocatorDesc& desc )
+DX12SBTAllocator::DX12SBTAllocator( const SBTAllocatorDesc& desc, DX12Device::Context& ctx )
     : _desc( desc ) {
-    auto heapProps  = CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_UPLOAD );
-    auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer( desc.sizeInBytes );
 
-    DX_CHECK( device->CreateCommittedResource(
-        &heapProps,
-        D3D12_HEAP_FLAG_NONE,
-        &bufferDesc,
-        D3D12_RESOURCE_STATE_GENERIC_READ,
-        nullptr,
-        IID_PPV_ARGS( &_buffer ) ) );
+    BufferDesc bufDesc = {};
+    bufDesc.size       = desc.sizeInBytes;
+    bufDesc.memoryType = MemoryUsage::CPUVisible; // Importante para SBT
+    bufDesc.usageFlags = BufferUsage::None;
+    bufDesc.viewFlags  = BufferViewNone;
+    bufDesc.debugName  = desc.debugName + "_Buffer";
 
-    // 2.(Map Persistent)
-    DX_CHECK( _buffer->Map( 0, nullptr, reinterpret_cast<void**>( &_cpuBaseAddress ) ) );
-    _gpuBaseAddress = _buffer->GetGPUVirtualAddress();
+    _buffer = NEW_U( DX12Buffer )( bufDesc, ctx );
+
+    _buffer->map();
+
+    _allocator = NEW_U( LinearAllocator )( _buffer.get() );
 
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 SBT Allocator created [{}]", _desc.debugName );
 }
 
 DX12SBTAllocator::~DX12SBTAllocator() {
     if ( _buffer )
-        _buffer->Unmap( 0, nullptr );
+        _buffer->unmap();
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 SBT Allocator [{}]", _desc.debugName );
 }
 
-SBT::BufferView DX12SBTAllocator::allocate( const ShaderBindingTable& sbt, IRayTracingPipeline* pip ) {
-    SBT::BufferView view = {};
+SBT::View DX12SBTAllocator::allocate( const ShaderBindingTable& sbt, IRayTracingPipeline* pip ) {
+    SBT::View view = {};
 
     if ( !pip )
     {
@@ -78,14 +77,13 @@ SBT::BufferView DX12SBTAllocator::allocate( const ShaderBindingTable& sbt, IRayT
 
     uint totalNeeded = rgSize + missSize + hitSize + callSize;
 
-    // Alinear el offset actual del allocator a 64 bytes antes de empezar
-    uint startOffset = Helpers::alignu( _currentOffset, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT );
+    auto memBlock = _allocator->allocate( totalNeeded, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT );
 
-    AXION_LOG_ASSERT( startOffset + totalNeeded <= _desc.sizeInBytes, Logger::Module::RHI, "SBT Allocator [{}] Overflow! Needed {}, Available {}", _desc.debugName, totalNeeded, _desc.sizeInBytes - startOffset );
-    _currentOffset = startOffset + totalNeeded;
+    if ( !memBlock.isValid() )
+        return view;
 
-    uchar*                    pCpuDst = _cpuBaseAddress + startOffset;
-    D3D12_GPU_VIRTUAL_ADDRESS pGpuDst = _gpuBaseAddress + startOffset;
+    uchar*                    pCpuDst = memBlock.cpuAddress;
+    D3D12_GPU_VIRTUAL_ADDRESS pGpuDst = memBlock.gpuAddress;
 
     // -------------------------------------------------------------------------
     // 3. (MEMCPY)
@@ -163,19 +161,20 @@ SBT::BufferView DX12SBTAllocator::allocate( const ShaderBindingTable& sbt, IRayT
 }
 
 void DX12SBTAllocator::reset() {
-    _currentOffset = 0;
+    if ( _allocator )
+        _allocator->reset();
 }
 
 void DX12SBTAllocator::setDebugName( const std::string& name ) {
     _desc.debugName = name;
-    _buffer->SetName( std::wstring( name.begin(), name.end() ).c_str() );
+    _buffer->setDebugName( name + "_Buffer" );
 }
 
 NativeObject DX12SBTAllocator::getNativeObject( ObjectType objectType ) {
     switch ( objectType )
     {
         case ObjectTypes::DX12_Resource:
-            return NativeObject( objectType, _buffer.Get() );
+            return NativeObject( objectType, _buffer->getNativeObject( ObjectTypes::DX12_Resource ) );
         default:
             AXION_LOG_ERROR( Logger::Module::RHI, "DX12 SBT Allocator | Wrong Object Type" );
             return nullptr;

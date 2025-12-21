@@ -1,6 +1,7 @@
 #pragma once
 #include "Axion/Graphics/RHI/CommandList.h"
 #include "Axion/Graphics/RHI/Common.h"
+#include "Axion/Graphics/RHI/Memory.hpp"
 #include "Axion/Graphics/RHI/Pipeline.h"
 #include "Axion/Graphics/RHI/Resource.h"
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
@@ -27,14 +28,15 @@ public:
     virtual BufferPtr      createBuffer( const BufferDesc& desc, const void* initialData = nullptr )   = 0;
     virtual SamplerPtr     createSampler( const SamplerDesc& desc )                                    = 0;
     virtual AccelPtr       createAccel( const AccelDesc& desc )                                        = 0;
-    virtual bool           updateAccel( IAccel* accel, const AccelDesc& desc )                         = 0;
     // virtual std::vector<AccelPtr>  createAccelBatch( const std::vector<AccelDesc>& descs )                     = 0;
-    virtual PipelineLayoutPtr      createPipelineLayout( const PipelineLayoutDesc& desc )           = 0;
-    virtual GraphicPipelinePtr     createGraphicPipeline( const GraphicPipelineDesc& desc )         = 0;
-    virtual ComputePipelinePtr     createComputePipeline( const ComputePipelineDesc& desc )         = 0;
-    virtual RayTracingPipelinePtr  createRayTracingPipeline( const RayTracingPipelineDesc& desc )   = 0;
+    virtual PipelineLayoutPtr     createPipelineLayout( const PipelineLayoutDesc& desc )         = 0;
+    virtual GraphicPipelinePtr    createGraphicPipeline( const GraphicPipelineDesc& desc )       = 0;
+    virtual ComputePipelinePtr    createComputePipeline( const ComputePipelineDesc& desc )       = 0;
+    virtual RayTracingPipelinePtr createRayTracingPipeline( const RayTracingPipelineDesc& desc ) = 0;
+
     virtual DescriptorAllocatorPtr createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) = 0;
     virtual SBTAllocatorPtr        createSBTAllocator( const SBTAllocatorDesc& desc )               = 0;
+    virtual TransientAllocatorPtr  createTransientAllocator( const TransientAllocatorDesc& desc )   = 0;
 
     virtual void executeCommandLists( const std::vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) = 0;
     virtual void waitForFrame( const Fence& frameFence, QueueType workingQueue )                                           = 0;

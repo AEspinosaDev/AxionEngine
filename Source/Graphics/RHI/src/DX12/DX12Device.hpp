@@ -14,19 +14,20 @@ public:
     DX12Device( const IDX12Device::Description& desc );
     ~DX12Device() override;
 
-    SwapchainPtr           createSwapchain( const NativeObject& Ptr, const SwapchainDesc& desc = {} ) override;
-    CommandListPtr         createCommandList( const CommandListDesc& desc ) override;
-    TexturePtr             createTexture( const TextureDesc& desc, const void* initialData = nullptr ) override;
-    BufferPtr              createBuffer( const BufferDesc& desc, const void* initialData = nullptr ) override;
-    SamplerPtr             createSampler( const SamplerDesc& desc ) override;
-    AccelPtr               createAccel( const AccelDesc& desc ) override;
-    bool                   updateAccel( IAccel* accel, const AccelDesc& desc ) override;
-    PipelineLayoutPtr      createPipelineLayout( const PipelineLayoutDesc& desc ) override;
-    GraphicPipelinePtr     createGraphicPipeline( const GraphicPipelineDesc& desc ) override;
-    ComputePipelinePtr     createComputePipeline( const ComputePipelineDesc& desc ) override;
-    RayTracingPipelinePtr  createRayTracingPipeline( const RayTracingPipelineDesc& desc ) override;
+    SwapchainPtr          createSwapchain( const NativeObject& Ptr, const SwapchainDesc& desc = {} ) override;
+    CommandListPtr        createCommandList( const CommandListDesc& desc ) override;
+    TexturePtr            createTexture( const TextureDesc& desc, const void* initialData = nullptr ) override;
+    BufferPtr             createBuffer( const BufferDesc& desc, const void* initialData = nullptr ) override;
+    SamplerPtr            createSampler( const SamplerDesc& desc ) override;
+    AccelPtr              createAccel( const AccelDesc& desc ) override;
+    PipelineLayoutPtr     createPipelineLayout( const PipelineLayoutDesc& desc ) override;
+    GraphicPipelinePtr    createGraphicPipeline( const GraphicPipelineDesc& desc ) override;
+    ComputePipelinePtr    createComputePipeline( const ComputePipelineDesc& desc ) override;
+    RayTracingPipelinePtr createRayTracingPipeline( const RayTracingPipelineDesc& desc ) override;
+
     DescriptorAllocatorPtr createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) override;
     SBTAllocatorPtr        createSBTAllocator( const SBTAllocatorDesc& desc ) override;
+    TransientAllocatorPtr  createTransientAllocator( const TransientAllocatorDesc& desc ) override;
 
     void executeCommandLists( const std::vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) override;
     void waitForFrame( const Fence& frameFence, QueueType workingQueue ) override;

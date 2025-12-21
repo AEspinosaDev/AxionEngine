@@ -1,5 +1,7 @@
 #pragma once
+#include "Axion/Graphics/RHI/Memory.hpp"
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
+#include "DX12Resource.hpp"
 
 AXION_NAMESPACE_BEGIN
 
@@ -8,11 +10,11 @@ namespace Graphics::RHI {
 class DX12SBTAllocator : public RefCounter<ISBTAllocator>
 {
 public:
-    DX12SBTAllocator( ID3D12Device* device, const SBTAllocatorDesc& desc );
+    DX12SBTAllocator( const SBTAllocatorDesc& desc, DX12Device::Context& ctx );
     ~DX12SBTAllocator();
 
-    SBT::BufferView allocate( const ShaderBindingTable& sbt, IRayTracingPipeline* pip ) override;
-    void            reset() override;
+    SBT::View allocate( const ShaderBindingTable& sbt, IRayTracingPipeline* pip ) override;
+    void      reset() override;
 
     const Description& getDescription() const override { return _desc; }
     void               setDebugName( const std::string& name ) override;
@@ -23,11 +25,8 @@ public:
 private:
     SBTAllocatorDesc _desc;
 
-    ComPtr<ID3D12Resource>    _buffer;
-    uchar*                    _cpuBaseAddress = nullptr;
-    D3D12_GPU_VIRTUAL_ADDRESS _gpuBaseAddress = 0;
-
-    ulong _currentOffset = 0;
+    std::unique_ptr<DX12Buffer>      _buffer    = nullptr;
+    std::unique_ptr<LinearAllocator> _allocator = nullptr;
 };
 
 } // namespace Graphics::RHI

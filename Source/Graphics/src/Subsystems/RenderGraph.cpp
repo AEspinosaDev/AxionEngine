@@ -15,7 +15,7 @@ RHI::IDescriptorSet* RenderPassContext::allocateSet( RHI::IPipelineLayout* layou
     return descriptors->allocate( layout, setIndex );
 }
 
-RHI::SBT::BufferView RenderPassContext::allocateSBT( const RHI::SBT& sbt, RHI::IRayTracingPipeline* pip ) const {
+RHI::SBT::View RenderPassContext::allocateSBT( const RHI::SBT& sbt, RHI::IRayTracingPipeline* pip ) const {
     return sbtAllocator->allocate( sbt, pip );
 }
 RGResourceHandle RenderPassBuilder::read( RGResourceHandle resource, RHI::ResourceState requiredState ) {
@@ -68,14 +68,23 @@ RenderGraph::RenderGraph( RHI::IDevice* device, IGPUResourcePool& pool, IPipelin
 
     for ( uint i = 0; i < desc.framesInFlight; ++i )
     {
+
+        // Create Descriptor Heap
         RHI::DescriptorAllocatorDesc allocDesc;
         allocDesc.numDescriptors = desc.desciptorSetAllocSize;
-        allocDesc.debugName      = "RG_Allocator_Frame_" + std::to_string( i );
-
+        allocDesc.debugName      = "RG_Desc_Allocator_Frame_" + std::to_string( i );
         _descriptorAllocators.push_back( device->createDescriptorAllocator( allocDesc ) );
+
+        // Create Transient Heap
+        RHI::TransientAllocatorDesc transDesc;
+        transDesc.scratchSize = desc.transientAllocSize;
+        transDesc.uploadSize  = desc.transientAllocSize;
+        transDesc.debugName   = "RG_Transient_Allocator_Frame_" + std::to_string( i );
+        _transientAllocators.push_back( device->createTransientAllocator( transDesc ) );
 
         if ( desc.sbtAllocSize > 0 )
         {
+            // Create SBT Heap
             RHI::SBTAllocatorDesc sbtAllocDesc;
             sbtAllocDesc.sizeInBytes = desc.sbtAllocSize;
             sbtAllocDesc.debugName   = "RG_SBT_Allocator_Frame_" + std::to_string( i );
@@ -135,6 +144,8 @@ void RenderGraph::execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) 
     currentAllocator->reset();
     auto* currentSBTAllocator = _sbtAllocators[cmd->getCurrentFrame()].get();
     currentSBTAllocator->reset();
+    auto* currentTransAllocatopr = _transientAllocators[cmd->getCurrentFrame()].get();
+    currentTransAllocatopr->reset();
 
     reset();
     RenderGraphBuilder builder( *this );
@@ -149,7 +160,14 @@ void RenderGraph::execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) 
     compile();
 
     // Execute
-    RenderPassContext ctx { cmd, currentAllocator, currentSBTAllocator, *this, _pipelines, _pool };
+    RenderPassContext ctx { cmd,
+                            currentAllocator,
+                            currentSBTAllocator,
+                            currentTransAllocatopr,
+                            *this,
+                            _pipelines,
+                            _pool };
+                            
     for ( const auto& pass : _passes )
     {
         // Call barriers

@@ -50,6 +50,7 @@ private:
     IPipelineRegistry&                       _pipelines;
     std::vector<RHI::DescriptorAllocatorPtr> _descriptorAllocators;
     std::vector<RHI::SBTAllocatorPtr>        _sbtAllocators;
+    std::vector<RHI::TransientAllocatorPtr>  _transientAllocators;
 
     RenderGraphDesc _desc;
 

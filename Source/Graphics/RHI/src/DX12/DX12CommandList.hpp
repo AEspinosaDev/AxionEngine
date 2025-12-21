@@ -25,6 +25,7 @@ public:
     void clearTexture( ITexture* texture, const ClearValue& clearValue ) override;
     void copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset = 0, ulong srcOffset = 0 ) override;
     void copyTexture( ITexture* dst, ITexture* src ) override;
+    void updateAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) override;
 
     void bindComputePipeline( IComputePipeline* pipeline ) override;
     void bindGraphicPipeline( IGraphicPipeline* pipeline ) override;
@@ -32,7 +33,7 @@ public:
     void bindDescriptorSet( uint setIndex, IDescriptorSet* set ) override;
 
     void dispatch( const Extent3D& gridSize ) override;
-    void dispatchRays( const SBT::BufferView& sbtBufferView, const Extent3D& screenSize ) override;
+    void dispatchRays( const SBT::View& sbtView, const Extent3D& screenSize ) override;
 
     void beginRendering( const RenderingDesc& info ) override;
     void endRendering() override;
