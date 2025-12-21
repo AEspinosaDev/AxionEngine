@@ -1,3 +1,19 @@
+/*
+ * ==========================================================================================
+ * AXION ENGINE - GFX MODULE'S RASTER SAMPLE (SIMPLE TRIANGLE)
+ * ==========================================================================================
+ * * Author:    Antonio J. Espinosa
+ * Date:        2025
+ *
+ * Description:
+ * Entry point for the Raster demonstration. This sample implements a
+ * ....
+ *
+ * Key Features Demonstrated:
+ * 
+ *
+ * ==========================================================================================
+ */
 #pragma once
 #include "Axion/Common/Defines.h"
 #include "Axion/Graphics/Platforms/Win32.h"

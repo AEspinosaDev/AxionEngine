@@ -3,8 +3,8 @@
 #include "Axion/Graphics/RHI/Common.h"
 #include "Axion/Graphics/RHI/Pipeline.h"
 #include "Axion/Graphics/RHI/Resource.h"
-#include "Axion/Graphics/RHI/Swapchain.h"
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
+#include "Axion/Graphics/RHI/Swapchain.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -27,6 +27,7 @@ public:
     virtual BufferPtr      createBuffer( const BufferDesc& desc, const void* initialData = nullptr )   = 0;
     virtual SamplerPtr     createSampler( const SamplerDesc& desc )                                    = 0;
     virtual AccelPtr       createAccel( const AccelDesc& desc )                                        = 0;
+    virtual bool           updateAccel( IAccel* accel, const AccelDesc& desc )                         = 0;
     // virtual std::vector<AccelPtr>  createAccelBatch( const std::vector<AccelDesc>& descs )                     = 0;
     virtual PipelineLayoutPtr      createPipelineLayout( const PipelineLayoutDesc& desc )           = 0;
     virtual GraphicPipelinePtr     createGraphicPipeline( const GraphicPipelineDesc& desc )         = 0;

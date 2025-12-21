@@ -25,14 +25,15 @@ struct EntryPoint {
 
 struct ProgramBundle {
     struct StageBlob {
+        RHI::ShaderType    type;
         std::vector<uchar> code;
         std::string        entryPointName;
     };
 
-    std::map<RHI::ShaderType, StageBlob> stageBlobs;
-    RHI::PipelineLayoutDesc              layoutDesc;
-    std::vector<RHI::VertexAttribute>    vertexAttributes;
-    bool                                 isValid() const { return !stageBlobs.empty(); }
+    std::vector<StageBlob>            stageBlobs;
+    RHI::PipelineLayoutDesc           layoutDesc;
+    std::vector<RHI::VertexAttribute> vertexAttributes;
+    bool                              isValid() const { return !stageBlobs.empty(); }
 };
 
 /// @brief Configuration descriptor for a shader source.

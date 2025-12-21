@@ -20,6 +20,7 @@ public:
     BufferPtr              createBuffer( const BufferDesc& desc, const void* initialData = nullptr ) override;
     SamplerPtr             createSampler( const SamplerDesc& desc ) override;
     AccelPtr               createAccel( const AccelDesc& desc ) override;
+    bool                   updateAccel( IAccel* accel, const AccelDesc& desc ) override;
     PipelineLayoutPtr      createPipelineLayout( const PipelineLayoutDesc& desc ) override;
     GraphicPipelinePtr     createGraphicPipeline( const GraphicPipelineDesc& desc ) override;
     ComputePipelinePtr     createComputePipeline( const ComputePipelineDesc& desc ) override;

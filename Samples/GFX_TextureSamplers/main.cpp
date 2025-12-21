@@ -1,3 +1,19 @@
+/*
+ * ==========================================================================================
+ * AXION ENGINE - GFX MODULE'S TEXTURE SAMPLERS SAMPLE (TEXTURED CUBE)
+ * ==========================================================================================
+ * * Author:    Antonio J. Espinosa
+ * Date:        2025
+ *
+ * Description:
+ * Entry point for the Texture usage demonstration. This sample implements a
+ * ....
+ *
+ * Key Features Demonstrated:
+ * 
+ *
+ * ==========================================================================================
+ */
 #pragma once
 #include "Axion/Common/Defines.h"
 #include "Axion/Graphics/Platforms/GLFW.h"

@@ -1,3 +1,19 @@
+/*
+ * ==========================================================================================
+ * AXION ENGINE - GFX MODULE'S COMPUTE SAMPLE
+ * ==========================================================================================
+ * * Author:    Antonio J. Espinosa
+ * Date:        2025
+ *
+ * Description:
+ * Entry point for the Compute demonstration. This sample implements a
+ * ....
+ *
+ * Key Features Demonstrated:
+ *
+ *
+ * ==========================================================================================
+ */
 #pragma once
 #include "Axion/Common/Defines.h"
 #include "Axion/Graphics/Platforms/GLFW.h"
@@ -121,7 +137,13 @@ int main( /*int argc, char* argv[]*/ ) {
         //-------------------------------------
 
         rnd->shaders().shader( "GenerationShader" ).asDXIL().path( AXION_SAMPLES_RESOURCE_DIR "/Shaders/Generation.slang" ).cs( "computeMain" ).load();
-        rnd->shaders().shader( "TonemappingShader" ).asDXIL().path( AXION_SAMPLES_RESOURCE_DIR "/Shaders/Tonemapping.slang" ).include( AXION_SHADER_DIR "/Slang/Common" ).cs( "computeMain" ).load();
+        rnd->shaders()
+            .shader( "TonemappingShader" )
+            .asDXIL()
+            .path( AXION_SHADER_DIR "/Slang/Postpro/Tonemapping.slang" )
+            .include( AXION_SHADER_DIR "/Slang/Common" )
+            .cs( "computeMain" )
+            .load();
         rnd->shaders().compileAllShaders();
 
         GenerationPass gpass;

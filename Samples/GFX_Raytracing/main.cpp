@@ -1,3 +1,27 @@
+/*
+ * ==========================================================================================
+ * AXION ENGINE - GFX MODULE'S RAY TRACING SAMPLE (SIMPLE PATH TRACER)
+ * ==========================================================================================
+ * * Author:    Antonio J. Espinosa
+ * Date:        2025
+ *
+ * Description:
+ * Entry point for the Ray Tracing demonstration. This sample implements a
+ * progressive Path Tracer rendering the classic Cornell Box scene to showcase Global
+ * Illumination capabilities.
+ *
+ * Key Features Demonstrated:
+ * 1. Acceleration Structures: Building BLAS for procedural geometry and TLAS for the scene.
+ * 2. Shader Binding Table (SBT): Usage of specialized Hit Groups (Red, Green, White, Light)
+ * to handle material properties efficiently without uber-shader divergence.
+ * 3. Path Tracing: Monte Carlo integration using Cosine Weighted Hemisphere Sampling for
+ * realistic lighting and color bleeding.
+ * 4. Temporal Accumulation: Progressive rendering technique to converge noise over multiple
+ * frames for high-quality output.
+ * 5. Resource Management: Bindless resource setup and interactive orbit camera control.
+ *
+ * ==========================================================================================
+ */
 #pragma once
 #include "Axion/Common/Defines.h"
 #include "Axion/Graphics/Passes/PostProcess.hpp"
@@ -53,6 +77,9 @@ struct RTXPass {
         auto* pso = ctx.pipelines.getRaytracingPipeline( rtPipeline );
         // RTs
         auto* targetTex = ctx.getTexture( data.target );
+        // Vertex Pulling
+        auto* vb = ctx.resources.getBuffer( cubeData.vbo );
+        auto* ib = ctx.resources.getBuffer( cubeData.ibo );
         // UBOs
         auto* ubo = ctx.resources.getBuffer( uboHandle );
         // Accel
@@ -62,14 +89,19 @@ struct RTXPass {
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
         set0->attach( 0, accel );
-        set0->attach( 1, targetTex, Graphics::RHI::ResourceState::UnorderedAccess );
-        set0->attach( 2, ubo, Graphics::RHI::ResourceState::ConstantBuffer );
+        set0->attach( 1, vb, Graphics::RHI::ResourceState::ShaderResource );
+        set0->attach( 2, ib, Graphics::RHI::ResourceState::ShaderResource );
+        set0->attach( 3, targetTex, Graphics::RHI::ResourceState::UnorderedAccess );
+        set0->attach( 4, ubo, Graphics::RHI::ResourceState::ConstantBuffer );
         ctx.cmd->bindDescriptorSet( 0, set0 );
 
         Graphics::RHI::SBT sbt;
         sbt.setRayGen( "raygenMain" );
         sbt.addMiss( "missMain" );
-        sbt.addHitGroup( "MainGroup" );
+        sbt.addHitGroup( "GreyMat" );
+        sbt.addHitGroup( "RedMat" );
+        sbt.addHitGroup( "GreenMat" );
+        sbt.addHitGroup( "LightMat" );
 
         auto sbtView = ctx.allocateSBT( sbt, pso );
         ctx.cmd->dispatchRays( sbtView, targetTex->getDescription().size );
@@ -81,7 +113,6 @@ Axion::Graphics::RHI::AccelInstanceDesc createInstance(
     uint              hitGroup,
     const Math::Vec3& pos,
     const Math::Vec3& scale,
-    const Math::Vec3& color,
     ulong             blasAddress );
 int main( /*int argc, char* argv[]*/ ) {
 
@@ -112,7 +143,10 @@ int main( /*int argc, char* argv[]*/ ) {
             .include( AXION_SHADER_DIR "/Slang/Common" )
             .raygen( "raygenMain" )
             .miss( "missMain" )
-            .closestHit( "closestHit" )
+            .closestHit( "hitGrey" )
+            .closestHit( "hitRed" )
+            .closestHit( "hitGreen" )
+            .closestHit( "hitLight" )
             .load();
 
         rnd->shaders().compileAllShaders();
@@ -121,7 +155,10 @@ int main( /*int argc, char* argv[]*/ ) {
         rtPass.rtPipeline = rnd->pipelines()
                                 .raytracing( "RTXPipeline" )
                                 .shader( "RTXShader" )
-                                .defineHitGroup( "MainGroup", "closestHit" )
+                                .defineHitGroup( "GreyMat", "hitGrey" )
+                                .defineHitGroup( "RedMat", "hitRed" )
+                                .defineHitGroup( "GreenMat", "hitGreen" )
+                                .defineHitGroup( "LightMat", "hitLight" )
                                 .setMaxDepth( 1 )
                                 .setPayloadSize( sizeof( Axion::Math::Vec4 ) * 4 )
                                 .create();
@@ -138,7 +175,7 @@ int main( /*int argc, char* argv[]*/ ) {
         // GEOMETRY
         rtPass.cubeData.vbo = rnd->resources()
                                   .buffer( "VertexBuffer" )
-                                  .asVBO()
+                                  .asReadOnlySSBO()
                                   .withData( rtPass.cubeData.vertices.data() )
                                   .stride( sizeof( Vertex ) )
                                   .size( rtPass.cubeData.vertices.size() * sizeof( Vertex ) )
@@ -146,7 +183,7 @@ int main( /*int argc, char* argv[]*/ ) {
 
         rtPass.cubeData.ibo = rnd->resources()
                                   .buffer( "IndexBuffer" )
-                                  .asIBO()
+                                  .asReadOnlySSBO()
                                   .withData( rtPass.cubeData.indices.data() )
                                   .size( rtPass.cubeData.indices.size() * sizeof( uint ) )
                                   .create();
@@ -178,21 +215,21 @@ int main( /*int argc, char* argv[]*/ ) {
         std::vector<Axion::Graphics::RHI::AccelInstanceDesc> instances;
         auto                                                 add = cubeBlas->getDeviceAddress();
         // 0. Floor (Grey)
-        instances.push_back( createInstance( 0, 0, { 0, -2.0, 0 }, { 4, 0.1f, 4 }, { 0.8f, 0.8f, 0.8f }, add ) );
+        instances.push_back( createInstance( 0, 0, { 0, -2.0, 0 }, { 4, 0.1f, 4 }, add ) );
         // 1. Ceiling (Grey)
-        instances.push_back( createInstance( 1, 0, { 0, 2.0, 0 }, { 4, 0.1f, 4 }, { 0.8f, 0.8f, 0.8f }, add ) );
+        instances.push_back( createInstance( 1, 0, { 0, 2.0, 0 }, { 4, 0.1f, 4 }, add ) );
         // 2. Centre Wall (Grey)
-        instances.push_back( createInstance( 2, 0, { 0, 0, 2.0f }, { 4, 4, 0.1f }, { 0.8f, 0.8f, 0.8f }, add ) );
+        instances.push_back( createInstance( 2, 0, { 0, 0, 2.0f }, { 4, 4, 0.1f }, add ) );
         // 3. Left Wall (Red)
-        instances.push_back( createInstance( 3, 0, { -2.0f, 0, 0 }, { 0.1f, 4, 4 }, { 0.8f, 0.1f, 0.1f }, add ) );
+        instances.push_back( createInstance( 3, 1, { -2.0f, 0, 0 }, { 0.1f, 4, 4 }, add ) );
         // 4. Right Wall (Green)
-        instances.push_back( createInstance( 4, 0, { 2.0f, 0, 0 }, { 0.1f, 4, 4 }, { 0.1f, 0.8f, 0.1f }, add ) );
+        instances.push_back( createInstance( 4, 2, { 2.0f, 0, 0 }, { 0.1f, 4, 4 }, add ) );
         // 5. Light (Emissive)
-        instances.push_back( createInstance( 5, 0, { 0, 1.95f, 0 }, { 1.0f, 0.05f, 1.0f }, { 50.0f, 50.0f, 50.0f }, add ) );
+        instances.push_back( createInstance( 5, 3, { 0, 1.95f, 0 }, { 1.0f, 0.05f, 1.0f }, add ) );
         // 6. Tall Cube
-        instances.push_back( createInstance( 6, 0, { -0.5f, -1.6f, 0.5f }, { 0.9f, 1.6f, 0.85f }, { 0.8f, 0.8f, 0.8f }, add ) );
+        instances.push_back( createInstance( 6, 0, { -0.5f, -1.6f, 0.5f }, { 0.9f, 1.6f, 0.85f }, add ) );
         // 7. Short Cube
-        instances.push_back( createInstance( 7, 0, { 0.5f, -1.7f, -0.5f }, { 0.9f, 0.9f, 0.9f }, { 0.8f, 0.8f, 0.8f }, add ) );
+        instances.push_back( createInstance( 7, 0, { 0.5f, -1.7f, -0.5f }, { 0.9f, 0.9f, 0.9f }, add ) );
 
         rtPass.accelHandle = rnd->resources()
                                  .accel( "TLAS" )
@@ -358,7 +395,6 @@ Axion::Graphics::RHI::AccelInstanceDesc createInstance(
     uint              hitGroup,
     const Math::Vec3& pos,
     const Math::Vec3& scale,
-    const Math::Vec3& color,
     ulong             blasAddress ) {
     Axion::Graphics::RHI::AccelInstanceDesc inst = {};
     inst.instanceID                              = id;
@@ -366,11 +402,10 @@ Axion::Graphics::RHI::AccelInstanceDesc createInstance(
     inst.hitGroupIndex                           = hitGroup;
     inst.blasDeviceAddress                       = blasAddress;
 
-    // Matriz TRS (Sin rotación para simplificar cajas AABB aligned)
     auto m         = Axion::Math::MTX::identity();
     m              = Axion::Math::MTX::translate( m, pos );
     m              = Axion::Math::MTX::scale( m, scale );
-    inst.transform = Axion::Math::MTX::transpose( m ); // Row-Major para DXR
+    inst.transform = Axion::Math::MTX::transpose( m ); // Row-Major DXR
 
     return inst;
 }

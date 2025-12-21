@@ -113,6 +113,10 @@ AccelPtr DX12Device::createAccel( const AccelDesc& desc ) {
     return acc;
 }
 
+bool DX12Device::updateAccel( IAccel* accel, const AccelDesc& desc ) {
+    return false;
+}
+
 PipelineLayoutPtr DX12Device::createPipelineLayout( const PipelineLayoutDesc& desc ) {
     DX12PipelineLayout* raw = new DX12PipelineLayout( _ctx.device, desc );
     PipelineLayoutPtr   layout;

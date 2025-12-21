@@ -1,8 +1,11 @@
 #include "Montecarlo.slang"
 #include "Random.slang"
 
-RaytracingAccelerationStructure gAccel : register( t0, space0 );
-RWTexture2D<float4>             gOutput : register( u0, space0 );
+struct Vertex {
+    float3 pos;
+    float3 normal;
+    float2 uv;
+};
 
 struct SceneData {
     float4x4 viewProj;
@@ -12,10 +15,13 @@ struct SceneData {
     uint     frameIndex;
 };
 
-cbuffer CameraCB : register( b0, space0 ) {
+RaytracingAccelerationStructure gAccel : register( t0, space0 );
+StructuredBuffer<Vertex>        gVerts : register( t1, space0 );
+StructuredBuffer<uint>          gIndices : register( t2, space0 );
+RWTexture2D<float4>             gOutput : register( u0, space0 );
+cbuffer                         CameraCB : register( b0, space0 ) {
     SceneData gScene;
 };
-
 
 struct RayPayload {
     float3 albedo;
@@ -28,6 +34,36 @@ struct RayPayload {
 struct BuiltInTriangleIntersectionAttributes {
     float2 barycentrics;
 };
+
+float3 getShadingNormal( BuiltInTriangleIntersectionAttributes attr) {
+    //Triangle ID
+    uint primIdx = PrimitiveIndex();
+
+    uint i0 = gIndices[primIdx * 3 + 0];
+    uint i1 = gIndices[primIdx * 3 + 1];
+    uint i2 = gIndices[primIdx * 3 + 2];
+
+    Vertex v0 = gVerts[i0];
+    Vertex v1 = gVerts[i1];
+    Vertex v2 = gVerts[i2];
+
+    //Compute Barycentrics
+    float3 bary;
+    bary.yz = attr.barycentrics;
+    bary.x  = 1.0 - bary.y - bary.z;
+
+    // Interpolate Normal
+    float3 N = v0.normal * bary.x + v1.normal * bary.y + v2.normal * bary.z;
+
+    // Transform to World Space
+    // float3x3 objectToWorld = (float3x3)ObjectToWorld3x4();
+    // N                      = normalize( mul( objectToWorld, N ) );
+    //Trick to do inverse * transpose
+    float3x3 worldToObject = (float3x3)WorldToObject3x4();
+    N                      = normalize( mul( N, worldToObject ) );
+
+    return N;
+}
 
 [shader( "raygeneration" )]
 void raygenMain() {
@@ -98,7 +134,7 @@ void raygenMain() {
 
             float2   xi          = float2( randomFloat( seed ), randomFloat( seed ) );
             float4   localSample = cosineSampleHemisphere( xi );
-            float3x3 tbn         = getTangentBasis( normalize( payload.normal ) );
+            float3x3 tbn         = getTangentBasis(  payload.normal  );
             float3   bounceDir   = normalize( mul( localSample.xyz, tbn ) );
 
             ray.Origin    = ray.Origin + ray.Direction * payload.t + ( payload.normal * 0.001 );
@@ -133,33 +169,48 @@ void missMain( inout RayPayload payload ) {
     payload.isHit = false;
 }
 
-// Material 1: Red
+
+// 0. Material Grey
 [shader( "closesthit" )]
-void closestHit( inout RayPayload payload, BuiltInTriangleIntersectionAttributes attr ) {
-    payload.isHit = true;
-    payload.t     = RayTCurrent();
-
-    float3 objNormal = float3( 0, 1, 0 ); // Placeholder
-
-    payload.normal = normalize( -WorldRayDirection() );
-
-    uint id          = InstanceID();
+void hitGrey( inout RayPayload payload, BuiltInTriangleIntersectionAttributes attr ) 
+{
+    payload.isHit    = true;
+    payload.t        = RayTCurrent();
+    payload.normal   = normalize( getShadingNormal( attr ) );
     payload.emission = float3( 0, 0, 0 );
-
-    if ( id == 0 )
-        payload.albedo = float3( 0.8, 0.8, 0.8 ); // Floor
-    else if ( id == 1 )
-        payload.albedo = float3( 0.8, 0.8, 0.8 ); // Ceiling
-    else if ( id == 2 )
-        payload.albedo = float3( 0.8, 0.8, 0.8 ); // Center
-    else if ( id == 3 )
-        payload.albedo = float3( 0.8, 0.1, 0.1 ); // Left (Red)
-    else if ( id == 4 )
-        payload.albedo = float3( 0.1, 0.8, 0.1 ); // Right (Green)
-    else if ( id == 5 )
-    { // Light
-        payload.albedo   = float3( 0, 0, 0 );
-        payload.emission = float3( 20.0, 18.0, 15.0 ); // Strong warm light
-    } else
-        payload.albedo = float3( 0.5, 0.5, 0.5 ); // Cubes
+    payload.albedo   = float3( 0.8, 0.8, 0.8 );
 }
+
+// 1. Material Red
+[shader( "closesthit" )]
+void hitRed( inout RayPayload payload, BuiltInTriangleIntersectionAttributes attr ) 
+{
+    payload.isHit    = true;
+    payload.t        = RayTCurrent();
+    payload.normal   = normalize( getShadingNormal( attr ) );
+    payload.emission = float3( 0, 0, 0 );
+    payload.albedo   = float3( 0.8, 0.1, 0.1 );
+}
+
+// 2. Material Green
+[shader( "closesthit" )]
+void hitGreen( inout RayPayload payload, BuiltInTriangleIntersectionAttributes attr ) 
+{
+    payload.isHit    = true;
+    payload.t        = RayTCurrent();
+    payload.normal   = normalize( getShadingNormal( attr ) );
+    payload.emission = float3( 0, 0, 0 );
+    payload.albedo   = float3( 0.1, 0.8, 0.1 );
+}
+
+// 3. Emissive (Light)
+[shader( "closesthit" )]
+void hitLight( inout RayPayload payload, BuiltInTriangleIntersectionAttributes attr ) 
+{
+    payload.isHit  = true;
+    payload.t      = RayTCurrent();
+    payload.normal = normalize( getShadingNormal( attr ) );
+    payload.albedo   = float3( 0, 0, 0 );
+    payload.emission = float3( 20.0, 18.0, 15.0 );
+}
+

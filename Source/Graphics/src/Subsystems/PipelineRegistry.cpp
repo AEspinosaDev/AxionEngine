@@ -32,9 +32,9 @@ PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, 
     const auto& shaderBundle = _shaderReg.getBundle( shaderHandle.value() );
     desc.shaderModules.clear();
     desc.shaderModules.reserve( shaderBundle.stageBlobs.size() );
-    for ( const auto& [type, blob] : shaderBundle.stageBlobs )
+    for ( const auto& blob : shaderBundle.stageBlobs )
     {
-        desc.shaderModules.push_back( { .type       = type, // Casting de Stage a Type
+        desc.shaderModules.push_back( { .type       = blob.type, // Casting de Stage a Type
                                         .code       = blob.code.data(),
                                         .codeSize   = blob.code.size(),
                                         .entryPoint = blob.entryPointName } );
@@ -101,7 +101,12 @@ PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, 
 
     const auto& shaderBundle = _shaderReg.getBundle( shaderHandle.value() );
 
-    auto itStage = shaderBundle.stageBlobs.find( RHI::ShaderType::Compute );
+    auto itStage = std::find_if(
+        shaderBundle.stageBlobs.begin(),
+        shaderBundle.stageBlobs.end(),
+        []( const auto& blob ) {
+            return blob.type == RHI::ShaderType::Compute;
+        } );
 
     if ( itStage == shaderBundle.stageBlobs.end() )
     {
@@ -109,7 +114,8 @@ PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, 
         return {};
     }
 
-    const auto& blob = itStage->second;
+    // Desreferenciamos el iterador para obtener el StageBlob&
+    const auto& blob = *itStage;
 
     desc.shaderModule = {
         .type       = RHI::ShaderType::Compute,
@@ -175,9 +181,9 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
     const auto& shaderBundle = _shaderReg.getBundle( shaderHandle.value() );
     desc.shaderModules.clear();
     desc.shaderModules.reserve( shaderBundle.stageBlobs.size() );
-    for ( const auto& [type, blob] : shaderBundle.stageBlobs )
+    for ( const auto& blob : shaderBundle.stageBlobs )
     {
-        desc.shaderModules.push_back( { .type       = type, // Casting de Stage a Type
+        desc.shaderModules.push_back( { .type       = blob.type, // Casting de Stage a Type
                                         .code       = blob.code.data(),
                                         .codeSize   = blob.code.size(),
                                         .entryPoint = blob.entryPointName } );

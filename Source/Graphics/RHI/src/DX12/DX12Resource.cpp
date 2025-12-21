@@ -308,7 +308,7 @@ DX12Buffer::DX12Buffer( const BufferDesc&    desc,
     // Resource flags (for UAV or AS)
     D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE;
     if ( ( desc.viewFlags & BufferViewUnorderedAccess ) != BufferViewNone ||
-         ( desc.usageFlags & BufferUsage::AccelerationStructure ) != BufferUsage::None ) // <--- AÑADIDO
+         ( desc.usageFlags & BufferUsage::AccelerationStructure ) != BufferUsage::None ) 
         flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
     auto resourceDesc = CD3DX12_RESOURCE_DESC::Buffer( desc.size, flags );

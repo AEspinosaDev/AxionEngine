@@ -156,6 +156,7 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
         }
     }
 
+    outBundle.stageBlobs.reserve( desc.entryPoints.size() );
     for ( size_t i = 0; i < desc.entryPoints.size(); ++i )
     {
         Slang::ComPtr<slang::IBlob> diagnostics;
@@ -175,9 +176,10 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
         std::vector<uchar> bytecode( kernelBlob->getBufferSize() );
         std::memcpy( bytecode.data(), kernelBlob->getBufferPointer(), bytecode.size() );
 
-        RHI::ShaderType type                      = desc.entryPoints[i].type;
-        outBundle.stageBlobs[type].code           = std::move( bytecode );
-        outBundle.stageBlobs[type].entryPointName = desc.entryPoints[i].name;
+        RHI::ShaderType type = desc.entryPoints[i].type;
+        outBundle.stageBlobs.push_back( { .type           = type,
+                                          .code           = std::move( bytecode ),
+                                          .entryPointName = desc.entryPoints[i].name } );
     }
 
     AXION_LOG_INFO( Logger::Module::Shader, "Compiled Shader [{}] successfully.", desc.name );
