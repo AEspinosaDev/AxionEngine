@@ -117,7 +117,7 @@ protected:
     virtual BufferHandle  createBuffer( const RHI::BufferDesc& desc, const void* initialData, bool allowLookup = true )   = 0;
     virtual TextureHandle createTexture( const RHI::TextureDesc& desc, const void* initialData, bool allowLookup = true ) = 0;
     virtual SamplerHandle createSampler( const RHI::SamplerDesc& desc, bool allowLookup = true )                          = 0;
-    virtual AccelHandle   createAccel( const RHI::AccelDesc& desc, bool allowLookup = true )                              = 0;
+    virtual AccelHandle   createAccel( const RHI::AccelDesc& desc, bool instantBuild = false, bool allowLookup = true )   = 0;
 
     friend class BufferBuilder;
     friend class TextureBuilder;
@@ -223,46 +223,27 @@ public:
         : AccelBuilderBase( std::move( name ) )
         , _pool( pool ) {}
 
-    // AccelBuilder& addGeometry( const std::string& vertexBufferName,
-    //                             Format             vertexFormat,
-    //                             const std::string& indexBufferName,
-    //                             bool               isOpaque = true ) {
-
-    //     auto* vb = _pool.getBuffer( _pool.findBuffer( vertexBufferName ).value() );
-    //     auto* ib = _pool.getBuffer( _pool.findBuffer( indexBufferName ).value() );
-
-    //     // Validate that buffers exist
-    //     if ( !vb || !ib )
-    //     {
-    //         AXION_LOG_ERROR( Logger::Module::GFX, "Buffers not found for BLAS creation" );
-    //         return *this;
-    //     }
-
-    //     // Call the low-level raw implementation
-    //     return withGeometry(
-    //         vb->getDeviceAddress(),
-    //         vb->getDescription().size,
-    //         vb->getDescription().stride,
-    //         vertexFormat,
-    //         ib->getDeviceAddress(),
-    //         ib->getDescription().size,
-    //         isOpaque );
-    // }
-
     /// @brief Marks if name will be added as a key for future lookups.
     AccelBuilder& transient() {
         _allowLookup = false;
         return *this;
     }
 
+    /// @brief Marks if the accel will be built on creation time. Only recommended for simple testing or scenes.
+    AccelBuilder& instantBuild() {
+        _instantBuild = true;
+        return *this;
+    }
+
     /// @brief Finalizes configuration and creates the physical resource.
     AccelHandle create() {
-        return _pool.createAccel( _desc, _allowLookup );
+        return _pool.createAccel( _desc, _instantBuild, _allowLookup );
     }
 
 private:
     IGPUResourcePool& _pool;
-    bool              _allowLookup = true;
+    bool              _allowLookup  = true;
+    bool              _instantBuild = false;
 };
 
 } // namespace Graphics

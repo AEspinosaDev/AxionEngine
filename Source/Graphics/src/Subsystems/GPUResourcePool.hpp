@@ -47,7 +47,7 @@ private:
     BufferHandle  createBuffer( const RHI::BufferDesc& desc, const void* initialData, bool allowLookup = true ) override;
     TextureHandle createTexture( const RHI::TextureDesc& desc, const void* initialData, bool allowLookup = true ) override;
     SamplerHandle createSampler( const RHI::SamplerDesc& desc, bool allowLookup = true ) override;
-    AccelHandle   createAccel( const RHI::AccelDesc& desc, bool allowLookup = true ) override;
+    AccelHandle   createAccel( const RHI::AccelDesc& desc, bool instantBuild = false, bool allowLookup = true ) override;
 
 private:
     RHI::IDevice*      _device = nullptr;

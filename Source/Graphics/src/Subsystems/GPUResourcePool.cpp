@@ -160,7 +160,7 @@ SamplerHandle GPUResourcePool::createSampler( const RHI::SamplerDesc& desc, bool
     return SamplerHandle { id };
 }
 
-AccelHandle GPUResourcePool::createAccel( const RHI::AccelDesc& desc, bool allowLookup ) {
+AccelHandle GPUResourcePool::createAccel( const RHI::AccelDesc& desc, bool instantBuild, bool allowLookup ) {
     std::scoped_lock lock( _mutex );
 
     if ( allowLookup && !desc.debugName.empty() && _accelNameToHandle.count( desc.debugName ) )
@@ -169,7 +169,7 @@ AccelHandle GPUResourcePool::createAccel( const RHI::AccelDesc& desc, bool allow
         return _accelNameToHandle[desc.debugName];
     }
 
-    auto accelPtr = _device->createAccel( desc );
+    auto accelPtr = _device->createAccel( desc, instantBuild );
     if ( !accelPtr )
     {
         AXION_LOG_ERROR( Logger::Module::GFX, "Failed to create Acceleration Structure [{}]", desc.debugName );

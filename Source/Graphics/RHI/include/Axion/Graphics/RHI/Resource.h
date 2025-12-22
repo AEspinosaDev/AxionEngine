@@ -94,7 +94,7 @@ public:
         copyData( data.data(), data.size() * sizeof( T ), offset );
     }
 
-protected:
+    // Careful usage
     virtual void* map()   = 0;
     virtual void  unmap() = 0;
 };
@@ -134,8 +134,8 @@ public:
     virtual AccelType          getType() const          = 0;
     virtual ulong              getDeviceAddress() const = 0;
 
-    // 'scratchBuffer' might be needed ??
-    // virtual void build( void* commandList ) = 0;
+    virtual ulong getUpdateScratchSize() const = 0;
+    virtual ulong getBuildScratchSize() const  = 0;
 };
 
 using AccelDesc = IAccel::Description;

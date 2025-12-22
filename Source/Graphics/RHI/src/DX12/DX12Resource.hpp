@@ -101,7 +101,7 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE _uavHandle = {};
     D3D12_VERTEX_BUFFER_VIEW    _vbv       = {};
     D3D12_INDEX_BUFFER_VIEW     _ibv       = {};
-    
+
     // Raw mapped data
     void* _mappedPtr = nullptr;
 };
@@ -131,7 +131,7 @@ DEFINE_COM_PTR_FOR_TYPE( DX12Accel, DX12Accel )
 class DX12Accel : public RefCounter<IAccel>
 {
 public:
-    DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx );
+    DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx, bool immediateBuild );
     ~DX12Accel() override;
 
     const Description& getDescription() const override { return _desc; };
@@ -143,19 +143,29 @@ public:
     AccelType getType() const override;
     ulong     getDeviceAddress() const override;
 
+    ulong getUpdateScratchSize() const override;
+    ulong getBuildScratchSize() const override;
+
     D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }
 
-    DX12Buffer* getScratchBuffer() { return _scratchBuffer.get(); }
+    static void prepareInputs( const AccelDesc&                                      desc,
+                               D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& outInputs,
+                               std::vector<D3D12_RAYTRACING_GEOMETRY_DESC>&          outGeoms );
 
 private:
     void      createView( DX12Device::Context& ctx );
     AccelDesc _desc;
 
-    std::unique_ptr<DX12Buffer> _buffer        = nullptr;
-    std::unique_ptr<DX12Buffer> _scratchBuffer = nullptr;
-    ulong                       _deviceAddress = 0;
+    std::unique_ptr<DX12Buffer> _buffer = nullptr;
+
+    ulong _deviceAddress = 0;
+
+    ulong _updateScratchSize = 0;
+    ulong _buildScratchSize  = 0;
 
     D3D12_CPU_DESCRIPTOR_HANDLE _srvHandle = {};
+
+    bool _isBuilt = false;
 };
 
 } // namespace Graphics::RHI

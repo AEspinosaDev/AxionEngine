@@ -107,8 +107,8 @@ SamplerPtr DX12Device::createSampler( const SamplerDesc& desc ) {
     return sampler;
 }
 
-AccelPtr DX12Device::createAccel( const AccelDesc& desc ) {
-    DX12Accel* raw = new DX12Accel( desc, _ctx );
+AccelPtr DX12Device::createAccel( const AccelDesc& desc, bool immediateBuild ) {
+    DX12Accel* raw = new DX12Accel( desc, _ctx, immediateBuild );
     AccelPtr   acc;
     acc.attach( raw );
     return acc;

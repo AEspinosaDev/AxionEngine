@@ -25,7 +25,9 @@ public:
     void clearTexture( ITexture* texture, const ClearValue& clearValue ) override;
     void copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset = 0, ulong srcOffset = 0 ) override;
     void copyTexture( ITexture* dst, ITexture* src ) override;
+
     void updateAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) override;
+    void buildAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) override;
 
     void bindComputePipeline( IComputePipeline* pipeline ) override;
     void bindGraphicPipeline( IGraphicPipeline* pipeline ) override;
@@ -53,6 +55,7 @@ public:
 
 private:
     void pushConstants( uint setIndex, const void* data, uint numValues32Bit, uint offset32Bit = 0 ) override;
+    bool validateUpdateCompatibility( const IAccel* accel, const AccelDesc& newDesc );
 
     ComPtr<ID3D12GraphicsCommandList>           _cmdList;
     std::vector<ComPtr<ID3D12CommandAllocator>> _cmdAllocators;

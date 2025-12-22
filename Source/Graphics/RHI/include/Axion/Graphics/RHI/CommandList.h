@@ -1,10 +1,10 @@
 #pragma once
 #include "Axion/Common/Math.h"
 #include "Axion/Graphics/RHI/Common.h"
+#include "Axion/Graphics/RHI/Memory.hpp"
 #include "Axion/Graphics/RHI/Pipeline.h"
 #include "Axion/Graphics/RHI/Resource.h"
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
-#include "Axion/Graphics/RHI/Memory.hpp"
 
 AXION_NAMESPACE_BEGIN
 
@@ -29,12 +29,17 @@ public:
     virtual uint               getCurrentFrame() const       = 0;
     virtual const Description& getDescription() const        = 0;
 
-    virtual void barrier( ITexture* texture, ResourceState newState )                                               = 0;
-    virtual void barrier( IBuffer* buffer, ResourceState newState )                                                 = 0;
-    virtual void clearTexture( ITexture* texture, const ClearValue& clearValue )                                    = 0;
-    virtual void copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset = 0, ulong srcOffset = 0 ) = 0;
-    virtual void copyTexture( ITexture* dst, ITexture* src )                                                        = 0;
-    virtual void updateAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator )             = 0;
+    virtual void barrier( ITexture* texture, ResourceState newState )                                                                     = 0;
+    virtual void barrier( IBuffer* buffer, ResourceState newState )                                                                       = 0;
+    virtual void clearTexture( ITexture* texture, const ClearValue& clearValue )                                                          = 0;
+    virtual void copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset = 0, ulong srcOffset = 0 )                       = 0;
+    virtual void copyTexture( ITexture* dst, ITexture* src )                                                                              = 0;
+
+    // virtual void uploadBuffer( IBuffer* dst, const void* data, ulong size, ulong dstOffset, ITransientAllocator* allocator )              = 0;
+    // virtual void uploadTexture( ITexture* dst, const void* data, ITransientAllocator* allocator, uint mipSlice = 0, uint arraySlice = 0 ) = 0;
+
+    virtual void updateAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) = 0;
+    virtual void buildAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator )  = 0;
 
     virtual void bindComputePipeline( IComputePipeline* pipeline )       = 0;
     virtual void bindGraphicPipeline( IGraphicPipeline* pipeline )       = 0;

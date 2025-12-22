@@ -24,12 +24,14 @@ TransientAllocator::TransientAllocator( IDevice* device, const Description& desc
         bDesc.viewFlags  = BufferViewNone;
         bDesc.debugName  = desc.debugName + "_UploadBuffer";
         _uploadBuffer    = device->createBuffer( bDesc );
-        // _uploadBuffer->map();
+        _uploadBuffer->map();
         _uploadAllocator = NEW_U( LinearAllocator )( _uploadBuffer.get() );
     }
 }
 
 TransientAllocator::~TransientAllocator() {
+    if ( _uploadBuffer )
+        _uploadBuffer->unmap();
 }
 
 BufferView TransientAllocator::allocateScratch( ulong size, ulong alignment ) {

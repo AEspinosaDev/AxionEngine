@@ -22,17 +22,16 @@ class IDevice : public IResource
 public:
     virtual ~IDevice() = default;
 
-    virtual SwapchainPtr   createSwapchain( const NativeObject& Ptr, const SwapchainDesc& desc = {} )  = 0;
-    virtual CommandListPtr createCommandList( const CommandListDesc& desc )                            = 0;
-    virtual TexturePtr     createTexture( const TextureDesc& desc, const void* initialData = nullptr ) = 0;
-    virtual BufferPtr      createBuffer( const BufferDesc& desc, const void* initialData = nullptr )   = 0;
-    virtual SamplerPtr     createSampler( const SamplerDesc& desc )                                    = 0;
-    virtual AccelPtr       createAccel( const AccelDesc& desc )                                        = 0;
-    // virtual std::vector<AccelPtr>  createAccelBatch( const std::vector<AccelDesc>& descs )                     = 0;
-    virtual PipelineLayoutPtr     createPipelineLayout( const PipelineLayoutDesc& desc )         = 0;
-    virtual GraphicPipelinePtr    createGraphicPipeline( const GraphicPipelineDesc& desc )       = 0;
-    virtual ComputePipelinePtr    createComputePipeline( const ComputePipelineDesc& desc )       = 0;
-    virtual RayTracingPipelinePtr createRayTracingPipeline( const RayTracingPipelineDesc& desc ) = 0;
+    virtual SwapchainPtr          createSwapchain( const NativeObject& Ptr, const SwapchainDesc& desc = {} )  = 0;
+    virtual CommandListPtr        createCommandList( const CommandListDesc& desc )                            = 0;
+    virtual TexturePtr            createTexture( const TextureDesc& desc, const void* initialData = nullptr ) = 0;
+    virtual BufferPtr             createBuffer( const BufferDesc& desc, const void* initialData = nullptr )   = 0;
+    virtual SamplerPtr            createSampler( const SamplerDesc& desc )                                    = 0;
+    virtual AccelPtr              createAccel( const AccelDesc& desc, bool immediateBuild = false )           = 0;
+    virtual PipelineLayoutPtr     createPipelineLayout( const PipelineLayoutDesc& desc )                      = 0;
+    virtual GraphicPipelinePtr    createGraphicPipeline( const GraphicPipelineDesc& desc )                    = 0;
+    virtual ComputePipelinePtr    createComputePipeline( const ComputePipelineDesc& desc )                    = 0;
+    virtual RayTracingPipelinePtr createRayTracingPipeline( const RayTracingPipelineDesc& desc )              = 0;
 
     virtual DescriptorAllocatorPtr createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) = 0;
     virtual SBTAllocatorPtr        createSBTAllocator( const SBTAllocatorDesc& desc )               = 0;

@@ -154,87 +154,139 @@ void DX12CommandList::copyTexture( ITexture* dst, ITexture* src ) {
 }
 
 void DX12CommandList::updateAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) {
-    // auto* dxAccel = static_cast<DX12Accel*>( accel );
+    auto* dxAccel = static_cast<DX12Accel*>( accel );
 
-    // if ( !dxAccel || !allocator )
-    // {
-    //     AXION_LOG_ERROR( Logger::Module::RHI, "Invalid arguments for updateAccel" );
-    //     return;
-    // }
+    if ( !dxAccel || !allocator )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "Invalid arguments for updateAccel" );
+        return;
+    }
 
-    // if ( !( dxAccel->getDescription().flags & ASBuildAllowUpdate ) )
-    // {
-    //     AXION_LOG_WARN( Logger::Module::RHI, "AS Update requested but AllowUpdate flag not set: {}", dxAccel->getDescription().debugName );
-    //     return;
-    // }
+    if ( !( dxAccel->getDescription().flags & ASBuildAllowUpdate ) )
+    {
+        AXION_LOG_WARN( Logger::Module::RHI, "AS Update requested but AllowUpdate flag not set: {}", dxAccel->getDescription().debugName );
+        return;
+    }
 
-    // // 1. Obtener inputs cacheados (geometría, flags, etc.)
-    // // Asumimos que DX12Accel guarda una copia de los inputs de construcción originales
-    // D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = dxAccel->getCachedInputs();
+    if ( !validateUpdateCompatibility( dxAccel, newDesc ) )
+        return;
 
-    // // Forzamos el flag de update
-    // inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
+    std::vector<D3D12_RAYTRACING_GEOMETRY_DESC>          nativeGeoms;
+    DX12Accel::prepareInputs( newDesc, inputs, nativeGeoms );
 
-    // // 2. Gestión de INSTANCIAS (Solo para TLAS)
-    // // Si las instancias se han movido, necesitamos subir las nuevas matrices a la GPU.
-    // if ( newDesc.type == AccelType::TopLevel )
-    // {
-    //     uint instanceDataSize = (uint)( newDesc.instances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
+    // Force for some reason here
+    inputs.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
 
-    //     // Pedimos memoria de subida (Upload Heap)
-    //     auto instanceMem = allocator->allocateUpload( instanceDataSize, 16 );
+    if ( newDesc.type == AccelType::TopLevel )
+    {
+        uint instanceDataSize = (uint)( newDesc.instances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
 
-    //     if ( !instanceMem.isValid() )
-    //     {
-    //         AXION_LOG_ERROR( Logger::Module::RHI, "OOM in Transient Upload Heap during AS update" );
-    //         return;
-    //     }
+        auto instanceMem = allocator->allocateUpload( instanceDataSize, 16 );
 
-    //     // Copiamos y transformamos los datos al formato de DX12
-    //     auto* dst = reinterpret_cast<D3D12_RAYTRACING_INSTANCE_DESC*>( instanceMem.cpuAddress );
-    //     for ( size_t i = 0; i < newDesc.instances.size(); ++i )
-    //     {
-    //         dst[i] = DX12Translator::get( newDesc.instances[i] );
-    //     }
+        if ( !instanceMem.isValid() )
+        {
+            AXION_LOG_ERROR( Logger::Module::RHI, "OOM in Transient Upload Heap during AS update" );
+            return;
+        }
 
-    //     inputs.InstanceDescs = instanceMem.gpuAddress;
-    //     inputs.NumDescs      = (UINT)newDesc.instances.size();
-    // }
+        auto* dst = reinterpret_cast<D3D12_RAYTRACING_INSTANCE_DESC*>( instanceMem.cpuAddress );
+        for ( size_t i = 0; i < newDesc.instances.size(); ++i )
+        {
+            dst[i] = DX12Translator::get( newDesc.instances[i] );
+        }
 
-    // // 3. Gestión de SCRATCH (Memoria temporal GPU)
-    // // D3D12 requiere alineación de 256 bytes para el buffer scratch
-    // size_t scratchSize = dxAccel->getUpdateScratchSize();
+        inputs.InstanceDescs = instanceMem.gpuAddress;
+        inputs.NumDescs      = (UINT)newDesc.instances.size();
+    }
 
-    // // Pedimos memoria local (Default Heap / UAV)
-    // auto scratchMem = allocator->allocateScratch( scratchSize, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT );
+    ulong scratchSize = dxAccel->getUpdateScratchSize();
 
-    // if ( !scratchMem.isValid() )
-    // {
-    //     AXION_LOG_ERROR( Logger::Module::RHI, "OOM in Transient Scratch Heap during AS update" );
-    //     return;
-    // }
+    auto scratchMem = allocator->allocateScratch( scratchSize, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT );
 
-    // // 4. Barreras y Construcción
-    // auto* resourceNative = dxAccel->getNativeObject( ObjectTypes::DX12_Resource );
+    if ( !scratchMem.isValid() )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "OOM in Transient Scratch Heap during AS update" );
+        return;
+    }
 
-    // // Barrera UAV: Esperar a que cualquier uso previo del AS termine
-    // CD3DX12_RESOURCE_BARRIER barrierBefore = CD3DX12_RESOURCE_BARRIER::UAV( resourceNative );
-    // _cmdList4->ResourceBarrier( 1, &barrierBefore );
+    ID3D12Resource* resourceNative = dxAccel->getNativeObject( ObjectTypes::DX12_Resource );
 
-    // // Descripción del comando de construcción
-    // D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};
-    // buildDesc.Inputs                                             = inputs;
-    // buildDesc.SourceAccelerationStructureData                    = dxAccel->getGPUAddress(); // Input (Old)
-    // buildDesc.DestAccelerationStructureData                      = dxAccel->getGPUAddress(); // Output (New - In Place)
-    // buildDesc.ScratchAccelerationStructureData                   = scratchMem.gpuAddress;
+    CD3DX12_RESOURCE_BARRIER barrierBefore = CD3DX12_RESOURCE_BARRIER::UAV( resourceNative );
+    _cmdList4->ResourceBarrier( 1, &barrierBefore );
 
-    // // Ejecutar comando
-    // _cmdList4->BuildRaytracingAccelerationStructure( &buildDesc, 0, nullptr );
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};
+    buildDesc.Inputs                                             = inputs;
+    buildDesc.SourceAccelerationStructureData                    = dxAccel->getDeviceAddress(); // Input (Old)
+    buildDesc.DestAccelerationStructureData                      = dxAccel->getDeviceAddress(); // Output (New - In Place)
+    buildDesc.ScratchAccelerationStructureData                   = scratchMem.gpuAddress;
 
-    // // Barrera UAV: Nadie puede usar este AS hasta que el update termine
-    // CD3DX12_RESOURCE_BARRIER barrierAfter = CD3DX12_RESOURCE_BARRIER::UAV( resourceNative );
-    // _cmdList4->ResourceBarrier( 1, &barrierAfter );
+    _cmdList4->BuildRaytracingAccelerationStructure( &buildDesc, 0, nullptr );
 
+    CD3DX12_RESOURCE_BARRIER barrierAfter = CD3DX12_RESOURCE_BARRIER::UAV( resourceNative );
+    _cmdList4->ResourceBarrier( 1, &barrierAfter );
+}
+
+void DX12CommandList::buildAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) {
+    auto* dxAccel = static_cast<DX12Accel*>( accel );
+
+    if ( !dxAccel || !allocator )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "Invalid arguments for buildAccel" );
+        return;
+    }
+
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
+    std::vector<D3D12_RAYTRACING_GEOMETRY_DESC>          nativeGeoms;
+    DX12Accel::prepareInputs( newDesc, inputs, nativeGeoms );
+
+    if ( newDesc.type == AccelType::TopLevel )
+    {
+        uint instanceDataSize = (uint)( newDesc.instances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
+
+        auto instanceMem = allocator->allocateUpload( instanceDataSize, 16 );
+
+        if ( !instanceMem.isValid() )
+        {
+            AXION_LOG_ERROR( Logger::Module::RHI, "OOM in Transient Upload Heap during AS Build" );
+            return;
+        }
+
+        auto* dst = reinterpret_cast<D3D12_RAYTRACING_INSTANCE_DESC*>( instanceMem.cpuAddress );
+        for ( size_t i = 0; i < newDesc.instances.size(); ++i )
+        {
+            dst[i] = DX12Translator::get( newDesc.instances[i] );
+        }
+
+        inputs.InstanceDescs = instanceMem.gpuAddress;
+        inputs.NumDescs      = (UINT)newDesc.instances.size();
+    }
+
+    ulong scratchSize = dxAccel->getBuildScratchSize();
+
+    auto scratchMem = allocator->allocateScratch( scratchSize, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT );
+
+    if ( !scratchMem.isValid() )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "OOM in Transient Scratch Heap during AS Build (Size: {} bytes)", scratchSize );
+        return;
+    }
+
+    ID3D12Resource* resourceNative = dxAccel->getNativeObject( ObjectTypes::DX12_Resource );
+
+    CD3DX12_RESOURCE_BARRIER barrierBefore = CD3DX12_RESOURCE_BARRIER::UAV( resourceNative );
+    _cmdList4->ResourceBarrier( 1, &barrierBefore );
+
+    D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};
+    buildDesc.Inputs                                             = inputs;
+    buildDesc.DestAccelerationStructureData                      = dxAccel->getDeviceAddress(); // Output
+    buildDesc.SourceAccelerationStructureData                    = 0;                           // NULL -> Full Build
+    buildDesc.ScratchAccelerationStructureData                   = scratchMem.gpuAddress;
+
+    _cmdList4->BuildRaytracingAccelerationStructure( &buildDesc, 0, nullptr );
+
+    CD3DX12_RESOURCE_BARRIER barrierAfter = CD3DX12_RESOURCE_BARRIER::UAV( resourceNative );
+    _cmdList4->ResourceBarrier( 1, &barrierAfter );
 }
 
 void DX12CommandList::bindComputePipeline( IComputePipeline* pipeline ) {
@@ -544,6 +596,58 @@ void DX12CommandList::pushConstants( uint setIndex, const void* data, uint numVa
             numValues32Bit,
             data,
             offset32Bit );
+}
+
+bool DX12CommandList::validateUpdateCompatibility( const IAccel* accel, const AccelDesc& newDesc ) {
+    const auto& oldDesc = accel->getDescription();
+
+    if ( oldDesc.type != newDesc.type )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "AS Update Failed: Type mismatch (BLAS vs TLAS)" );
+        return false;
+    }
+
+    // 2. TLAS Validation: Cannot exceed initial instance capacity
+    if ( newDesc.type == AccelType::TopLevel )
+    {
+        if ( newDesc.instances.size() > oldDesc.instances.size() )
+        {
+            AXION_LOG_ERROR( Logger::Module::RHI,
+                             "AS Update Failed: Instance count ({}) exceeds initial capacity ({})",
+                             newDesc.instances.size(),
+                             oldDesc.instances.size() );
+            return false;
+        }
+    }
+    // 3. BLAS Validation: Geometry count and types must match exactly
+    else
+    {
+        if ( newDesc.geometries.size() != oldDesc.geometries.size() )
+        {
+            AXION_LOG_ERROR( Logger::Module::RHI,
+                             "AS Update Failed: Geometry count changed ({} vs {}). Full Rebuild required.",
+                             newDesc.geometries.size(),
+                             oldDesc.geometries.size() );
+            return false;
+        }
+
+        for ( size_t i = 0; i < newDesc.geometries.size(); ++i )
+        {
+            // Check flags (e.g. Opaque) - Changing flags often requires rebuild
+            // if ( newDesc.geometries[i].flags != oldDesc.geometries[i].flags )
+            // {
+            //     AXION_LOG_WARN( Logger::Module::RHI, "AS Update Warning: Geometry [{}] flags changed.", i );
+            // }
+            // Topology check (Type)
+            if ( newDesc.geometries[i].primitiveType != oldDesc.geometries[i].primitiveType )
+            {
+                AXION_LOG_ERROR( Logger::Module::RHI, "AS Update Failed: Geometry [{}] type mismatch.", i );
+                return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 } // namespace Graphics::RHI
