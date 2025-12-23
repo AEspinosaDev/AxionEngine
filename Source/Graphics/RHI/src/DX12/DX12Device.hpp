@@ -35,6 +35,8 @@ public:
     void queueWaitIdle( QueueType workingQueue, Fence& frameFence ) override;
     bool waitIdle() override;
 
+    void oneTimeSubmit( std::function<void( ICommandList* cmd )>& commands ) override;
+
     bool          queryFeatureSupport( Feature feature, void* pInfo = nullptr, size_t infoSize = 0 ) const override;
     FormatSupport queryFormatSupport( Format format ) const override;
     API           getGraphicsAPI() override;
@@ -56,14 +58,15 @@ public:
     {
     public:
         void init( const ComPtr<ID3D12Device2>& device );
-        void oneTimeSubmit( const std::unique_ptr<Queue>& uploadQueue, const std::function<void( const ComPtr<ID3D12GraphicsCommandList>& )>& commands );
+        void oneTimeSubmitRaw( const std::unique_ptr<Queue>& uploadQueue, const std::function<void( const ComPtr<ID3D12GraphicsCommandList>& )>& commands );
+        void oneTimeSubmit( const std::unique_ptr<Queue>& uploadQueue, const std::function<void( ICommandList* )>& commands );
 
     private:
-        ComPtr<ID3D12GraphicsCommandList> _cmdList;
-        ComPtr<ID3D12CommandAllocator>    _cmdAllocator;
-        ComPtr<ID3D12Fence>               _fence;
-        HANDLE                            _fenceEvent = nullptr;
-        ulong                             _fenceValue = 0;
+        CommandListPtr      _cmdList = nullptr;
+        ComPtr<ID3D12Fence> _fence;
+        HANDLE              _fenceEvent = nullptr;
+        ulong               _fenceValue = 0;
+        mutable std::mutex  _mutex;
     };
     // Graphics API Context
     struct Context {

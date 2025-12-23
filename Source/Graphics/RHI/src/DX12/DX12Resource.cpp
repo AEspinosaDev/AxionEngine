@@ -216,7 +216,7 @@ void DX12Texture::uploadInitialData( DX12Device::Context& ctx, const void* initi
     ResourceState firstUseState = _stateTracker.getCurrentState();
 
     // --- Upload via one-time submit ---
-    ctx.uploadContext.oneTimeSubmit( ctx.primaryQueue, [&]( const ComPtr<ID3D12GraphicsCommandList>& cmd ) {
+    ctx.uploadContext.oneTimeSubmitRaw( ctx.primaryQueue, [&]( const ComPtr<ID3D12GraphicsCommandList>& cmd ) {
         // Transition staging buffer to COPY_SOURCE
         CD3DX12_RESOURCE_BARRIER barrierStaging = CD3DX12_RESOURCE_BARRIER::Transition(
             staging.getNativeObject( ObjectTypes::DX12_Resource ),
@@ -481,7 +481,7 @@ void DX12Buffer::uploadInitialData( DX12Device::Context& ctx, const void* initia
         staging.unmap();
     }
 
-    ctx.uploadContext.oneTimeSubmit( ctx.primaryQueue, [&]( const ComPtr<ID3D12GraphicsCommandList>& cmd ) {
+    ctx.uploadContext.oneTimeSubmitRaw( ctx.primaryQueue, [&]( const ComPtr<ID3D12GraphicsCommandList>& cmd ) {
         // --- Transition staging buffer to COPY_SOURCE ---
         ResourceState currentStagingState = staging.stateTracker().getCurrentState();
         if ( currentStagingState != ResourceState::CopySource )
@@ -668,7 +668,7 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx, bool imme
     buildDesc.ScratchAccelerationStructureData                   = scratchBuffer.getDeviceAddress();
 
     // 6. EXECUTE COMMANDS
-    ctx.uploadContext.oneTimeSubmit( ctx.primaryQueue, [&]( const ComPtr<ID3D12GraphicsCommandList>& cmd ) {
+    ctx.uploadContext.oneTimeSubmitRaw( ctx.primaryQueue, [&]( const ComPtr<ID3D12GraphicsCommandList>& cmd ) {
         ComPtr<ID3D12GraphicsCommandList4> cmd4;
         cmd->QueryInterface( IID_PPV_ARGS( &cmd4 ) );
 

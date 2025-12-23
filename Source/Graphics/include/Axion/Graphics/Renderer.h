@@ -19,16 +19,18 @@ class IRenderer
 public:
     /// @brief Configuration settings for initializing the renderer.
     struct Settings {
-        API           gfxApi                = API::DirectX12;        ///< Underlying Graphics API backend.
-        BufferingType bufferingType         = BufferingType::Double; ///< Swapchain buffering (Double/Triple).
-        bool          debugMode             = true;                  ///< Enable API validation layers and debug markers.
-        PresentMode   presentMode           = PresentMode::Vsync;    ///< Presentation mode (Vsync/Immediate/Mailbox).
-        Format        backbufferFormat      = Format::RGBA8_UNORM;   ///< Swapchain backbuffer format.
-        ulong         RGAllocSize           = 1024 * 1024;           ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
-        ulong         RGAllocSBTSize        = 1024 * 1024;           ///< Initial memory reservation for per-frame Shader Binding Tables data (1MB default).
-        uint          RGDescriptorsPerFrame = 2048;                  ///< Initial memory reservation for per-frame DescriptorSet data.
-        GCMode        GCMode                = GCMode::AvgMemory;     ///< Garbage Collection aggressiveness for transient resources.
-        bool          autoSync              = true;                  ///< Automatic Barrier Insertion.
+        API           gfxApi           = API::DirectX12;        ///< Underlying Graphics API backend.
+        BufferingType bufferingType    = BufferingType::Double; ///< Swapchain buffering (Double/Triple).
+        bool          debugMode        = true;                  ///< Enable API validation layers and debug markers.
+        PresentMode   presentMode      = PresentMode::Vsync;    ///< Presentation mode (Vsync/Immediate/Mailbox).
+        Format        backbufferFormat = Format::RGBA8_UNORM;   ///< Swapchain backbuffer format.
+
+        ulong  RGAllocSize           = 1024 * 1024;       ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
+        ulong  RGAllocSBTSize        = 1024 * 1024;       ///< Initial memory reservation for per-frame Shader Binding Tables data (1MB default).
+        uint   RGDescriptorsPerFrame = 2048;              ///< Initial memory reservation for per-frame DescriptorSet data.
+        ulong  RGTransientAllocSize  = 64 * 1024 * 1024;  ///< Initial memory reservation for per-frame transient upload sensible data (Useful for CPU-GPU data streaming) (64MB default).
+        GCMode GCMode                = GCMode::AvgMemory; ///< Garbage Collection aggressiveness for transient resources.
+        bool   autoSync              = true;              ///< Automatic Barrier Insertion by RenderGraph.
     };
 
     virtual ~IRenderer() = default;
@@ -67,19 +69,19 @@ public:
 
     /// @brief Returns the settings used to initialize the renderer.
     virtual const Settings& getSettings() const = 0;
-
-    /// @brief Returns the low-level RHI Device. Use only for advanced/raw access.
-    virtual const RHI::DevicePtr& getDevice() const = 0;
-
+    
     /// @brief Returns the texture handle of the current frame's swapchain image.
     /// Use this to import the backbuffer into the RenderGraph.
     virtual TextureHandle getCurrentBackbufferHandle() const = 0;
-
+    
     /// @brief Returns current frame index.
     virtual ulong getCurrentFrameIndex() const = 0;
-
+    
     /// @brief Returns the total number of frames rendered since initialization.
     virtual ulong getTotalFrameNumber() const = 0;
+
+    /// @brief Returns the low-level RHI Device. Use only for advanced/raw access.
+    virtual const RHI::DevicePtr& getDevice() const = 0;
 
     // -------------------------------------------------------------------------
     // LIFECYCLE
@@ -93,6 +95,26 @@ public:
 
     /// @brief Returns true if the renderer was initialized without a window (Compute/Server mode).
     virtual bool isHeadless() = 0;
+
+    // -------------------------------------------------------------------------
+    // MISC
+    // -------------------------------------------------------------------------
+
+    /// @brief Executes a set of commands immediately on the GPU, bypassing the standard frame rendering loop.
+    ///
+    /// This method wraps the Device's internal `oneTimeSubmit`. It uses a dedicated, shared command list
+    /// that is separate from the Renderer's per-frame command lists.
+    ///
+    /// @note This is a **synchronous (blocking)** operation. The function will not return until the GPU
+    /// has finished executing these commands.
+    ///
+    /// @warning Use with caution during the main game loop. Since it forces a full CPU-GPU synchronization,
+    /// calling this mid-frame will cause pipeline stalls. It is best suited for initialization,
+    /// asset loading, or debugging tools.
+    ///
+    /// @param commands A lambda function containing the commands to record and execute.
+    /// @return True if the execution completed successfully.
+    virtual bool instantExecution( std::function<void( RHI::ICommandList* cmd )>& commands ) = 0;
 };
 
 using RendererSettings = IRenderer::Settings;

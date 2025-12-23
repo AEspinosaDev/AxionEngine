@@ -100,6 +100,11 @@ std::string HeadlessRenderer::toString() const {
         _setts.debugMode );
 }
 
+bool HeadlessRenderer::instantExecution( std::function<void( RHI::ICommandList* cmd )>& commands ) {
+    _device->oneTimeSubmit( commands );
+    return true;
+}
+
 void HeadlessRenderer::setWindow( const WindowPtr& wnd ) {
 }
 

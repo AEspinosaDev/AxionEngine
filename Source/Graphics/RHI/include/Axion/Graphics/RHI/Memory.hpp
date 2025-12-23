@@ -84,7 +84,7 @@ typedef BufferLinearAllocator LinearAllocator;
 DEFINE_COM_PTR_FOR_TYPE( ITransientAllocator, TransientAllocator )
 /**
  * @brief Manages transient memory for a single frame (Scratch & Upload heaps).
- * Automatically resets at the start of the frame.
+ * Automatically resets at the start of the frame. Useful for data streaming
  */
 class ITransientAllocator : public IResource
 {

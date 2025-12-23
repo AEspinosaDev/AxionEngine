@@ -22,10 +22,12 @@ public:
 
     void barrier( ITexture* texture, ResourceState newState ) override;
     void barrier( IBuffer* buffer, ResourceState newState ) override;
-    void clearTexture( ITexture* texture, const ClearValue& clearValue ) override;
-    void copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset = 0, ulong srcOffset = 0 ) override;
-    void copyTexture( ITexture* dst, ITexture* src ) override;
+    void clearTexture( ITexture* texture, const ClearValue& clearValue, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
+    void copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset = 0, ulong srcOffset = 0, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
+    void copyTexture( ITexture* dst, ITexture* src, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
 
+    void uploadBuffer( IBuffer* dst, const void* data, ulong size, ulong dstOffset, ITransientAllocator* allocator, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
+    void uploadTexture( ITexture* dst, const void* data, ITransientAllocator* allocator, uint mipSlice = 0, uint arraySlice = 0, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
     void updateAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) override;
     void buildAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) override;
 

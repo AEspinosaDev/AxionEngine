@@ -80,6 +80,9 @@ void DX12CommandList::barrier( ITexture* texture, ResourceState newState ) {
 }
 
 void DX12CommandList::barrier( IBuffer* buffer, ResourceState newState ) {
+    if ( buffer->getDescription().memoryType == MemoryUsage::CPUVisible )
+        return;
+
     auto& tracker = static_cast<DX12Buffer*>( buffer )->stateTracker();
 
     if ( !tracker.needsTransition( newState ) )
@@ -95,14 +98,18 @@ void DX12CommandList::barrier( IBuffer* buffer, ResourceState newState ) {
     tracker.setState( newState );
 }
 
-void DX12CommandList::clearTexture( ITexture* texture, const ClearValue& clearValue ) {
-    auto*              dxTex = static_cast<DX12Texture*>( texture );
-    const TextureDesc& desc  = dxTex->getDescription();
+void DX12CommandList::clearTexture( ITexture* texture, const ClearValue& clearValue, BarrierPolicy barrierPolicy ) {
+    auto*              dxTex       = static_cast<DX12Texture*>( texture );
+    const TextureDesc& desc        = dxTex->getDescription();
+    bool               useBarriers = true;
+    if ( barrierPolicy == BarrierPolicy::None )
+        useBarriers = false;
 
     // Clear RenderTarget
     if ( desc.viewFlags & TextureViewRenderTarget )
     {
-        barrier( texture, ResourceState::RenderTarget );
+        if ( useBarriers )
+            barrier( texture, ResourceState::RenderTarget );
         _cmdList->ClearRenderTargetView( dxTex->getRTV(), &clearValue.color.x, 0, nullptr );
         return;
     }
@@ -110,7 +117,8 @@ void DX12CommandList::clearTexture( ITexture* texture, const ClearValue& clearVa
     // Clear DepthStencil
     if ( desc.viewFlags & TextureViewDepthStencil )
     {
-        barrier( texture, ResourceState::DepthWrite );
+        if ( useBarriers )
+            barrier( texture, ResourceState::DepthWrite );
         _cmdList->ClearDepthStencilView(
             dxTex->getDSV(),
             D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
@@ -124,7 +132,8 @@ void DX12CommandList::clearTexture( ITexture* texture, const ClearValue& clearVa
     // Clear UAV
     if ( desc.viewFlags & TextureViewUnorderedAccess )
     {
-        barrier( texture, ResourceState::UnorderedAccess );
+        if ( useBarriers )
+            barrier( texture, ResourceState::UnorderedAccess );
         float vals[4] = { clearValue.color.x, clearValue.color.y, clearValue.color.z, clearValue.color.w };
         // _cmdList->ClearUnorderedAccessViewFloat(
         //     dxTex->getGPUUAV(), // GPU Ptr
@@ -138,19 +147,49 @@ void DX12CommandList::clearTexture( ITexture* texture, const ClearValue& clearVa
     }
 }
 
-void DX12CommandList::copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset, ulong srcOffset ) {
-    barrier( dst, ResourceState::CopyDest );
-    barrier( src, ResourceState::CopySource );
-
+void DX12CommandList::copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset, ulong srcOffset, BarrierPolicy barrierPolicy ) {
+    if ( barrierPolicy == BarrierPolicy::Auto )
+    {
+        barrier( dst, ResourceState::CopyDest );
+        barrier( src, ResourceState::CopySource );
+    }
     _cmdList->CopyBufferRegion(
         dst->getNativeObject( ObjectTypes::DX12_Resource ), dstOffset, src->getNativeObject( ObjectTypes::DX12_Resource ), srcOffset, numBytes );
 }
 
-void DX12CommandList::copyTexture( ITexture* dst, ITexture* src ) {
-    barrier( src, Graphics::RHI::ResourceState::CopySource );
-    barrier( dst, Graphics::RHI::ResourceState::CopyDest );
+void DX12CommandList::copyTexture( ITexture* dst, ITexture* src, BarrierPolicy barrierPolicy ) {
+    if ( barrierPolicy == BarrierPolicy::Auto )
+    {
+        barrier( src, Graphics::RHI::ResourceState::CopySource );
+        barrier( dst, Graphics::RHI::ResourceState::CopyDest );
+    }
 
     _cmdList->CopyResource( dst->getNativeObject( ObjectTypes::DX12_Resource ), src->getNativeObject( ObjectTypes::DX12_Resource ) );
+}
+
+void DX12CommandList::uploadBuffer( IBuffer* dst, const void* data, ulong size, ulong dstOffset, ITransientAllocator* allocator, BarrierPolicy barrierPolicy ) {
+    if ( !dst || !data || size == 0 || !allocator )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "Invalid arguments for uploadBuffer" );
+        return;
+    }
+
+    auto mem = allocator->allocateUpload( size, 256 );
+
+    if ( !mem.isValid() )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "OOM in Transient Upload Heap during Buffer Upload" );
+        return;
+    }
+
+    // Copy to staging buffer
+    memcpy( mem.cpuAddress, data, size );
+
+    copyBuffer( dst, mem.buffer, size, dstOffset, mem.offset, barrierPolicy );
+}
+
+void DX12CommandList::uploadTexture( ITexture* dst, const void* data, ITransientAllocator* allocator, uint mipSlice, uint arraySlice, BarrierPolicy barrierPolicy ) {
+   
 }
 
 void DX12CommandList::updateAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) {

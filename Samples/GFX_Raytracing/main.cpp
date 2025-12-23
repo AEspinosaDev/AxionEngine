@@ -203,6 +203,7 @@ int main( /*int argc, char* argv[]*/ ) {
                                                    ib->getDeviceAddress(),
                                                    rtPass.cubeData.indices.size(),
                                                    true )
+                                    .instantBuild()
                                     .create();
 
         // ----------------------------------------
@@ -235,6 +236,7 @@ int main( /*int argc, char* argv[]*/ ) {
                                  .accel( "TLAS" )
                                  .asTLAS()
                                  .intances( instances )
+                                 .instantBuild()
                                  .create();
 
         // UNIFORM CONSTANT BUFFER

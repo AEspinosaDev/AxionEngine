@@ -229,6 +229,10 @@ bool DX12Device::waitIdle() {
     return true;
 }
 
+void DX12Device::oneTimeSubmit( std::function<void( ICommandList* cmd )>& commands ) {
+    _ctx.uploadContext.oneTimeSubmit( _ctx.primaryQueue, commands );
+}
+
 bool DX12Device::queryFeatureSupport( Feature feature, void* pInfo, size_t infoSize ) const {
     switch ( feature ) // NOLINT(clang-diagnostic-switch-enum)
     {
@@ -538,13 +542,8 @@ std::string RHI::DX12Device::toString() const {
 
 void DX12Device::UploadContext::init( const ComPtr<ID3D12Device2>& device ) {
 
-    auto dx12type = DX12Translator::get( QueueType::Graphics );
-
-    DX_CHECK( device->CreateCommandAllocator( dx12type, IID_PPV_ARGS( &_cmdAllocator ) ) );
-
-    DX_CHECK( device->CreateCommandList( 0, dx12type, _cmdAllocator.Get(), nullptr, IID_PPV_ARGS( &_cmdList ) ) );
-
-    DX_CHECK( _cmdList->Close() );
+    DX12CommandList* raw = new DX12CommandList( device, { .queueType = QueueType::Graphics, .numFrames = 1, .debugName = "Internal Device Command List" } );
+    _cmdList.attach( raw );
 
     // Create fence
     DX_CHECK( device->CreateFence(
@@ -555,15 +554,40 @@ void DX12Device::UploadContext::init( const ComPtr<ID3D12Device2>& device ) {
     _fenceEvent = ::CreateEvent( nullptr, FALSE, FALSE, nullptr );
 }
 
-void DX12Device::UploadContext::oneTimeSubmit( const std::unique_ptr<Queue>& uploadQueue, const std::function<void( const ComPtr<ID3D12GraphicsCommandList>& )>& commands ) {
+void DX12Device::UploadContext::oneTimeSubmitRaw( const std::unique_ptr<Queue>& uploadQueue, const std::function<void( const ComPtr<ID3D12GraphicsCommandList>& )>& commands ) {
+    std::scoped_lock           lock( _mutex );
 
-    DX_CHECK( _cmdAllocator->Reset() );
-    DX_CHECK( _cmdList->Reset( _cmdAllocator.Get(), nullptr ) );
-    commands( _cmdList );
-    DX_CHECK( _cmdList->Close() );
+    ID3D12GraphicsCommandList* rawcmdList = _cmdList->getNativeObject( ObjectTypes::DX12_CommandList );
+
+    _cmdList->begin();
+    commands( rawcmdList );
+    _cmdList->end();
 
     // Submit to queue
-    ID3D12CommandList* lists[] = { _cmdList.Get() };
+    ID3D12CommandList* lists[] = { rawcmdList };
+    uploadQueue->queue->ExecuteCommandLists( 1, lists );
+
+    // Fence
+    _fenceValue++;
+    DX_CHECK( uploadQueue->queue->Signal( _fence.Get(), _fenceValue ) );
+
+    if ( _fence->GetCompletedValue() < _fenceValue )
+    {
+        DX_CHECK( _fence->SetEventOnCompletion( _fenceValue, _fenceEvent ) );
+        WaitForSingleObject( _fenceEvent, INFINITE );
+    }
+}
+void DX12Device::UploadContext::oneTimeSubmit( const std::unique_ptr<Queue>& uploadQueue, const std::function<void( ICommandList* )>& commands ) {
+    std::scoped_lock           lock( _mutex );
+
+    ID3D12GraphicsCommandList* rawcmdList = _cmdList->getNativeObject( ObjectTypes::DX12_CommandList );
+
+    _cmdList->begin();
+    commands( _cmdList.get() );
+    _cmdList->end();
+
+    // Submit to queue
+    ID3D12CommandList* lists[] = { rawcmdList };
     uploadQueue->queue->ExecuteCommandLists( 1, lists );
 
     // Fence

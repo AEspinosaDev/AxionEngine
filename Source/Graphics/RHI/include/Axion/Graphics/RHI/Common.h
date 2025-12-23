@@ -354,6 +354,12 @@ struct ClearValue {
 
 namespace RHI {
 
+enum class BarrierPolicy
+{
+    Auto, // CommandList checks and emits barriers if its necessary for utility functions (Seguro)
+    None  // User has to manage barriers using RG or by hand (Speed for batching)
+};
+
 enum class FenceType
 {
     Default,           // D3D12_FENCE_FLAG_NONE  →  timeline semaphore
@@ -674,7 +680,7 @@ struct AccelGeometryDesc {
 
 // Description for an instance inside a TLAS
 struct AccelInstanceDesc {
-    Math::Mat4         transform;           
+    Math::Mat4         transform;
     uint               instanceID;          // Custom ID to access in shader (gl_InstanceCustomIndex)
     uint               instanceMask = 0xFF; // Visibility mask (0xFF usually)
     uint               hitGroupIndex;       // Offset in the Shader Binding Table

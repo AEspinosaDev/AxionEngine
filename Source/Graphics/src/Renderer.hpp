@@ -34,6 +34,8 @@ public:
     virtual void        destroy() override;
     virtual std::string toString() const override;
 
+    virtual bool instantExecution( std::function<void( RHI::ICommandList* cmd )>& commands );
+
     Renderer( const WindowPtr& wnd, const RendererSettings& settings );
 
 private:

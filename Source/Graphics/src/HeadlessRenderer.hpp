@@ -37,6 +37,8 @@ public:
 
     virtual std::string toString() const override;
 
+    virtual bool instantExecution( std::function<void( RHI::ICommandList* cmd )>& commands );
+
     HeadlessRenderer( const RendererSettings& settings );
 
 private:

@@ -53,6 +53,7 @@ Renderer::Renderer( const WindowPtr& wnd, const RendererSettings& settings )
         .passDataAllocSize     = _setts.RGAllocSize,
         .desciptorSetAllocSize = _setts.RGDescriptorsPerFrame,
         .sbtAllocSize          = _setts.RGAllocSBTSize,
+        .transientAllocSize    = _setts.RGTransientAllocSize,
         .resourceTTL           = (uint)_setts.GCMode,
         .autoSync              = _setts.autoSync };
     _renderGraph = NEW_U( RenderGraph )( _device.get(), *_resourcePool.get(), *_pipelineRegistry.get(), RGDesc );
@@ -155,6 +156,11 @@ std::string Renderer::toString() const {
         _setts.debugMode );
 }
 
+bool Renderer::instantExecution( std::function<void( RHI::ICommandList* cmd )>& commands ) {
+    _device->oneTimeSubmit( commands );
+    return true;
+}
+
 void Renderer::setWindow( const WindowPtr& wnd ) {
     _wnd            = wnd;
     _swapchain      = _device->createSwapchain( wnd->getNativeObject(), { .size = wnd->getSettings().size, .imageCount = _FRAMES_IN_FLIGHT, .presentMode = _setts.presentMode } );
@@ -178,7 +184,8 @@ IPipelineRegistry& Renderer::pipelines() {
 }
 
 void Renderer::windowCallback( const Extent2D& newSize ) {
-    if ( newSize.width > 0 || newSize.height > 0 ){
+    if ( newSize.width > 0 || newSize.height > 0 )
+    {
         _pendingResize = true;
     }
 }
