@@ -125,7 +125,7 @@ private:
         D3D12_FEATURE_DATA_D3D12_OPTIONS7 options7 = {};
     };
 
-    ComPtr<IDXGIAdapter4> getGPUAdapter() override;
+    ComPtr<IDXGIAdapter4> getGPUAdapter( uint preferredDeviceID ) override;
     ComPtr<ID3D12Device2> createDevice( const ComPtr<IDXGIAdapter4>& gpuAdapter ) override;
     void                  enableDebugLayer() override;
     void                  checkExtensions() override;
@@ -139,7 +139,8 @@ private:
     ExtensionSupportInfo _ext;
     FeatureData          _featureData;
 
-    bool _initialized = false;
+    bool        _initialized    = false;
+    std::string _gpuAdapterName = "Unknown Device";
 };
 
 } // namespace Graphics::RHI

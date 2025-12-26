@@ -29,7 +29,7 @@ DX12Device::DX12Device( const IDX12Device::Description& desc ) {
     // Initializing Context
     {
 
-        _ctx.adapter = getGPUAdapter();
+        _ctx.adapter = getGPUAdapter( desc.preferredDeviceID );
 
         _ctx.device = createDevice( _ctx.adapter );
         _ctx.device->SetName( std::wstring( desc.debugName.begin(), desc.debugName.end() ).c_str() );
@@ -270,8 +270,7 @@ FormatSupport DX12Device::queryFormatSupport( Format format ) const {
     // WIP
     return FormatSupport::None;
 }
-
-ComPtr<IDXGIAdapter4> DX12Device::getGPUAdapter() {
+ComPtr<IDXGIAdapter4> DX12Device::getGPUAdapter( uint preferredDeviceID ) {
 
     ComPtr<IDXGIFactory4> dxgiFactory;
     UINT                  createFactoryFlags = 0;
@@ -289,26 +288,71 @@ ComPtr<IDXGIAdapter4> DX12Device::getGPUAdapter() {
         DX_CHECK( dxgiAdapter1.As( &dxgiAdapter4 ) );
     } else
     {
-        SIZE_T maxDedicatedVideoMemory = 0;
-        for ( UINT i = 0; dxgiFactory->EnumAdapters1( i, &dxgiAdapter1 ) != DXGI_ERROR_NOT_FOUND; ++i )
-        {
-            DXGI_ADAPTER_DESC1 dxgiAdapterDesc1;
-            dxgiAdapter1->GetDesc1( &dxgiAdapterDesc1 );
+        bool foundSpecific = false;
 
-            // Check to see if the adapter can create a D3D12 device without actually
-            // creating it. The adapter with the largest dedicated video memory
-            // is favored.
-            if ( ( dxgiAdapterDesc1.Flags & DXGI_ADAPTER_FLAG_SOFTWARE ) == 0 &&
-                 SUCCEEDED( D3D12CreateDevice( dxgiAdapter1.Get(),
-                                               D3D_FEATURE_LEVEL_11_0,
-                                               __uuidof( ID3D12Device ),
-                                               nullptr ) ) &&
-                 dxgiAdapterDesc1.DedicatedVideoMemory > maxDedicatedVideoMemory )
+        if ( preferredDeviceID != UINT32_MAX )
+        {
+            if ( dxgiFactory->EnumAdapters1( preferredDeviceID, &dxgiAdapter1 ) != DXGI_ERROR_NOT_FOUND )
             {
-                maxDedicatedVideoMemory = dxgiAdapterDesc1.DedicatedVideoMemory;
-                DX_CHECK( dxgiAdapter1.As( &dxgiAdapter4 ) );
+                DXGI_ADAPTER_DESC1 desc;
+                dxgiAdapter1->GetDesc1( &desc );
+
+                if ( ( desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE ) == 0 &&
+                     SUCCEEDED( D3D12CreateDevice( dxgiAdapter1.Get(), D3D_FEATURE_LEVEL_11_0, __uuidof( ID3D12Device ), nullptr ) ) )
+                {
+                    foundSpecific = true;
+                    DX_CHECK( dxgiAdapter1.As( &dxgiAdapter4 ) );
+                    AXION_LOG_INFO( Logger::Module::RHI, "DX12 Device [{}]: Selected Preferred GPU Index: {}", _desc.debugName, preferredDeviceID );
+                } else
+                {
+                    AXION_LOG_WARN( Logger::Module::RHI, "DX12 Device [{}]: Preferred GPU Index {} exists but is not compatible. Falling back to Auto.", _desc.debugName, preferredDeviceID );
+                }
+            } else
+            {
+                AXION_LOG_WARN( Logger::Module::RHI, "DX12 Device [{}]: Preferred GPU Index {} not found. Falling back to Auto.", _desc.debugName, preferredDeviceID );
             }
         }
+
+        if ( !foundSpecific )
+        {
+            SIZE_T maxDedicatedVideoMemory = 0;
+            for ( UINT i = 0; dxgiFactory->EnumAdapters1( i, &dxgiAdapter1 ) != DXGI_ERROR_NOT_FOUND; ++i )
+            {
+                DXGI_ADAPTER_DESC1 dxgiAdapterDesc1;
+                dxgiAdapter1->GetDesc1( &dxgiAdapterDesc1 );
+
+                // Check compatibility
+                if ( ( dxgiAdapterDesc1.Flags & DXGI_ADAPTER_FLAG_SOFTWARE ) == 0 &&
+                     SUCCEEDED( D3D12CreateDevice( dxgiAdapter1.Get(),
+                                                   D3D_FEATURE_LEVEL_11_0,
+                                                   __uuidof( ID3D12Device ),
+                                                   nullptr ) ) &&
+                     dxgiAdapterDesc1.DedicatedVideoMemory > maxDedicatedVideoMemory )
+                {
+                    maxDedicatedVideoMemory = dxgiAdapterDesc1.DedicatedVideoMemory;
+                    DX_CHECK( dxgiAdapter1.As( &dxgiAdapter4 ) );
+                }
+            }
+        }
+    }
+
+    if ( dxgiAdapter4 )
+    {
+        DXGI_ADAPTER_DESC desc;
+        dxgiAdapter4->GetDesc( &desc );
+
+        _gpuAdapterName.clear();
+        const wchar_t* wName = desc.Description;
+        while ( *wName )
+        {
+            _gpuAdapterName += (char)*wName; // Basic cast
+            wName++;
+        }
+
+        AXION_LOG_INFO( Logger::Module::RHI, "DX12 Device [{}]: GPU Selected: {} (VRAM: {} MB)", _desc.debugName, _gpuAdapterName, desc.DedicatedVideoMemory / ( 1024 * 1024 ) );
+    } else
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "DX12 Device [{}]: No Compatible GPU Found!", _desc.debugName );
     }
 
     return dxgiAdapter4;
@@ -498,6 +542,7 @@ std::string RHI::DX12Device::toString() const {
     std::string deviceInfo = fmt::format(
         "DX12 Device Description:\n"
         "  Debug Name: {}\n"
+        "  Chosen GPU: {}\n"
         "  Feature Level: 0x{:X}\n"
         "  Enable Debug Layer: {}\n"
         "  Use WARP: {}\n"
@@ -507,6 +552,7 @@ std::string RHI::DX12Device::toString() const {
         "  Sampler Heap Size: {}\n"
         "  Heap Directly Indexed: {}",
         _desc.debugName,
+        _gpuAdapterName,
         static_cast<int>( _desc.featureLevel ),
         _desc.enableDebugLayer,
         _desc.useWarp,
@@ -555,7 +601,7 @@ void DX12Device::UploadContext::init( const ComPtr<ID3D12Device2>& device ) {
 }
 
 void DX12Device::UploadContext::oneTimeSubmitRaw( const std::unique_ptr<Queue>& uploadQueue, const std::function<void( const ComPtr<ID3D12GraphicsCommandList>& )>& commands ) {
-    std::scoped_lock           lock( _mutex );
+    std::scoped_lock lock( _mutex );
 
     ID3D12GraphicsCommandList* rawcmdList = _cmdList->getNativeObject( ObjectTypes::DX12_CommandList );
 
@@ -578,7 +624,7 @@ void DX12Device::UploadContext::oneTimeSubmitRaw( const std::unique_ptr<Queue>& 
     }
 }
 void DX12Device::UploadContext::oneTimeSubmit( const std::unique_ptr<Queue>& uploadQueue, const std::function<void( ICommandList* )>& commands ) {
-    std::scoped_lock           lock( _mutex );
+    std::scoped_lock lock( _mutex );
 
     ID3D12GraphicsCommandList* rawcmdList = _cmdList->getNativeObject( ObjectTypes::DX12_CommandList );
 

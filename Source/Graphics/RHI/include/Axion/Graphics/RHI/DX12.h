@@ -7,10 +7,14 @@ namespace Graphics::RHI {
 
 DEFINE_COM_PTR_FOR_TYPE( IDX12Device, DX12Device )
 
+/// @brief DirectX 12 specific implementation of the Device interface.
+/// Handles the initialization of the D3D12 backend, descriptor heaps, and adapter selection.
 class IDX12Device : public IDevice
 {
 
 public:
+    /// @brief Direct mapping of D3D_FEATURE_LEVEL hardware tiers.
+    /// Specifies the minimum hardware capabilities required by the application.
     enum class FeatureLevel
     {
         _1_0_Generic = 0x100,
@@ -27,28 +31,40 @@ public:
         _12_2        = 0xc200
     };
 
+    /// @brief Configuration structure for initializing the DX12 Backend.
     struct Description {
-        FeatureLevel featureLevel               = FeatureLevel::_12_1;
-        bool         enableDebugLayer           = true;
-        bool         useWarp                    = false;
-        std::string  debugName                  = "Device";
-        uint         renderTargetViewHeapSize   = 1024;
-        uint         depthStencilViewHeapSize   = 1024;
-        uint         shaderResourceViewHeapSize = 16384;
-        uint         samplerHeapSize            = 1024;
-        bool         enableHeapDirectlyIndexed  = false;
+        uint         preferredDeviceID          = UINT32_MAX;          ///<  Index of the GPU adapter to use. Set to UINT32_MAX for auto-selection (best dedicated GPU).
+        FeatureLevel featureLevel               = FeatureLevel::_12_1; ///< Minimum hardware feature level required.
+        bool         enableDebugLayer           = true;                ///< Enables the D3D12 Debug Layer (validation errors/warnings). Recommended for debug builds.
+        bool         useWarp                    = false;               ///< Forces the use of the WARP software rasterizer instead of hardware.
+        std::string  debugName                  = "Device";            
+        uint         renderTargetViewHeapSize   = 1024;                ///< Capacity of the RTV Descriptor Heap.
+        uint         depthStencilViewHeapSize   = 1024;                ///< Capacity of the DSV Descriptor Heap.
+        uint         shaderResourceViewHeapSize = 16384;               ///< Capacity of the CBV/SRV/UAV Descriptor Heap.
+        uint         samplerHeapSize            = 1024;                ///< Capacity of the Sampler Descriptor Heap.
+        bool         enableHeapDirectlyIndexed  = false;               ///< Enables SM 6.6 Dynamic Resources (Bindless) if hardware supports it.
     };
 
 protected:
-    // DX12 Specific Methods
-    virtual ComPtr<IDXGIAdapter4> getGPUAdapter()                                         = 0;
+    // -------------------------------------------------------------------------    
+    // DX12 INTERNAL INITIALIZATION
+    // -------------------------------------------------------------------------
+
+    /// @brief Selects the physical GPU adapter based on the preferred ID or performance metrics.
+    virtual ComPtr<IDXGIAdapter4> getGPUAdapter( uint preferredDeviceID ) = 0;
+
+    /// @brief Creates the logical ID3D12Device.
     virtual ComPtr<ID3D12Device2> createDevice( const ComPtr<IDXGIAdapter4>& gpuAdapter ) = 0;
-    virtual void                  enableDebugLayer()                                      = 0;
+
+    /// @brief Activates the D3D12 Debug Interface.
+    virtual void enableDebugLayer() = 0;
 };
 
 typedef IDX12Device::Description  DX12DeviceDesc;
 typedef IDX12Device::FeatureLevel DX12DeviceFeatureLevel;
-DX12DevicePtr                  createDX12Device( const DX12DeviceDesc& desc );
+
+/// @brief Factory function to create a DirectX 12 Device instance.
+DX12DevicePtr createDX12Device( const DX12DeviceDesc& desc );
 
 } // namespace Graphics::RHI
 
