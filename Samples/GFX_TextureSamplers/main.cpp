@@ -165,10 +165,10 @@ int main( /*int argc, char* argv[]*/ ) {
     try
     {
 #ifdef AXION_DEBUG
-        Axion::Logger::init( Logger::Level::Info, "Engine.log" );
+        Axion::Logger::init( Logger::Level::Info, "GFXTextureSamplerSample.log" );
 #endif
 
-        auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX SAMPLER TEST" } );
+        auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX SAMPLERS" } );
 
         auto       bufferingType    = Graphics::BufferingType::Double;
         const uint FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;

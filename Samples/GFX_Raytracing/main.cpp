@@ -119,7 +119,7 @@ int main( /*int argc, char* argv[]*/ ) {
     try
     {
 #ifdef AXION_DEBUG
-        Axion::Logger::init( Logger::Level::Info, "Engine.log" );
+        Axion::Logger::init( Logger::Level::Info, "GFXRaytracingSample.log" );
 #endif
 
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX Raytracing Sample" } );
@@ -186,6 +186,7 @@ int main( /*int argc, char* argv[]*/ ) {
                                   .asReadOnlySSBO()
                                   .withData( rtPass.cubeData.indices.data() )
                                   .size( rtPass.cubeData.indices.size() * sizeof( uint ) )
+                                  .stride( sizeof( uint ) )
                                   .create();
 
         // AS

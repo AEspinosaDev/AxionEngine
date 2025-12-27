@@ -60,6 +60,9 @@ inline Mat4 translate( const Mat4& m, const Vec3& v ) {
     return glm::translate( m, v );
 }
 
+inline Mat4 scale( const Mat4& m, float s ) {
+    return glm::scale( m, Vec3( s ) );
+}
 inline Mat4 scale( const Mat4& m, const Vec3& v ) {
     return glm::scale( m, v );
 }

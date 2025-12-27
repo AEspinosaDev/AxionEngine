@@ -1,6 +1,8 @@
 # =============================================================================
 # Helper for Axion Engine to handle third-party libraries
 # =============================================================================
+include(FetchContent)
+
 set(CMAKE_FOLDER "ThirdParty")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -14,27 +16,53 @@ message(FATAL_ERROR "Vulkan SDK not found! Install Vulkan SDK 1.3.296+")
 endif()
 message(STATUS "Using Vulkan SDK at: ${Vulkan_INCLUDE_DIRS}")
 # ----------------------------------------------------------------------------
-# Slang (prebuilt from VulkanSDK)
+# Slang (Custom Prebuilt)
 # ----------------------------------------------------------------------------
-set(SLANG_INCLUDE_DIR "$ENV{VULKAN_SDK}/Include/slang")
-if(NOT EXISTS "${SLANG_INCLUDE_DIR}")
-    message(FATAL_ERROR "Slang not found inside Vulkan SDK! Update Vulkan SDK to 1.4.x+")
+set(SLANG_VERSION "2025.24.2")
+
+if(WIN32)
+    set(SLANG_FILE "slang-${SLANG_VERSION}-windows-x86_64.zip")
+elseif(UNIX AND NOT APPLE)
+    set(SLANG_FILE "slang-${SLANG_VERSION}-linux-x86_64.zip")
 endif()
-# Slang libraries
-set(SLANG_LIB_DIR     "$ENV{VULKAN_SDK}/Lib")
-set(SLANG_LIBS
-    "$ENV{VULKAN_SDK}/Lib/slang.lib"
-    "$ENV{VULKAN_SDK}/Lib/slangd.lib"
-    "$ENV{VULKAN_SDK}/Lib/slang-rt.lib"
-    "$ENV{VULKAN_SDK}/Lib/slang-rtd.lib"
+
+set(SLANG_URL "https://github.com/shader-slang/slang/releases/download/v${SLANG_VERSION}/${SLANG_FILE}")
+
+message(STATUS "Downloading Slang ${SLANG_VERSION} from: ${SLANG_URL}")
+
+FetchContent_Declare(
+    slang_package
+    URL ${SLANG_URL}
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE 
 )
-# For convenience, expose to dependents
-add_library(Slang INTERFACE)
-target_include_directories(Slang INTERFACE ${SLANG_INCLUDE_DIR})
-target_link_directories(Slang INTERFACE ${SLANG_LIB_DIR})
-target_link_libraries(Slang INTERFACE ${SLANG_LIBS})
-message(STATUS "Slang include: ${SLANG_INCLUDE_DIR}")
-message(STATUS "Slang libs: ${SLANG_LIBS}")
+# Unzip
+FetchContent_MakeAvailable(slang_package)
+
+set(SLANG_ROOT "${slang_package_SOURCE_DIR}")
+
+if(NOT TARGET Slang::Slang)
+    add_library(Slang::Slang SHARED IMPORTED GLOBAL)
+endif()
+
+if(WIN32)
+    set_target_properties(Slang::Slang PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${SLANG_ROOT}/include"
+    )
+    set_target_properties(Slang::Slang PROPERTIES
+        IMPORTED_IMPLIB "${SLANG_ROOT}/lib/slang.lib"
+    )
+    set(SLANG_BIN_DIR "${SLANG_ROOT}/bin" CACHE INTERNAL "Slang Binaries Folder")
+    set(SLANG_DLL_SOURCE "${SLANG_ROOT}/bin/slang.dll" CACHE INTERNAL "Path to slang.dll")
+
+    message(STATUS " -> Configuring Slang in: ${SLANG_ROOT}")
+else()
+    # (Soporte Linux comentado por ahora...)
+endif()
+
+
+# add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/slang)
+# add_library(Slang ALIAS Slang::Slang)
+# message(STATUS "Slang Target configured via ThirdParty/slang")
 # ----------------------------------------------------------------------------
 # Shaderc (prebuilt from VulkanSDK)
 # ----------------------------------------------------------------------------

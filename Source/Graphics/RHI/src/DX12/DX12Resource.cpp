@@ -417,15 +417,36 @@ void DX12Buffer::createViews( DX12Device::Context& ctx ) {
     // SRV
     if ( ( _desc.viewFlags & BufferViewShaderResource ) != BufferViewNone )
     {
-        D3D12_SHADER_RESOURCE_VIEW_DESC desc {};
-        desc.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
-        desc.Format                     = DXGI_FORMAT_UNKNOWN;
-        desc.Buffer.NumElements         = (UINT)( _desc.size / _desc.stride );
-        desc.Buffer.StructureByteStride = _desc.stride;
-        desc.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.ViewDimension                   = D3D12_SRV_DIMENSION_BUFFER;
+        srvDesc.Shader4ComponentMapping         = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+        // 1. Structured Buffer
+        if ( _desc.stride > 0 )
+        {
+            srvDesc.Format                     = DXGI_FORMAT_UNKNOWN;
+            srvDesc.Buffer.NumElements         = (UINT)( _desc.size / _desc.stride );
+            srvDesc.Buffer.StructureByteStride = _desc.stride;
+        }
+        // 2. Raw Buffer (ByteAddressBuffer)
+        else if ( _desc.allowRawViews )
+        {
+            srvDesc.Format                     = DXGI_FORMAT_R32_TYPELESS;
+            srvDesc.Buffer.NumElements         = (UINT)( _desc.size / 4 );
+            srvDesc.Buffer.StructureByteStride = 0;
+            srvDesc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_RAW;
+        }
+        // 3. Typed Buffer (Fallback)
+        else
+        {
+            srvDesc.Format                     = DXGI_FORMAT_R32_UINT;
+            srvDesc.Buffer.NumElements         = _desc.size / 4;
+            srvDesc.Buffer.StructureByteStride = 0;
+            srvDesc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_NONE;
+        }
 
         _srvHandle = ctx.heapSRV.allocateCPU();
-        ctx.device->CreateShaderResourceView( _resource.Get(), &desc, _srvHandle );
+        ctx.device->CreateShaderResourceView( _resource.Get(), &srvDesc, _srvHandle );
     }
 
     // UAV

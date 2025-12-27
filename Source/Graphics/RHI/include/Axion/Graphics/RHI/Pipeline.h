@@ -22,8 +22,10 @@ class IPipelineLayout : public IResource
 {
 public:
     struct PushConstantDesc {
-        uint        size      = 0;
-        ShaderStage stageMask = ShaderStage::Vertex | ShaderStage::Pixel;
+        uint        size           = 0;
+        uint        customSpace    = 1;
+        uint        customRegister = 0;
+        ShaderStage stageMask      = ShaderStage::Vertex | ShaderStage::Pixel;
     };
     struct Description {
         std::vector<DescriptorLayoutDesc> sets;

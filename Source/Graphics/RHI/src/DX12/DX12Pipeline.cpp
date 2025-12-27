@@ -46,10 +46,18 @@ std::string DX12PipelineLayout::toString() const {
     return std::string();
 }
 void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device ) {
-    std::vector<CD3DX12_ROOT_PARAMETER1> rootParams;
-
+    std::vector<CD3DX12_ROOT_PARAMETER1>   rootParams;
     std::vector<CD3DX12_DESCRIPTOR_RANGE1> allRanges;
-    allRanges.reserve( 64 );
+
+    struct TableInfo {
+        uint                    startIdx;
+        uint                    count;
+        D3D12_SHADER_VISIBILITY visibility;
+        int*                    rootIndexMapTarget; // Puntero al entero donde guardaremos el índice final
+    };
+    std::vector<TableInfo> pendingTables;
+
+    allRanges.reserve( 128 );
 
     _rootIndexMap.resize( _desc.sets.size(), { -1, -1 } );
     _viewCountPerSet.resize( _desc.sets.size(), 0 );
@@ -66,12 +74,9 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
         for ( const auto& binding : set.bindings )
         {
             if ( binding.type == DescriptorType::Sampler )
-            {
                 _samplerCountPerSet[setIndex] += binding.arraySize;
-            } else
-            {
+            else
                 _viewCountPerSet[setIndex] += binding.arraySize;
-            }
 
             D3D12_DESCRIPTOR_RANGE_TYPE rangeType = DX12Translator::get( binding.type );
             CD3DX12_DESCRIPTOR_RANGE1   range;
@@ -80,7 +85,7 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
                 rangeType,
                 binding.arraySize,
                 binding.binding,
-                setIndex,
+                setIndex, // Register Space
                 D3D12_DESCRIPTOR_RANGE_FLAG_NONE );
 
             if ( rangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER )
@@ -89,55 +94,78 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
                 viewRanges.push_back( range );
         }
 
+        // Views (CBV, SRV, UAV)
         if ( !viewRanges.empty() )
         {
-            uint startIdx = (uint)allRanges.size();
+            TableInfo info;
+            info.startIdx           = (uint)allRanges.size();
+            info.count              = (uint)viewRanges.size();
+            info.visibility         = getShaderVisibility( set.bindings );
+            info.rootIndexMapTarget = &_rootIndexMap[setIndex].first;
+
+            pendingTables.push_back( info );
+
             allRanges.insert( allRanges.end(), viewRanges.begin(), viewRanges.end() );
-
-            CD3DX12_ROOT_PARAMETER1 param;
-            param.InitAsDescriptorTable(
-                (UINT)viewRanges.size(),
-                &allRanges[startIdx],
-                getShaderVisibility( set.bindings ) );
-            rootParams.push_back( param );
-
-            _rootIndexMap[setIndex].first = (int)rootParams.size() - 1;
         }
 
+        // Samplers
         if ( !samplerRanges.empty() )
         {
-            uint startIdx = (uint)allRanges.size();
+            TableInfo info;
+            info.startIdx           = (uint)allRanges.size();
+            info.count              = (uint)samplerRanges.size();
+            info.visibility         = getShaderVisibility( set.bindings );
+            info.rootIndexMapTarget = &_rootIndexMap[setIndex].second;
+
+            pendingTables.push_back( info );
+
             allRanges.insert( allRanges.end(), samplerRanges.begin(), samplerRanges.end() );
-
-            CD3DX12_ROOT_PARAMETER1 param;
-            param.InitAsDescriptorTable(
-                (UINT)samplerRanges.size(),
-                &allRanges[startIdx],
-                getShaderVisibility( set.bindings ) );
-            rootParams.push_back( param );
-
-            _rootIndexMap[setIndex].second = (int)rootParams.size() - 1;
         }
     }
 
-    // Optional Push Constants
+    for ( const auto& info : pendingTables )
+    {
+        CD3DX12_ROOT_PARAMETER1 param;
+        param.InitAsDescriptorTable(
+            info.count,
+            &allRanges[info.startIdx],
+            info.visibility );
+
+        rootParams.push_back( param );
+
+        if ( info.rootIndexMapTarget )
+            *info.rootIndexMapTarget = (int)rootParams.size() - 1;
+    }
+
+    // --- Push Constants ---
     if ( _desc.pushConstant.size > 0 )
     {
         CD3DX12_ROOT_PARAMETER1 pushParam;
-        pushParam.InitAsConstants( _desc.pushConstant.size / 4, 0, 0, DX12Translator::get( _desc.pushConstant.stageMask ) );
+        pushParam.InitAsConstants( _desc.pushConstant.size / 4,
+                                   _desc.pushConstant.customRegister,
+                                   _desc.pushConstant.customSpace,
+                                   DX12Translator::get( _desc.pushConstant.stageMask ) );
         rootParams.push_back( pushParam );
     }
 
-    D3D12_VERSIONED_ROOT_SIGNATURE_DESC rsDesc {};
-    rsDesc.Version                    = D3D_ROOT_SIGNATURE_VERSION_1_1;
-    rsDesc.Desc_1_1.NumParameters     = (UINT)rootParams.size();
-    rsDesc.Desc_1_1.pParameters       = rootParams.data();
-    rsDesc.Desc_1_1.NumStaticSamplers = 0;
-    rsDesc.Desc_1_1.pStaticSamplers   = nullptr;
-    rsDesc.Desc_1_1.Flags             = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+    D3D12_VERSIONED_ROOT_SIGNATURE_DESC rsDesc = {};
+    rsDesc.Version                             = D3D_ROOT_SIGNATURE_VERSION_1_1;
+    rsDesc.Desc_1_1.NumParameters              = (UINT)rootParams.size();
+    rsDesc.Desc_1_1.pParameters                = rootParams.data();
+    rsDesc.Desc_1_1.NumStaticSamplers          = 0;
+    rsDesc.Desc_1_1.pStaticSamplers            = nullptr;
+    rsDesc.Desc_1_1.Flags                      = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
     ComPtr<ID3DBlob> serialized, error;
-    DX_CHECK( D3D12SerializeVersionedRootSignature( &rsDesc, &serialized, &error ) );
+    HRESULT          hr = D3D12SerializeVersionedRootSignature( &rsDesc, &serialized, &error );
+
+    if ( FAILED( hr ) )
+    {
+        if ( error )
+            OutputDebugStringA( (char*)error->GetBufferPointer() );
+        DX_CHECK( hr );
+    }
+
     DX_CHECK( device->CreateRootSignature(
         0, serialized->GetBufferPointer(), serialized->GetBufferSize(), IID_PPV_ARGS( &_rootSignature ) ) );
 }
@@ -381,7 +409,8 @@ void DX12ComputePipeline::createPipelineState( const ComPtr<ID3D12Device2>& devi
     DX_CHECK( device->CreateComputePipelineState( &psoDesc, IID_PPV_ARGS( &_pso ) ) );
 }
 
-DX12RayTracingPipeline::DX12RayTracingPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc ) : _desc( desc ) {
+DX12RayTracingPipeline::DX12RayTracingPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc )
+    : _desc( desc ) {
 
     // Basic validation: need at least vertex and pixel for graphics PSO
     const ShaderModule* rgenModule = nullptr;
@@ -401,7 +430,6 @@ DX12RayTracingPipeline::DX12RayTracingPipeline( const ComPtr<ID3D12Device2>& dev
     if ( !chitModule )
         AXION_LOG_WARN( Logger::Module::RHI, "Creating DX12 RT Pipeline without closest hit shader ." );
     // AXION_LOG_ASSERT( _desc.layout, Logger::Module::RHI, "DX12 RT Pipeline requires a Descriptor Layout." );
-    
 
     ComPtr<ID3D12Device5> device5;
     device->QueryInterface( IID_PPV_ARGS( &device5 ) );
@@ -432,7 +460,7 @@ void* DX12RayTracingPipeline::getShaderIdentifier( const std::string& exportName
     return id;
 }
 
-void DX12RayTracingPipeline::   setDebugName( const std::string& name ) {
+void DX12RayTracingPipeline::setDebugName( const std::string& name ) {
     _desc.debugName = name;
     if ( _so )
         _so->SetName( std::wstring( name.begin(), name.end() ).c_str() );

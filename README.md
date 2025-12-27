@@ -50,7 +50,7 @@ Axion is built with a modular design philosophy:
 ### Prerequisites
 
 - **OS:** Windows 10/11.
-- **SDKs:** Vulkan SDK 1.4.* (Must include **SLANG**).
+- **SDKs:** Vulkan SDK 1.4.*.
 - **Tools:** CMake (3.20+), Ninja 🥷 (Optional, recommended for speed).
 
 ### Steps
@@ -70,10 +70,14 @@ Axion is built with a modular design philosophy:
 
    Note: The CMake configuration automatically locates and links system dependencies (except Vulkan SDK). It is designed to work out-of-the-box with VS Code or Visual Studio.
    
-3. **Options: To disable building tests or examples:**
+3. **Options: To disable building tests, examples or specific engine modules:**
    ```bash
-    cmake -DAXION_ENABLE_TESTS=OFF ..
-    cmake -DAXION_ENABLE_SAMPLES=OFF ..
+    cmake -DAXION_BUILD_EDITOR=OFF .. 
+    cmake -DAXION_BUILD_CORE=OFF ..  
+    cmake -DAXION_BUILD_GFX=OFF ..  
+
+    cmake -DAXION_BUILD_TESTS=OFF ..  
+    cmake -DAXION_BUILD_SAMPLES=OFF ..
    ```
 
 ## Usage Example 🚀

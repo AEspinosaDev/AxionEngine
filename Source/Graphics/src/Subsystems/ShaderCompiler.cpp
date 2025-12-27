@@ -64,6 +64,23 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
     sessionDesc.targets         = &targetDesc;
     sessionDesc.targetCount     = 1;
 
+    // ShaderCompiler.cpp
+
+    std::vector<slang::PreprocessorMacroDesc> macros;
+
+    if (desc.format == Shader::NativeFormat::DXIL)
+    {
+        macros.push_back( { "__D3D12__", "1" } );
+    } else
+    {
+        macros.push_back( { "__VULKAN__", "1" } );
+        macros.push_back( { "__SPIRV__", "1" } );
+    }
+
+
+    sessionDesc.preprocessorMacros     = macros.data();
+    sessionDesc.preprocessorMacroCount = (SlangInt)macros.size();
+
     Slang::ComPtr<ISession> session;
     _globalSession->createSession( sessionDesc, session.writeRef() );
 
@@ -395,7 +412,7 @@ void ShaderCompiler::extractReflection( const std::string& name, IComponentType*
 
         bool isPushConstant = false;
 
-        // Buscamos el atributo [[vk::push_constant]]
+        // Buscamos el atributo para push constant
         slang::VariableReflection* varReflection = varLayout->getVariable();
         bool                       hasAttribute  = false;
 
@@ -403,7 +420,7 @@ void ShaderCompiler::extractReflection( const std::string& name, IComponentType*
         {
             if ( varReflection->findUserAttributeByName( _globalSession, "vk::push_constant" ) != nullptr )
             {
-                hasAttribute = true;
+                isPushConstant = true;
             }
         }
 
@@ -438,8 +455,12 @@ void ShaderCompiler::extractReflection( const std::string& name, IComponentType*
             if ( sizeBytes % 4 != 0 )
                 sizeBytes += ( 4 - ( sizeBytes % 4 ) );
 
-            outDesc.pushConstant.size      = (uint)sizeBytes;
-            outDesc.pushConstant.stageMask = RHI::ShaderStage::All;
+            outDesc.pushConstant.size           = (uint)sizeBytes;
+            outDesc.pushConstant.stageMask      = RHI::ShaderStage::All;
+            uint assignedRegister               = varLayout->getBindingIndex();
+            uint assignedSpace                  = varLayout->getBindingSpace();
+            outDesc.pushConstant.customRegister = assignedRegister;
+            outDesc.pushConstant.customSpace    = assignedSpace;
 
             AXION_LOG_INFO( Logger::Module::Shader, "Detected Push Constants: {} ({} bytes)", name, sizeBytes );
 

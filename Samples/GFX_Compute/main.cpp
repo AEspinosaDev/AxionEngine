@@ -120,7 +120,7 @@ int main( /*int argc, char* argv[]*/ ) {
     try
     {
 #ifdef AXION_DEBUG
-        Axion::Logger::init( Logger::Level::Info, "Engine.log" );
+        Axion::Logger::init( Logger::Level::Info, "GFXComputeSample.log" );
 #endif
 
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX Compute Sample" } );

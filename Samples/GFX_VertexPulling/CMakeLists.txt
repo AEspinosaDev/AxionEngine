@@ -1,0 +1,3 @@
+add_executable(GFXVertexPullingSample  main.cpp)
+target_link_libraries(GFXVertexPullingSample PRIVATE SamplesConfig AxionGFX)
+axion_setup_executable(GFXVertexPullingSample "Samples")

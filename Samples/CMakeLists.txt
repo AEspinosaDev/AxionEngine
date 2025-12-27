@@ -13,7 +13,7 @@ add_subdirectory(GFX_Raster)
 add_subdirectory(GFX_Compute)
 add_subdirectory(GFX_TextureSamplers)
 add_subdirectory(GFX_Raytracing)
-
+add_subdirectory(GFX_VertexPulling)
 
 # Core Module (Core)
 

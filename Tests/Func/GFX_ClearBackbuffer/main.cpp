@@ -11,7 +11,7 @@ int main( /*int argc, char* argv[]*/ ) {
     try
     {
 #ifdef AXION_DEBUG
-        Axion::Logger::init( Logger::Level::Info, "Engine.log" );
+        Axion::Logger::init( Logger::Level::Info, "GFXClearBackbufferSample.log" );
 #endif
 
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX CLEAR TEST" } );
@@ -52,7 +52,7 @@ int main( /*int argc, char* argv[]*/ ) {
                 };
 
                 builder.addPass<PassData>( "ClearPass", [&]( RenderPassBuilder& pb, PassData& data ) {
-                    data.target = pb.write( rgBackbuffer ); 
+                    data.target = pb.write( rgBackbuffer, RHI::ResourceState::RenderTarget ); 
                 },
 
                                            [&]( const PassData& data, RenderPassContext& ctx ) {

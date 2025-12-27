@@ -24,7 +24,7 @@ ${CMAKE_CURRENT_SOURCE_DIR}/include
 
 target_link_libraries(AxionGFX 
 PUBLIC
-Slang
+Slang::Slang
 AxionCommon
 AxionRHI)
 

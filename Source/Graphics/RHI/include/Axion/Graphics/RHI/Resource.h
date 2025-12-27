@@ -55,12 +55,13 @@ class IBuffer : public IResource
 {
 public:
     struct Description {
-        ulong           size       = 0;
-        uint            stride     = 1; // for structured buffers
-        MemoryUsage     memoryType = MemoryUsage::GPUOnly;
-        BufferUsage     usageFlags = BufferUsage::None;
-        BufferViewFlags viewFlags  = BufferViewNone;
-        std::string     debugName  = "";
+        ulong           size          = 0;
+        uint            stride        = 1; // for structured buffers
+        MemoryUsage     memoryType    = MemoryUsage::GPUOnly;
+        BufferUsage     usageFlags    = BufferUsage::None;
+        BufferViewFlags viewFlags     = BufferViewNone;
+        bool            allowRawViews = false;
+        std::string     debugName     = "";
 
         bool operator==( const Description& other ) const {
             return size == other.size &&

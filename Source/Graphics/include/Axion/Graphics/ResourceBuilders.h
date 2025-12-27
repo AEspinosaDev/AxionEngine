@@ -185,6 +185,12 @@ public:
         return static_cast<T&>( *this );
     }
 
+    /// @brief Configures it as a Raw Buffer (Must be SRV).
+    T& allowRawViews() {
+        _desc.allowRawViews = true;
+        return static_cast<T&>( *this );
+    }
+
     /// @brief Manually sets usage flags.
     T& usage( BufferUsage flags ) {
         _desc.usageFlags = flags;

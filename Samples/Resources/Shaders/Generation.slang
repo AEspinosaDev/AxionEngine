@@ -5,8 +5,8 @@ struct Data {
     float speed;
 };
 
-// Push Constants en b0, space0
-cbuffer PushConstants : register( b0, space0 ) {
+
+cbuffer PushConstants {
     Data gConst;
 };
 
