@@ -54,7 +54,7 @@ if(WIN32)
     set(SLANG_BIN_DIR "${SLANG_ROOT}/bin" CACHE INTERNAL "Slang Binaries Folder")
     set(SLANG_DLL_SOURCE "${SLANG_ROOT}/bin/slang.dll" CACHE INTERNAL "Path to slang.dll")
 
-    message(STATUS " -> Configuring Slang in: ${SLANG_ROOT}")
+    message(STATUS "Configuring Slang in: ${SLANG_ROOT}")
 else()
     # (Soporte Linux comentado por ahora...)
 endif()

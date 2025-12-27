@@ -51,7 +51,9 @@ Axion is built with a modular design philosophy:
 
 - **OS:** Windows 10/11.
 - **SDKs:** Vulkan SDK 1.4.*.
-- **Tools:** CMake (3.20+), Ninja 🥷 (Optional, recommended for speed).
+- **Tools:** CMake (3.20+), Ninja 🥷 (Optional, recommended for speed).´
+
+`Heavy dependencies that need to be built (GLFW, fmt, etc) will be fetch recursively. Slang and other necessary binaries will be automatically downloaded using Cmake's fetch content`
 
 ### Steps
 
