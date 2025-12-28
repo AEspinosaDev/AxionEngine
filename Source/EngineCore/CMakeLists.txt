@@ -5,6 +5,7 @@
 file(GLOB CORE_SOURCES
     "src/*.hpp"
     "src/*.cpp"
+    "src/Scene/*.cpp"
 )
 
 add_library(AxionCore STATIC ${CORE_SOURCES})
@@ -22,6 +23,7 @@ target_link_libraries(AxionCore
 PUBLIC
 #Internal Modules
 AxionCommon
+PRIVATE
 AxionGFX
 AxionRHI
 )

@@ -1,39 +1,39 @@
-// // core/scene.h
-// #pragma once
-// #include <entt/entt.hpp> 
-// #include "components.h"
+#pragma once
+#include <Axion/Core/ECS/Entity.h>
+#include <Axion/Core/ECS/Registry.h>
 
-// namespace Core
-// {
-// class Scene
-// {
-// public:
-//     entt::entity createEntity() { return registry.create(); }
+AXION_NAMESPACE_BEGIN
 
-//     template<typename T, typename... Args>
-//     T& addComponent(entt::entity e, Args&&... args)
-//     {
-//         return registry.emplace<T>(e, std::forward<Args>(args)...);
-//     }
+namespace Core::Scene {
 
-//     entt::registry& getRegistry() { return registry; }
+class Entity; 
 
-// private:
-//     entt::registry registry;
-// };
-// }
+class Scene
+{
+public:
+    Scene();
+    ~Scene();
 
-// core::Scene scene;
+    Entity createEntity( const std::string& name = std::string() );
+    void   destroyEntity( ECS::EntityID entity );
 
-// auto e = scene.createEntity();
-// scene.addComponent<core::TransformComponent>(e);
-// scene.addComponent<core::MeshComponent>(e,
-//     std::vector<glm::vec3>{...},   // vertices
-//     std::vector<uint32_t>{...}     // indices
-// );
+    void onUpdate( float dt );
 
-// gfx::ResourcePool gpuPool;
-// core::SceneGpuBuilder builder(gpuPool);
+    // void onViewportResize( uint32_t width, uint32_t height );
 
-// auto gpuScene = builder.build(scene);
-// // gpuScene.gpuMeshes[e] gives you the mesh handle
+    // Backend interop
+    ECS::Registry& getRegistry() { return _registry; }
+
+private:
+    ECS::Registry _registry;
+    //Entities childs, and their childs
+
+    // uint32_t _viewportWidth  = 0;
+    // uint32_t _viewportHeight = 0;
+
+    friend class Entity; 
+};
+
+} // namespace Core::Scene
+
+AXION_NAMESPACE_END
