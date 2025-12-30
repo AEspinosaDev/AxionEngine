@@ -126,7 +126,7 @@ int main( /*int argc, char* argv[]*/ ) {
 
         auto       bufferingType    = Graphics::BufferingType::Double;
         const uint FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
-        auto       rnd              = Axion::Graphics::createRenderer( wnd,
+        auto       rnd              = Axion::Graphics::createRenderer( wnd.get(),
                                                                        { .gfxApi        = Graphics::API::DirectX12,
                                                                          .bufferingType = bufferingType,
                                                                          .presentMode   = Graphics::PresentMode::Immediate,

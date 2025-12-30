@@ -1,0 +1,4 @@
+add_executable(CoreInitializationTest  main.cpp)
+target_link_libraries(CoreInitializationTest PRIVATE AxionCore)
+add_test(NAME CoreInitializationTest COMMAND CoreInitializationTest)
+axion_setup_executable(CoreInitializationTest "Tests")

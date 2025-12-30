@@ -36,32 +36,32 @@ public:
     }
 
     T& add( EntityID entity, const T& component ) {
-        AXION_LOG_ASSERT( Logger::Module::Core, !has( entity ) && "Entity already has this component!" );
-
+        AXION_LOG_ASSERT( !has( entity ), Logger::Module::Core, "Entity already has this component!" );
+        
         // 1. Push data to the dense array
         _components.push_back( component );
-
+        
         // 2. Store which entity owns this data (for reverse lookup)
         _entityIndices.push_back( entity );
-
+        
         // 3. Map the entity ID to the index in the dense array
         ulong index = _components.size() - 1;
-
+        
         if ( entity >= _sparse.size() )
-            _sparse.resize( entity + 1, NULL_ENTITY );
-
+        _sparse.resize( entity + 1, NULL_ENTITY );
+        
         _sparse[entity] = (EntityID)index;
-
+        
         return _components.back();
     }
-
+    
     T& get( EntityID entity ) {
-        AXION_LOG_ASSERT( Logger::Module::Core, !has( entity ) && "Entity does not have this component!" );
+        AXION_LOG_ASSERT( !has( entity ), Logger::Module::Core, "Entity does not have this component!!" );
         return _components[_sparse[entity]];
     }
     void remove( EntityID entity ) override {
-        AXION_LOG_ASSERT( Logger::Module::Core, !has( entity ) && "Entity does not have this component!" );
-
+        AXION_LOG_ASSERT( !has( entity ), Logger::Module::Core, "Entity does not have this component!!" );
+        
         ulong indexToRemove = _sparse[entity];
         ulong lastIndex     = _components.size() - 1;
 

@@ -7,7 +7,7 @@ AXION_NAMESPACE_BEGIN
 namespace Graphics {
 
 RendererPtr Graphics::createHeadlessRenderer( const RendererSettings& settings ) {
-    auto rnd = NEW_S( HeadlessRenderer )( settings );
+    auto rnd = NEW_U( HeadlessRenderer )( settings );
     AXION_LOG_INFO( Logger::Module::GFX, "Headless Renderer Created Succesfully" );
     AXION_LOG_INFO( Logger::Module::GFX, rnd->toString() );
     return rnd;
@@ -83,7 +83,7 @@ bool HeadlessRenderer::isHeadless() {
     return true;
 }
 
-const WindowPtr& HeadlessRenderer::getWindow() {
+IWindow* HeadlessRenderer::getWindow() {
     return nullptr;
 }
 
@@ -105,7 +105,8 @@ bool HeadlessRenderer::instantExecution( std::function<void( RHI::ICommandList* 
     return true;
 }
 
-void HeadlessRenderer::setWindow( const WindowPtr& wnd ) {
+void HeadlessRenderer::setWindow( IWindow* wnd ) {
+    // AXION_LOG_WARN(Logger::Module::GFX, "Renderer [{}] is headless, it does not need a window.")
 }
 
 const RendererSettings& HeadlessRenderer::getSettings() const {

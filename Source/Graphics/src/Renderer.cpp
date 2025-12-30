@@ -6,14 +6,14 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
 
-RendererPtr Graphics::createRenderer( const WindowPtr& wnd, const RendererSettings& settings ) {
-    auto rnd = NEW_S( Renderer )( wnd, settings );
+RendererPtr Graphics::createRenderer( IWindow* wnd, const RendererSettings& settings ) {
+    auto rnd = NEW_U( Renderer )( wnd, settings );
     AXION_LOG_INFO( Logger::Module::GFX, "Renderer Created Succesfully" );
     AXION_LOG_INFO( Logger::Module::GFX, rnd->toString() );
     return rnd;
 }
 
-Renderer::Renderer( const WindowPtr& wnd, const RendererSettings& settings )
+Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
     : _wnd( wnd )
     , _setts( settings )
     , _FRAMES_IN_FLIGHT( static_cast<uint>( settings.bufferingType ) + 1 ) {
@@ -119,7 +119,7 @@ bool Renderer::isHeadless() {
     return false;
 }
 
-const WindowPtr& Renderer::getWindow() {
+IWindow* Renderer::getWindow() {
     return _wnd;
 }
 
@@ -161,7 +161,7 @@ bool Renderer::instantExecution( std::function<void( RHI::ICommandList* cmd )>& 
     return true;
 }
 
-void Renderer::setWindow( const WindowPtr& wnd ) {
+void Renderer::setWindow( IWindow* wnd ) {
     _wnd            = wnd;
     _swapchain      = _device->createSwapchain( wnd->getNativeObject(), { .size = wnd->getSettings().size, .imageCount = _FRAMES_IN_FLIGHT, .presentMode = _setts.presentMode } );
     _resizeCbHandle = _wnd->onResize().subscribe( [this]( const Event::WindowResizeEvent& e ) { this->windowCallback( { e.width, e.height } ); } );

@@ -22,8 +22,8 @@ public:
     virtual IShaderRegistry&   shaders() override;
     virtual IPipelineRegistry& pipelines() override;
 
-    virtual const WindowPtr&      getWindow() override;
-    virtual void                  setWindow( const WindowPtr& wnd ) override;
+    virtual IWindow*              getWindow() override;
+    virtual void                  setWindow( IWindow* wnd ) override;
     virtual const Settings&       getSettings() const override;
     virtual const RHI::DevicePtr& getDevice() const override;
     virtual TextureHandle         getCurrentBackbufferHandle() const override;
@@ -36,7 +36,7 @@ public:
 
     virtual bool instantExecution( std::function<void( RHI::ICommandList* cmd )>& commands );
 
-    Renderer( const WindowPtr& wnd, const RendererSettings& settings );
+    Renderer( IWindow* wnd, const RendererSettings& settings );
 
 private:
     void windowCallback( const Extent2D& newSize );
@@ -56,7 +56,7 @@ private:
     // Render Graph
     RenderGraphPtr _renderGraph = nullptr;
     // Window Related
-    WindowPtr                                                                       _wnd            = nullptr;
+    IWindow*                                                                        _wnd            = nullptr;
     std::unique_ptr<Event::EventDispatcher<Event::WindowResizeEvent>::Subscription> _resizeCbHandle = nullptr;
     bool                                                                            _pendingResize  = false;
     RHI::SwapchainPtr                                                               _swapchain      = nullptr;

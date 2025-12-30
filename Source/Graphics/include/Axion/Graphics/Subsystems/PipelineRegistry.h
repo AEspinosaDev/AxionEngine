@@ -94,9 +94,9 @@ public:
         : _registry( reg ) {
         _desc.debugName = std::move( name );
         // Default sane state
-        _desc.rasterizerState   = { RHI::FillMode::Solid, RHI::CullMode::Back };
-        _desc.depthStencilState = { true, true, RHI::CompareOp::Less };
-        _desc.topology          = RHI::PrimitiveTopology::TriangleList;
+        _desc.rasterizerState   = { FillMode::Solid, CullMode::Back };
+        _desc.depthStencilState = { true, true, CompareOp::Less };
+        _desc.topology          = PrimitiveTopology::TriangleList;
     }
 
     /// @brief Sets the Shader Bundle to use (VS + PS).
@@ -123,13 +123,13 @@ public:
 
     /// @brief Sets FillMode to Wireframe.
     GraphicBuilder& wireframe() {
-        _desc.rasterizerState.fillMode = RHI::FillMode::Wireframe;
+        _desc.rasterizerState.fillMode = FillMode::Wireframe;
         return *this;
     }
 
     /// @brief Disables face culling.
     GraphicBuilder& cullNone() {
-        _desc.rasterizerState.cullMode = RHI::CullMode::None;
+        _desc.rasterizerState.cullMode = CullMode::None;
         return *this;
     }
 

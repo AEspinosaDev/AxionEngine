@@ -8,7 +8,7 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
 
-DEFINE_SHARED_PTR_FOR_TYPE( IWindow, Window )
+DEFINE_UNIQUE_PTR_FOR_TYPE( IWindow, Window )
 
 /**
  * @brief Interface for all window types across platforms.

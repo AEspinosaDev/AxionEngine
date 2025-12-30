@@ -5,7 +5,7 @@ AXION_NAMESPACE_BEGIN
 namespace Graphics {
 
 WindowPtr createWindowForWin32( HINSTANCE hInstance, const WindowSettings& settings ) {
-    return NEW_S( Win32Window )( hInstance, settings );
+    return NEW_U( Win32Window )( hInstance, settings );
 }
 
 Win32Window::Win32Window( HINSTANCE hInstance, const Settings& settings )

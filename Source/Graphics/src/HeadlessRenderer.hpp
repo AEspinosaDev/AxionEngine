@@ -22,12 +22,12 @@ public:
     virtual void destroy() override;
     virtual bool isHeadless() override;
 
-    virtual const WindowPtr& getWindow() override;
-    virtual void             setWindow( const WindowPtr& wnd ) override;
-    virtual const Settings&  getSettings() const override;
-    virtual TextureHandle    getCurrentBackbufferHandle() const override { return TextureHandle { UINT32_MAX }; };
-    virtual ulong            getTotalFrameNumber() const override { return _frameNumber; };
-    virtual ulong            getCurrentFrameIndex() const override;
+    virtual IWindow*        getWindow() override;
+    virtual void            setWindow( IWindow* wnd ) override;
+    virtual const Settings& getSettings() const override;
+    virtual TextureHandle   getCurrentBackbufferHandle() const override { return TextureHandle { UINT32_MAX }; };
+    virtual ulong           getTotalFrameNumber() const override { return _frameNumber; };
+    virtual ulong           getCurrentFrameIndex() const override;
 
     virtual IGPUResourcePool&  resources() override;
     virtual IShaderRegistry&   shaders() override;

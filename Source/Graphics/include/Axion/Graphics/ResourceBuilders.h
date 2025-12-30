@@ -265,7 +265,7 @@ public:
     }
 
     /// @brief Sets Compare Operation
-    T& compareOP( RHI::CompareOp op ) {
+    T& compareOP( CompareOp op ) {
         _desc.compareOp = op;
         return static_cast<T&>( *this );
     }

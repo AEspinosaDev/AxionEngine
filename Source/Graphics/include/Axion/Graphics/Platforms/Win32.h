@@ -9,7 +9,7 @@ namespace Graphics {
 /**
  * @brief Handle definition for Win32-specific window implementation.
  */
-DEFINE_SHARED_PTR_FOR_TYPE( IWin32Window, Win32Window )
+DEFINE_UNIQUE_PTR_FOR_TYPE( IWin32Window, Win32Window )
 
 /**
  * @brief Interface for a Win32 window implementation.

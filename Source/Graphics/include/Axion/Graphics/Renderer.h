@@ -10,7 +10,7 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
 
-DEFINE_SHARED_PTR_FOR_TYPE( IRenderer, Renderer )
+DEFINE_UNIQUE_PTR_FOR_TYPE( IRenderer, Renderer )
 
 /// @brief High-level interface for the rendering engine.
 /// Orquestrates the frame lifecycle, manages subsystems, and handles the RenderGraph execution.
@@ -62,21 +62,21 @@ public:
     // -------------------------------------------------------------------------
 
     /// @brief Returns the window associated with this renderer.
-    virtual const WindowPtr& getWindow() = 0;
+    virtual IWindow* getWindow() = 0;
 
     /// @brief Associates a new window with the renderer (triggers swapchain recreation).
-    virtual void setWindow( const WindowPtr& wnd ) = 0;
+    virtual void setWindow( IWindow* wnd ) = 0;
 
     /// @brief Returns the settings used to initialize the renderer.
     virtual const Settings& getSettings() const = 0;
-    
+
     /// @brief Returns the texture handle of the current frame's swapchain image.
     /// Use this to import the backbuffer into the RenderGraph.
     virtual TextureHandle getCurrentBackbufferHandle() const = 0;
-    
+
     /// @brief Returns current frame index.
     virtual ulong getCurrentFrameIndex() const = 0;
-    
+
     /// @brief Returns the total number of frames rendered since initialization.
     virtual ulong getTotalFrameNumber() const = 0;
 
@@ -120,7 +120,7 @@ public:
 using RendererSettings = IRenderer::Settings;
 
 /// @brief Factory function to create a Renderer attached to a window.
-RendererPtr createRenderer( const WindowPtr& wnd, const RendererSettings& settings = {} );
+RendererPtr createRenderer( IWindow* wnd, const RendererSettings& settings = {} );
 
 /// @brief Factory function to create a Headless Renderer (no Swapchain).
 RendererPtr createHeadlessRenderer( const RendererSettings& settings = {} );

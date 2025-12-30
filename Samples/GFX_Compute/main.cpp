@@ -126,7 +126,7 @@ int main( /*int argc, char* argv[]*/ ) {
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX Compute Sample" } );
         // auto wnd = Axion::Graphics::createWindowForGLFW(  { .name = "GFX COMPUTE TEST" } );
 
-        auto rnd = Axion::Graphics::createRenderer( wnd,
+        auto rnd = Axion::Graphics::createRenderer( wnd.get(),
                                                     { .gfxApi        = Graphics::API::DirectX12,
                                                       .bufferingType = Graphics::BufferingType::Double,
                                                       .presentMode   = Graphics::PresentMode::Immediate,

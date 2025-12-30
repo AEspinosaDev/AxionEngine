@@ -11,11 +11,11 @@ int main( /*int argc, char* argv[]*/ ) {
     try
     {
 #ifdef AXION_DEBUG
-        Axion::Logger::init( Logger::Level::Info, "GFXClearBackbufferSample.log" );
+        Axion::Logger::init( Logger::Level::Info, "GFXClearBackbufferTest.log" );
 #endif
 
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX CLEAR TEST" } );
-        auto rnd = Axion::Graphics::createRenderer( wnd,
+        auto rnd = Axion::Graphics::createRenderer( wnd.get(),
                                                     { .gfxApi        = Graphics::API::DirectX12,
                                                       .bufferingType = Graphics::BufferingType::Double,
                                                       .presentMode   = Graphics::PresentMode::Vsync } );

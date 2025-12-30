@@ -6,6 +6,7 @@ file(GLOB CORE_SOURCES
     "src/*.hpp"
     "src/*.cpp"
     "src/Scene/*.cpp"
+    "src/Platform/*.cpp"
 )
 
 add_library(AxionCore STATIC ${CORE_SOURCES})
@@ -21,8 +22,8 @@ ${CMAKE_CURRENT_SOURCE_DIR}/src
 # Link system libraries
 target_link_libraries(AxionCore
 PUBLIC
-#Internal Modules
 AxionCommon
+#Internal Modules
 PRIVATE
 AxionGFX
 AxionRHI

@@ -15,9 +15,9 @@ Entity Scene::createEntity( const std::string& name ) {
     ECS::EntityID id     = _registry.createEntity();
     Entity        entity = { id, this };
 
-    entity.addComponent<TransformComponent>();
-    auto& tag = entity.addComponent<TagComponent>();
-    tag.tag   = name.empty() ? "Entity" : name;
+    // entity.addComponent<TransformComponent>();
+    // auto& tag = entity.addComponent<TagComponent>();
+    // tag.tag   = name.empty() ? "Entity" : name;
 
     return entity;
 }

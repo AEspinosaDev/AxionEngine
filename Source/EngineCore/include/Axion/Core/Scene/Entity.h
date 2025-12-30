@@ -13,10 +13,10 @@ public:
         : _entityHandle( handle )
         , _scene( scene ) {}
 
-    template <typename T, typename... Args>
-    T& addComponent( Args&&... args ) {
-        return _scene->getRegistry().addComponent<T>( _entityHandle, std::forward<Args>( args )... );
-    }
+    // template <typename T, typename... Args>
+    // T& addComponent( Args&&... args ) {
+    //     return _scene->getRegistry().addComponent<T>( _entityHandle, std::forward<Args>( args )... );
+    // }
 
     template <typename T>
     T& getComponent() {
