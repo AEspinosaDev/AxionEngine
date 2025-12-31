@@ -10,7 +10,7 @@
 
 AXION_NAMESPACE_BEGIN
 
-// Mathematics library glm
+// Mathematics library powered by GLM
 namespace Math {
 
 typedef glm::vec4  Vec4;
@@ -22,7 +22,12 @@ typedef glm::mat4  Mat4;
 typedef glm::mat3  Mat3;
 typedef glm::quat  Quat;
 
+const float PI      = 3.14159265359f;
+const float PI_HALF = 1.57079632679f;
+const float PI_2    = 6.28318530718f;
+
 // --- Transformation Wrappers ---
+#pragma region Matrix Trans
 
 namespace MTX {
 
@@ -86,6 +91,9 @@ inline Mat4 toMat4( const Quat& q ) {
 
 } // namespace MTX
 
+#pragma endregion
+#pragma region Utils
+
 // --- Utility Helpers ---
 
 inline Quat quat( const Vec3& eulerRadians ) {
@@ -112,6 +120,137 @@ inline const float* value_ptr( const Mat4& m ) {
 /// @brief Returns a raw pointer to the vector data (float*).
 inline const float* value_ptr( const Vec3& v ) {
     return glm::value_ptr( v );
+}
+
+template <typename T>
+inline T min( const T& a, const T& b ) {
+    return glm::min( a, b );
+}
+
+template <typename T>
+inline T max( const T& a, const T& b ) {
+    return glm::max( a, b );
+}
+
+template <typename T>
+inline float distance( const T& a, const T& b ) {
+    return glm::distance( a, b );
+}
+
+template <typename T>
+inline T clamp( const T& val, const T& minVal, const T& maxVal ) {
+    return glm::clamp( val, minVal, maxVal );
+}
+
+template <typename T>
+inline T normalize( const T& v ) {
+    return glm::normalize( v );
+}
+
+inline float sin( float x ) {
+    return glm::sin( x );
+}
+inline float asin( float x ) {
+    return glm::asin( x );
+}
+
+inline float cos( float x ) {
+    return glm::cos( x );
+}
+inline float acos( float x ) {
+    return glm::acos( x );
+}
+
+inline float tan( float x ) {
+    return glm::tan( x );
+}
+inline float atan( float x ) {
+    return glm::atan( x );
+}
+
+inline float sqrt( float x ) {
+    return glm::sqrt( x );
+}
+inline float pow( float x, float y ) {
+    return glm::pow( x, y );
+}
+inline float exp( float x ) {
+    return glm::exp( x );
+}
+inline float sqr( float x ) {
+    return x * x;
+}
+
+inline float lerp( float a, float b, float t ) {
+    return glm::mix( a, b, t );
+}
+
+template <typename T>
+inline float dot( const T& a, const T& b ) {
+    return glm::dot( a, b );
+}
+
+template <typename T>
+inline T cross( const T& a, const T& b ) {
+    return glm::cross( a, b );
+}
+
+#pragma endregion
+// --- Bounding Volumes ---
+
+#pragma region BVs
+
+struct AABB {
+    Vec3 min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+    Vec3 max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
+
+    void merge( const Vec3& point ) {
+        min = Math::min( min, point ); // Asumiendo que tienes min/max vec3 en tu math
+        max = Math::max( max, point );
+    }
+
+    Vec3 getCenter() const { return ( min + max ) * 0.5f; }
+    Vec3 getExtents() const { return ( max - min ) * 0.5f; }
+};
+
+struct BoundingSphere {
+    Vec3  center = { 0, 0, 0 };
+    float radius = 0.0f;
+};
+
+#pragma endregion
+#pragma region Algorithms
+
+struct TangentBinormal {
+    Vec3 tangent;
+    Vec3 bitangent;
+};
+
+inline TangentBinormal computeTriangleTangent(
+    const Vec3& p1,
+    const Vec3& p2,
+    const Vec3& p3,
+    const Vec2& uv1,
+    const Vec2& uv2,
+    const Vec2& uv3 ) {
+    Vec3 edge1    = p2 - p1;
+    Vec3 edge2    = p3 - p1;
+    Vec2 deltaUV1 = uv2 - uv1;
+    Vec2 deltaUV2 = uv3 - uv1;
+
+    float det = ( deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y );
+    float f   = ( abs( det ) < 1e-6f ) ? 0.0f : 1.0f / det;
+
+    TangentBinormal result;
+    result.tangent.x = f * ( deltaUV2.y * edge1.x - deltaUV1.y * edge2.x );
+    result.tangent.y = f * ( deltaUV2.y * edge1.y - deltaUV1.y * edge2.y );
+    result.tangent.z = f * ( deltaUV2.y * edge1.z - deltaUV1.y * edge2.z );
+
+    result.bitangent.x = f * ( -deltaUV2.x * edge1.x + deltaUV1.x * edge2.x );
+    result.bitangent.y = f * ( -deltaUV2.x * edge1.y + deltaUV1.x * edge2.y );
+    result.bitangent.z = f * ( -deltaUV2.x * edge1.z + deltaUV1.x * edge2.z );
+
+    return result;
 }
 
 } // namespace Math

@@ -67,25 +67,25 @@
 
 #define AUTO_VAL 0xffffffff
 
-#if defined(_MSC_VER)
-    // Visual Studio (MSVC)
-    #define AXION_FORCE_INLINE __forceinline
-#elif defined(__GNUC__) || defined(__clang__)
-    // GCC y Clang
-    #define AXION_FORCE_INLINE __attribute__((always_inline)) inline
+#if defined( _MSC_VER )
+// Visual Studio (MSVC)
+#define AXION_FORCE_INLINE __forceinline
+#elif defined( __GNUC__ ) || defined( __clang__ )
+// GCC y Clang
+#define AXION_FORCE_INLINE __attribute__( ( always_inline ) ) inline
 #else
-    // Fallback estándar
-    #define AXION_FORCE_INLINE inline
+// Fallback estándar
+#define AXION_FORCE_INLINE inline
 #endif
 
 // ---------------------------------------------------------------------------
 // Handle Data Definitions
 // ---------------------------------------------------------------------------
 
-typedef unsigned long long ulong;
-typedef unsigned int       uint;
-typedef unsigned short     ushort;
-typedef unsigned char      uchar;
+typedef unsigned long long ulong;  // Int 64
+typedef unsigned int       uint;   // Int 32
+typedef unsigned short     ushort; // Int 16
+typedef unsigned char      uchar;  // Int 8
 
 AXION_NAMESPACE_BEGIN
 
@@ -110,20 +110,20 @@ struct Extent2D {
     inline bool operator!=( const Extent2D o ) const {
         return width != o.width || height != o.height;
     }
-    Extent3D    to3D() const;
+    Extent3D to3D() const;
 };
 struct Extent3D {
     uint width { 0 };
     uint height { 0 };
     uint depth { 0 };
-    
+
     inline bool operator==( const Extent3D& o ) const {
         return width == o.width && height == o.height && depth == o.depth;
     }
     inline bool operator!=( const Extent3D& o ) const {
         return width != o.width || height != o.height || depth != o.depth;
     }
-    Extent2D    to2D() const;
+    Extent2D to2D() const;
 };
 struct Position2D {
     uint x { 0 };

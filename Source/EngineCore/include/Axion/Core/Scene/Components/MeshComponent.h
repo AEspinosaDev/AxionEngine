@@ -1,5 +1,5 @@
 #pragma once
-#include <Axion/Core/Assets/AssetTypes.h>
+#include <Axion/Core/Assets/Handle.h>
 
 AXION_NAMESPACE_BEGIN
 
@@ -7,10 +7,10 @@ namespace Core::Scene {
 
 struct MeshComponent {
 
-    Assets::Mesh     mesh;
-    Assets::Material material;
+    Assets::MeshHandle     mesh;
+    Assets::MaterialHandle material;
 
-    bool visible = true; 
+    bool visible = true;
 
     MeshComponent()                       = default;
     MeshComponent( const MeshComponent& ) = default;

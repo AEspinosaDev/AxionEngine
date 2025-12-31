@@ -7,6 +7,8 @@ file(GLOB CORE_SOURCES
     "src/*.cpp"
     "src/Scene/*.cpp"
     "src/Platform/*.cpp"
+    "src/Assets/*.cpp"
+    "src/Assets/Loaders/*.cpp"
 )
 
 add_library(AxionCore STATIC ${CORE_SOURCES})
@@ -23,8 +25,10 @@ ${CMAKE_CURRENT_SOURCE_DIR}/src
 target_link_libraries(AxionCore
 PUBLIC
 AxionCommon
-#Internal Modules
 PRIVATE
+# Internal Modules
 AxionGFX
 AxionRHI
+# External
+tiny_obj_loader
 )

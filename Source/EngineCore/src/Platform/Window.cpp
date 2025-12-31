@@ -30,9 +30,14 @@ struct Window::Impl {
 };
 
 Window::Window( const Settings& settings )
-    : _impl( std::make_unique<Impl>( settings ) ) {}
+    : _impl( std::make_unique<Impl>( settings ) ) {
+    AXION_LOG_INFO( Logger::Module::Core, "Window Created Succesfully" );
+    AXION_LOG_INFO( Logger::Module::Core, toString() );
+}
 
-Window::~Window() = default;
+Window::~Window() {
+    AXION_LOG_INFO( Logger::Module::Core, "Destroying Window" );
+};
 
 bool Window::update() {
     return _impl->nativeWindow->processMessages();
@@ -92,5 +97,39 @@ Event::EventDispatcher<Event::MouseScrollEvent>& Window::onMouseScroll() {
     return _impl->nativeWindow->onMouseScroll();
 }
 
+std::string Window::toString() const {
+    std::string pltName = "Unknown";
+    if ( _impl->setts.platformType == Graphics::PlatformType::Win32 )
+        pltName = "Win32";
+    else if ( _impl->setts.platformType == Graphics::PlatformType::GLFW )
+        pltName = "GLFW";
+
+    return fmt::format(
+        "Window Settings:\n"
+        "  Name: {}\n"
+        "  Platform: {}\n"
+        "  VSync: {}\n"
+        "  Fullscreen: {}\n"
+        "  Position: \n" 
+        "    x = {} \n" 
+        "    y = {} \n"
+        "  Size: \n"
+        "    Width = {} \n"
+        "    Height = {} \n"
+        "  Centered: {}\n"
+        "  Icon Path: {}\n"
+        "  Cursor Path: {}\n",
+        _impl->setts.name,
+        pltName,
+        _impl->setts.vsync,
+        _impl->setts.fullscreen,
+        _impl->setts.position.x,
+        _impl->setts.position.y,
+        _impl->setts.size.width,
+        _impl->setts.size.height,
+        _impl->setts.centered,
+        _impl->setts.iconPath,
+        _impl->setts.cursorPath );
+}
 } // namespace Core::Platform
 AXION_NAMESPACE_END

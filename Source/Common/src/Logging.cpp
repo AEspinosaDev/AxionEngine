@@ -3,9 +3,10 @@
 AXION_NAMESPACE_BEGIN
 
 // ----------------- Initialization -----------------
-void Logger::init( Level level, const std::string& file, bool truncate ) {
-    auto& logger     = instance();
-    logger._logLevel = level;
+void Logger::init( Level level, const std::string& file, Module module, bool truncate ) {
+    auto& logger      = instance();
+    logger._logLevel  = level;
+    logger._logModule = module;
     if ( !file.empty() )
     {
         if ( truncate )
@@ -106,6 +107,8 @@ const char* Logger::moduleToString( Module module ) {
 void Logger::log( Level level, Module module, const std::string& message ) {
     if ( level < instance()._logLevel )
         return;
+    if ( module > instance()._logModule )
+        return;
 
     std::lock_guard<std::mutex> lock( instance()._mtx );
 
@@ -143,6 +146,8 @@ void Logger::log( Level level, Module module, const std::string& message ) {
 
 void Logger::log( Level level, Module module, const std::string& message, const char* file, int line, const char* func ) {
     if ( level < instance()._logLevel )
+        return;
+    if ( module > instance()._logModule )
         return;
 
     std::lock_guard<std::mutex> lock( instance()._mtx );

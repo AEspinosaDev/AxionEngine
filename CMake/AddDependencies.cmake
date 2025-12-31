@@ -94,6 +94,10 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/fmt)
 # STB - IMAGE 
 # ----------------------------------------------------------------------------
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/stb_image)
+# ----------------------------------------------------------------------------
+# GEOMETRY LOADERS 
+# ----------------------------------------------------------------------------
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/tiny_obj_loader)
 
 
 unset(CMAKE_FOLDER)

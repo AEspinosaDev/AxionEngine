@@ -25,7 +25,7 @@ public:
     /**
      * @brief Log severity levels.
      */
-    enum class Level : int
+    enum class Level : uchar
     {
         Info,
         Warn,
@@ -36,13 +36,14 @@ public:
     /**
      * @brief Engine sub-modules used for categorizing log messages.
      */
-    enum class Module
+    enum class Module : uchar
     {
         Editor, /**< Editor Application */
         Core,   /**< Core engine systems */
         GFX,    /**< Graphics system */
         RHI,    /**< Rendering Hardware Interface Subsystem*/
-        Shader  /**< Shader Compiling*/
+        Shader, /**< Shader Compiling*/
+        All
     };
 
     /**
@@ -50,9 +51,10 @@ public:
      *
      * @param level Minimum log level to display.
      * @param file Optional file path to log to.
+     * @param module Maximun module to display logging.
      * @param truncate If true, clears the file on init; otherwise, appends.
      */
-    static void init( Level level = Level::Info, const std::string& file = "", bool truncate = true );
+    static void init( Level level = Level::Info, const std::string& file = "", Module module = Module::All, bool truncate = true );
 
     /**
      * @brief Shutdown the logger and close any file streams.
@@ -120,7 +122,8 @@ private:
     static const char* moduleToString( Module module );
 
 private:
-    Level         _logLevel = Level::Info;
+    Level         _logLevel  = Level::Info;
+    Module        _logModule = Module::All;
     std::ofstream _logFile;
     std::mutex    _mtx;
 };
@@ -168,15 +171,15 @@ AXION_NAMESPACE_END
         }                                                  \
     } while ( 0 )
 
-#define AXION_LOG_WARN_ONCE( module, fmt, ... )    \
-    do                                             \
-    {                                              \
-        static bool _axion_log_once_guard = false; \
-        if ( !_axion_log_once_guard )              \
-        {                                          \
-            AXION_LOG_WARN( module, fmt, __VA_ARGS__  ); \
-            _axion_log_once_guard = true;          \
-        }                                          \
+#define AXION_LOG_WARN_ONCE( module, fmt, ... )         \
+    do                                                  \
+    {                                                   \
+        static bool _axion_log_once_guard = false;      \
+        if ( !_axion_log_once_guard )                   \
+        {                                               \
+            AXION_LOG_WARN( module, fmt, __VA_ARGS__ ); \
+            _axion_log_once_guard = true;               \
+        }                                               \
     } while ( 0 )
 
 #else

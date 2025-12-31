@@ -29,36 +29,18 @@ public:
      * @brief Configuration structure for window creation.
      */
     struct Settings {
-        /// @brief The underlying platform backend to use (Win32, GLFW, SDL).
+
         Graphics::PlatformType platformType = Graphics::PlatformType::Win32;
+        bool                   vsync        = true;
+        std::string            name         = "Axion Window";
+        Extent2D               size         = { 1280, 720 };
+        bool                   fullscreen   = false;
+        bool                   centered     = true;
+        Position2D             position     = { 100, 100 };
+        std::string            iconPath     = "";
+        std::string            cursorPath   = "";
+        int                    style        = 0;
 
-        /// @brief Desired VSync state (true to enable vertical synchronization).
-        /// @note Actual VSync application depends on the Renderer/SwapChain configuration.
-        bool vsync = true;
-
-        /// @brief Title text displayed in the window caption.
-        std::string name = "Axion Window";
-
-        /// @brief Initial dimensions of the client area (width, height).
-        Extent2D size = { 1280, 720 };
-
-        /// @brief If true, the window starts in exclusive fullscreen or borderless windowed mode.
-        bool fullscreen = false;
-
-        /// @brief If true, ignores the `position` parameter and centers the window on the primary monitor.
-        bool centered = true;
-
-        /// @brief Screen coordinates for the top-left corner (if `centered` is false).
-        Position2D position = { 100, 100 };
-
-        /// @brief Path to the image file to use as the window icon.
-        std::string iconPath = "";
-
-        /// @brief Path to a custom cursor image file.
-        std::string cursorPath = "";
-
-        /// @brief Bitmask for platform-specific window styles (borderless, resizable, etc.).
-        int style = 0;
     };
 
     /**
@@ -139,7 +121,7 @@ public:
      * @brief Accessor for the underlying low-level window interface.
      *
      * Provides access to the `Graphics::IWindow` interface. This is required
-     * by the `Renderer` to create the SwapChain and Surface.
+     * by the `Graphics::IRenderer` to create the SwapChain and Surface.
      *
      * @warning The returned pointer is owned by this `Core::Window` instance.
      * Do not delete this pointer manually.
@@ -169,6 +151,10 @@ public:
 
     /** @brief Dispatcher for mouse wheel scrolling. */
     Event::EventDispatcher<Event::MouseScrollEvent>& onMouseScroll();
+
+
+    std::string toString() const;
+
 
 private:
     struct Impl;
