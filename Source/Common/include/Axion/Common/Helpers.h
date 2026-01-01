@@ -1,7 +1,7 @@
 #pragma once
 #include "Axion/Common/Defines.h"
-#include <vector>
 #include <variant>
+#include <vector>
 
 AXION_NAMESPACE_BEGIN
 
@@ -21,25 +21,26 @@ constexpr uint alignu( uint value, uint alignment ) {
 }
 
 struct ImageData {
-    uint width = 0;
-    uint height = 0;
-    uint channels = 0;
-    bool isHDR = false; // true = float (32 bit), false = uchar (8 bit)
+    uint                                                         width    = 0;
+    uint                                                         height   = 0;
+    uint                                                         channels = 0;
+    bool                                                         isHDR    = false; // true = float (32 bit), false = uchar (8 bit)
     std::variant<std::vector<unsigned char>, std::vector<float>> pixels;
 
     const void* getData() const {
-        if (isHDR) return std::get<std::vector<float>>(pixels).data();
-        return std::get<std::vector<unsigned char>>(pixels).data();
+        if ( isHDR )
+            return std::get<std::vector<float>>( pixels ).data();
+        return std::get<std::vector<unsigned char>>( pixels ).data();
     }
-    
+
     size_t getSizeInBytes() const {
-        if (isHDR) return std::get<std::vector<float>>(pixels).size() * sizeof(float);
-        return std::get<std::vector<unsigned char>>(pixels).size() * sizeof(unsigned char);
+        if ( isHDR )
+            return std::get<std::vector<float>>( pixels ).size() * sizeof( float );
+        return std::get<std::vector<unsigned char>>( pixels ).size() * sizeof( unsigned char );
     }
 };
 
-ImageData loadImage(const std::string& path, int forceChannels = 4, bool flipVertically = false) ;
-
+ImageData loadImage( const std::string& path, int forceChannels = 4, bool flipVertically = false );
 
 class Clock
 {

@@ -20,16 +20,20 @@
 <p><i> Top: Raster / Bottom: Real-Time Path-Tracing</i></p>
 </div>
 
-## Engine Structure 🗃️
+## Modular Architecture 🧩
 
-Axion is built with a modular design philosophy:
+Axion is designed with strict modularity in mind. You are not forced to use the entire engine stack; you can pick and choose modules based on your prototyping needs.
 
-- **Common Module:** Shared utilities and base types.
-- **Graphics Module:** High-level rendering abstraction (includes the **RHI** submodule).
-- **Core Module:** Scene management and high-level logic.
-- **Editor App:** The sandbox environment.
+- **`AxionCommon`**: Shared utilities, math libraries, and base types.
+- **`AxionGFX`**: High-level, API-agnostic rendering framework (RHI + RenderGraph). *Can be used standalone.*
+- **`AxionCore`**: Scene management, Asset Loading, and high-level logic.
+- **`AxionEditor`**: The sandbox environment and tooling.
 
-`You can use the Axion Editor as a full Render Engine, or simply take specific modules to build your own engine on top of them.`
+### Prototyping Workflows
+* **Pure Graphics:** Use `AxionGFX` alone for low-level graphics experiments (Compute Shaders, Raytracing) without the overhead of a game engine scene graph.
+* **Interop (Fast Prototyping):** Use `AxionCore` solely as a resource loader (AssetManager) to feed data into `AxionGFX`, bypassing the ECS/Scene systems entirely.
+* **Render Engine (WIP):** Use `AxionCore` for creating fast and efficient graphic applications tailored for any need.
+* **Designer (WIP):** Use `AxionEditor` for loading entire designed scenes and rendering them with beautiful graphics. Add interactivity making use of the SceneGraph components.
 
 ## Key Features ✨
 
