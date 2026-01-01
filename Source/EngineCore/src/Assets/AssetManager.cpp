@@ -152,7 +152,7 @@ struct AssetManager::Impl {
         // Only delete if generation matches (security check)
         if ( !slot.active || slot.generation != handle.generation )
         {
-            AXION_LOG_WARN( Logger::Module::Core, "Attempted to delete invalid or outdated Mesh Handle ID: {}", handle.id );
+            AXION_LOG_WARN( Logger::Module::Core, "Attempted to delete invalid or outdated Texture Handle ID: {}", handle.id );
             return;
         }
 
@@ -171,7 +171,7 @@ struct AssetManager::Impl {
 
         textureFreeIndices.push( handle.id );
 
-        AXION_LOG_INFO( Logger::Module::Core, "Deleted Mesh ID: {} [{}]", handle.id, deletedName );
+        AXION_LOG_INFO( Logger::Module::Core, "Deleted Texture ID: {} [{}]", handle.id, deletedName );
     }
 };
 

@@ -9,9 +9,9 @@
  * Entry point for the Texture usage demonstration. This sample implements a render of a
  * textured cube. For that, in order to load images from disk we make use of the
  * Core::Asets submodule. Then, once loaded, we take the data onto the actual RHI::ITexture
- * and we create the resource RHI::ISampler to enable sampling on the shaders. 
- * 
- * This workflow of texture + sampler resource is the modern way of working with texture in 
+ * and we create the resource RHI::ISampler to enable sampling on the shaders.
+ *
+ * This workflow of texture + sampler resource is the modern way of working with texture in
  * graphic APIs.
  *
  *
@@ -24,6 +24,8 @@
 #pragma once
 #include "Axion/Common/Defines.h"
 #include "Axion/Core/Assets/AssetManager.h"
+#include "Axion/Graphics/Passes/PostProcess.hpp"
+#include "Axion/Graphics/Passes/Utilitary.hpp"
 #include "Axion/Graphics/Platforms/Win32.h"
 #include "Axion/Graphics/Renderer.h"
 #include "cube.h"
@@ -108,65 +110,6 @@ struct ForwardPass {
     }
 };
 
-struct ToneMappingPass {
-
-    Graphics::PipelineHandle   pipeline;
-    Graphics::RGResourceHandle inputHandle;
-    Graphics::RGResourceHandle outputHandle;
-
-    struct Data {
-        Graphics::RGResourceHandle inputHDR;
-        Graphics::RGResourceHandle outputLDR;
-    };
-
-    void setup( Graphics::RenderPassBuilder& builder, Data& data ) {
-        data.inputHDR  = builder.read( inputHandle );
-        data.outputLDR = builder.write( outputHandle );
-    }
-
-    void execute( const Data& data, Graphics::RenderPassContext& ctx ) {
-        auto* pso = ctx.pipelines.getComputePipeline( pipeline );
-
-        auto* texIn  = ctx.getTexture( data.inputHDR );
-        auto* texOut = ctx.getTexture( data.outputLDR );
-
-        auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, texIn, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 1, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
-
-        ctx.cmd->bindComputePipeline( pso );
-        ctx.cmd->bindDescriptorSet( 0, set0 );
-
-        ctx.cmd->dispatch( texIn->getDescription().size );
-    }
-};
-
-struct CopyPass {
-
-    Graphics::RGResourceHandle inputHandle;
-    Graphics::RGResourceHandle outputHandle;
-
-    struct Data {
-        Graphics::RGResourceHandle inputLDR;
-        Graphics::RGResourceHandle outputLDR;
-    };
-
-    void setup( Graphics::RenderPassBuilder& builder, Data& data ) {
-        data.inputLDR  = builder.read( inputHandle, Graphics::RHI::ResourceState::CopySource );
-        data.outputLDR = builder.write( outputHandle, Graphics::RHI::ResourceState::CopyDest );
-    }
-
-    void execute( const Data& data, Graphics::RenderPassContext& ctx ) {
-
-        auto* srcTex = ctx.getTexture( data.inputLDR );
-        auto* dstTex = ctx.getTexture( data.outputLDR );
-
-        ctx.cmd->copyTexture( dstTex, srcTex );
-
-        ctx.cmd->barrier( dstTex, Graphics::RHI::ResourceState::Present );
-    }
-};
-
 int main( /*int argc, char* argv[]*/ ) {
 
     try
@@ -199,15 +142,11 @@ int main( /*int argc, char* argv[]*/ ) {
             .ps( "psMain" )
             .load();
 
-        rnd->shaders()
-            .shader( "TonemappingShader" )
-            .asDXIL()
-            .path( AXION_SHADER_DIR "/Slang/Postpro/Tonemapping.slang" )
-            .include( AXION_SHADER_DIR "/Slang/Common" )
-            .cs( "computeMain" )
-            .load();
-
         rnd->shaders().compileAllShaders();
+
+        Axion::Graphics::Passes::BlitToBackBuffer cpypass {};
+        Axion::Graphics::Passes::ToneMapping      tmPass {};
+        tmPass.init( *rnd.get() );
 
         ForwardPass fwPass {};
         fwPass.pipeline = rnd->pipelines()
@@ -217,11 +156,6 @@ int main( /*int argc, char* argv[]*/ ) {
                               .setDepthFormat( Graphics::Format::D32 )                  // Depth Format
                               .cullNone()                                               // Enable culling later if needed
                               .create();
-
-        ToneMappingPass tmPass {};
-        tmPass.pipeline = rnd->pipelines().compute( "TmPipeline" ).shader( "TonemappingShader" ).create();
-
-        CopyPass cpypass;
 
         //-------------------------------------
         // Dedclaring Static Resources
@@ -351,11 +285,11 @@ int main( /*int argc, char* argv[]*/ ) {
                 tmPass.inputHandle  = fwPass.output;
                 tmPass.outputHandle = builder.texture( "LDRIntermidiate" ).format( Format::RGBA8_UNORM ).extent( rtExtent ).asStorage().create();
 
-                builder.addPass<ToneMappingPass>( "TonemappingPass", tmPass );
+                builder.addPass( "TonemappingPass", tmPass );
 
                 cpypass.inputHandle  = tmPass.outputHandle;
                 cpypass.outputHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
-                builder.addPass<CopyPass>( "CopyPass", cpypass );
+                builder.addPass( "CopyPass", cpypass );
             } );
         };
 
