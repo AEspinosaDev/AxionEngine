@@ -9,14 +9,16 @@ target_compile_definitions(SamplesConfig INTERFACE
 set(CMAKE_FOLDER "Samples")
 
 # Graphics Module (GFX)
-add_subdirectory(GFX_Raster)
+add_subdirectory(GFX_Triangle)
 add_subdirectory(GFX_Compute)
-add_subdirectory(GFX_TextureSamplers)
 add_subdirectory(GFX_Raytracing)
 add_subdirectory(GFX_VertexPulling)
 
 # Core Module (Core)
 
-# Editor 
+# Interop (Core + GFX)
+add_subdirectory(Interop_TextureSamplers)
+
+# Demos (Entire Apps)
 
 unset(CMAKE_FOLDER)

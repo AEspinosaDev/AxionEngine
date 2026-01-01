@@ -31,4 +31,5 @@ AxionGFX
 AxionRHI
 # External
 tiny_obj_loader
+stb_image
 )

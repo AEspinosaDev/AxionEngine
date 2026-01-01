@@ -56,6 +56,8 @@ Axion is designed with strict modularity in mind. You are not forced to use the 
 - **OS:** Windows 10/11.
 - **SDKs:** Vulkan SDK 1.4.*.
 - **Tools:** CMake (3.20+), Ninja 🥷 (Optional, recommended for speed).´
+- **Git LFS:** Required to download binary assets (textures, meshes). 
+    *(If you clone the repo and assets appear as 1KB text files, run `git lfs pull`)*.
 
 `Heavy dependencies that need to be built (GLFW, fmt, etc) will be fetch recursively. Slang and other necessary binaries will be automatically downloaded using Cmake's fetch content`
 

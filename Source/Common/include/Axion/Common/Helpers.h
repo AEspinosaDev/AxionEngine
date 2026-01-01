@@ -20,28 +20,6 @@ constexpr uint alignu( uint value, uint alignment ) {
     return ( value + alignment - 1 ) & ~( alignment - 1 );
 }
 
-struct ImageData {
-    uint                                                         width    = 0;
-    uint                                                         height   = 0;
-    uint                                                         channels = 0;
-    bool                                                         isHDR    = false; // true = float (32 bit), false = uchar (8 bit)
-    std::variant<std::vector<unsigned char>, std::vector<float>> pixels;
-
-    const void* getData() const {
-        if ( isHDR )
-            return std::get<std::vector<float>>( pixels ).data();
-        return std::get<std::vector<unsigned char>>( pixels ).data();
-    }
-
-    size_t getSizeInBytes() const {
-        if ( isHDR )
-            return std::get<std::vector<float>>( pixels ).size() * sizeof( float );
-        return std::get<std::vector<unsigned char>>( pixels ).size() * sizeof( unsigned char );
-    }
-};
-
-ImageData loadImage( const std::string& path, int forceChannels = 4, bool flipVertically = false );
-
 class Clock
 {
 public:

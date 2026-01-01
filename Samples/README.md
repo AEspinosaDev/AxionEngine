@@ -36,6 +36,7 @@ Samples focused on OS interaction, file systems, and engine subsystems without r
 
 **✨ The Sweet Spot for Prototyping.** These samples demonstrate how to make the modules talk to each other. Specifically, how to use `AxionCore` as a Resource Loader to feed data into the `AxionGFX` renderer, bypassing the high-level Scene Graph.
 
+* **`Interop_TextureSamplers`**: Loads a texture (Axion.png) using the Core AssetManager and renders a cube with the texture sampled. Shows manual data bridging between CPU (Core) and GPU (GFX).
 * **`Interop_RaytracingAjax`**: Loads a complex OBJ mesh (Ajax) using the Core AssetManager and renders it using a Path Tracing pipeline in GFX. Shows manual data bridging between CPU (Core) and GPU (GFX).
 
 ---

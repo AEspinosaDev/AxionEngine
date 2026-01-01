@@ -1,4 +1,5 @@
 #pragma once
+#include <Axion/Core/Assets/Defines.h>
 #include <Axion/Core/Assets/Handle.h>
 #include <Axion/Core/Assets/Material.h>
 #include <Axion/Core/Assets/Mesh.h>
@@ -7,22 +8,6 @@
 AXION_NAMESPACE_BEGIN
 
 namespace Core::Assets {
-
-/**
- * @brief Bitmask flags to configure the mesh import process.
- * These flags control post-processing steps and additional resource loading.
- */
-enum MeshImportFlags : uint
-{
-    MeshImportNone            = 1 << 0,
-    MeshImportLoadMaterials   = 1 << 1,
-    MeshImportLoadTextures    = 1 << 2,
-    MeshImportLoadAnimations  = 1 << 3,
-    MeshImportComputeTangents = 1 << 4,
-    MeshImportComputeBounds   = 1 << 5,
-};
-
-AXION_ENUM_CLASS_FLAG_OPERATORS( MeshImportFlags );
 
 /**
  * @brief Centralized manager for CPU-side Assets.
@@ -105,6 +90,17 @@ public:
     MeshHandle createSphere( const std::string& name, uint segments = 32 );
 
     // ------------------------------------------------------------------------
+    // Texture Management
+    // ------------------------------------------------------------------------
+
+    TextureHandle importTexture( const std::string& name,
+                                 const std::string& filepath,
+                                 TextureImportFlags flags = TextureImportAsGamma | TextureImportForce4Channels );
+    // TextureHandle createTexture( const std::string& name,
+    //                        const std::string& filepath,
+    //                        MeshImportFlags    flags = MeshImportComputeBounds | MeshImportComputeTangents );
+
+    // ------------------------------------------------------------------------
     // Access & Lifecycle
     // ------------------------------------------------------------------------
 
@@ -148,6 +144,45 @@ public:
      * @return Count of active meshes.
      */
     uint getMeshCount() const;
+
+    /**
+     * @brief Retrieves a read-only pointer to the texture data.
+     *
+     * @warning The returned pointer is managed by the AssetManager.
+     * Do NOT delete it manually. Do not store this pointer long-term,
+     * as resizing the internal pool might invalidate it (unless stable storage is used).
+     *
+     * @param handle The handle obtained during creation/import.
+     * @return Const pointer to the Texture, or nullptr if the handle is invalid or stale.
+     */
+    const Texture* getTexture( TextureHandle handle ) const;
+
+    /**
+     * @brief Unloads a texture and frees its memory.
+     *
+     * Increments the generation counter for the slot, invalidating any
+     * existing handles that point to this asset.
+     *
+     * @param handle The handle of the texture to delete.
+     */
+    void deleteTexture( TextureHandle handle );
+
+    /**
+     * @brief Checks if a handle points to a valid, live asset.
+     *
+     * Verifies that the ID exists and that the generation matches the current
+     * asset version (protects against accessing deleted/reused slots).
+     *
+     * @param handle The handle to check.
+     * @return True if valid.
+     */
+    bool isValid( TextureHandle handle ) const;
+
+    /**
+     * @brief Gets the total number of active texture currently loaded.
+     * @return Count of active textures.
+     */
+    uint getTextureCount() const;
 
 private:
     struct Impl;

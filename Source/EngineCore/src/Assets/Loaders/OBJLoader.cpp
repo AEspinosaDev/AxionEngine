@@ -1,4 +1,5 @@
 #include "Loaders.h"
+#include <Axion/Common/Helpers.h>
 #include <functional>
 #include <tiny_obj_loader.h>
 
@@ -6,15 +7,12 @@ AXION_NAMESPACE_BEGIN
 
 namespace Core::Assets::Loaders {
 
-inline void hashCombine( std::size_t& seed, int v ) {
-    seed ^= std::hash<int> {}( v ) + 0x9e3779b9 + ( seed << 6 ) + ( seed >> 2 );
-}
 struct IndexHasher {
     std::size_t operator()( const tinyobj::index_t& index ) const {
         std::size_t seed = 0;
-        hashCombine( seed, index.vertex_index );
-        hashCombine( seed, index.normal_index );
-        hashCombine( seed, index.texcoord_index );
+        Helpers::hashCombine( seed, index.vertex_index );
+        Helpers::hashCombine( seed, index.normal_index );
+        Helpers::hashCombine( seed, index.texcoord_index );
         return seed;
     }
 };
@@ -27,7 +25,7 @@ struct IndexEqual {
     }
 };
 
-bool loadOBJ( const std::string& filepath, Mesh& outMesh, MeshImportFlags flags ) {
+bool loadOBJ( const std::string& filepath, MeshData& outMesh, MeshImportFlags flags ) {
 
     tinyobj::attrib_t                attrib;
     std::vector<tinyobj::shape_t>    shapes;
@@ -37,12 +35,16 @@ bool loadOBJ( const std::string& filepath, Mesh& outMesh, MeshImportFlags flags 
     // Fetch materials
     std::string baseDir = filepath.substr( 0, filepath.find_last_of( "/\\" ) + 1 );
 
-    const char* mtlSearchPath         = nullptr;
+    const char* mtlSearchPath         = baseDir.c_str();
     bool        shouldImportMaterials = ( flags & MeshImportLoadMaterials );
-    if ( shouldImportMaterials )
-        mtlSearchPath = baseDir.c_str();
 
-    bool ret = tinyobj::LoadObj( &attrib, &shapes, &materials, &warn, &err, filepath.c_str(), mtlSearchPath );
+    bool ret = tinyobj::LoadObj( &attrib,
+                                 &shapes,
+                                 shouldImportMaterials ? &materials : nullptr,
+                                 &warn,
+                                 &err,
+                                 filepath.c_str(),
+                                 shouldImportMaterials ? mtlSearchPath : nullptr );
 
     if ( !warn.empty() )
         AXION_LOG_WARN( Logger::Module::Core, "TinyObj Loader Warning [{}]: {}", filepath, warn );
@@ -126,18 +128,15 @@ bool loadOBJ( const std::string& filepath, Mesh& outMesh, MeshImportFlags flags 
         }
     }
 
-    if ( flags & MeshImportComputeBounds )
-        outMesh.calculateBounds();
-
     if ( flags & MeshImportComputeTangents )
         computeTangents( outMesh.vertices, outMesh.indices );
 
     return true;
 }
 
-bool loadOBJ( const std::string& filepath, std::unordered_map<Mesh, Material>& assetMap, MeshImportFlags flags ) {
-    return false;
-}
+// bool loadOBJ( const std::string& filepath, std::unordered_map<Mesh, Material>& assetMap, MeshImportFlags flags ) {
+//     return false;
+// }
 
 } // namespace Core::Assets::Loaders
 

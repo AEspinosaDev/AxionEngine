@@ -17,26 +17,49 @@ struct Vertex {
     Math::Vec4 color;
 };
 
-// struct Vertex2{
-//     std::set<>
-// }
+class AssetManager;
 
-struct Mesh {
-    std::string name;
+class Mesh
+{
+public:
+    Mesh()                  = delete;
+    Mesh( const Mesh& )     = delete;
+    Mesh( Mesh&& ) noexcept = default;
 
-    std::vector<Vertex> vertices;
-    std::vector<uint>   indices;
+    [[nodiscard]] const std::string&          getName() const { return _name; }
+    [[nodiscard]] const Math::AABB&           getAABB() const { return _aabb; }
+    [[nodiscard]] const Math::BoundingSphere& getBoundingSphere() const { return _boundingSphere; }
+    [[nodiscard]] const std::vector<Vertex>&  getVertices() const { return _vertices; }
+    [[nodiscard]] const std::vector<uint>&    getIndices() const { return _indices; }
+    [[nodiscard]] uint                        getVertexCount() const { return (uint)_vertices.size(); }
+    [[nodiscard]] uint                        getIndexCount() const { return (uint)_indices.size(); }
 
-    Math::AABB           aabb;
-    Math::BoundingSphere boundingSphere;
+private:
+    friend class AssetManager;
+
+    explicit Mesh( std::string name, std::vector<Vertex>&& verts, std::vector<uint>&& inds, bool computeBounds = true )
+        : _name( std::move( name ) )
+        , _vertices( std::move( verts ) )
+        , _indices( std::move( inds ) ) {
+        if ( computeBounds )
+            calculateBounds();
+    }
+    explicit Mesh( std::string name )
+        : _name( std::move( name ) ) {}
+
+    std::string          _name;
+    std::vector<Vertex>  _vertices;
+    std::vector<uint>    _indices;
+    Math::AABB           _aabb {};
+    Math::BoundingSphere _boundingSphere {};
 
     void calculateBounds() {
-        aabb = Math::AABB();
-        for ( const auto& v : vertices )
-            aabb.merge( v.position );
+        _aabb = Math::AABB();
+        for ( const auto& v : _vertices )
+            _aabb.merge( v.position );
 
-        boundingSphere.center = aabb.getCenter();
-        boundingSphere.radius = Math::distance( aabb.min, aabb.max ) * 0.5f; // Fast approx
+        _boundingSphere.center = _aabb.getCenter();
+        _boundingSphere.radius = Math::distance( _aabb.min, _aabb.max ) * 0.5f; // Fast approx
     }
 };
 

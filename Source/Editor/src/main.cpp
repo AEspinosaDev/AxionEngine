@@ -16,14 +16,12 @@ int main( /*int argc, char* argv[]*/ ) {
 
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "Test Window" } );
         // auto wnd = Axion::Graphics::createWindowForGLFW(  { .name = "Test Window" } );
-        auto rnd = Axion::Graphics::createRenderer( wnd,
+        auto rnd = Axion::Graphics::createRenderer( wnd.get(),
                                                     { .gfxApi        = Graphics::API::DirectX12,
                                                       .bufferingType = Graphics::BufferingType::Double,
                                                       .presentMode   = Graphics::PresentMode::Vsync } );
 
-       
-
-        while ( !wnd->shouldClose() )
+               while ( !wnd->shouldClose() )
         {
             static uint64_t                           frameCounter   = 0;
             static double                             elapsedSeconds = 0.0;

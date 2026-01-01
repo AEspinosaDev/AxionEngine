@@ -32,6 +32,5 @@ VSOutput vsMain(VSInput input) {
 float4 psMain(VSOutput input) : SV_Target {
 
     float4 color = gTexture.Sample( gSampler, input.uv );
-    float  gamma = 2.2;
-    return pow(color, gamma);
+    return color;
 }

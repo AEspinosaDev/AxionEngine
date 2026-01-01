@@ -20,6 +20,7 @@ int main( /*int argc, char* argv[]*/ ) {
                                                       .bufferingType = Graphics::BufferingType::Double,
                                                       .presentMode   = Graphics::PresentMode::Vsync } );
 
+        static auto startTime = std::chrono::high_resolution_clock::now();
         while ( !wnd->shouldClose() )
         {
             static uint64_t                           frameCounter   = 0;
@@ -51,18 +52,20 @@ int main( /*int argc, char* argv[]*/ ) {
                     RGResourceHandle target;
                 };
 
-                builder.addPass<PassData>( "ClearPass", [&]( RenderPassBuilder& pb, PassData& data ) {
-                    data.target = pb.write( rgBackbuffer, RHI::ResourceState::RenderTarget ); 
-                },
+                builder.addPass<PassData>( "ClearPass", [&]( RenderPassBuilder& pb, PassData& data ) { data.target = pb.write( rgBackbuffer, RHI::ResourceState::RenderTarget ); },
 
                                            [&]( const PassData& data, RenderPassContext& ctx ) {
-                                            
+                    
                 auto* tex = ctx.getTexture( data.target );
                 
                 ctx.cmd->barrier( tex, RHI::ResourceState::RenderTarget );
                 ctx.cmd->clearTexture( tex, ClearValue { .color = { 0.4f, 0.6f, 0.9f, 1.0f } } );
                 ctx.cmd->barrier( tex, RHI::ResourceState::Present ); } );
             } );
+
+            float time = std::chrono::duration<float>( t1 - startTime ).count();
+            if ( time > 10.0f )
+                break;
         };
 
     } catch ( const std::exception& e )

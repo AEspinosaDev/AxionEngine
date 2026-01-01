@@ -198,7 +198,7 @@ int main( /*int argc, char* argv[]*/ ) {
                                  .asTLAS()
                                  .intances( { inst } )
                                  .allowUpdate()
-                                //  .instantBuild()
+                                 //  .instantBuild()
                                  .create();
 
         // UNIFORM CONSTANT BUFFER
@@ -293,6 +293,10 @@ int main( /*int argc, char* argv[]*/ ) {
                 cpypass.outputHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
                 builder.addPass( "CopyPass", cpypass );
             } );
+
+            if ( time > 10.0f )
+                break;
+                
         };
 
     } catch ( const std::exception& e )

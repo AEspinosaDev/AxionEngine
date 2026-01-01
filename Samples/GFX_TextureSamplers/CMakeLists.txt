@@ -1,3 +1,0 @@
-add_executable(GFXTextureSamplersSample  main.cpp)
-target_link_libraries(GFXTextureSamplersSample PRIVATE SamplesConfig AxionGFX)
-axion_setup_executable(GFXTextureSamplersSample "Samples")

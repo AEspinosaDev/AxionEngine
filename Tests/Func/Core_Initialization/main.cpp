@@ -18,7 +18,7 @@ int main( /*int argc, char* argv[]*/ ) {
         Core::Assets::AssetManager assets;
         auto cubeHandle = assets.createCube( "Cube" );
         assets.deleteMesh( cubeHandle );
-        auto ajaxHandle = assets.importMesh( "AJAX",  AXION_TESTS_RESOURCE_DIR "/ajax.obj" );
+        auto ajaxHandle = assets.importMesh( "AJAX",  AXION_MESH_DIR "/ajax.obj" );
         auto ajaxMesh = assets.getMesh( ajaxHandle );
 
 

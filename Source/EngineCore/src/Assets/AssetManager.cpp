@@ -9,6 +9,8 @@ AXION_NAMESPACE_BEGIN
 
 namespace Core::Assets {
 
+#pragma region Impl
+
 template <typename T>
 struct AssetRecord {
     std::unique_ptr<T> asset      = nullptr;
@@ -25,9 +27,9 @@ struct AssetManager::Impl {
     std::unordered_map<std::string, MeshHandle> meshHandles;
     std::queue<uint>                            meshFreeIndices;
 
-    // std::vector<AssetRecord<Texture>>  textures;
-    // std::unordered_map<std::string, TextureHandle>  textureHandles;
-    // std::queue<uint>                            textureFreeIndices;
+    std::vector<AssetRecord<Texture>>              textures;
+    std::unordered_map<std::string, TextureHandle> textureHandles;
+    std::queue<uint>                               textureFreeIndices;
 
     // std::vector<AssetRecord<Material>> materials;
     // std::unordered_map<std::string, MaterialHandle> materialHandles;
@@ -86,11 +88,11 @@ struct AssetManager::Impl {
             return;
         }
 
-        auto deletedName = slot.asset->name;
+        auto deletedName = slot.asset->getName();
 
-        if ( !slot.asset->name.empty() )
+        if ( !deletedName.empty() )
         {
-            meshHandles.erase( slot.asset->name );
+            meshHandles.erase( deletedName );
         }
 
         slot.asset.reset();
@@ -100,6 +102,74 @@ struct AssetManager::Impl {
         slot.generation++;
 
         meshFreeIndices.push( handle.id );
+
+        AXION_LOG_INFO( Logger::Module::Core, "Deleted Mesh ID: {} [{}]", handle.id, deletedName );
+    }
+    TextureHandle addTexture( Texture&& texture, const std::string& key = "" ) {
+
+        uint id         = UINT32_MAX;
+        uint generation = 0;
+
+        if ( !textureFreeIndices.empty() )
+        {
+            id = textureFreeIndices.front();
+            textureFreeIndices.pop();
+
+            auto& slot  = textures[id];
+            slot.active = true;
+            slot.asset  = std::make_unique<Texture>( std::move( texture ) ); // Overwrite old data
+
+            generation = slot.generation;
+        } else
+        {
+            id         = static_cast<uint>( textures.size() );
+            generation = 0;
+
+            AssetRecord<Texture> newSlot;
+            newSlot.asset      = std::make_unique<Texture>( std::move( texture ) );
+            newSlot.generation = 0;
+            newSlot.active     = true;
+
+            textures.push_back( std::move( newSlot ) );
+        }
+
+        TextureHandle handle { id, generation };
+
+        if ( !key.empty() )
+        {
+            textureHandles[key] = handle;
+        }
+
+        return handle;
+    }
+
+    void removeTexture( TextureHandle handle ) {
+        if ( handle.id >= textures.size() )
+            return;
+
+        auto& slot = textures[handle.id];
+
+        // Only delete if generation matches (security check)
+        if ( !slot.active || slot.generation != handle.generation )
+        {
+            AXION_LOG_WARN( Logger::Module::Core, "Attempted to delete invalid or outdated Mesh Handle ID: {}", handle.id );
+            return;
+        }
+
+        auto deletedName = slot.asset->getName();
+
+        if ( !deletedName.empty() )
+        {
+            textureHandles.erase( deletedName );
+        }
+
+        slot.asset.reset();
+        slot.active = false;
+
+        // will now have (handle.gen < slot.gen), causing isValid check to fail.
+        slot.generation++;
+
+        textureFreeIndices.push( handle.id );
 
         AXION_LOG_INFO( Logger::Module::Core, "Deleted Mesh ID: {} [{}]", handle.id, deletedName );
     }
@@ -113,6 +183,10 @@ AssetManager::AssetManager()
 AssetManager::~AssetManager() {
     AXION_LOG_INFO( Logger::Module::Core, "Destroying Asset Manager" );
 }
+
+#pragma endregion
+#pragma region Mesh
+
 MeshHandle AssetManager::importMesh( const std::string& name, const std::string& filepath, MeshImportFlags flags ) {
     std::scoped_lock lock( _impl->mutex );
 
@@ -139,13 +213,12 @@ MeshHandle AssetManager::importMesh( const std::string& name, const std::string&
     std::string extension = path.extension().string();
     std::transform( extension.begin(), extension.end(), extension.begin(), ::tolower );
 
-    Mesh mesh;
-    mesh.name    = meshName;
-    bool success = false;
+    Loaders::MeshData meshData;
+    bool              success = false;
 
     if ( extension == ".obj" )
     {
-        success = Loaders::loadOBJ( filepath, mesh, flags );
+        success = Loaders::loadOBJ( filepath, meshData, flags );
     } else if ( extension == ".ply" )
     {
         // TODO: Implement loadPLY in Loaders.h/cpp
@@ -161,6 +234,11 @@ MeshHandle AssetManager::importMesh( const std::string& name, const std::string&
         AXION_LOG_ERROR( Logger::Module::Core, "Unsupported file format [{}] for file: {}", extension, filepath );
         return MeshHandle();
     }
+
+    Mesh mesh( meshName,
+               std::move( meshData.vertices ),
+               std::move( meshData.indices ),
+               flags & MeshImportComputeBounds );
 
     if ( !success )
     {
@@ -193,10 +271,9 @@ MeshHandle AssetManager::createMesh( const std::string&         name,
         return _impl->meshHandles[name];
     }
 
-    Mesh mesh;
-    mesh.name     = meshName;
-    mesh.vertices = vertices;
-    mesh.indices  = indices;
+    Mesh mesh( meshName );
+    mesh._vertices = vertices;
+    mesh._indices  = indices;
 
     mesh.calculateBounds();
 
@@ -221,8 +298,7 @@ MeshHandle AssetManager::createQuad( const std::string& name, uint subdivisions 
         return _impl->meshHandles[name];
     }
 
-    Mesh mesh;
-    mesh.name = meshName;
+    Mesh mesh( meshName );
 
     const uint  cellsPerSide    = subdivisions + 1;
     const uint  verticesPerSide = cellsPerSide + 1;
@@ -230,8 +306,8 @@ MeshHandle AssetManager::createQuad( const std::string& name, uint subdivisions 
 
     const Math::Vec3 origin = { -0.5f, -0.5f, 0.0f };
 
-    mesh.vertices.reserve( verticesPerSide * verticesPerSide );
-    mesh.indices.reserve( cellsPerSide * cellsPerSide * 6 );
+    mesh._vertices.reserve( verticesPerSide * verticesPerSide );
+    mesh._indices.reserve( cellsPerSide * cellsPerSide * 6 );
 
     for ( uint y = 0; y < verticesPerSide; ++y )
     {
@@ -255,7 +331,7 @@ MeshHandle AssetManager::createQuad( const std::string& name, uint subdivisions 
 
             vert.color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-            mesh.vertices.push_back( vert );
+            mesh._vertices.push_back( vert );
         }
     }
 
@@ -268,20 +344,20 @@ MeshHandle AssetManager::createQuad( const std::string& name, uint subdivisions 
             uint topLeft     = ( y + 1 ) * verticesPerSide + x;
             uint topRight    = topLeft + 1;
 
-            mesh.indices.push_back( bottomLeft );
-            mesh.indices.push_back( bottomRight );
-            mesh.indices.push_back( topRight );
+            mesh._indices.push_back( bottomLeft );
+            mesh._indices.push_back( bottomRight );
+            mesh._indices.push_back( topRight );
 
-            mesh.indices.push_back( bottomLeft );
-            mesh.indices.push_back( topRight );
-            mesh.indices.push_back( topLeft );
+            mesh._indices.push_back( bottomLeft );
+            mesh._indices.push_back( topRight );
+            mesh._indices.push_back( topLeft );
         }
     }
 
-    mesh.aabb.min              = { -0.5f, -0.5f, 0.0f };
-    mesh.aabb.max              = { 0.5f, 0.5f, 0.0f };
-    mesh.boundingSphere.center = { 0.0f, 0.0f, 0.0f };
-    mesh.boundingSphere.radius = Math::distance( mesh.aabb.min, mesh.aabb.max ) * 0.5f;
+    mesh._aabb.min              = { -0.5f, -0.5f, 0.0f };
+    mesh._aabb.max              = { 0.5f, 0.5f, 0.0f };
+    mesh._boundingSphere.center = { 0.0f, 0.0f, 0.0f };
+    mesh._boundingSphere.radius = Math::distance( mesh._aabb.min, mesh._aabb.max ) * 0.5f;
 
     auto handle = _impl->addMesh( std::move( mesh ), name );
 
@@ -299,9 +375,8 @@ MeshHandle AssetManager::createCube( const std::string& name ) {
         return _impl->meshHandles[name];
     }
 
-    Mesh mesh;
-    mesh.name     = name;
-    mesh.vertices = {
+    Mesh mesh( name );
+    mesh._vertices = {
         // ------------------------------------------------------------------
         // FRONT FACE (Z+) -> Normal (0, 0, 1) | Tangent (1, 0, 0)
         // ------------------------------------------------------------------
@@ -352,7 +427,7 @@ MeshHandle AssetManager::createCube( const std::string& name ) {
     };
 
     // Indices (Counter-Clockwise - CCW)
-    mesh.indices = {
+    mesh._indices = {
         0, 1, 2, 2, 3, 0, // Front
         4,
         5,
@@ -386,10 +461,10 @@ MeshHandle AssetManager::createCube( const std::string& name ) {
         20 // Bottom
     };
 
-    mesh.aabb.min              = { -0.5f, -0.5f, -0.5f };
-    mesh.aabb.max              = { 0.5f, 0.5f, 0.5f };
-    mesh.boundingSphere.center = { 0, 0, 0 };
-    mesh.boundingSphere.radius = Math::distance( mesh.aabb.min, mesh.aabb.max ) * 0.5f; // approx 0.866
+    mesh._aabb.min              = { -0.5f, -0.5f, -0.5f };
+    mesh._aabb.max              = { 0.5f, 0.5f, 0.5f };
+    mesh._boundingSphere.center = { 0, 0, 0 };
+    mesh._boundingSphere.radius = Math::distance( mesh._aabb.min, mesh._aabb.max ) * 0.5f; // approx 0.866
 
     auto handle = _impl->addMesh( std::move( mesh ), name );
 
@@ -413,15 +488,14 @@ MeshHandle AssetManager::createSphere( const std::string& name, uint segments ) 
         return _impl->meshHandles[meshName];
     }
 
-    Mesh mesh;
-    mesh.name = meshName;
+    Mesh mesh( meshName );
 
     const uint  rings   = segments;
     const uint  sectors = segments;
     const float radius  = 0.5f; // Diameter = 1.0
 
-    mesh.vertices.reserve( rings * sectors );
-    mesh.indices.reserve( rings * sectors * 6 );
+    mesh._vertices.reserve( rings * sectors );
+    mesh._indices.reserve( rings * sectors * 6 );
 
     const float R = 1.0f / (float)( rings - 1 );
     const float S = 1.0f / (float)( sectors - 1 );
@@ -457,7 +531,7 @@ MeshHandle AssetManager::createSphere( const std::string& name, uint segments ) 
 
             v.color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-            mesh.vertices.push_back( v );
+            mesh._vertices.push_back( v );
         }
     }
 
@@ -471,21 +545,21 @@ MeshHandle AssetManager::createSphere( const std::string& name, uint segments ) 
 
             uint nextS = ( s + 1 );
 
-            mesh.indices.push_back( curRow + s );
-            mesh.indices.push_back( nextRow + s );
-            mesh.indices.push_back( nextRow + nextS );
+            mesh._indices.push_back( curRow + s );
+            mesh._indices.push_back( nextRow + s );
+            mesh._indices.push_back( nextRow + nextS );
 
-            mesh.indices.push_back( curRow + s );
-            mesh.indices.push_back( nextRow + nextS );
-            mesh.indices.push_back( curRow + nextS );
+            mesh._indices.push_back( curRow + s );
+            mesh._indices.push_back( nextRow + nextS );
+            mesh._indices.push_back( curRow + nextS );
         }
     }
 
     // Bounds
-    mesh.aabb.min              = { -radius, -radius, -radius };
-    mesh.aabb.max              = { radius, radius, radius };
-    mesh.boundingSphere.center = { 0, 0, 0 };
-    mesh.boundingSphere.radius = radius;
+    mesh._aabb.min              = { -radius, -radius, -radius };
+    mesh._aabb.max              = { radius, radius, radius };
+    mesh._boundingSphere.center = { 0, 0, 0 };
+    mesh._boundingSphere.radius = radius;
 
     auto handle = _impl->addMesh( std::move( mesh ), meshName );
     AXION_LOG_INFO( Logger::Module::Core, "Created Sphere ID: {} [{}]", handle.id, meshName );
@@ -529,5 +603,113 @@ bool AssetManager::isValid( MeshHandle handle ) const {
 uint AssetManager::getMeshCount() const {
     return _impl->meshes.size();
 }
+
+#pragma endregion
+#pragma region Texture
+#include <cmath> // Para std::log2, std::floor
+
+// ... 
+
+TextureHandle AssetManager::importTexture( const std::string& name, const std::string& filepath, TextureImportFlags flags ) {
+    std::scoped_lock lock( _impl->mutex );
+
+    std::string textureName = name;
+    if ( textureName.empty() ) {
+        AXION_LOG_ERROR( Logger::Module::Core, "Invalid Texture name." );
+        return TextureHandle();
+    }
+
+    if ( _impl->textureHandles.count( textureName ) ) {
+        AXION_LOG_WARN( Logger::Module::Core, "Texture name collision [{}]. Returning existing handle.", textureName );
+        return _impl->textureHandles[textureName];
+    }
+
+    if ( !std::filesystem::exists( filepath ) ) {
+        AXION_LOG_ERROR( Logger::Module::Core, "File not found: {}", filepath );
+        return TextureHandle();
+    }
+
+    Loaders::ImageData imageData;
+    if ( !Loaders::loadImage( filepath, imageData, flags ) ) {
+        AXION_LOG_ERROR( Logger::Module::Core, "Failed to import texture [{}] from [{}]", textureName, filepath );
+        return TextureHandle();
+    }
+
+    Texture texture( textureName );
+
+    TextureType textureType = TextureType::Texture2D;
+    if ( flags & TextureImportAs3DTexture ) textureType = TextureType::Texture3D;
+    if ( flags & TextureImportAsCubeMap )   textureType = TextureType::CubeMap;
+
+    TextureFormat textureFormat = TextureFormat::Linear;
+    if ( flags & TextureImportAsGamma ) textureFormat = TextureFormat::Gamma;
+    if ( imageData.isHDR )              textureFormat = TextureFormat::HDR; // HDR overrides Gamma flags
+
+    texture.setData( std::move( imageData.size ),
+                     imageData.channels,
+                     imageData.isHDR,
+                     std::move( imageData.pixels ),
+                     textureFormat,
+                     imageData.precision,
+                     textureType );
+
+    uint8_t mipCount = 1;
+    if ( flags & TextureImportGenerateMipmaps ) {
+        uint32_t maxDim = std::max( imageData.size.width, imageData.size.height );
+        maxDim = std::max( maxDim, imageData.size.depth );
+        mipCount = static_cast<uint8_t>( std::floor( std::log2( maxDim ) ) ) + 1;
+    }
+
+    texture.setSamplerDesc( { 
+        .anisotropic = (flags & TextureImportAnisotropicFilter) ? true : false,
+        .mipLevels   = mipCount 
+    } );
+
+    auto handle = _impl->addTexture( std::move( texture ), textureName );
+
+    AXION_LOG_INFO( Logger::Module::Core, "Imported Texture ID: {} [{}]", handle.id, textureName );
+
+    return handle;
+}
+
+const Texture* AssetManager::getTexture( TextureHandle handle ) const {
+    if ( !handle.isValid() || handle.id >= _impl->textures.size() )
+        return nullptr;
+
+    const auto& slot = _impl->textures[handle.id];
+
+    // GENERATION CHECK: Vital security feature
+    if ( !slot.active || slot.generation != handle.generation )
+    {
+        // Handle is pointing to a slot that has been deleted and potentially reused
+        return nullptr;
+    }
+
+    return slot.asset.get();
+}
+void AssetManager::deleteTexture( TextureHandle handle ) {
+    std::scoped_lock lock( _impl->mutex );
+    _impl->removeTexture( handle );
+}
+bool AssetManager::isValid( TextureHandle handle ) const {
+    std::scoped_lock lock( _impl->mutex );
+
+    if ( !handle.isValid() || handle.id >= _impl->textures.size() )
+        return false;
+
+    const auto& slot = _impl->textures[handle.id];
+
+    if ( !slot.active || slot.generation != handle.generation )
+        return false;
+
+    return true;
+}
+uint AssetManager::getTextureCount() const {
+    return _impl->textures.size();
+}
+
+#pragma endregion
+#pragma region Material
+
 } // namespace Core::Assets
 AXION_NAMESPACE_END

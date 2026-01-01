@@ -15,11 +15,11 @@ PUBLIC
 ${CMAKE_CURRENT_SOURCE_DIR}/include   
 )
 
-target_link_libraries(AxionCommon PUBLIC glm fmt::fmt stb_image)
+target_link_libraries(AxionCommon PUBLIC glm fmt::fmt)
 
 # RESOLVE RESOURCES PATH
 target_compile_definitions(AxionCommon PUBLIC
-    # AXION_MODEL_DIR="${CMAKE_SOURCE_DIR}/Shaders"
-    # AXION_TEXTURE_DIR="${CMAKE_SOURCE_DIR}/Resources"
+    AXION_MESH_DIR="${CMAKE_SOURCE_DIR}/Resources/Meshes"
+    AXION_TEXTURE_DIR="${CMAKE_SOURCE_DIR}/Resources/Textures"
     AXION_SHADER_DIR="${CMAKE_SOURCE_DIR}/Resources/Shaders"
 )
