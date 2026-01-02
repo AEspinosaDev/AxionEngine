@@ -48,7 +48,7 @@ public:
     // SUBSYSTEM ACCESS
     // -------------------------------------------------------------------------
 
-    /// @brief Access to the persistent GPU Resource Pool (Buffers/Textures).
+    /// @brief Access to the persistent GPU Resource Pool (Buffers/Textures/Samplers/AS).
     virtual IGPUResourcePool& resources() = 0;
 
     /// @brief Access to the Shader Registry (Compilation & Reflection).

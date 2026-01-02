@@ -163,7 +163,7 @@ int main( /*int argc, char* argv[]*/ ) {
 
         // TEXTURE
         // Load texture using the Core module
-        auto  cpuTexHandle = assets.importTexture( "CubeTexture", AXION_TEXTURE_DIR "/Axion.png" );
+        auto  cpuTexHandle = assets.texture( "AxionTexture" ).import( AXION_TEXTURE_DIR "/Axion.png" );
         auto* cpuTexture   = assets.getTexture( cpuTexHandle );
 
         if ( !cpuTexture )

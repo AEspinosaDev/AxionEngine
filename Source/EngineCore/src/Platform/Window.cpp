@@ -31,12 +31,12 @@ struct Window::Impl {
 
 Window::Window( const Settings& settings )
     : _impl( std::make_unique<Impl>( settings ) ) {
-    AXION_LOG_INFO( Logger::Module::Core, "Window Created Succesfully" );
+    AXION_LOG_INFO( Logger::Module::Core, "Window [{}] Created Succesfully", _impl->setts.name );
     AXION_LOG_INFO( Logger::Module::Core, toString() );
 }
 
 Window::~Window() {
-    AXION_LOG_INFO( Logger::Module::Core, "Destroying Window" );
+    AXION_LOG_INFO( Logger::Module::Core, "Destroying Window [{}]", _impl->setts.name );
 };
 
 bool Window::update() {
@@ -110,8 +110,8 @@ std::string Window::toString() const {
         "  Platform: {}\n"
         "  VSync: {}\n"
         "  Fullscreen: {}\n"
-        "  Position: \n" 
-        "    x = {} \n" 
+        "  Position: \n"
+        "    x = {} \n"
         "    y = {} \n"
         "  Size: \n"
         "    Width = {} \n"

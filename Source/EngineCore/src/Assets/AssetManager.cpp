@@ -1,6 +1,7 @@
 #include "Axion/Core/Assets/AssetManager.h"
 #include "Axion/Common/Logging.h"
 #include "Loaders/Loaders.h"
+#include <cmath>
 #include <filesystem>
 #include <mutex>
 #include <queue>
@@ -568,6 +569,7 @@ MeshHandle AssetManager::createSphere( const std::string& name, uint segments ) 
 }
 
 const Mesh* AssetManager::getMesh( MeshHandle handle ) const {
+
     if ( !handle.isValid() || handle.id >= _impl->meshes.size() )
         return nullptr;
 
@@ -606,31 +608,32 @@ uint AssetManager::getMeshCount() const {
 
 #pragma endregion
 #pragma region Texture
-#include <cmath> // Para std::log2, std::floor
-
-// ... 
 
 TextureHandle AssetManager::importTexture( const std::string& name, const std::string& filepath, TextureImportFlags flags ) {
     std::scoped_lock lock( _impl->mutex );
 
     std::string textureName = name;
-    if ( textureName.empty() ) {
+    if ( textureName.empty() )
+    {
         AXION_LOG_ERROR( Logger::Module::Core, "Invalid Texture name." );
         return TextureHandle();
     }
 
-    if ( _impl->textureHandles.count( textureName ) ) {
+    if ( _impl->textureHandles.count( textureName ) )
+    {
         AXION_LOG_WARN( Logger::Module::Core, "Texture name collision [{}]. Returning existing handle.", textureName );
         return _impl->textureHandles[textureName];
     }
 
-    if ( !std::filesystem::exists( filepath ) ) {
+    if ( !std::filesystem::exists( filepath ) )
+    {
         AXION_LOG_ERROR( Logger::Module::Core, "File not found: {}", filepath );
         return TextureHandle();
     }
 
     Loaders::ImageData imageData;
-    if ( !Loaders::loadImage( filepath, imageData, flags ) ) {
+    if ( !Loaders::loadImage( filepath, imageData, flags ) )
+    {
         AXION_LOG_ERROR( Logger::Module::Core, "Failed to import texture [{}] from [{}]", textureName, filepath );
         return TextureHandle();
     }
@@ -638,12 +641,16 @@ TextureHandle AssetManager::importTexture( const std::string& name, const std::s
     Texture texture( textureName );
 
     TextureType textureType = TextureType::Texture2D;
-    if ( flags & TextureImportAs3DTexture ) textureType = TextureType::Texture3D;
-    if ( flags & TextureImportAsCubeMap )   textureType = TextureType::CubeMap;
+    if ( flags & TextureImportAs3DTexture )
+        textureType = TextureType::Texture3D;
+    if ( flags & TextureImportAsCubeMap )
+        textureType = TextureType::CubeMap;
 
     TextureFormat textureFormat = TextureFormat::Linear;
-    if ( flags & TextureImportAsGamma ) textureFormat = TextureFormat::Gamma;
-    if ( imageData.isHDR )              textureFormat = TextureFormat::HDR; // HDR overrides Gamma flags
+    if ( flags & TextureImportAsGamma )
+        textureFormat = TextureFormat::Gamma;
+    if ( imageData.isHDR )
+        textureFormat = TextureFormat::HDR; // HDR overrides Gamma flags
 
     texture.setData( std::move( imageData.size ),
                      imageData.channels,
@@ -654,16 +661,15 @@ TextureHandle AssetManager::importTexture( const std::string& name, const std::s
                      textureType );
 
     uint8_t mipCount = 1;
-    if ( flags & TextureImportGenerateMipmaps ) {
+    if ( flags & TextureImportGenerateMipmaps )
+    {
         uint32_t maxDim = std::max( imageData.size.width, imageData.size.height );
-        maxDim = std::max( maxDim, imageData.size.depth );
-        mipCount = static_cast<uint8_t>( std::floor( std::log2( maxDim ) ) ) + 1;
+        maxDim          = std::max( maxDim, imageData.size.depth );
+        mipCount        = static_cast<uint8_t>( std::floor( std::log2( maxDim ) ) ) + 1;
     }
 
-    texture.setSamplerDesc( { 
-        .anisotropic = (flags & TextureImportAnisotropicFilter) ? true : false,
-        .mipLevels   = mipCount 
-    } );
+    texture.setSamplerDesc( { .anisotropic = ( flags & TextureImportAnisotropicFilter ) ? true : false,
+                              .mipLevels   = mipCount } );
 
     auto handle = _impl->addTexture( std::move( texture ), textureName );
 
@@ -672,6 +678,17 @@ TextureHandle AssetManager::importTexture( const std::string& name, const std::s
     return handle;
 }
 
+TextureHandle AssetManager::createTexture( const std::string&                      name,
+                                           const Extent3D&                         size,
+                                           const std::variant<std::vector<uchar>,
+                                                              std::vector<float>>& pixels,
+                                           const uint                              channels,
+                                           const TextureFormat                     format,
+                                           const TexturePrecision                  precision,
+                                           const TextureType                       type,
+                                           const SamplerDesc&                      samplerDesc ) {
+    return TextureHandle();
+}
 const Texture* AssetManager::getTexture( TextureHandle handle ) const {
     if ( !handle.isValid() || handle.id >= _impl->textures.size() )
         return nullptr;
@@ -710,6 +727,16 @@ uint AssetManager::getTextureCount() const {
 
 #pragma endregion
 #pragma region Material
+
+#pragma endregion
+#pragma region Entry
+AssetManager::MeshBuilder AssetManager::mesh( const std::string& name ) {
+    return AssetManager::MeshBuilder( *this, name );
+}
+
+AssetManager::TextureBuilder AssetManager::texture( const std::string& name ) {
+    return AssetManager::TextureBuilder( *this, name );
+}
 
 } // namespace Core::Assets
 AXION_NAMESPACE_END

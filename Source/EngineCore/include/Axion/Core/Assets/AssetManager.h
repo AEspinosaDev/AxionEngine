@@ -13,10 +13,7 @@ namespace Core::Assets {
  * @brief Centralized manager for CPU-side Assets.
  *
  * The AssetManager handles the lifecycle (creation, storage, retrieval, and destruction)
- * of core assets like Meshes, Textures, and Materials.
- *
- * It uses a Handle-based system with Generational indices to prevent "Dangling Pointer"
- * issues when accessing assets that may have been unloaded.
+ * of core assets like Meshes, Textures, and Materials using a Generational Handle system.
  */
 class AssetManager
 {
@@ -26,167 +23,180 @@ public:
     AssetManager( const AssetManager& )            = delete;
     AssetManager& operator=( const AssetManager& ) = delete;
 
-    // ------------------------------------------------------------------------
-    // Mesh Management
-    // ------------------------------------------------------------------------
+    // Forward declarations of nested builders
+    class MeshBuilder;
+    class TextureBuilder;
+    // class MaterialBuilder;
 
-    /**
-     * @brief Imports a mesh from a file on the disk.
-     *
-     * Automatically detects the file format based on extension (.obj, .ply, .gltf).
-     * If a mesh with the same name already exists, returns the existing handle.
-     *
-     * @param name Unique identifier for the mesh in the asset registry.
-     * @param filepath Absolute or relative path to the asset file.
-     * @param flags Configuration flags for post-processing (Default: Compute Bounds & Tangents).
-     * @return A valid MeshHandle on success, or an invalid handle on failure.
-     */
-    MeshHandle importMesh( const std::string& name,
-                           const std::string& filepath,
-                           MeshImportFlags    flags = MeshImportComputeBounds | MeshImportComputeTangents );
+    // -------------------------------------------------------------------------
+    // ENTRY POINTS
+    // -------------------------------------------------------------------------
 
-    /**
-     * @brief Creates a new mesh manually from raw vertex and index buffers.
-     *
-     * @param name Unique identifier for the mesh.
-     * @param vertices Vector of vertex data (position, normal, uv, etc.).
-     * @param indices Vector of indices defining the triangles.
-     * @return Handle to the newly created mesh.
-     */
-    MeshHandle createMesh( const std::string&         name,
-                           const std::vector<Vertex>& vertices,
-                           const std::vector<uint>&   indices = {} );
+    /// @brief Starts the fluent construction of a CPU Mesh.
+    /// @param name Debug name for the resource.
+    MeshBuilder mesh( const std::string& name );
 
-    // ------------------------------------------------------------------------
-    // Procedural Primitives
-    // ------------------------------------------------------------------------
+    /// @brief Starts the fluent construction of a CPU Texture.
+    /// @param name Debug name for the resource.
+    TextureBuilder texture( const std::string& name );
 
-    /**
-     * @brief Generates a procedural Quad (Square) mesh.
-     * Useful for UI, billboards, or debug planes.
-     *
-     * @param name Name of the asset. If empty, an internal name is generated.
-     * @param subdivisions Number of tessellation steps (0 = 2 triangles).
-     * @return Handle to the procedural mesh.
-     */
-    MeshHandle createQuad( const std::string& name, uint subdivisions = 0 );
+    // -------------------------------------------------------------------------
+    // RUNTIME ACCESS
+    // -------------------------------------------------------------------------
 
-    /**
-     * @brief Generates a procedural Unit Cube mesh.
-     * Includes hard normals and UVs for each face.
-     *
-     * @param name Name of the asset.
-     * @return Handle to the procedural mesh.
-     */
-    MeshHandle createCube( const std::string& name );
-
-    /**
-     * @brief Generates a procedural Sphere (UV Sphere).
-     *
-     * @param name Name of the asset.
-     * @param segments Number of horizontal and vertical subdivisions (Resolution).
-     * @return Handle to the procedural mesh.
-     */
-    MeshHandle createSphere( const std::string& name, uint segments = 32 );
-
-    // ------------------------------------------------------------------------
-    // Texture Management
-    // ------------------------------------------------------------------------
-
-    TextureHandle importTexture( const std::string& name,
-                                 const std::string& filepath,
-                                 TextureImportFlags flags = TextureImportAsGamma | TextureImportForce4Channels );
-    // TextureHandle createTexture( const std::string& name,
-    //                        const std::string& filepath,
-    //                        MeshImportFlags    flags = MeshImportComputeBounds | MeshImportComputeTangents );
-
-    // ------------------------------------------------------------------------
-    // Access & Lifecycle
-    // ------------------------------------------------------------------------
-
-    /**
-     * @brief Retrieves a read-only pointer to the mesh data.
-     *
-     * @warning The returned pointer is managed by the AssetManager.
-     * Do NOT delete it manually. Do not store this pointer long-term,
-     * as resizing the internal pool might invalidate it (unless stable storage is used).
-     *
-     * @param handle The handle obtained during creation/import.
-     * @return Const pointer to the Mesh, or nullptr if the handle is invalid or stale.
-     */
+    /// @brief Retrieves the raw Mesh pointer associated with a handle.
+    /// @return Pointer to Mesh or nullptr if handle is invalid/dead.
     const Mesh* getMesh( MeshHandle handle ) const;
 
-    /**
-     * @brief Unloads a mesh and frees its memory.
-     *
-     * Increments the generation counter for the slot, invalidating any
-     * existing handles that point to this asset.
-     *
-     * @param handle The handle of the mesh to delete.
-     */
+    /// @brief Destroys the mesh and frees memory immediately.
     void deleteMesh( MeshHandle handle );
 
-    // TextureHandle importTexture( const std::string& name, const std::string& filepath );
+    /// @brief Checks if a mesh handle points to a live asset.
+    [[nodiscard]] bool isValid( MeshHandle handle ) const;
 
-    /**
-     * @brief Checks if a handle points to a valid, live asset.
-     *
-     * Verifies that the ID exists and that the generation matches the current
-     * asset version (protects against accessing deleted/reused slots).
-     *
-     * @param handle The handle to check.
-     * @return True if valid.
-     */
-    bool isValid( MeshHandle handle ) const;
-
-    /**
-     * @brief Gets the total number of active meshes currently loaded.
-     * @return Count of active meshes.
-     */
-    uint getMeshCount() const;
-
-    /**
-     * @brief Retrieves a read-only pointer to the texture data.
-     *
-     * @warning The returned pointer is managed by the AssetManager.
-     * Do NOT delete it manually. Do not store this pointer long-term,
-     * as resizing the internal pool might invalidate it (unless stable storage is used).
-     *
-     * @param handle The handle obtained during creation/import.
-     * @return Const pointer to the Texture, or nullptr if the handle is invalid or stale.
-     */
+    /// @brief Retrieves the raw Texture pointer associated with a handle.
+    /// @return Pointer to Texture or nullptr if handle is invalid/dead.
     const Texture* getTexture( TextureHandle handle ) const;
 
-    /**
-     * @brief Unloads a texture and frees its memory.
-     *
-     * Increments the generation counter for the slot, invalidating any
-     * existing handles that point to this asset.
-     *
-     * @param handle The handle of the texture to delete.
-     */
+    /// @brief Destroys the texture and frees memory immediately.
     void deleteTexture( TextureHandle handle );
 
-    /**
-     * @brief Checks if a handle points to a valid, live asset.
-     *
-     * Verifies that the ID exists and that the generation matches the current
-     * asset version (protects against accessing deleted/reused slots).
-     *
-     * @param handle The handle to check.
-     * @return True if valid.
-     */
-    bool isValid( TextureHandle handle ) const;
+    /// @brief Checks if a texture handle points to a live asset.
+    [[nodiscard]] bool isValid( TextureHandle handle ) const;
 
-    /**
-     * @brief Gets the total number of active texture currently loaded.
-     * @return Count of active textures.
-     */
-    uint getTextureCount() const;
+    // -------------------------------------------------------------------------
+    // LIFECYCLE & UTILS
+    // -------------------------------------------------------------------------
+
+    /// @brief Returns the total number of mesh slots occupied.
+    [[nodiscard]] uint getMeshCount() const;
+
+    /// @brief Returns the total number of texture slots occupied.
+    [[nodiscard]] uint getTextureCount() const;
 
 private:
+    MeshHandle    importMesh( const std::string& name, const std::string& filepath, MeshImportFlags flags );
+    MeshHandle    createMesh( const std::string& name, const std::vector<Vertex>& vertices, const std::vector<uint>& indices = {} );
+    MeshHandle    createQuad( const std::string& name, uint subdivisions = 0 );
+    MeshHandle    createCube( const std::string& name );
+    MeshHandle    createSphere( const std::string& name, uint segments = 32 );
+    TextureHandle importTexture( const std::string& name, const std::string& filepath, TextureImportFlags flags );
+    TextureHandle createTexture( const std::string&                                          name,
+                                 const Extent3D&                                             size,
+                                 const std::variant<std::vector<uchar>, std::vector<float>>& pixels,
+                                 const uint                                                  channels,
+                                 const TextureFormat                                         format,
+                                 const TexturePrecision                                      precision,
+                                 const TextureType                                           type,
+                                 const SamplerDesc&                                          samplerDesc = {} );
+
     struct Impl;
     std::unique_ptr<Impl> _impl;
+
+    friend class MeshBuilder;
+    friend class TextureBuilder;
+    // friend class MaterialBuilder;
+};
+
+// -----------------------------------------------------------------------------
+// BUILDER IMPLEMENTATIONS
+// -----------------------------------------------------------------------------
+
+/// @brief Fluent builder for configuring and creating Meshes.
+class AssetManager::MeshBuilder
+{
+public:
+    MeshBuilder( AssetManager& m, std::string n )
+        : _manager( m )
+        , _name( std::move( n ) ) {}
+
+    /// @brief Imports a mesh from a file on disk (OBJ, GLTF, etc).
+    MeshHandle import( const std::string& path,
+                       MeshImportFlags    flags = MeshImportComputeBounds | MeshImportComputeTangents ) {
+        return _manager.importMesh( _name, path, flags );
+    }
+
+    /// @brief Generates a procedural Unit Cube.
+    MeshHandle createCube() {
+        return _manager.createCube( _name );
+    }
+
+    /// @brief Generates a procedural Sphere (UV Sphere).
+    MeshHandle createSphere( uint segments = 32 ) {
+        return _manager.createSphere( _name, segments );
+    }
+
+    /// @brief Generates a procedural Quad (Square).
+    MeshHandle createQuad( uint subdivisions = 0 ) {
+        return _manager.createQuad( _name, subdivisions );
+    }
+
+    /// @brief Creates a mesh from raw vertex and index data.
+    MeshHandle create( const std::vector<Vertex>& vertices, const std::vector<uint>& indices = {} ) {
+        return _manager.createMesh( _name, vertices, indices );
+    }
+
+private:
+    AssetManager& _manager;
+    std::string   _name;
+};
+
+/// @brief Fluent builder for configuring and creating Textures.
+class AssetManager::TextureBuilder
+{
+public:
+    TextureBuilder( AssetManager& m, std::string n )
+        : _manager( m )
+        , _name( std::move( n ) ) {}
+
+    /// @brief Configures texture as Linear (Non-sRGB).
+    TextureBuilder& asLinear() {
+        _fmt = TextureFormat::Linear;
+        return *this;
+    }
+
+    /// @brief Configures texture as HDR (High Dynamic Range, F32).
+    TextureBuilder& asHDR() {
+        _fmt  = TextureFormat::HDR;
+        _prec = TexturePrecision::F32;
+        return *this;
+    }
+
+    /// @brief Sets the texture type (2D, 3D, CubeMap, etc).
+    TextureBuilder& type( TextureType t ) {
+        _type = t;
+        return *this;
+    }
+
+    /// @brief Sets the sampler description for GPU usage hints.
+    TextureBuilder& sampler( const SamplerDesc& desc ) {
+        _sampler = desc;
+        return *this;
+    }
+
+    // --- Finalizers ---
+
+    /// @brief Finalizes and imports texture from a file on disk.
+    TextureHandle import( const std::string& path,
+                          TextureImportFlags flags = TextureImportAsGamma | TextureImportForce4Channels ) {
+        return _manager.importTexture( _name, path, flags );
+    }
+
+    /// @brief Finalizes and creates a texture from raw memory data.
+    TextureHandle create( const Extent3D&                                             size,
+                          const std::variant<std::vector<uchar>, std::vector<float>>& pixels,
+                          uint                                                        channels ) {
+        return _manager.createTexture( _name, size, pixels, channels, _fmt, _prec, _type, _sampler );
+    }
+
+private:
+    AssetManager& _manager;
+    std::string   _name;
+
+    TextureType      _type    = TextureType::Texture2D;
+    TextureFormat    _fmt     = TextureFormat::Gamma;
+    TexturePrecision _prec    = TexturePrecision::U8;
+    SamplerDesc      _sampler = {};
 };
 
 } // namespace Core::Assets

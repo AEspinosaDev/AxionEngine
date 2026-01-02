@@ -14,6 +14,11 @@ struct MeshComponent {
 
     MeshComponent()                       = default;
     MeshComponent( const MeshComponent& ) = default;
+    MeshComponent( const Assets::MeshHandle&     meshHandle,
+                   const Assets::MaterialHandle& materialHandle = {} )
+        : mesh( meshHandle )
+        , material( materialHandle ) {
+        };
 };
 
 } // namespace Core::Scene

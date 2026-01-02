@@ -56,11 +56,11 @@ public:
     }
     
     T& get( EntityID entity ) {
-        AXION_LOG_ASSERT( !has( entity ), Logger::Module::Core, "Entity does not have this component!!" );
+        AXION_LOG_ASSERT( has( entity ), Logger::Module::Core, "Entity does not have this component!!" );
         return _components[_sparse[entity]];
     }
     void remove( EntityID entity ) override {
-        AXION_LOG_ASSERT( !has( entity ), Logger::Module::Core, "Entity does not have this component!!" );
+        AXION_LOG_ASSERT( has( entity ), Logger::Module::Core, "Entity does not have this component!!" );
         
         ulong indexToRemove = _sparse[entity];
         ulong lastIndex     = _components.size() - 1;
