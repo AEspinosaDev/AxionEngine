@@ -89,6 +89,10 @@ inline Mat4 toMat4( const Quat& q ) {
     return glm::mat4_cast( q );
 }
 
+inline Mat4 ortho( float left, float right, float bottom, float top, float nearPlane, float farPlane ) {
+    return glm::orthoRH_ZO( left, right, bottom, top, nearPlane, farPlane );
+}
+
 } // namespace MTX
 
 #pragma endregion

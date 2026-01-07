@@ -10,7 +10,8 @@ struct MeshComponent {
     Assets::MeshHandle     mesh;
     Assets::MaterialHandle material;
 
-    bool visible = true;
+    bool visible   = true;
+    bool raytraced = true;
 
     MeshComponent()                       = default;
     MeshComponent( const MeshComponent& ) = default;

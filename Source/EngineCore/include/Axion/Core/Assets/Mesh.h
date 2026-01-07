@@ -53,6 +53,9 @@ private:
     Math::AABB           _aabb {};
     Math::BoundingSphere _boundingSphere {};
 
+    //Topology
+    //Needs AS
+
     void calculateBounds() {
         _aabb = Math::AABB();
         for ( const auto& v : _vertices )

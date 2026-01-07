@@ -58,6 +58,7 @@ public:
 
     void attach( uint binding, ITexture* tex, ResourceState bindingState ) override;
     void attach( uint binding, IBuffer* buf, ResourceState bindingState ) override;
+    void attach( uint binding, IBuffer* buf, ulong offset, ulong range, uint stride, ResourceState bindingState ) override;
     void attach( uint binding, ISampler* samp ) override;
     void attach( uint binding, IAccel* accel ) override;
 

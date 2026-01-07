@@ -19,14 +19,6 @@ public:
     virtual void render( const Scene::Scene& scene )                                     = 0;
     virtual void shutdown()                                                              = 0;
 
-private:
-    virtual void createPipelines() = 0;
-    virtual void createResources() = 0;
-
-    // GPU Scene inside will take care of setting GPUMeshes along with materials an all an making necessary
-    //  flags enabble for upploading data
-    virtual void buildGPUScene( const Scene::Scene& scene, GPUScene& outGPUScene ) = 0;
-    virtual void updateResources( const GPUScene& outGPUScene )                    = 0;
 };
 
 } // namespace Core::Render

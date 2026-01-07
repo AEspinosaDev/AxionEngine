@@ -1,6 +1,7 @@
 #pragma once
 #include <Axion/Core/ECS/Entity.h>
-#include <Axion/Core/ECS/SparseSet.hpp>
+#include <Axion/Core/ECS/MultiView.hpp>
+#include <Axion/Core/ECS/SparseSet.hpp> 
 
 #include <memory>
 #include <typeindex>
@@ -52,8 +53,13 @@ public:
     }
 
     template <typename T>
-    std::vector<T>& view() {
+    const std::vector<T>& view() const {
         return getPool<T>()->getData();
+    }
+
+    template <typename... Components>
+    MultiView<Components...> view() const {
+        return MultiView<Components...>( getPool<Components>()... );
     }
 
     void clear() {
@@ -77,7 +83,6 @@ private:
         return static_cast<Pool<T>*>( _pools[typeIdx].get() );
     }
 
-private:
     EntityID                                                    _entityCounter = 0;
     std::unordered_map<std::type_index, std::unique_ptr<IPool>> _pools;
 };

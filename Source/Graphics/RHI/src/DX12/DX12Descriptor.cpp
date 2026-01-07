@@ -118,6 +118,100 @@ void DX12DescriptorSet::attach( uint binding, IBuffer* buf, ResourceState bindin
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
+void DX12DescriptorSet::attach( uint binding, IBuffer* buf, ulong offset, ulong range, uint stride, ResourceState bindingState ) {
+    AXION_LOG_ASSERT( buf, Logger::Module::RHI, "Binding null buffer!" );
+
+    auto* dxBuf     = static_cast<DX12Buffer*>( buf );
+    ID3D12Resource* d3dRes = dxBuf->getNativeObject( ObjectTypes::DX12_Resource );
+
+    D3D12_CPU_DESCRIPTOR_HANDLE destHandle = _views.startCPU;
+    destHandle.ptr += binding * _views.handleSize;
+
+    if ( range == 0 )
+        range = buf->getDescription().size - offset;
+
+    D3D12_GPU_VIRTUAL_ADDRESS gpuAddress = d3dRes->GetGPUVirtualAddress() + offset;
+
+    // --- STRIDE LOGIC ---
+    uint finalStride = stride;
+    if ( finalStride == 0 )
+        finalStride = 4;
+
+    // switch ( bindingState )
+    // {
+    //     case ResourceState::ConstantBuffer: {
+    //         D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+    //         cbvDesc.BufferLocation                  = gpuAddress;
+    //         cbvDesc.SizeInBytes = (UINT)Helpers::alignUp( range, (size_t)256 );
+
+    //         d3dDevice->CreateConstantBufferView( &cbvDesc, destHandle );
+    //         break;
+    //     }
+
+    //     case ResourceState::ShaderResource: {
+    //         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    //         srvDesc.ViewDimension                   = D3D12_SRV_DIMENSION_BUFFER;
+    //         srvDesc.Shader4ComponentMapping         = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+    //         bool isRaw = dxBuf->getDescription().allowRawViews && ( stride == 0 );
+
+    //         if ( isRaw )
+    //         {
+    //             srvDesc.Format                     = DXGI_FORMAT_R32_TYPELESS;
+    //             srvDesc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_RAW;
+    //             srvDesc.Buffer.FirstElement        = offset / 4;
+    //             srvDesc.Buffer.NumElements         = range / 4;
+    //             srvDesc.Buffer.StructureByteStride = 0;
+    //         } else
+    //         {
+    //             // Structured Buffer
+    //             srvDesc.Format                     = DXGI_FORMAT_UNKNOWN;
+    //             srvDesc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_NONE;
+    //             srvDesc.Buffer.StructureByteStride = finalStride;
+
+    //             // IMPORTANT: In DX12, FirstElement is index-based, not byte-based for Structured.
+    //             // Constraint: offset must be a multiple of stride.
+    //             srvDesc.Buffer.FirstElement = offset / finalStride;
+    //             srvDesc.Buffer.NumElements  = range / finalStride;
+    //         }
+
+    //         d3dDevice->CreateShaderResourceView( d3dRes, &srvDesc, destHandle );
+    //         break;
+    //     }
+
+    //     case ResourceState::UnorderedAccess: {
+    //         D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    //         uavDesc.ViewDimension                    = D3D12_UAV_DIMENSION_BUFFER;
+
+    //         // Similar logic for RAW vs Structured UAV
+    //         bool isRaw = dxBuf->getDescription().allowRawViews && ( stride == 0 );
+
+    //         if ( isRaw )
+    //         {
+    //             uavDesc.Format                     = DXGI_FORMAT_R32_TYPELESS;
+    //             uavDesc.Buffer.Flags               = D3D12_BUFFER_UAV_FLAG_RAW;
+    //             uavDesc.Buffer.FirstElement        = offset / 4;
+    //             uavDesc.Buffer.NumElements         = range / 4;
+    //             uavDesc.Buffer.StructureByteStride = 0;
+    //         } else
+    //         {
+    //             uavDesc.Format                     = DXGI_FORMAT_UNKNOWN;
+    //             uavDesc.Buffer.Flags               = D3D12_BUFFER_UAV_FLAG_NONE;
+    //             uavDesc.Buffer.StructureByteStride = finalStride;
+    //             uavDesc.Buffer.FirstElement        = offset / finalStride;
+    //             uavDesc.Buffer.NumElements         = range / finalStride;
+    //         }
+
+    //         d3dDevice->CreateUnorderedAccessView( d3dRes, nullptr, &uavDesc, destHandle );
+    //         break;
+    //     }
+
+    //     default:
+    //         AXION_LOG_ERROR( Logger::Module::RHI, "Unsupported or invalid binding state for buffer attachment" );
+    //         break;
+    // }
+}
+
 void DX12DescriptorSet::attach( uint binding, ISampler* samp ) {
     AXION_LOG_ASSERT( samp, Logger::Module::RHI, "Binding null sampler!" );
     auto* dxSamp = static_cast<DX12Sampler*>( samp );

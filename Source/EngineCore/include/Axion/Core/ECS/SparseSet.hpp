@@ -16,6 +16,8 @@ public:
     virtual void remove( EntityID entity )    = 0;
     virtual bool has( EntityID entity ) const = 0;
     virtual void clear()                      = 0;
+
+    virtual const std::vector<EntityID>& getEntities() const = 0;
 };
 
 template <typename T>
@@ -37,31 +39,31 @@ public:
 
     T& add( EntityID entity, const T& component ) {
         AXION_LOG_ASSERT( !has( entity ), Logger::Module::Core, "Entity already has this component!" );
-        
+
         // 1. Push data to the dense array
         _components.push_back( component );
-        
+
         // 2. Store which entity owns this data (for reverse lookup)
         _entityIndices.push_back( entity );
-        
+
         // 3. Map the entity ID to the index in the dense array
         ulong index = _components.size() - 1;
-        
+
         if ( entity >= _sparse.size() )
-        _sparse.resize( entity + 1, NULL_ENTITY );
-        
+            _sparse.resize( entity + 1, NULL_ENTITY );
+
         _sparse[entity] = (EntityID)index;
-        
+
         return _components.back();
     }
-    
+
     T& get( EntityID entity ) {
         AXION_LOG_ASSERT( has( entity ), Logger::Module::Core, "Entity does not have this component!!" );
         return _components[_sparse[entity]];
     }
     void remove( EntityID entity ) override {
         AXION_LOG_ASSERT( has( entity ), Logger::Module::Core, "Entity does not have this component!!" );
-        
+
         ulong indexToRemove = _sparse[entity];
         ulong lastIndex     = _components.size() - 1;
 
@@ -70,7 +72,7 @@ public:
             EntityID lastEntity = _entityIndices[lastIndex];
 
             // Move the last component to the hole
-            _components[indexToRemove]          = std::move( _components[lastIndex] );
+            _components[indexToRemove]    = std::move( _components[lastIndex] );
             _entityIndices[indexToRemove] = lastEntity;
 
             // Update the sparse map for the swapped entity
@@ -90,9 +92,9 @@ public:
         std::fill( _sparse.begin(), _sparse.end(), NULL_ENTITY );
     }
 
-    std::vector<T>&       getData() { return _components; }
-    const std::vector<T>& getData() const { return _components; }
-    const std::vector<EntityID>& getEntities() const { return _entityIndices; }
+    std::vector<T>&              getData() { return _components; }
+    const std::vector<T>&        getData() const { return _components; }
+    const std::vector<EntityID>& getEntities() const override { return _entityIndices; }
 
 private:
     // Components
