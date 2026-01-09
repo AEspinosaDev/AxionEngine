@@ -27,6 +27,7 @@ public:
     virtual const Settings& getSettings() const override;
     virtual TextureHandle   getCurrentBackbufferHandle() const override { return TextureHandle { UINT32_MAX }; };
     virtual ulong           getTotalFrameNumber() const override { return _frameNumber; };
+    virtual const uint      getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
     virtual ulong           getCurrentFrameIndex() const override;
 
     virtual IGPUResourcePool&  resources() override;

@@ -4,7 +4,6 @@
 
 AXION_NAMESPACE_BEGIN
 
-
 ////////////////////////////////////////////////////////////////////////
 // Graphics Related General Definitions
 ////////////////////////////////////////////////////////////////////////
@@ -393,6 +392,14 @@ enum class BufferUsage : uint
     AccelerationStructure = 1 << 7,
 };
 AXION_ENUM_CLASS_FLAG_OPERATORS( BufferUsage )
+
+/// @brief Garbage Collection TTL presets for transient resources (in frames).
+enum class GCMode
+{
+    LowMemory  = 60,  ///< Aggressive cleanup (1s at 60fps).
+    AvgMemory  = 180, ///< Balanced (3s).
+    HighMemory = 360  ///< Relaxed cleanup (5s), reduces allocation spikes.
+};
 
 } // namespace Graphics
 AXION_NAMESPACE_END

@@ -11,13 +11,6 @@
 AXION_NAMESPACE_BEGIN
 namespace Graphics {
 
-/// @brief Garbage Collection TTL presets for transient resources (in frames).
-enum class GCMode
-{
-    LowMemory  = 60,  ///< Aggressive cleanup (1s at 60fps).
-    AvgMemory  = 180, ///< Balanced (3s).
-    HighMemory = 300  ///< Relaxed cleanup (5s), reduces allocation spikes.
-};
 
 // Forward Declarations
 class IRenderGraph;

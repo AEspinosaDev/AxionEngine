@@ -1,5 +1,6 @@
 
 #pragma once
+#include <Axion/Core/Scene/Entity.h>
 #include <Axion/Core/Scene/Scene.h>
 
 AXION_NAMESPACE_BEGIN
@@ -10,15 +11,42 @@ DEFINE_UNIQUE_PTR_FOR_TYPE( IRenderer, Renderer )
 
 class GPUScene;
 
+struct MemoryBudget {
+    ulong geometryBufferSize    = 512 * 1024 * 1024; ///< Initial memory reservation persistent static geometry buffer -Vertex/Index- (512MB default)
+    ulong materialBufferSize    = 16 * 1024 * 1024;  ///< Initial memory reservation persistent static material buffer (16MB default)
+    ulong volatileBufferSize    = 16 * 1024 * 1024;  ///< Initial memory reservation for per-frame volatile buffer -Enough for UBOs, Transforms, Lights, GUI, etc- (16MB default)
+    ulong uploadBufferSize      = 128 * 1024 * 1024; ///< Initial memory reservation for per-frame transient upload buffer -for texture/accel/data streaming- (128MB default)
+    ulong RGAllocSize           = 1024 * 1024;       ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
+    ulong RGAllocSBTSize        = 1024 * 1024;       ///< Initial memory reservation for per-frame Shader Binding Tables data (1MB default).
+    uint  RGDescriptorsPerFrame = 2048;              ///< Initial memory reservation for per-frame DescriptorSet data.
+};
+
+struct CommonSettings {
+    std::string             name             = "";
+    Graphics::API           gfxApi           = Graphics::API::DirectX12;
+    Graphics::BufferingType bufferingType    = Graphics::BufferingType::Double;
+    bool                    debugMode        = true;
+    Graphics::Format        backbufferFormat = Graphics::Format::RGBA8_UNORM;
+    Graphics::GCMode        GCMode           = Graphics::GCMode::AvgMemory;
+};
+
 class IRenderer
 {
 public:
     virtual ~IRenderer() = default;
 
     virtual bool compileShaders( uint threadCount = 0, const std::string filePath = {} ) = 0;
-    virtual void render( const Scene::Scene& scene )                                     = 0;
+    virtual void render( const Scene::Scene& scene, Scene::Entity& cameraEntity )        = 0;
     virtual void shutdown()                                                              = 0;
 
+    virtual CommonSettings getCommonSettings() const = 0;
+    virtual MemoryBudget   getMemoryBudget() const   = 0;
+
+    virtual ulong      getCurrentFrameIndex() const   = 0;
+    virtual ulong      getTotalFrameNumber() const    = 0;
+    virtual const uint getTotalFramesInFlight() const = 0;
+
+    virtual std::string toString() const = 0;
 };
 
 } // namespace Core::Render

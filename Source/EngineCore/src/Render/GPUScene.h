@@ -51,8 +51,8 @@ struct GPULight {
     Math::Vec3 color;
     Math::Vec3 normal; // Direction for spot/directional lights
     float      intensity;
-    float      radius;     // Attenuation radius
-    float      area;       // For Area Lights / Soft Shadows
+    float      radius; // Attenuation radius
+    float      area;   // For Area Lights / Soft Shadows
     uint       active;
     float      padding[3]; // Padding to align to 16 bytes (float4) for GPU
 };
@@ -60,12 +60,12 @@ struct GPULight {
 // -----------------------------------------------------------------------------
 // PERSISTENT DATA (CACHE METADATA)
 // -----------------------------------------------------------------------------
-// Represents a geometry slot in VRAM. 
+// Represents a geometry slot in VRAM.
 // NOTE: This does NOT contain the vertex data itself. It acts as a descriptor/view
 // telling the Renderer WHERE in the MegaBuffer the data is located.
 struct GPUMesh {
     // Memory layout in the Global Geometry Buffer
-    uint vertexOffset = 0; 
+    uint vertexOffset = 0;
     uint indexOffset  = 0;
     uint vertexCount  = 0;
     uint indexCount   = 0;
@@ -125,15 +125,15 @@ public:
 
     // -- Read-Write Accessors for the Renderer --
     // The Renderer consumes these vectors to fill the Volatile Allocators (LinearAllocators)
-    GPUFrame&                     frame()     { return _frame; }
-    std::vector<GPUInstance>&     instances() { return _instances; }
-    std::vector<GPULight>&        lights()    { return _lights; }
-    
+    GPUFrame&                 frame() { return _frame; }
+    std::vector<GPUInstance>& instances() { return _instances; }
+    std::vector<GPULight>&    lights() { return _lights; }
+
     // Persistent cache access (Used to bind SRVs for geometry)
-    std::vector<GPUMesh>&         meshes()    { return _meshCache; }
+    std::vector<GPUMesh>& meshes() { return _meshCache; }
 
     // Command Queues consumption
-    std::queue<PendingMeshEntry>& pendingMeshUploads()  { return _pendingMeshUploads; }
+    std::queue<PendingMeshEntry>& pendingMeshUploads() { return _pendingMeshUploads; }
     std::queue<PendingMeshFree>&  pendingMeshReleases() { return _pendingMeshReleases; }
 
     /**
@@ -148,13 +148,15 @@ public:
                  float               deltaTime,
                  GPUSceneUpdateFlags flags = GPUSceneNone );
 
+    void setGCMode( Graphics::GCMode mode ) { _resourceTTL = (uint)mode; }
+
 private:
     // -- Internal Pipeline Stages --
     void reset( float dt );
     void processMeshes( const Scene::Scene& cpuScene, bool transpose, bool forceRaytrace );
     void processLights( const Scene::Scene& cpuScene );
     void processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose );
-    void garbageCollection();
+    void runGC();
 
     // -- Transient Data (Cleared every frame) --
     GPUFrame                 _frame;
@@ -165,9 +167,9 @@ private:
     // The slot container. Indices here are stable until GC.
     std::vector<GPUMesh> _meshCache;
     // Slots that were freed and can be reused.
-    std::queue<ulong>    _freeIndexQueue;
+    std::queue<ulong> _freeIndexQueue;
     // O(1) Look-Up Table mapping [CPU_AssetID] -> [GPU_CacheSlot]
-    std::vector<int>     _assetToCacheLUT;
+    std::vector<int> _assetToCacheLUT;
 
     // -- Communication Queues --
     std::queue<PendingMeshEntry> _pendingMeshUploads;
@@ -177,6 +179,8 @@ private:
     bool  _forceRaytrace     = false;
     float _accumulatedTime   = 0.0f;
     uint  _currentFrameIndex = 0;
+
+    uint _resourceTTL = (uint)Graphics::GCMode::AvgMemory;
 };
 
 } // namespace Core::Render

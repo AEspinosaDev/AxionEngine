@@ -22,7 +22,7 @@ void GPUScene::update( const Scene::Scene& cpuScene,
     processLights( cpuScene );
     processFrame( cameraEntity, resolution, transposeMatrices );
 
-    garbageCollection();
+    runGC();
 }
 
 void GPUScene::reset( float dt ) {
@@ -193,14 +193,14 @@ void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolu
 #pragma region GC
 #pragma endregion
 
-void GPUScene::garbageCollection() {
+void GPUScene::runGC() {
     for ( ulong i = 0; i < _meshCache.size(); ++i )
     {
         auto& gpuMesh = _meshCache[i];
 
         if ( gpuMesh.valid )
         {
-            if ( _currentFrameIndex - gpuMesh.lastFrameUsed > MAX_UNUSED_FRAMES_TTL )
+            if ( _currentFrameIndex - gpuMesh.lastFrameUsed > _resourceTTL )
             {
                 static const uint VERTEX_STRIDE = sizeof( Assets::Vertex );
                 static const uint INDEX_STRIDE  = sizeof( uint );

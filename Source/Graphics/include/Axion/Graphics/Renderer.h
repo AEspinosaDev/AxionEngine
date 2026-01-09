@@ -77,6 +77,9 @@ public:
     /// @brief Returns current frame index.
     virtual ulong getCurrentFrameIndex() const = 0;
 
+    /// @brief Returns frames in flight.
+    virtual const uint getTotalFramesInFlight() const = 0;
+
     /// @brief Returns the total number of frames rendered since initialization.
     virtual ulong getTotalFrameNumber() const = 0;
 
