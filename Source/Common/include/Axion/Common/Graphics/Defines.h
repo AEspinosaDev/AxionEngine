@@ -292,7 +292,7 @@ enum class PrimitiveTopology : uchar
     TriangleList,
     TriangleStrip,
     TriangleFan,
-    PatchList
+    PatchList,
 };
 
 enum class FillMode : uchar

@@ -235,8 +235,7 @@ int main( /*int argc, char* argv[]*/ ) {
                              .view( Graphics::BufferViewFlags::BufferViewShaderResource )
                              .size( 1024 * 1024 * 64 )
                              .onGPU()
-                             .stride( sizeof( Vertex ) )
-                             .allowRawViews()
+                             .asRaw()
                              .create();
 
         auto iboHandle = rnd->resources()
@@ -245,8 +244,7 @@ int main( /*int argc, char* argv[]*/ ) {
                              .view( Graphics::BufferViewFlags::BufferViewShaderResource )
                              .size( 1024 * 1024 * 64 )
                              .onGPU()
-                             .stride( sizeof( uint ) )
-                             .allowRawViews()
+                             .asRaw()
                              .create();
 
         // UNIFORM CONSTANT BUFFER

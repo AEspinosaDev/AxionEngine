@@ -115,6 +115,9 @@ private:
     /** @brief Get ANSI color code for the log level. */
     static const char* levelColor( Level level );
 
+    /** @brief Get ANSI color code for the log module. */
+    static const char* moduleColor( Module module );
+
     /** @brief Reset ANSI color. */
     static const char* resetColor();
 

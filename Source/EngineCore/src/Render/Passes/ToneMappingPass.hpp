@@ -1,0 +1,63 @@
+#pragma once
+#include "../PassSystem.h"
+#include "Axion/Graphics/Subsystems/RenderGraph.h"
+
+AXION_NAMESPACE_BEGIN
+namespace Core::Render {
+
+class ToneMappingPass : public IRenderPass
+{
+public:
+    struct Config {
+        Graphics::RGResourceHandle inputHDR;
+        Graphics::RGResourceHandle outputLDR;
+        uint                       tonemapType;
+    };
+
+    void registerShaders( Graphics::IShaderRegistry& shaders ) override {
+        _shHandle = shaders.shader( "Tonemapping Shader" )
+                        .asDXIL()
+                        .path( AXION_SHADER_DIR "/Slang/Postpro/Tonemapping.slang" )
+                        .include( AXION_SHADER_DIR "/Slang/Common" )
+                        .cs( "computeMain" )
+                        .load();
+    }
+
+    void createPipelines( Graphics::IPipelineRegistry& pipelines ) override {
+        _pipHandle = pipelines.compute( "Tonemapping Pipeline" )
+                         .shader( _shHandle )
+                         .create();
+    }
+
+    void addToGraph( Graphics::RenderGraphBuilder& builder,
+                     const Config&                 config ) {
+
+        builder.addPass<Config>( "TonemappingPass", config, []( Graphics::RenderPassBuilder& pb, Config& data ) {
+                data.inputHDR  = pb.read( data.inputHDR ); 
+                data.outputLDR = pb.write( data.outputLDR ); }, [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
+    }
+
+private:
+    void execute( const Config& data, Graphics::RenderPassContext& ctx ) {
+        auto* pso = ctx.pipelines.getComputePipeline( _pipHandle );
+
+        auto* texIn  = ctx.getTexture( data.inputHDR );
+        auto* texOut = ctx.getTexture( data.outputLDR );
+
+        auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
+        set0->attach( 0, texIn, Graphics::RHI::ResourceState::ShaderResource );
+        set0->attach( 1, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
+
+        ctx.cmd->bindComputePipeline( pso );
+        ctx.cmd->bindDescriptorSet( 0, set0 );
+
+        auto size = texIn->getDescription().size;
+        ctx.cmd->dispatch( { ( size.width + 7 ) / 8, ( size.height + 7 ) / 8, 1 } );
+    }
+
+    Graphics::PipelineHandle _pipHandle;
+    Graphics::ShaderHandle   _shHandle;
+};
+
+} // namespace Core::Render
+AXION_NAMESPACE_END

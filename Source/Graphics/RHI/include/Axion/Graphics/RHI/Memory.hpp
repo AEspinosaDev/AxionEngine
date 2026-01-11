@@ -18,6 +18,7 @@ struct BufferView {
 class BufferLinearAllocator
 {
 public:
+    BufferLinearAllocator() {};
     BufferLinearAllocator( IBuffer* buffer )
         : _buffer( buffer ) {
 
@@ -80,6 +81,22 @@ private:
 };
 
 typedef BufferLinearAllocator LinearAllocator;
+
+class BufferFreeListAllocator
+{
+public:
+private:
+    IBuffer* _buffer;
+
+    std::string _debugName;
+    ulong       _gpuBase = 0;
+    uchar*      _cpuBase = nullptr;
+
+    ulong _capacity      = 0;
+    ulong _currentOffset = 0;
+};
+
+typedef BufferFreeListAllocator FreeListAllocator;
 
 DEFINE_COM_PTR_FOR_TYPE( ITransientAllocator, TransientAllocator )
 /**

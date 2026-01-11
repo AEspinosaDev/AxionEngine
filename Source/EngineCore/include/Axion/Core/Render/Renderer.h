@@ -35,9 +35,9 @@ class IRenderer
 public:
     virtual ~IRenderer() = default;
 
-    virtual bool compileShaders( uint threadCount = 0, const std::string filePath = {} ) = 0;
-    virtual void render( const Scene::Scene& scene, Scene::Entity& cameraEntity )        = 0;
-    virtual void shutdown()                                                              = 0;
+    virtual void compileShaders( uint threadCount = 1 )                                                   = 0;
+    virtual void render( const Scene::Scene& scene, Scene::Entity& cameraEntity, float deltaTime = 0.0f ) = 0;
+    virtual void shutdown()                                                                               = 0;
 
     virtual CommonSettings getCommonSettings() const = 0;
     virtual MemoryBudget   getMemoryBudget() const   = 0;

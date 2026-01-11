@@ -13,7 +13,8 @@ PipelineRegistry::PipelineRegistry( RHI::IDevice* device, IShaderRegistry& shade
 PipelineRegistry::~PipelineRegistry() {
     AXION_LOG_INFO( Logger::Module::GFX, "Destroying Pipeline Registry" );
 }
-PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName ) {
+
+PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, ShaderHandle shaderHandle ) {
     std::scoped_lock lock( _mutex );
 
     if ( auto it = _nameToHandle.find( desc.debugName ); it != _nameToHandle.end() )
@@ -23,13 +24,8 @@ PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, 
     }
 
     RHI::PipelineLayoutPtr layoutPtr    = nullptr;
-    auto                   shaderHandle = _shaderReg.findShader( shaderName );
-    if ( !shaderHandle.has_value() )
-    {
-        AXION_LOG_ERROR( Logger::Module::GFX, "Shader [{}] not found for pipeline.", shaderName );
-        return {};
-    }
-    const auto& shaderBundle = _shaderReg.getBundle( shaderHandle.value() );
+    const auto&            shaderBundle = _shaderReg.getBundle( shaderHandle );
+
     desc.shaderModules.clear();
     desc.shaderModules.reserve( shaderBundle.stageBlobs.size() );
     for ( const auto& blob : shaderBundle.stageBlobs )
@@ -83,7 +79,19 @@ PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, 
     return PipelineHandle { id };
 }
 
-PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName ) {
+PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName ) {
+    auto shaderHandleOpt = _shaderReg.findShader( shaderName );
+
+    if ( !shaderHandleOpt.has_value() )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Shader [{}] not found when creating Graphic pipeline [{}].", shaderName, desc.debugName );
+        return {};
+    }
+
+    return createGraphic( desc, shaderHandleOpt.value() );
+}
+
+PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, ShaderHandle shaderHandle ) {
     std::scoped_lock lock( _mutex );
 
     if ( auto it = _nameToHandle.find( desc.debugName ); it != _nameToHandle.end() )
@@ -92,14 +100,7 @@ PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, 
         return it->second;
     }
 
-    auto shaderHandle = _shaderReg.findShader( shaderName );
-    if ( !shaderHandle.has_value() )
-    {
-        AXION_LOG_ERROR( Logger::Module::GFX, "Shader [{}] not found for pipeline.", shaderName );
-        return {};
-    }
-
-    const auto& shaderBundle = _shaderReg.getBundle( shaderHandle.value() );
+    const auto& shaderBundle = _shaderReg.getBundle( shaderHandle );
 
     auto itStage = std::find_if(
         shaderBundle.stageBlobs.begin(),
@@ -110,7 +111,7 @@ PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, 
 
     if ( itStage == shaderBundle.stageBlobs.end() )
     {
-        AXION_LOG_ERROR( Logger::Module::GFX, "Shader Bundle [{}] does not contain a Compute Stage!", shaderName );
+        AXION_LOG_ERROR( Logger::Module::GFX, "Shader Bundle [{}] does not contain a Compute Stage!", desc.debugName );
         return {};
     }
 
@@ -162,7 +163,19 @@ PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, 
     return PipelineHandle { id };
 }
 
-PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) {
+PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName ) {
+    auto shaderHandleOpt = _shaderReg.findShader( shaderName );
+
+    if ( !shaderHandleOpt.has_value() )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Shader [{}] not found when creating Compute pipeline [{}].", shaderName, desc.debugName );
+        return {};
+    }
+
+    return createCompute( desc, shaderHandleOpt.value() );
+}
+
+PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& desc, ShaderHandle shaderHandle ) {
     std::scoped_lock lock( _mutex );
 
     if ( auto it = _nameToHandle.find( desc.debugName ); it != _nameToHandle.end() )
@@ -172,13 +185,8 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
     }
 
     RHI::PipelineLayoutPtr layoutPtr    = nullptr;
-    auto                   shaderHandle = _shaderReg.findShader( shaderName );
-    if ( !shaderHandle.has_value() )
-    {
-        AXION_LOG_ERROR( Logger::Module::GFX, "Shader [{}] not found for pipeline.", shaderName );
-        return {};
-    }
-    const auto& shaderBundle = _shaderReg.getBundle( shaderHandle.value() );
+    const auto&            shaderBundle = _shaderReg.getBundle( shaderHandle );
+
     desc.shaderModules.clear();
     desc.shaderModules.reserve( shaderBundle.stageBlobs.size() );
     for ( const auto& blob : shaderBundle.stageBlobs )
@@ -227,6 +235,17 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
     AXION_LOG_INFO( Logger::Module::GFX, "Registered Raytracing Pipeline [{}]", desc.debugName );
 
     return PipelineHandle { id };
+}
+PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) {
+    auto shaderHandleOpt = _shaderReg.findShader( shaderName );
+
+    if ( !shaderHandleOpt.has_value() )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Shader [{}] not found when creating Raytracing pipeline [{}].", shaderName, desc.debugName );
+        return {};
+    }
+
+    return createRaytracing( desc, shaderHandleOpt.value() );
 }
 
 RHI::IGraphicPipeline* PipelineRegistry::getGraphicPipeline( PipelineHandle handle ) {

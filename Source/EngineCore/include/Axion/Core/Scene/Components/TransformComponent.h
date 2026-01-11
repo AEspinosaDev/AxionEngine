@@ -57,6 +57,10 @@ struct TransformComponent {
         Math::Quat delta = Math::Quat( eulerAngles );
         rotation         = rotation * delta;
     }
+
+    // void lookat( const Math::Vec3& pos, const Math::Vec3& target, const Math::Vec3& up ) {
+
+    // }
 };
 } // namespace Core::Scene
 

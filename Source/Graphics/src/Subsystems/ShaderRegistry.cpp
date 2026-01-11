@@ -116,8 +116,8 @@ const ShaderBundle& ShaderRegistry::compileShader( const std::string& name ) {
     return compileShader( *handleOpt );
 }
 
-void ShaderRegistry::compileAllShaders( bool async ) {
-    if ( async )
+void ShaderRegistry::compileAllShaders( uint threadCount ) {
+    if ( threadCount > 1 )
     {
         // TO DO . . .
     } else

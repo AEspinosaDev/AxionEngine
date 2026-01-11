@@ -30,6 +30,9 @@ public:
     void reloadAll() override;
 
 private:
+    PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, ShaderHandle shaderHandle ) override;
+    PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, ShaderHandle shaderHandle ) override;
+    PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, ShaderHandle shaderHandle ) override;
     PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName ) override;
     PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName ) override;
     PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) override;

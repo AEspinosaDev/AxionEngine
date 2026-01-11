@@ -73,6 +73,9 @@ protected:
     IPipelineRegistry() = default;
 
     // Internal factory methods called by Builders
+    virtual PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, ShaderHandle shaderHandle )           = 0;
+    virtual PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, ShaderHandle shaderHandle )           = 0;
+    virtual PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, ShaderHandle shaderHandle )     = 0;
     virtual PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName )       = 0;
     virtual PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName )       = 0;
     virtual PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) = 0;
@@ -106,6 +109,13 @@ public:
         return *this;
     }
 
+    /// @brief Sets the Shader Bundle to use (VS + PS).
+    /// Looks up the shader in ShaderRegistry by handle.
+    GraphicBuilder& shader( ShaderHandle shaderHandle ) {
+        _shaderHandle = shaderHandle;
+        return *this;
+    }
+
     /// @brief Appends a Render Target output description.
     GraphicBuilder& addRenderTarget( Format fmt, RHI::BlendAttachment blend = {} ) {
         _desc.renderTargetFormats.push_back( fmt );
@@ -116,6 +126,11 @@ public:
     /// @brief Sets the Depth/Stencil buffer format.
     GraphicBuilder& setDepthFormat( Format fmt ) {
         _desc.depthStencilFormat = fmt;
+        return *this;
+    }
+    /// @brief Sets topology.
+    GraphicBuilder& setTopology( PrimitiveTopology t ) {
+        _desc.topology = t;
         return *this;
     }
 
@@ -154,13 +169,14 @@ public:
 
     /// @brief Finalizes configuration and creates the PSO.
     PipelineHandle create() {
-        return _registry.createGraphic( _desc, _shaderName );
+        return !_shaderName.empty() ? _registry.createGraphic( _desc, _shaderName ) : _registry.createGraphic( _desc, _shaderHandle );
     }
 
 private:
     IPipelineRegistry&       _registry;
     RHI::GraphicPipelineDesc _desc;
     std::string              _shaderName;
+    ShaderHandle             _shaderHandle;
 };
 
 // -----------------------------------------------------------------------------
@@ -182,16 +198,23 @@ public:
         _shaderName = shaderName;
         return *this;
     }
+    /// @brief Sets the Compute Shader to use.
+    /// Looks up the shader in ShaderRegistry by handle.
+    ComputeBuilder& shader( ShaderHandle shaderHandle ) {
+        _shaderHandle = shaderHandle;
+        return *this;
+    }
 
     /// @brief Finalizes configuration and creates the PSO.
     PipelineHandle create() {
-        return _registry.createCompute( _desc, _shaderName );
+        return !_shaderName.empty() ? _registry.createCompute( _desc, _shaderName ) : _registry.createCompute( _desc, _shaderHandle );
     }
 
 private:
     IPipelineRegistry&       _registry;
     RHI::ComputePipelineDesc _desc;
     std::string              _shaderName;
+    ShaderHandle             _shaderHandle;
 };
 
 // -----------------------------------------------------------------------------
@@ -212,6 +235,13 @@ public:
     /// Looks up the shader in ShaderRegistry by name.
     RayTracingBuilder& shader( const std::string& shaderName ) {
         _shaderName = shaderName;
+        return *this;
+    }
+
+    /// @brief Sets the Raytracing Shader to use.
+    /// Looks up the shader in ShaderRegistry by handle.
+    RayTracingBuilder& shader( ShaderHandle shaderHandle ) {
+        _shaderHandle = shaderHandle;
         return *this;
     }
 
@@ -236,13 +266,14 @@ public:
 
     /// @brief Finalizes configuration and creates the PSO.
     PipelineHandle create() {
-        return _registry.createRaytracing( _desc, _shaderName );
+        return !_shaderName.empty() ? _registry.createRaytracing( _desc, _shaderName ) : _registry.createRaytracing( _desc, _shaderHandle );
     }
 
 private:
     IPipelineRegistry&          _registry;
     RHI::RayTracingPipelineDesc _desc;
     std::string                 _shaderName;
+    ShaderHandle                _shaderHandle;
 };
 
 } // namespace Graphics

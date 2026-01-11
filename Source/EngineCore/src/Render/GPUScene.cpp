@@ -4,9 +4,6 @@ AXION_NAMESPACE_BEGIN
 
 namespace Core::Render {
 
-// Config for GC
-static const uint MAX_UNUSED_FRAMES_TTL = 120;
-
 void GPUScene::update( const Scene::Scene& cpuScene,
                        Scene::Entity&      cameraEntity,
                        const Extent2D&     resolution,
@@ -46,7 +43,7 @@ void GPUScene::processMeshes( const Scene::Scene& cpuScene, bool transpose, bool
     if ( _assetToCacheLUT.size() < assets->getMeshCount() )
         _assetToCacheLUT.resize( assets->getMeshCount(), -1 );
 
-    auto meshView = cpuScene.getRegistry().view<Scene::MeshComponent, Scene::TransformComponent>();
+    auto meshView = cpuScene.getRegistry().multiView<const Scene::MeshComponent, const Scene::TransformComponent>();
 
     for ( ECS::EntityID entity : meshView )
     {
@@ -138,7 +135,7 @@ void GPUScene::processMeshes( const Scene::Scene& cpuScene, bool transpose, bool
 #pragma endregion
 
 void GPUScene::processLights( const Scene::Scene& cpuScene ) {
-    auto lightView = cpuScene.getRegistry().view<Scene::LightComponent, Scene::TransformComponent>();
+    auto lightView = cpuScene.getRegistry().multiView<const Scene::LightComponent, const Scene::TransformComponent>();
 
     for ( ECS::EntityID entity : lightView )
     {

@@ -13,12 +13,6 @@ struct CameraData {
     float4x4 viewProj;
 };
 
-struct Vertex {
-    float3 pos;
-    float3 normal;
-    float2 uv;
-};
-
 ByteAddressBuffer gVertices : register( t0, space0 );
 ByteAddressBuffer gIndices : register( t1, space0 );
 cbuffer           CameraCB : register( b0, space0 ) {

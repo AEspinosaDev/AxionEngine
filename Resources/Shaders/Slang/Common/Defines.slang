@@ -8,3 +8,5 @@
         [[vk::push_constant]] \
         Type Name
 #endif
+
+static const uint CANON_VERTEX_STRIDE = 128;

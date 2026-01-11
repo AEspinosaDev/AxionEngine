@@ -11,7 +11,8 @@ class IRasterizer : public IRenderer
 {
 public:
     struct Settings {
-        Graphics::Format depthFormat = Graphics::Format::D32;
+        std::string      mtlLibraryPath = "";
+        Graphics::Format depthFormat    = Graphics::Format::D32;
         CommonSettings   common {};
         MemoryBudget     memory {};
     };

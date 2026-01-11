@@ -48,7 +48,7 @@ public:
 
     /// @brief Compiles all registered shaders that are not yet ready.
     /// @param async If true, compilation happens on worker threads (not implemented yet).
-    virtual void compileAllShaders( bool async = false ) = 0;
+    virtual void compileAllShaders( uint threadCount = 1 ) = 0;
 
     /// @brief Returns the total number of registered shaders.
     virtual uint size() const = 0;
@@ -160,6 +160,12 @@ public:
     }
 
     // --- MANUAL CONFIGURATION ---
+
+    /// @brief Manually defines the entire shader entry points description.
+    Builder& entryPoints( const std::vector<Shader::EntryPoint>& ep ) {
+        _desc.entryPoints = ep;
+        return *this;
+    }
 
     /// @brief Manually defines the Pipeline Layout (Root Signature).
     /// Disables auto-reflection. Useful for fixing layout mismatches or optimization.

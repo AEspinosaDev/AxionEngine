@@ -9,6 +9,7 @@ file(GLOB CORE_SOURCES
     "src/Platform/*.cpp"
     "src/Assets/*.cpp"
     "src/Assets/Loaders/*.cpp"
+    "src/Render/*.cpp"
 )
 
 add_library(AxionCore STATIC ${CORE_SOURCES})

@@ -1,0 +1,56 @@
+#pragma once
+#include "Axion/Graphics/Subsystems/PipelineRegistry.h"
+#include "Axion/Graphics/Subsystems/ShaderRegistry.h"
+#include "typeindex"
+
+AXION_NAMESPACE_BEGIN
+namespace Core::Render {
+
+DEFINE_UNIQUE_PTR_FOR_TYPE( IRenderPass, RenderPass )
+
+class IRenderPass
+{
+public:
+    virtual ~IRenderPass() = default;
+
+    virtual void registerShaders( Graphics::IShaderRegistry& shaders )     = 0;
+    virtual void createPipelines( Graphics::IPipelineRegistry& pipelines ) = 0;
+};
+
+class PassManager
+{
+public:
+    template <typename T>
+    void registerPass() {
+        auto pass                = std::make_unique<T>();
+        _passLookup[typeid( T )] = pass.get();
+
+        _passes.push_back( std::move( pass ) );
+    }
+
+    template <typename T>
+    T* getPass() {
+        auto it = _passLookup.find( typeid( T ) );
+        if ( it != _passLookup.end() )
+        {
+            return static_cast<T*>( it->second );
+        }
+        return nullptr;
+    }
+
+    void registerShaders( Graphics::IShaderRegistry& shaders ) {
+        for ( auto& pass : _passes )
+            pass->registerShaders( shaders );
+    }
+    void createPipelines( Graphics::IPipelineRegistry& pipelines ) {
+        for ( auto& pass : _passes )
+            pass->createPipelines( pipelines );
+    }
+
+private:
+    std::vector<RenderPassPtr>                        _passes;
+    std::unordered_map<std::type_index, IRenderPass*> _passLookup;
+};
+
+} // namespace Core::Render
+AXION_NAMESPACE_END

@@ -11,7 +11,6 @@
 AXION_NAMESPACE_BEGIN
 namespace Graphics {
 
-
 // Forward Declarations
 class IRenderGraph;
 
@@ -93,6 +92,19 @@ public:
     template <typename PassData>
     void addPass(
         const std::string&                                         name,
+        std::function<void( RenderPassBuilder&, PassData& )>       setup,
+        std::function<void( const PassData&, RenderPassContext& )> execute );
+
+    /// @brief Adds a new render pass to the graph.
+    /// @tparam PassData Struct type to hold pass-specific data (handles, settings).
+    /// @param name Debug name of the pass.
+    /// @param seedData Data to copy onto the pass.
+    /// @param setup Lambda for declaring resource dependencies.
+    /// @param execute Lambda for recording GPU commands.
+    template <typename PassData>
+    void addPass(
+        const std::string&                                         name,
+        const PassData&                                            seedData,
         std::function<void( RenderPassBuilder&, PassData& )>       setup,
         std::function<void( const PassData&, RenderPassContext& )> execute );
 
@@ -191,6 +203,28 @@ void RenderGraphBuilder::addPass(
         execute( *data, ctx );
     } );
     // 4. Setup Phase
+    RenderPassBuilder builder( _graph, _graph.getCurrentPassIndex() - 1 );
+    setup( builder, *data );
+}
+template <typename PassData>
+void RenderGraphBuilder::addPass(
+    const std::string&                                         name,
+    const PassData&                                            seedData,
+    std::function<void( RenderPassBuilder&, PassData& )>       setup,
+    std::function<void( const PassData&, RenderPassContext& )> execute ) {
+    // 1. Allocate Memory
+    void*     rawMemory = _graph.allocateFrameMemory( sizeof( PassData ), alignof( PassData ) );
+    PassData* data      = new ( rawMemory ) PassData( seedData );
+
+    // 3. Register Destructor
+    _graph.storePassData( data, [data]() { data->~PassData(); } );
+
+    // 4. Register Execute
+    _graph.registerPass( name, [execute, data]( RenderPassContext& ctx ) {
+        execute( *data, ctx );
+    } );
+
+    // 5. Setup Phase
     RenderPassBuilder builder( _graph, _graph.getCurrentPassIndex() - 1 );
     setup( builder, *data );
 }

@@ -22,7 +22,7 @@ public:
     std::optional<ShaderHandle> findShader( const std::string& name ) const override;
     const ShaderBundle&         compileShader( ShaderHandle handle ) override;
     const ShaderBundle&         compileShader( const std::string& name ) override;
-    void                        compileAllShaders( bool async = false ) override;
+    void                        compileAllShaders( uint threadCount = 1 ) override;
     uint                        size() const override { return (uint)_shaders.size(); };
 
 private:

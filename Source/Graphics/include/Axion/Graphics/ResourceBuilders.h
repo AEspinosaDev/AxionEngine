@@ -186,8 +186,9 @@ public:
     }
 
     /// @brief Configures it as a Raw Buffer (Must be SRV).
-    T& allowRawViews() {
+    T& asRaw() {
         _desc.allowRawViews = true;
+        _desc.stride        = 0;
         return static_cast<T&>( *this );
     }
 

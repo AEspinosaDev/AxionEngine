@@ -61,6 +61,11 @@ public:
         AXION_LOG_ASSERT( has( entity ), Logger::Module::Core, "Entity does not have this component!!" );
         return _components[_sparse[entity]];
     }
+    const T& get( EntityID entity ) const {
+        AXION_LOG_ASSERT( has( entity ), Logger::Module::Core, "Entity does not have this component!!" );
+        return _components[_sparse[entity]];
+    }
+    
     void remove( EntityID entity ) override {
         AXION_LOG_ASSERT( has( entity ), Logger::Module::Core, "Entity does not have this component!!" );
 
