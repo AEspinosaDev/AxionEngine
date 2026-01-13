@@ -110,6 +110,11 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                       deltaTime,
                       updateFlags );
 
+    auto currentUboBuffer = _rnd->resources().getBuffer( _res.uboBufferHandles[_rnd->getCurrentFrameIndex()] );
+    auto transientOffsets = _gpuScene.uploadTransientData( currentUboBuffer );
+
+    
+
     _rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
         auto rtExtent = _window->getSettings().size.to3D();
 
@@ -165,7 +170,7 @@ void Rasterizer::registerMaterials() {
 }
 
 void Rasterizer::registerPasses() {
-    // _passes.registerPass<UploadPass>();
+    _passes.registerPass<UploadPass>();
     // _passes.registerPass<ForwardPass>();
     _passes.registerPass<ToneMappingPass>();
 }

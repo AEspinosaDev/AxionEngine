@@ -22,6 +22,57 @@ void GPUScene::update( const Scene::Scene& cpuScene,
     runGC();
 }
 
+GPUScene::TransientOffsets GPUScene::uploadTransientData( Graphics::RHI::IBuffer* destBuffer ) {
+    TransientOffsets offsets;
+
+    uint currentOffset = 0;
+    // (D3D12/Vulkan)
+    const uint CBV_ALIGNMENT = 256;
+
+    // 1. FRAME DATA (Constant Buffer)
+    // ---------------------------------------------------------
+    offsets.frameOffset = currentOffset;
+    destBuffer->copyData( _frame, currentOffset );
+
+    currentOffset += sizeof( GPUFrame );
+    currentOffset = Helpers::alignu( currentOffset, CBV_ALIGNMENT );
+
+    // 2. MESH METADATA (Structured Buffer)
+    // ---------------------------------------------------------
+    offsets.meshOffset = currentOffset;
+    if ( !_meshCache.empty() )
+    {
+        destBuffer->copyData( _meshCache, currentOffset );
+
+        currentOffset += _meshCache.size() * sizeof( GPUMesh );
+        currentOffset = Helpers::alignu( currentOffset, CBV_ALIGNMENT );
+    }
+
+    // 3. INSTANCE DATA (Structured Buffer)
+    // ---------------------------------------------------------
+    offsets.instanceOffset = currentOffset;
+    if ( !_instances.empty() )
+    {
+        destBuffer->copyData( _instances, currentOffset );
+
+        currentOffset += _instances.size() * sizeof( GPUInstance );
+        currentOffset = Helpers::alignu( currentOffset, CBV_ALIGNMENT );
+    }
+
+    // 4. LIGHT DATA (Structured Buffer)
+    // ---------------------------------------------------------
+    offsets.lightOffset = currentOffset;
+    if ( !_lights.empty() )
+    {
+        destBuffer->copyData( _lights, currentOffset );
+
+        currentOffset += _lights.size() * sizeof( GPULight );
+        currentOffset = Helpers::alignu( currentOffset, CBV_ALIGNMENT );
+    }
+
+    return offsets;
+}
+
 void GPUScene::reset( float dt ) {
     _currentFrameIndex++;
     _accumulatedTime += dt;
@@ -226,6 +277,14 @@ void GPUScene::runGC() {
             }
         }
     }
+}
+
+bool GPUScene::hasPendingUploads() const {
+    return !_pendingMeshUploads.empty();
+}
+
+bool GPUScene::hasPendingReleases() const {
+    return !_pendingMeshReleases.empty();
 }
 
 } // namespace Core::Render

@@ -23,7 +23,6 @@ PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, 
         return it->second;
     }
 
-    RHI::PipelineLayoutPtr layoutPtr    = nullptr;
     const auto&            shaderBundle = _shaderReg.getBundle( shaderHandle );
 
     desc.shaderModules.clear();
@@ -39,8 +38,15 @@ PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, 
     if ( desc.attributes.empty() )
         desc.attributes = shaderBundle.vertexAttributes;
 
-    layoutPtr   = _device->createPipelineLayout( shaderBundle.layoutDesc );
-    desc.layout = layoutPtr.get();
+    RHI::PipelineLayoutPtr implicitLayoutOwner = nullptr;
+    if ( desc.layout != nullptr )
+    {
+        // Explicit
+    } else
+    {
+        implicitLayoutOwner = _device->createPipelineLayout( shaderBundle.layoutDesc );
+        desc.layout         = implicitLayoutOwner.get();
+    }
 
     auto pipelinePtr = _device->createGraphicPipeline( desc );
     if ( !pipelinePtr )
@@ -70,7 +76,7 @@ PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, 
     record.name        = desc.debugName;
     record.alive       = true;
     record.pipeline    = std::move( pipelinePtr );
-    record.layoutOwner = std::move( layoutPtr );
+    record.layoutOwner = std::move( implicitLayoutOwner );
 
     _nameToHandle[desc.debugName] = { id };
 
@@ -124,8 +130,15 @@ PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, 
         .codeSize   = blob.code.size(),
         .entryPoint = blob.entryPointName };
 
-    RHI::PipelineLayoutPtr layoutPtr = _device->createPipelineLayout( shaderBundle.layoutDesc );
-    desc.layout                      = layoutPtr.get();
+    RHI::PipelineLayoutPtr implicitLayoutOwner = nullptr;
+    if ( desc.layout != nullptr )
+    {
+        // Explicit
+    } else
+    {
+        implicitLayoutOwner = _device->createPipelineLayout( shaderBundle.layoutDesc );
+        desc.layout         = implicitLayoutOwner.get();
+    }
 
     auto pipelinePtr = _device->createComputePipeline( desc );
     if ( !pipelinePtr )
@@ -154,7 +167,7 @@ PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, 
     record.name        = desc.debugName;
     record.alive       = true;
     record.pipeline    = std::move( pipelinePtr );
-    record.layoutOwner = std::move( layoutPtr );
+    record.layoutOwner = std::move( implicitLayoutOwner );
 
     _nameToHandle[desc.debugName] = { id };
 
@@ -184,8 +197,7 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
         return it->second;
     }
 
-    RHI::PipelineLayoutPtr layoutPtr    = nullptr;
-    const auto&            shaderBundle = _shaderReg.getBundle( shaderHandle );
+    const auto& shaderBundle = _shaderReg.getBundle( shaderHandle );
 
     desc.shaderModules.clear();
     desc.shaderModules.reserve( shaderBundle.stageBlobs.size() );
@@ -197,8 +209,15 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
                                         .entryPoint = blob.entryPointName } );
     }
 
-    layoutPtr   = _device->createPipelineLayout( shaderBundle.layoutDesc );
-    desc.layout = layoutPtr.get();
+    RHI::PipelineLayoutPtr implicitLayoutOwner = nullptr;
+    if ( desc.layout != nullptr )
+    {
+        // Explicit
+    } else
+    {
+        implicitLayoutOwner = _device->createPipelineLayout( shaderBundle.layoutDesc );
+        desc.layout         = implicitLayoutOwner.get();
+    }
 
     auto pipelinePtr = _device->createRayTracingPipeline( desc );
     if ( !pipelinePtr )
@@ -228,7 +247,7 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
     record.name        = desc.debugName;
     record.alive       = true;
     record.pipeline    = std::move( pipelinePtr );
-    record.layoutOwner = std::move( layoutPtr );
+    record.layoutOwner = std::move( implicitLayoutOwner );
 
     _nameToHandle[desc.debugName] = { id };
 
@@ -246,6 +265,43 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
     }
 
     return createRaytracing( desc, shaderHandleOpt.value() );
+}
+
+PipelineLayoutHandle PipelineRegistry::createLayout( const RHI::PipelineLayoutDesc& desc ) {
+    std::scoped_lock lock( _mutex );
+
+    if ( auto it = _nameToLayoutHandle.find( desc.debugName ); it != _nameToLayoutHandle.end() )
+    {
+        AXION_LOG_WARN( Logger::Module::GFX, "Pipeline Layout [{}] already exists. Returning existing handle.", desc.debugName );
+        return it->second;
+    }
+
+    auto layoutPtr = _device->createPipelineLayout( desc );
+    if ( !layoutPtr )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Failed to create Pipeline Layout [{}]", desc.debugName );
+        return {};
+    }
+
+    // 3. Register
+    uint id = (uint)_layouts.size(); // Simple append strategy for layouts
+
+    // auto& record       = _pipelines[id];
+    // record.name        = desc.debugName;
+    // record.alive       = true;
+    // record.pipeline    = std::move( pipelinePtr );
+    // record.layoutOwner = std::move( implicitLayoutOwner );
+
+    // _nameToHandle[desc.debugName] = { id };
+
+    // _layouts.push_back( { desc.debugName, std::move( layoutPtr ), true } );
+    //  _layouts.emplace_back();
+
+    // _nameToLayoutHandle[desc.debugName] = { id };
+
+    AXION_LOG_INFO( Logger::Module::GFX, "Registered Pipeline Layout [{}]", desc.debugName );
+
+    return { id };
 }
 
 RHI::IGraphicPipeline* PipelineRegistry::getGraphicPipeline( PipelineHandle handle ) {
@@ -323,11 +379,61 @@ RHI::IRayTracingPipeline* PipelineRegistry::getRaytracingPipeline( PipelineHandl
     return nullptr;
 }
 
+RHI::IPipelineLayout* PipelineRegistry::getLayout( PipelineLayoutHandle handle ) {
+    if ( handle.id >= _layouts.size() )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Accessing invalid PipelineLayoutHandle ID: {}", handle.id );
+        return nullptr;
+    }
+
+    auto& record = _layouts[handle.id];
+
+    if ( !record.alive )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Accessing dead PipelineLayoutHandle" );
+        return nullptr;
+    }
+
+    if ( record.layout )
+    {
+        return record.layout.get();
+    }
+
+    return nullptr;
+}
+
 std::optional<PipelineHandle> PipelineRegistry::findPipeline( const std::string& name ) const {
     auto it = _nameToHandle.find( name );
     if ( it == _nameToHandle.end() )
         return std::nullopt;
     return it->second;
+}
+
+std::optional<PipelineLayoutHandle> PipelineRegistry::findLayout( const std::string& name ) const {
+    auto it = _nameToLayoutHandle.find( name );
+    if ( it == _nameToLayoutHandle.end() )
+        return std::nullopt;
+    return it->second;
+}
+
+void PipelineRegistry::destroyLayout( PipelineLayoutHandle handle ) {
+    std::scoped_lock lock( _mutex );
+
+    if ( handle.id >= _layouts.size() )
+        return;
+    auto& record = _layouts[handle.id];
+
+    if ( !record.alive )
+        return;
+
+    _nameToLayoutHandle.erase( record.name );
+
+    record.alive = false;
+    record.name.clear();
+
+    record.layout = nullptr;
+
+    AXION_LOG_INFO( Logger::Module::GFX, "Destroyed Pipeline Layout Handle [{}]", handle.id );
 }
 
 void PipelineRegistry::destroyPipeline( PipelineHandle handle ) {

@@ -1,7 +1,9 @@
 #pragma once
+#include "Axion/Common/Helpers.h"
 #include "Axion/Core/Scene/Entity.h"
 #include "Axion/Core/Scene/Scene.h"
 #include "Axion/Graphics/Handle.h"
+#include "Axion/Graphics/RHI/Resource.h"
 #include "queue"
 
 AXION_NAMESPACE_BEGIN
@@ -120,6 +122,13 @@ struct PendingMeshFree {
 class GPUScene
 {
 public:
+    struct TransientOffsets {
+        uint frameOffset    = 0;
+        uint meshOffset     = 0;
+        uint instanceOffset = 0;
+        uint lightOffset    = 0;
+    };
+
     GPUScene()  = default;
     ~GPUScene() = default;
 
@@ -136,6 +145,10 @@ public:
     std::queue<PendingMeshEntry>& pendingMeshUploads() { return _pendingMeshUploads; }
     std::queue<PendingMeshFree>&  pendingMeshReleases() { return _pendingMeshReleases; }
 
+    // Query
+    bool hasPendingUploads() const;
+    bool hasPendingReleases() const;
+
     /**
      * @brief Main processing function. Rebuilds the transient data for the current frame.
      * @param cpuScene Source of truth (ECS Registry).
@@ -147,6 +160,12 @@ public:
                  const Extent2D&     resolution,
                  float               deltaTime,
                  GPUSceneUpdateFlags flags = GPUSceneNone );
+
+    /**
+     * @brief Uploads the transient data to the main UBO buffer.
+     * @param destBuffer Raw pointer to a CPU VISIBLE RHI::IBuffer that handles all the transient uniforms.
+     */
+    TransientOffsets uploadTransientData( Graphics::RHI::IBuffer* destBuffer );
 
     void setGCMode( Graphics::GCMode mode ) { _resourceTTL = (uint)mode; }
 

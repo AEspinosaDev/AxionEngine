@@ -23,6 +23,7 @@ public:
     class GraphicBuilder;
     class ComputeBuilder;
     class RayTracingBuilder;
+    class LayoutBuilder;
 
     // -------------------------------------------------------------------------
     // ENTRY POINTS
@@ -40,6 +41,10 @@ public:
     /// @param name Unique debug name for the pipeline.
     virtual RayTracingBuilder raytracing( const std::string& name ) = 0;
 
+    /// @brief Starts the fluent construction of a Pipeline Layout.
+    /// @param name Unique debug name for the layout.
+    virtual LayoutBuilder layout( const std::string& name ) = 0;
+
     // -------------------------------------------------------------------------
     // RUNTIME ACCESS
     // -------------------------------------------------------------------------
@@ -56,6 +61,9 @@ public:
     /// @return Raw pointer or nullptr if handle is invalid or type mismatch.
     virtual RHI::IRayTracingPipeline* getRaytracingPipeline( PipelineHandle handle ) = 0;
 
+    /// @brief Retrieves the raw layout pointer. Used internally by Builders.
+    virtual RHI::IPipelineLayout* getLayout( PipelineLayoutHandle handle ) = 0;
+
     /// @brief Looks up a pipeline handle by its debug name.
     virtual std::optional<PipelineHandle> findPipeline( const std::string& name ) const = 0;
 
@@ -64,6 +72,12 @@ public:
 
     /// @brief Returns the total number of registered pipelines.
     virtual uint size() const = 0;
+
+    /// @brief Looks up a pipeline handle by its debug name.
+    virtual std::optional<PipelineLayoutHandle> findLayout( const std::string& name ) const = 0;
+
+    /// @brief Destroys the pipeline layout resource and frees the slot.
+    virtual void destroyLayout( PipelineLayoutHandle handle ) = 0;
 
     /// @brief Triggers hot-reloading for all pipelines.
     /// Recompiles linked shaders and recreates PSOs in-place.
@@ -80,9 +94,12 @@ protected:
     virtual PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName )       = 0;
     virtual PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) = 0;
 
+    virtual PipelineLayoutHandle createLayout( const RHI::PipelineLayoutDesc& desc ) = 0;
+
     friend class GraphicBuilder;
     friend class ComputeBuilder;
     friend class RaytracingBuilder;
+    friend class LayoutBuilder;
 };
 
 // -----------------------------------------------------------------------------
@@ -160,10 +177,8 @@ public:
         return *this;
     }
 
-    /// @brief Sets the Root Signature / Pipeline Layout.
-    /// @note If not called, the Registry will attempt to auto-generate it via Shader Reflection.
-    GraphicBuilder& setLayout( RHI::IPipelineLayout* layout ) {
-        _desc.layout = layout;
+    GraphicBuilder& setLayout( PipelineLayoutHandle handle ) {
+        _desc.layout = _registry.getLayout( handle );
         return *this;
     }
 
@@ -202,6 +217,11 @@ public:
     /// Looks up the shader in ShaderRegistry by handle.
     ComputeBuilder& shader( ShaderHandle shaderHandle ) {
         _shaderHandle = shaderHandle;
+        return *this;
+    }
+
+    ComputeBuilder& setLayout( PipelineLayoutHandle handle ) {
+        _desc.layout = _registry.getLayout( handle );
         return *this;
     }
 
@@ -264,6 +284,11 @@ public:
         return *this;
     }
 
+    RayTracingBuilder& setLayout( PipelineLayoutHandle handle ) {
+        _desc.layout = _registry.getLayout( handle );
+        return *this;
+    }
+
     /// @brief Finalizes configuration and creates the PSO.
     PipelineHandle create() {
         return !_shaderName.empty() ? _registry.createRaytracing( _desc, _shaderName ) : _registry.createRaytracing( _desc, _shaderHandle );
@@ -275,6 +300,46 @@ private:
     std::string                 _shaderName;
     ShaderHandle                _shaderHandle;
 };
+
+// -----------------------------------------------------------------------------
+// LAYOUT BUILDER
+// -----------------------------------------------------------------------------
+
+class IPipelineRegistry::LayoutBuilder
+{
+public:
+    LayoutBuilder( IPipelineRegistry& reg, std::string name )
+        : _registry( reg ) {
+        _desc.debugName = std::move( name );
+    }
+
+
+    /// @brief Defines a descriptor set (space) with a list of bindings.
+    LayoutBuilder& addSet( std::vector<RHI::DescriptorBinding> bindings ) {
+        RHI::DescriptorLayoutDesc set;
+        set.bindings = std::move( bindings );
+        _desc.sets.push_back( std::move( set ) );
+        return *this;
+    }
+
+    // /// @brief Configures push constants / root constants.
+    // LayoutBuilder& setPushConstants( uint sizeBytes, uint registerIdx = 0, uint space = 0, ShaderStage mask = ShaderStage::All ) {
+    //     _desc.pushConstant.size           = sizeBytes;
+    //     _desc.pushConstant.customRegister = registerIdx;
+    //     _desc.pushConstant.customSpace    = space;
+    //     _desc.pushConstant.stageMask      = mask;
+    //     return *this;
+    // }
+
+    PipelineLayoutHandle create() {
+        return _registry.createLayout( _desc );
+    }
+
+private:
+    IPipelineRegistry&      _registry;
+    RHI::PipelineLayoutDesc _desc;
+};
+
 
 } // namespace Graphics
 AXION_NAMESPACE_END

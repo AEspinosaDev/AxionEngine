@@ -27,6 +27,8 @@ public:
         uint        customRegister = 0;
         ShaderStage stageMask      = ShaderStage::Vertex | ShaderStage::Pixel;
     };
+
+
     struct Description {
         std::vector<DescriptorLayoutDesc> sets;
         PushConstantDesc                  pushConstant;

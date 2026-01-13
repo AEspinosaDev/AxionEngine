@@ -28,6 +28,9 @@ struct ShaderTag {
 };
 struct PipelineTag {
 };
+struct PipelineLayoutTag {
+};
+
 
 using BufferHandle  = Handle<struct BufferTag>;
 using TextureHandle = Handle<struct TextureTag>;
@@ -37,6 +40,8 @@ using AccelHandle   = Handle<struct AccelTag>;
 using ShaderHandle = Handle<struct ShaderTag>;
 
 using PipelineHandle = Handle<struct PipelineTag>;
+using PipelineLayoutHandle = Handle<struct PipelineLayoutTag>;
+
 
 } // namespace Graphics
 

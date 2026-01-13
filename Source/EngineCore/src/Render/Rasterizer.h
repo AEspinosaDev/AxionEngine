@@ -7,6 +7,7 @@
 #include <Axion/Graphics/Renderer.h>
 // High Level Passes
 #include "Passes/TonemappingPass.hpp"
+#include "Passes/UploadPass.hpp"
 
 AXION_NAMESPACE_BEGIN
 

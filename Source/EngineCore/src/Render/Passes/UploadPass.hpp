@@ -1,4 +1,5 @@
 #pragma once
+#include "../GPUScene.h"
 #include "../PassSystem.h"
 #include "Axion/Graphics/Subsystems/RenderGraph.h"
 
@@ -8,50 +9,99 @@ namespace Core::Render {
 class UploadPass : public IRenderPass
 {
 public:
-    struct Data {
-        Graphics::RGResourceHandle inputHDR;
-        Graphics::RGResourceHandle outputLDR;
-        uint                       tonemapType;
+    struct GlobalBufferHandles {
+        Graphics::RGResourceHandle vertexBuffer;
+        Graphics::RGResourceHandle indexBuffer;
+        Graphics::RGResourceHandle mtlBuffer;
+    };
+    struct Config {
+        GlobalBufferHandles handles;
+        GPUScene*           scene             = nullptr;
+        ulong               maxAllocationSize = 0;
     };
 
-    void registerShaders( Graphics::IShaderRegistry& shaders ) override {
-       
-    }
+    void registerShaders( Graphics::IShaderRegistry& shaders ) override { /*NO OP*/ }
+    void createPipelines( Graphics::IPipelineRegistry& pipelines ) override { /*NO OP*/ }
 
-    void createPipelines( Graphics::IPipelineRegistry& pipelines ) override {
-       
-    }
+    void addToGraph( Graphics::RenderGraphBuilder& builder, const Config& seedData ) {
+        // Early Exit
+        if ( !seedData.scene || !seedData.scene->hasPendingUploads() )
+            return;
 
-    void setup( Graphics::RenderPassBuilder& builder, Data& data ) {
-        data.inputHDR  = builder.read( data.inputHDR );
-        data.outputLDR = builder.write( data.outputLDR );
-    }
+        builder.addPass<Config>( "UploadPass", seedData,
 
-    void execute( const Data& data, Graphics::RenderPassContext& ctx ) {
-        auto* pso = ctx.pipelines.getComputePipeline( _pipHandle );
+                                 []( Graphics::RenderPassBuilder& pb, Config& data ) {
+                data.handles.vertexBuffer = pb.write( data.handles.vertexBuffer, Graphics::RHI::ResourceState::CopyDest );
+                data.handles.indexBuffer  = pb.write( data.handles.indexBuffer,  Graphics::RHI::ResourceState::CopyDest ); },
 
-        auto* texIn  = ctx.getTexture( data.inputHDR );
-        auto* texOut = ctx.getTexture( data.outputLDR );
-
-        auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, texIn, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 1, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
-
-        ctx.cmd->bindComputePipeline( pso );
-        ctx.cmd->bindDescriptorSet( 0, set0 );
-
-        auto size = texIn->getDescription().size;
-        ctx.cmd->dispatch( { ( size.width + 7 ) / 8, ( size.height + 7 ) / 8, 1 } );
-    }
-
-    void addToGraph( Graphics::RenderGraphBuilder& builder,
-                     const Data&                   data ) {
-        builder.addPass<TonemappingPass>( "TonemappingPass", *this );
+                                 [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
     }
 
 private:
-    Graphics::PipelineHandle _pipHandle;
-    Graphics::ShaderHandle   _shHandle;
+    void execute( const Config& data, Graphics::RenderPassContext& ctx ) {
+
+        // Setup
+        auto* cmd       = ctx.cmd;
+        auto& scene     = *data.scene;
+        auto* allocator = ctx.transAllocator;
+
+        uint totalUsedSpace = 0;
+
+        //--------------------------------------------
+        // GEOMETRY UPLOAD
+        //--------------------------------------------
+
+        auto* vb = ctx.getBuffer( data.handles.vertexBuffer );
+        auto* ib = ctx.getBuffer( data.handles.indexBuffer );
+
+        static uint currentVtxOffset = 0;
+        static uint currentIdxOffset = 0;
+
+        auto& queue = scene.pendingMeshUploads();
+        while ( !queue.empty() )
+        {
+            if ( totalUsedSpace >= (uint)data.maxAllocationSize )
+                break;
+
+            auto uploadEntry = std::move( queue.front() );
+            queue.pop();
+
+            auto& gpuMesh = scene.meshes()[uploadEntry.GPUMeshID];
+
+            // Upload Vertices
+            uint vtxSize = uploadEntry.vertices.size() * sizeof( Assets::Vertex );
+            if ( vtxSize > 0 )
+            {
+                cmd->uploadBuffer( vb, uploadEntry.vertices.data(), vtxSize, currentVtxOffset, allocator, Graphics::RHI::BarrierPolicy::None );
+                gpuMesh.vertexOffset = currentVtxOffset;
+                currentVtxOffset += vtxSize;
+            }
+
+            // Upload Indices
+            uint idxSize = uploadEntry.indices.size() * sizeof( uint );
+            if ( idxSize > 0 )
+            {
+                cmd->uploadBuffer( ib, uploadEntry.indices.data(), idxSize, currentIdxOffset, allocator, Graphics::RHI::BarrierPolicy::None );
+                gpuMesh.indexOffset = (uint)currentIdxOffset;
+                currentIdxOffset += idxSize;
+            }
+
+            gpuMesh.valid = true;
+            totalUsedSpace += vtxSize + idxSize;
+        }
+
+        //--------------------------------------------
+        // MATERIAL UPLOAD
+        //--------------------------------------------
+
+        // TBD ...
+
+        //--------------------------------------------
+        // IMAGE UPLOAD
+        //--------------------------------------------
+
+        // TBD ...
+    }
 };
 
 } // namespace Core::Render

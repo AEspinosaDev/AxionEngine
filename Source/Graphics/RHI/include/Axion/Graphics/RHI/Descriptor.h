@@ -25,11 +25,11 @@ class IDescriptorSet : public IResource
 public:
     virtual ~IDescriptorSet() = default;
 
-    virtual void attach( uint binding, ITexture* tex, ResourceState bindingState )                                        = 0;
-    virtual void attach( uint binding, IBuffer* buf, ResourceState bindingState )                                         = 0;
-    virtual void attach( uint binding, IBuffer* buf, ulong offset, ulong range, uint stride, ResourceState bindingState ) = 0;
-    virtual void attach( uint binding, ISampler* samp )                                                                   = 0;
-    virtual void attach( uint binding, IAccel* accel )                                                                    = 0;
+    virtual void attach( uint binding, ITexture* tex, ResourceState bindingState )                                               = 0;
+    virtual void attach( uint binding, IBuffer* buf, ResourceState bindingState )                                                = 0;
+    virtual void attach( uint binding, ISampler* samp )                                                                          = 0;
+    virtual void attach( uint binding, IAccel* accel )                                                                           = 0;
+    virtual void attachDynamic( uint binding, IBuffer* buf, ulong offset, ulong range, uint stride, ResourceState bindingState ) = 0;
 };
 
 DEFINE_COM_PTR_FOR_TYPE( IDescriptorAllocator, DescriptorAllocator )

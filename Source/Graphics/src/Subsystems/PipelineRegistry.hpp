@@ -18,13 +18,20 @@ public:
     GraphicBuilder    graphic( const std::string& name ) override { return GraphicBuilder( *this, name ); }
     ComputeBuilder    compute( const std::string& name ) override { return ComputeBuilder( *this, name ); }
     RayTracingBuilder raytracing( const std::string& name ) override { return RayTracingBuilder( *this, name ); }
+    LayoutBuilder     layout( const std::string& name ) override { return LayoutBuilder( *this, name ); }
 
-    RHI::IGraphicPipeline*        getGraphicPipeline( PipelineHandle handle ) override;
-    RHI::IComputePipeline*        getComputePipeline( PipelineHandle handle ) override;
-    RHI::IRayTracingPipeline*     getRaytracingPipeline( PipelineHandle handle ) override;
-    std::optional<PipelineHandle> findPipeline( const std::string& name ) const override;
-    void                          destroyPipeline( PipelineHandle handle ) override;
-    uint                          size() const override { return (uint)_pipelines.size(); };
+    RHI::IGraphicPipeline*    getGraphicPipeline( PipelineHandle handle ) override;
+    RHI::IComputePipeline*    getComputePipeline( PipelineHandle handle ) override;
+    RHI::IRayTracingPipeline* getRaytracingPipeline( PipelineHandle handle ) override;
+    RHI::IPipelineLayout*     getLayout( PipelineLayoutHandle handle ) override;
+
+    std::optional<PipelineHandle>       findPipeline( const std::string& name ) const override;
+    std::optional<PipelineLayoutHandle> findLayout( const std::string& name ) const override;
+
+    void destroyLayout( PipelineLayoutHandle handle ) override;
+    void destroyPipeline( PipelineHandle handle ) override;
+
+    uint size() const override { return (uint)_pipelines.size(); };
 
     // (Hot-Reloading)
     void reloadAll() override;
@@ -36,6 +43,8 @@ private:
     PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName ) override;
     PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName ) override;
     PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) override;
+
+    PipelineLayoutHandle createLayout( const RHI::PipelineLayoutDesc& desc ) override;
 
     RHI::IDevice*    _device = nullptr;
     IShaderRegistry& _shaderReg;
@@ -51,9 +60,17 @@ private:
                                pipeline;
         RHI::PipelineLayoutPtr layoutOwner = nullptr;
     };
+    struct LayoutRecord {
+        std::string            name;
+        bool                   alive = true;
+        RHI::PipelineLayoutPtr layout;
+    };
 
     std::vector<PipelineRecord>                     _pipelines;
     std::unordered_map<std::string, PipelineHandle> _nameToHandle;
+
+    std::vector<LayoutRecord>                             _layouts;
+    std::unordered_map<std::string, PipelineLayoutHandle> _nameToLayoutHandle;
 };
 
 AXION_NAMESPACE_END
