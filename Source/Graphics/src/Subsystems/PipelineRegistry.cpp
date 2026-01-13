@@ -23,7 +23,7 @@ PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, 
         return it->second;
     }
 
-    const auto&            shaderBundle = _shaderReg.getBundle( shaderHandle );
+    const auto& shaderBundle = _shaderReg.getBundle( shaderHandle );
 
     desc.shaderModules.clear();
     desc.shaderModules.reserve( shaderBundle.stageBlobs.size() );
@@ -284,20 +284,29 @@ PipelineLayoutHandle PipelineRegistry::createLayout( const RHI::PipelineLayoutDe
     }
 
     // 3. Register
-    uint id = (uint)_layouts.size(); // Simple append strategy for layouts
+    uint id = UINT32_MAX;
+    for ( uint i = 0; i < _layouts.size(); ++i )
+    {
+        if ( !_layouts[i].alive )
+        {
+            id = i;
+            break;
+        }
+    }
 
-    // auto& record       = _pipelines[id];
-    // record.name        = desc.debugName;
-    // record.alive       = true;
-    // record.pipeline    = std::move( pipelinePtr );
-    // record.layoutOwner = std::move( implicitLayoutOwner );
+    if ( id == UINT32_MAX )
+    {
+        id = (uint)_layouts.size();
+        _layouts.emplace_back();
+    }
 
-    // _nameToHandle[desc.debugName] = { id };
+    // Rellenar Record
+    auto& record  = _layouts[id];
+    record.name   = desc.debugName;
+    record.alive  = true;
+    record.layout = std::move( layoutPtr );
 
-    // _layouts.push_back( { desc.debugName, std::move( layoutPtr ), true } );
-    //  _layouts.emplace_back();
-
-    // _nameToLayoutHandle[desc.debugName] = { id };
+    _nameToHandle[desc.debugName] = { id };
 
     AXION_LOG_INFO( Logger::Module::GFX, "Registered Pipeline Layout [{}]", desc.debugName );
 
