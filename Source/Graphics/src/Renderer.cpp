@@ -24,7 +24,10 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
     switch ( _setts.gfxApi )
     {
         case API::DirectX12:
-            RHI::DX12DeviceDesc desc { .enableDebugLayer = _setts.debugMode };
+            RHI::DX12DeviceDesc desc {
+                .preferredDeviceID = _setts.selectedDeviceID,
+                .enableDebugLayer  = _setts.debugMode,
+            };
             _device = RHI::createDX12Device( desc );
             break;
             // case GraphicsAPI::Vulkan:

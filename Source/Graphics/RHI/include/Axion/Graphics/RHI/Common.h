@@ -237,6 +237,14 @@ struct RenderingDesc {
     Extent2D                         renderArea;
 };
 
+enum class PipelineBindPoint : uchar
+{
+    None,
+    Compute,
+    Graphic,
+    RTX
+};
+
 enum class AccelType
 {
     BottomLevel, // BLAS: Geometry data (triangles, AABBs)

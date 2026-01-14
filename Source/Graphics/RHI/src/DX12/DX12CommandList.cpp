@@ -189,7 +189,6 @@ void DX12CommandList::uploadBuffer( IBuffer* dst, const void* data, ulong size, 
 }
 
 void DX12CommandList::uploadTexture( ITexture* dst, const void* data, ITransientAllocator* allocator, uint mipSlice, uint arraySlice, BarrierPolicy barrierPolicy ) {
-   
 }
 
 void DX12CommandList::updateAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) {
@@ -334,10 +333,18 @@ void DX12CommandList::bindComputePipeline( IComputePipeline* pipeline ) {
     auto* dxPipeline = static_cast<DX12ComputePipeline*>( pipeline );
     _cmdList->SetPipelineState( dxPipeline->getNativeObject( ObjectTypes::DX12_PipelineState ) );
 
-    _cmdList->SetComputeRootSignature( dxPipeline->getNativeObject( ObjectTypes::DX12_RootSignature ) );
+    auto* newLayout = pipeline->getDescription().layout;
 
-    _bindPoint     = PipelineBindPoint::Compute;
-    _currentLayout = pipeline->getDescription().layout;
+    if ( _currentLayout != newLayout || _bindPoint != PipelineBindPoint::Compute )
+    {
+        _currentLayout = newLayout;
+
+        auto* dxLayout = static_cast<DX12PipelineLayout*>( newLayout );
+        _cmdList->SetComputeRootSignature( static_cast<ID3D12RootSignature*>(
+            dxLayout->getNativeObject( ObjectTypes::DX12_RootSignature ) ) );
+    }
+
+    _bindPoint = PipelineBindPoint::Compute;
 }
 
 void DX12CommandList::bindGraphicPipeline( IGraphicPipeline* pipeline ) {
@@ -346,12 +353,20 @@ void DX12CommandList::bindGraphicPipeline( IGraphicPipeline* pipeline ) {
     auto* dxPipeline = static_cast<DX12GraphicPipeline*>( pipeline );
     _cmdList->SetPipelineState( dxPipeline->getNativeObject( ObjectTypes::DX12_PipelineState ) );
 
-    _cmdList->SetGraphicsRootSignature( dxPipeline->getNativeObject( ObjectTypes::DX12_RootSignature ) );
-
     _cmdList->IASetPrimitiveTopology( DX12Translator::getD3DTopology( pipeline->getDescription().topology ) );
 
-    _bindPoint     = PipelineBindPoint::Graphic;
-    _currentLayout = pipeline->getDescription().layout;
+    auto* newLayout = pipeline->getDescription().layout;
+
+    if ( _currentLayout != newLayout || _bindPoint != PipelineBindPoint::Graphic )
+    {
+        _currentLayout = newLayout;
+
+        auto* dxLayout = static_cast<DX12PipelineLayout*>( newLayout );
+        _cmdList->SetGraphicsRootSignature( static_cast<ID3D12RootSignature*>(
+            dxLayout->getNativeObject( ObjectTypes::DX12_RootSignature ) ) );
+    }
+
+    _bindPoint = PipelineBindPoint::Graphic;
 }
 
 void DX12CommandList::bindRaytracingPipeline( IRayTracingPipeline* pipeline ) {
@@ -363,10 +378,17 @@ void DX12CommandList::bindRaytracingPipeline( IRayTracingPipeline* pipeline ) {
     auto* dxPipeline = static_cast<DX12RayTracingPipeline*>( pipeline );
     _cmdList4->SetPipelineState1( dxPipeline->getNativeObject( ObjectTypes::DX12_StateObject ) );
 
-    _cmdList->SetComputeRootSignature( dxPipeline->getNativeObject( ObjectTypes::DX12_RootSignature ) );
+    auto* newLayout = pipeline->getDescription().layout;
+    if ( _currentLayout != newLayout || _bindPoint != PipelineBindPoint::RTX )
+    {
+        _currentLayout = newLayout;
 
-    _bindPoint     = PipelineBindPoint::RTX;
-    _currentLayout = pipeline->getDescription().layout;
+        auto* dxLayout = static_cast<DX12PipelineLayout*>( newLayout );
+        _cmdList->SetComputeRootSignature( static_cast<ID3D12RootSignature*>(
+            dxLayout->getNativeObject( ObjectTypes::DX12_RootSignature ) ) );
+    }
+
+    _bindPoint = PipelineBindPoint::RTX;
 }
 
 void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set ) {
@@ -395,6 +417,72 @@ void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set ) {
     }
 
     auto indices = static_cast<DX12PipelineLayout*>( _currentLayout )->getRootIndices( setIndex );
+
+    // Views
+    if ( indices.first != -1 )
+    {
+        D3D12_GPU_DESCRIPTOR_HANDLE handle = dxSet->getViewGPUHandle();
+
+        if ( _bindPoint == PipelineBindPoint::Compute || _bindPoint == PipelineBindPoint::RTX )
+            _cmdList->SetComputeRootDescriptorTable( indices.first, handle );
+        else
+            _cmdList->SetGraphicsRootDescriptorTable( indices.first, handle );
+    }
+
+    // Samplers
+    if ( indices.second != -1 )
+    {
+        D3D12_GPU_DESCRIPTOR_HANDLE handle = dxSet->getSamplerGPUHandle();
+
+        if ( _bindPoint == PipelineBindPoint::Compute || _bindPoint == PipelineBindPoint::RTX )
+            _cmdList->SetComputeRootDescriptorTable( indices.second, handle );
+        else
+            _cmdList->SetGraphicsRootDescriptorTable( indices.second, handle );
+    }
+}
+
+void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set, IPipelineLayout* layout, PipelineBindPoint bindPoint ) {
+    AXION_LOG_ASSERT( set, Logger::Module::RHI, "Binding NULL Descriptor Set" );
+
+    auto* dxSet    = static_cast<DX12DescriptorSet*>( set );
+    
+    if ( _currentLayout != layout || _bindPoint != bindPoint )
+    {
+        _currentLayout = layout;
+        _bindPoint     = bindPoint;
+        
+        auto* dxLayout = static_cast<DX12PipelineLayout*>( layout );
+        ID3D12RootSignature* rootSig = static_cast<ID3D12RootSignature*>(
+            dxLayout->getNativeObject( ObjectTypes::DX12_RootSignature ) );
+
+        if ( _bindPoint == PipelineBindPoint::Compute || _bindPoint == PipelineBindPoint::RTX )
+            _cmdList->SetComputeRootSignature( rootSig );
+        else
+            _cmdList->SetGraphicsRootSignature( rootSig );
+    }
+
+    ID3D12DescriptorHeap* viewHeap    = dxSet->getViewOwnerHeap();
+    ID3D12DescriptorHeap* samplerHeap = dxSet->getSamplerOwnerHeap();
+
+    if ( _currentViewHeap != viewHeap || _currentSamplerHeap != samplerHeap )
+    {
+        _currentViewHeap    = viewHeap;
+        _currentSamplerHeap = samplerHeap;
+
+        ID3D12DescriptorHeap* heapsToBind[2] = {};
+        uint                  heapCount      = 0;
+
+        if ( _currentViewHeap )
+            heapsToBind[heapCount++] = _currentViewHeap;
+        if ( _currentSamplerHeap )
+            heapsToBind[heapCount++] = _currentSamplerHeap;
+
+        if ( heapCount > 0 )
+            _cmdList->SetDescriptorHeaps( heapCount, heapsToBind );
+    }
+
+    auto* dxCurrentLayout = static_cast<DX12PipelineLayout*>( _currentLayout ); 
+    auto indices = dxCurrentLayout->getRootIndices( setIndex );
 
     // Views
     if ( indices.first != -1 )

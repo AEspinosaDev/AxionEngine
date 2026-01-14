@@ -14,6 +14,14 @@ template <typename T>
 struct Handle {
     uint32_t id = UINT32_MAX;
     bool     isValid() const { return id != UINT32_MAX; }
+
+    bool operator==( const Handle& other ) {
+        return id == other.id;
+    }
+    bool operator!=( const Handle& other ) {
+        return id != other.id;
+    }
+   
 };
 
 struct BufferTag {
@@ -31,7 +39,6 @@ struct PipelineTag {
 struct PipelineLayoutTag {
 };
 
-
 using BufferHandle  = Handle<struct BufferTag>;
 using TextureHandle = Handle<struct TextureTag>;
 using SamplerHandle = Handle<struct SamplerTag>;
@@ -39,9 +46,8 @@ using AccelHandle   = Handle<struct AccelTag>;
 
 using ShaderHandle = Handle<struct ShaderTag>;
 
-using PipelineHandle = Handle<struct PipelineTag>;
+using PipelineHandle       = Handle<struct PipelineTag>;
 using PipelineLayoutHandle = Handle<struct PipelineLayoutTag>;
-
 
 } // namespace Graphics
 

@@ -28,6 +28,7 @@ struct CommonSettings {
     bool                    debugMode        = true;
     Graphics::Format        backbufferFormat = Graphics::Format::RGBA8_UNORM;
     Graphics::GCMode        GCMode           = Graphics::GCMode::AvgMemory;
+    uint                    selectedDeviceID = UINT32_MAX;
 };
 
 class IRenderer

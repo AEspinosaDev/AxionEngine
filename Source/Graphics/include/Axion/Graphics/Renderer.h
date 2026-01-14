@@ -31,6 +31,8 @@ public:
         ulong  RGTransientAllocSize  = 64 * 1024 * 1024;  ///< Initial memory reservation for per-frame transient upload sensible data (Useful for CPU-GPU data streaming) (64MB default).
         GCMode GCMode                = GCMode::AvgMemory; ///< Garbage Collection aggressiveness for transient resources.
         bool   autoSync              = true;              ///< Automatic Barrier Insertion by RenderGraph.
+
+        uint selectedDeviceID = UINT32_MAX; ///<  Index of the GPU adapter to use. Set to UINT32_MAX for auto-selection (best dedicated GPU).
     };
 
     virtual ~IRenderer() = default;

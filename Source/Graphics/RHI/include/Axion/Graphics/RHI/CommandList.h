@@ -104,8 +104,13 @@ public:
     virtual void bindGraphicPipeline( IGraphicPipeline* pipeline )       = 0;
     virtual void bindRaytracingPipeline( IRayTracingPipeline* pipeline ) = 0;
 
-    /// @brief Binds a Descriptor Set (Resource Group) to a specific slot.
+    /// @brief Binds a Descriptor Set (Resource Group) to a specific slot. Command buffer will automatically
+    // use the last bound pipeline's layout
     virtual void bindDescriptorSet( uint setIndex, IDescriptorSet* set ) = 0;
+
+    /// @brief Binds a Descriptor Set (Resource Group) to a specific slot. Command buffer will override and use
+    // given layout and bind point;
+    virtual void bindDescriptorSet( uint setIndex, IDescriptorSet* set, IPipelineLayout* layout, PipelineBindPoint bindPoint = PipelineBindPoint::Graphic ) = 0;
 
     // -------------------------------------------------------------------------
     // DISPATCH & DRAW
@@ -144,14 +149,6 @@ public:
     }
 
 protected:
-    enum class PipelineBindPoint : uchar
-    {
-        None,
-        Compute,
-        Graphic,
-        RTX
-    };
-
     /// @brief Internal implementation for push constants.
     virtual void pushConstants( uint setIndex, const void* data, uint numValues32Bit, uint offset32Bit = 0 ) = 0;
 };

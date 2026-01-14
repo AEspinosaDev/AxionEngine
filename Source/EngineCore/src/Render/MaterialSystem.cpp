@@ -17,6 +17,10 @@ void MaterialLibrary::init( Graphics::API api ) {
     _initialized = true;
 }
 
+void MaterialLibrary::setTargetLayout( Graphics::PipelineLayoutHandle globalLayout ) {
+    _globalLayoutHandle = globalLayout;
+}
+
 void MaterialLibrary::setPassFormats( MaterialPassType passType, const MaterialPassProfile& profile ) {
     _passProfiles[(size_t)passType] = profile;
 }
@@ -53,7 +57,8 @@ void MaterialLibrary::registerShaders( Graphics::IShaderRegistry& shaders ) {
             auto        builder    = shaders.shader( shaderName )
                                .path( pass.shaderPath )
                                .entryPoints( pass.entryPoints )
-                               .include( AXION_SHADER_DIR "/Slang/Common" );
+                               .include( AXION_SHADER_DIR "/Slang/Common" )
+                               .autoReflect( false );
 
             if ( !pass.customIncludePath.empty() )
                 builder.include( pass.customIncludePath );
@@ -98,7 +103,7 @@ void MaterialLibrary::createPipelines( Graphics::IPipelineRegistry& pipelines ) 
 
                 std::string pipName = arch.desc.name + "_pip_" + toString( topoType ) + "_" + toString( pass.passType );
 
-                auto builder = pipelines.graphic( pipName ).shader( shaderHandle );
+                auto builder = pipelines.graphic( pipName ).shader( shaderHandle ).setLayout( _globalLayoutHandle );
 
                 Graphics::RHI::RasterizerState rasterizerState;
                 rasterizerState.fillMode              = pass.fillMode;

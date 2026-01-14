@@ -6,6 +6,7 @@
 #include <Axion/Core/Render/Rasterizer.h>
 #include <Axion/Graphics/Renderer.h>
 // High Level Passes
+#include "Passes/ForwardPass.hpp"
 #include "Passes/TonemappingPass.hpp"
 #include "Passes/UploadPass.hpp"
 
@@ -37,6 +38,7 @@ public:
     std::string toString() const override;
 
 private:
+    void setupMaterialLibrary();
     void registerMaterials();
     void registerPasses();
     void createResources();
@@ -45,15 +47,18 @@ private:
     RasterizerSettings _settings;
 
     // Passes
-    PassManager _passes;
+    PassManager                               _passes;
+    Axion::Graphics::Passes::BlitToBackBuffer cpypass {};
 
-    // Material Library
-    MaterialLibrary _matLib;
+    // Material Library & Global Shader Contract
+    MaterialLibrary                _mtlLib;
+    Graphics::PipelineLayoutHandle _globalMtlLayoutHandle;
 
     // Graphics & GPU Resources Logic and Handles
     GPUScene _gpuScene;
 
     struct GPUResources {
+
         Graphics::BufferHandle           vertexBufferHandle;
         Graphics::BufferHandle           indexBufferHandle;
         Graphics::RHI::FreeListAllocator vertexAllocator;

@@ -14,8 +14,6 @@ struct BlitData {
 
 struct BlitToBackBuffer : public IPassRecipe<BlitData> {
 
-    PipelineHandle pipelineHandle;
-
     RGResourceHandle inputHandle;
     RGResourceHandle outputHandle;
 

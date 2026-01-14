@@ -52,6 +52,7 @@ private:
     std::vector<uint>    _indices;
     Math::AABB           _aabb {};
     Math::BoundingSphere _boundingSphere {};
+    // Graphics
 
     //Topology
     //Needs AS

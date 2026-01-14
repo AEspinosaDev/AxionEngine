@@ -9,8 +9,8 @@ class ToneMappingPass : public IRenderPass
 {
 public:
     struct Config {
-        Graphics::RGResourceHandle inputHDR;
-        Graphics::RGResourceHandle outputLDR;
+        Graphics::RGResourceHandle inputHandle;  // HDR
+        Graphics::RGResourceHandle outputHandle; // LDR
         uint                       tonemapType;
     };
 
@@ -33,16 +33,16 @@ public:
                      const Config&                 config ) {
 
         builder.addPass<Config>( "TonemappingPass", config, []( Graphics::RenderPassBuilder& pb, Config& data ) {
-                data.inputHDR  = pb.read( data.inputHDR ); 
-                data.outputLDR = pb.write( data.outputLDR ); }, [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
+                data.inputHandle  = pb.read( data.inputHandle ); 
+                data.outputHandle = pb.write( data.outputHandle ); }, [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
     }
 
 private:
     void execute( const Config& data, Graphics::RenderPassContext& ctx ) {
         auto* pso = ctx.pipelines.getComputePipeline( _pipHandle );
 
-        auto* texIn  = ctx.getTexture( data.inputHDR );
-        auto* texOut = ctx.getTexture( data.outputLDR );
+        auto* texIn  = ctx.getTexture( data.inputHandle );
+        auto* texOut = ctx.getTexture( data.outputHandle );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
         set0->attach( 0, texIn, Graphics::RHI::ResourceState::ShaderResource );

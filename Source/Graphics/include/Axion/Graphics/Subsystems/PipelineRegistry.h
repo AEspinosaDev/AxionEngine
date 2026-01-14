@@ -322,14 +322,14 @@ public:
         return *this;
     }
 
-    // /// @brief Configures push constants / root constants.
-    // LayoutBuilder& setPushConstants( uint sizeBytes, uint registerIdx = 0, uint space = 0, ShaderStage mask = ShaderStage::All ) {
-    //     _desc.pushConstant.size           = sizeBytes;
-    //     _desc.pushConstant.customRegister = registerIdx;
-    //     _desc.pushConstant.customSpace    = space;
-    //     _desc.pushConstant.stageMask      = mask;
-    //     return *this;
-    // }
+    /// @brief Configures push constants / root constants.
+    LayoutBuilder& setPushConstants( uint sizeBytes, uint registerIdx = 0, uint space = 0, RHI::ShaderStage mask = RHI::ShaderStage::All ) {
+        _desc.pushConstant.size           = sizeBytes;
+        _desc.pushConstant.customRegister = registerIdx;
+        _desc.pushConstant.customSpace    = space;
+        _desc.pushConstant.stageMask      = mask;
+        return *this;
+    }
 
     PipelineLayoutHandle create() {
         return _registry.createLayout( _desc );

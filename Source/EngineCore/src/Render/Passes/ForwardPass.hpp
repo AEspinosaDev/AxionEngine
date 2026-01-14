@@ -12,20 +12,22 @@ class ForwardPass : public IRenderPass
 {
 public:
     struct GlobalBufferHandles {
-        Graphics::RGResourceHandle vertexBuffer;
-        Graphics::RGResourceHandle indexBuffer;
-        Graphics::RGResourceHandle mtrlBuffer;
+        Graphics::RGResourceHandle vertex;
+        Graphics::RGResourceHandle index;
+        Graphics::RGResourceHandle material;
         Graphics::RGResourceHandle volatileUBO;
     };
 
     struct Config {
-        GlobalBufferHandles        res;
+        GlobalBufferHandles        bufferHandles;
         GPUScene::TransientOffsets uboOffsets;
-        GPUScene*                  scene;
-        MaterialLibrary*           matLib;
+        GPUScene*                  gpuScene;
 
-        Graphics::RGResourceHandle outputColor;
-        Graphics::RGResourceHandle outputDepth;
+        MaterialLibrary*               matLib;
+        Graphics::PipelineLayoutHandle matLayoutHandle;
+
+        Graphics::RGResourceHandle outputColorHandle;
+        Graphics::RGResourceHandle outputDepthHandle;
     };
 
     void registerShaders( Graphics::IShaderRegistry& ) override { /* NO OP */ }
@@ -38,11 +40,11 @@ public:
                                  // SETUP: Declaramos lecturas y escrituras
                                  []( Graphics::RenderPassBuilder& pb, Config& data ) {
                 
-                data.outputColor = pb.write( data.outputColor, Graphics::RHI::ResourceState::RenderTarget ); 
-                data.outputDepth = pb.write( data.outputDepth, Graphics::RHI::ResourceState::DepthWrite );
+                data.outputColorHandle = pb.write( data.outputColorHandle, Graphics::RHI::ResourceState::RenderTarget ); 
+                data.outputDepthHandle = pb.write( data.outputDepthHandle, Graphics::RHI::ResourceState::DepthWrite );
 
-                data.res.vertexBuffer = pb.read( data.res.vertexBuffer, Graphics::RHI::ResourceState::GeneralRead );
-                data.res.indexBuffer  = pb.read( data.res.indexBuffer,  Graphics::RHI::ResourceState::GeneralRead ); },
+                data.bufferHandles.vertex = pb.read( data.bufferHandles.vertex, Graphics::RHI::ResourceState::GeneralRead );
+                data.bufferHandles.index  = pb.read( data.bufferHandles.index,  Graphics::RHI::ResourceState::GeneralRead ); },
 
                                  // EXECUTE
                                  [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
@@ -51,50 +53,47 @@ public:
 private:
     void execute( const Config& data, Graphics::RenderPassContext& ctx ) {
 
-        auto*       cmd   = ctx.cmd;
-        const auto& scene = *data.scene;
+        auto* cmd   = ctx.cmd;
+        auto& scene = *data.gpuScene;
 
         // RenderTargets
-        auto* rtv = ctx.getTexture( data.outputColor );
-        auto* dsv = ctx.getTexture( data.outputDepth );
+        auto* rtv = ctx.getTexture( data.outputColorHandle );
+        auto* dsv = ctx.getTexture( data.outputDepthHandle );
+
+        // Global Layout
+        auto* matLayout = ctx.pipelines.getLayout( data.matLayoutHandle );
 
         // Begin Rendering
         Graphics::RHI::RenderingDesc info;
-        info.renderArea = targetTex->getDescription().size.to2D();
-        info.colorAttachments.push_back( { .texture = targetTex } );
-        info.depthStencilAttachment = { .texture = depthTex };
+        info.renderArea = rtv->getDescription().size.to2D();
+        info.colorAttachments.push_back( { .texture = rtv } );
+        info.depthStencilAttachment = { .texture = dsv };
         ctx.cmd->beginRendering( info );
 
         // -----------------------------------------------------
         // BINDING GLOBAL RESOURCES (Space 0 & 1)
         // -----------------------------------------------------
-        auto* vb  = ctx.getBuffer( data.res.vertexBuffer );
-        auto* ib  = ctx.getBuffer( data.res.indexBuffer );
-        auto* ubo = ctx.getBuffer( data.res.volatileUBO );
+        auto* vb  = ctx.getBuffer( data.bufferHandles.vertex );
+        auto* ib  = ctx.getBuffer( data.bufferHandles.index );
+        auto* ubo = ctx.getBuffer( data.bufferHandles.volatileUBO );
 
-        // SPACE 1: Persistent Data
-        auto* set0 = ctx.allocateSet( dummyPipe->getDescription().layout, 0 ); // Space 0
-        set0->attach( 0, vb, Graphics::RHI::ResourceState::ShaderResource );   // t0
-        set0->attach( 1, ib, Graphics::RHI::ResourceState::ShaderResource );   // t1
-        cmd->bindDescriptorSet( 0, set0 );
+        // SPACE 0: Persistent Data
+        auto* set0 = ctx.allocateSet( matLayout, 0 );                        // Space 0
+        set0->attach( 0, vb, Graphics::RHI::ResourceState::ShaderResource ); // t0
+        set0->attach( 1, ib, Graphics::RHI::ResourceState::ShaderResource ); // t1
+
+        cmd->bindDescriptorSet( 0, set0, matLayout );
 
         // SPACE 1: Volatile Data (Views into the giant UBO)
-        auto* set1 = ctx.allocateSet( dummyPipe->getDescription().layout, 1 ); // Space 1
+        auto* set1 = ctx.allocateSet( matLayout, 1 ); // Space 1
 
-        // View 1: Frame Data (CBV) - b0
-        set1->attach( 0, ubo, data.offsets.frameOffset, sizeof( GPUFrame ) );
+        // Frame (b0), Meshes (t0), Instances (t1), Lights (t2)
+        set1->attachDynamic( 0, ubo, data.uboOffsets.frameOffset, sizeof( GPUFrame ), 0, Graphics::RHI::ResourceState::ConstantBuffer );
+        set1->attachDynamic( 1, ubo, data.uboOffsets.meshOffset, scene.meshes().size() * sizeof( GPUMesh ), sizeof( GPUMesh ), Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachDynamic( 2, ubo, data.uboOffsets.instanceOffset, scene.instances().size() * sizeof( GPUInstance ), sizeof( GPUInstance ), Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachDynamic( 3, ubo, data.uboOffsets.lightOffset, scene.lights().size() * sizeof( GPULight ), sizeof( GPULight ), Graphics::RHI::ResourceState::ShaderResource );
 
-        // View 2: Meshes (Structured) - t0
-        // Nota: Stride = sizeof(GPUMesh), Size = Resto del buffer o exacto
-        set1->attach( 0, ubo, data.offsets.meshOffset, scene.meshes().size() * sizeof( GPUMesh ), sizeof( GPUMesh ) );
-
-        // View 3: Instances (Structured) - t1
-        set1->attach( 1, ubo, data.offsets.instanceOffset, scene.instances().size() * sizeof( GPUInstance ), sizeof( GPUInstance ) );
-
-        // View 4: Lights (Structured) - t2
-        set1->attach( 2, ubo, data.offsets.lightOffset, scene.lights().size() * sizeof( GPULight ), sizeof( GPULight ) );
-
-        cmd->bindDescriptorSet( 1, set1 );
+        cmd->bindDescriptorSet( 1, set1, matLayout );
 
         // -----------------------------------------------------
         // 3. DRAW LOOP
@@ -102,29 +101,32 @@ private:
         const auto& instances     = scene.instances();
         const auto& matArchetypes = data.matLib->getArchetypesRaw();
 
-        // Optimización: Agrupar por Material y Mesh para reducir cambios de estado.
-        // for(){
-        //     agrupar por material y mesh, reordenar array (Primero todas con material x, etc)
-        // }
+        // TODO: Aquí iría el sorting de drawList en el futuro
 
-        Graphics::PipelineHandle lastPipeline;
-        uint                     lastMeshID = MAX_UINT32;
+        Graphics::PipelineHandle lastPipelineHandle;
+
+        // uint                     lastMeshID = MAX_UINT32;
         for ( ulong i = 0; i < instances.size(); ++i )
         {
             const auto& inst = instances[i];
             if ( inst.active == 0 )
                 continue;
 
-            const auto&              meshData = scene.meshes()[inst.meshID];
-            Graphics::PipelineHandle pipeline;
-            if ( lastPipeline != pipeline )
-                // pipeline = matArchetypes[material.archeTypeID].pipeline[Opaque][meshData.topology]
-                pipeline = matArchetypes[0].pipeline[MaterialPassType::Opaque][MaterialTopologyType::Triangles];
+            const auto& meshData = scene.meshes()[inst.meshID];
 
-            if ( pipeline.isValid() )
+            Graphics::PipelineHandle targetPipelineHandle = matArchetypes[0].getPipeline( MaterialPassType::Opaque, MaterialTopologyType::Triangles );
+            if ( targetPipelineHandle != lastPipelineHandle )
             {
-                auto* pso = ctx.pipelines.getGraphicPipeline( pipeline );
-                cmd->bindGraphicPipeline( pso );
+                if ( targetPipelineHandle.isValid() )
+                {
+                    auto* pso = ctx.pipelines.getGraphicPipeline( targetPipelineHandle );
+                    cmd->bindGraphicPipeline( pso );
+                    lastPipelineHandle = targetPipelineHandle;
+
+                    // NOTA IMPORTANTE:
+                    // Al cambiar el PSO, DX12 *mantiene* los DescriptorSets 0 y 1 bindeados
+                    // porque el RootSignature es el mismo (gracias al GlobalLayout).
+                }
             }
 
             struct Push {
@@ -137,7 +139,7 @@ private:
             cmd->draw( meshData.indexCount, 1 );
         }
 
-        cmd->endRenderPass();
+        cmd->endRendering();
     }
 };
 

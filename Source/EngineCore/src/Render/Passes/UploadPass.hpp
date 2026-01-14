@@ -10,13 +10,13 @@ class UploadPass : public IRenderPass
 {
 public:
     struct GlobalBufferHandles {
-        Graphics::RGResourceHandle vertexBuffer;
-        Graphics::RGResourceHandle indexBuffer;
-        Graphics::RGResourceHandle mtlBuffer;
+        Graphics::RGResourceHandle vertex;
+        Graphics::RGResourceHandle index;
+        Graphics::RGResourceHandle materials;
     };
     struct Config {
-        GlobalBufferHandles handles;
-        GPUScene*           scene             = nullptr;
+        GlobalBufferHandles bufferHandles;
+        GPUScene*           gpuScene             = nullptr;
         ulong               maxAllocationSize = 0;
     };
 
@@ -25,14 +25,14 @@ public:
 
     void addToGraph( Graphics::RenderGraphBuilder& builder, const Config& seedData ) {
         // Early Exit
-        if ( !seedData.scene || !seedData.scene->hasPendingUploads() )
+        if ( !seedData.gpuScene || !seedData.gpuScene->hasPendingUploads() )
             return;
 
         builder.addPass<Config>( "UploadPass", seedData,
 
                                  []( Graphics::RenderPassBuilder& pb, Config& data ) {
-                data.handles.vertexBuffer = pb.write( data.handles.vertexBuffer, Graphics::RHI::ResourceState::CopyDest );
-                data.handles.indexBuffer  = pb.write( data.handles.indexBuffer,  Graphics::RHI::ResourceState::CopyDest ); },
+                data.bufferHandles.vertex = pb.write( data.bufferHandles.vertex, Graphics::RHI::ResourceState::CopyDest );
+                data.bufferHandles.index  = pb.write( data.bufferHandles.index,  Graphics::RHI::ResourceState::CopyDest ); },
 
                                  [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
     }
@@ -42,7 +42,7 @@ private:
 
         // Setup
         auto* cmd       = ctx.cmd;
-        auto& scene     = *data.scene;
+        auto& scene     = *data.gpuScene;
         auto* allocator = ctx.transAllocator;
 
         uint totalUsedSpace = 0;
@@ -51,8 +51,8 @@ private:
         // GEOMETRY UPLOAD
         //--------------------------------------------
 
-        auto* vb = ctx.getBuffer( data.handles.vertexBuffer );
-        auto* ib = ctx.getBuffer( data.handles.indexBuffer );
+        auto* vb = ctx.getBuffer( data.bufferHandles.vertex );
+        auto* ib = ctx.getBuffer( data.bufferHandles.index );
 
         static uint currentVtxOffset = 0;
         static uint currentIdxOffset = 0;

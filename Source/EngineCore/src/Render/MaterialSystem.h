@@ -90,6 +90,9 @@ public:
     ArchetypeBuilder beginMaterial( const std::string& name );
 
     void init( Graphics::API api );
+
+    void setTargetLayout( Graphics::PipelineLayoutHandle globalLayout );
+
     void setPassFormats( MaterialPassType passType, const MaterialPassProfile& profile );
 
     void registerShaders( Graphics::IShaderRegistry& shaders );
@@ -97,6 +100,7 @@ public:
     void createPipelines( Graphics::IPipelineRegistry& pipelines );
 
     AXION_FORCE_INLINE const std::vector<MaterialArchetype>& getArchetypesRaw() const { return _archetypes; }
+    AXION_FORCE_INLINE bool                                  isInitialized() const { return _initialized; }
 
     uint getArchetypeID( const std::string& name );
 
@@ -112,6 +116,8 @@ private:
     std::unordered_map<std::string, uint> _archetypeLookup;
 
     std::array<MaterialPassProfile, (size_t)MaterialPassType::Count> _passProfiles;
+
+    Graphics::PipelineLayoutHandle _globalLayoutHandle; //Global Shader Contract
 
     Graphics::API _api;
     bool          _initialized = false;

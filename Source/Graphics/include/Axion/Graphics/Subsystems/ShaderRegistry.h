@@ -100,7 +100,7 @@ public:
     }
 
     /// @brief Enables or disables automatic reflection via Slang.
-    /// Default is true unless a manual layout is provided.
+    /// Default is true 
     Builder& autoReflect( bool opt ) {
         _desc.autoReflect = opt;
         return *this;

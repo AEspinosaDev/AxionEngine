@@ -23,7 +23,7 @@ void GPUScene::update( const Scene::Scene& cpuScene,
 }
 
 GPUScene::TransientOffsets GPUScene::uploadTransientData( Graphics::RHI::IBuffer* destBuffer ) {
-    TransientOffsets offsets;
+   TransientOffsets offsets;
 
     uint currentOffset = 0;
     // (D3D12/Vulkan)
@@ -31,6 +31,7 @@ GPUScene::TransientOffsets GPUScene::uploadTransientData( Graphics::RHI::IBuffer
 
     // 1. FRAME DATA (Constant Buffer)
     // ---------------------------------------------------------
+    // CBVs requieren alineación de 256 bytes al inicio. Como currentOffset es 0, OK.
     offsets.frameOffset = currentOffset;
     destBuffer->copyData( _frame, currentOffset );
 
@@ -39,35 +40,44 @@ GPUScene::TransientOffsets GPUScene::uploadTransientData( Graphics::RHI::IBuffer
 
     // 2. MESH METADATA (Structured Buffer)
     // ---------------------------------------------------------
+    if ( sizeof( GPUMesh ) > 0 )
+        currentOffset = Helpers::alignu( currentOffset, sizeof( GPUMesh ) );
+
     offsets.meshOffset = currentOffset;
+
     if ( !_meshCache.empty() )
     {
         destBuffer->copyData( _meshCache, currentOffset );
-
         currentOffset += _meshCache.size() * sizeof( GPUMesh );
-        currentOffset = Helpers::alignu( currentOffset, CBV_ALIGNMENT );
+        // Ya no alineamos a 256 al final, el siguiente bloque se encargará de su propia alineación
     }
 
     // 3. INSTANCE DATA (Structured Buffer)
     // ---------------------------------------------------------
+    // CRÍTICO: Alinear al tamaño del struct
+    if ( sizeof( GPUInstance ) > 0 )
+        currentOffset = Helpers::alignu( currentOffset, sizeof( GPUInstance ) );
+
     offsets.instanceOffset = currentOffset;
+
     if ( !_instances.empty() )
     {
         destBuffer->copyData( _instances, currentOffset );
-
         currentOffset += _instances.size() * sizeof( GPUInstance );
-        currentOffset = Helpers::alignu( currentOffset, CBV_ALIGNMENT );
     }
 
     // 4. LIGHT DATA (Structured Buffer)
     // ---------------------------------------------------------
+    // CRÍTICO: Alinear al tamaño del struct
+    if ( sizeof( GPULight ) > 0 )
+        currentOffset = Helpers::alignu( currentOffset, sizeof( GPULight ) );
+
     offsets.lightOffset = currentOffset;
+
     if ( !_lights.empty() )
     {
         destBuffer->copyData( _lights, currentOffset );
-
         currentOffset += _lights.size() * sizeof( GPULight );
-        currentOffset = Helpers::alignu( currentOffset, CBV_ALIGNMENT );
     }
 
     return offsets;

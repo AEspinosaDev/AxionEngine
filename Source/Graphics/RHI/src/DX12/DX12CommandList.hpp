@@ -35,6 +35,7 @@ public:
     void bindGraphicPipeline( IGraphicPipeline* pipeline ) override;
     void bindRaytracingPipeline( IRayTracingPipeline* pipeline ) override;
     void bindDescriptorSet( uint setIndex, IDescriptorSet* set ) override;
+    void bindDescriptorSet( uint setIndex, IDescriptorSet* set, IPipelineLayout* layout, PipelineBindPoint bindPoint = PipelineBindPoint::Graphic ) override;
 
     void dispatch( const Extent3D& gridSize ) override;
     void dispatchRays( const SBT::View& sbtView, const Extent3D& screenSize ) override;

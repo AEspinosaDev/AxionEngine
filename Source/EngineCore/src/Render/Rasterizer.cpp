@@ -27,17 +27,13 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
         .RGDescriptorsPerFrame = settings.memory.RGDescriptorsPerFrame,
         .RGTransientAllocSize  = settings.memory.volatileBufferSize,
         .GCMode                = settings.common.GCMode,
-        .autoSync              = true };
+        .autoSync              = true,
+        .selectedDeviceID      = settings.common.selectedDeviceID };
 
     _rnd = Graphics::createRenderer( wnd->getNativeWindow(), rndStts );
 
-    // Configure Material Library
-    _matLib.init( settings.common.gfxApi );
-    _matLib.setPassFormats( MaterialPassType::Opaque,
-                            MaterialPassProfile {
-                                .renderTargetFormats = { Graphics::Format::RGBA16_FLOAT },
-                                .depthTargetFormat   = settings.depthFormat,
-                            } );
+    // Configure Material Library & Contract
+    setupMaterialLibrary();
 
     // Registrations
     registerMaterials();
@@ -74,14 +70,14 @@ void Rasterizer::compileShaders( uint threadCount ) {
     AXION_LOG_INFO( Logger::Module::Core, "Start of shader compilation for Renderer [{}] | Num Threads: {}", _settings.common.name, threadCount );
 
     // Register Material & Pass Shaders
-    _matLib.registerShaders( _rnd->shaders() );
+    _mtlLib.registerShaders( _rnd->shaders() );
     _passes.registerShaders( _rnd->shaders() );
 
     // Compile
     _rnd->shaders().compileAllShaders( threadCount );
 
     // Pipeline creation
-    _matLib.createPipelines( _rnd->pipelines() );
+    _mtlLib.createPipelines( _rnd->pipelines() );
     _passes.createPipelines( _rnd->pipelines() );
 
     auto endTime = std::chrono::high_resolution_clock::now();
@@ -113,47 +109,91 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
     auto currentUboBuffer = _rnd->resources().getBuffer( _res.uboBufferHandles[_rnd->getCurrentFrameIndex()] );
     auto transientOffsets = _gpuScene.uploadTransientData( currentUboBuffer );
 
-    
-
     _rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
         auto rtExtent = _window->getSettings().size.to3D();
 
-        // // A. Upload
-        // UploadPass::Config upConfig;
-        // upConfig.GPUResoruces = _res;
-        // upConfig.GPUScene     = &_gpuScene;
+        // A. Upload
+        UploadPass::Config upConfig;
+        upConfig.bufferHandles = {
+            .vertex = builder.import( "GlobalVertexBuffer", _res.vertexBufferHandle ),
+            .index  = builder.import( "GlobalIndexBuffer", _res.indexBufferHandle ) };
+        upConfig.gpuScene          = &_gpuScene;
+        upConfig.maxAllocationSize = _settings.memory.uploadBufferSize;
 
-        // _passes.getPass<UploadPass>()->addToGraph( builder, upConfig );
+        _passes.getPass<UploadPass>()->addToGraph( builder, upConfig );
 
-        // // A. Forward
-        // ForwardPass::Config fwConfig;
-        // fwConfig.output = builder.texture( "ColorBuffer" )
-        //                       .asRenderTarget()
-        //                       .asStorage()
-        //                       .format( Format::RGBA16_FLOAT )
-        //                       .extent( rtExtent )
-        //                       .clearValue( { .color = { 0.2f, 0.2f, 0.2f, 1.0f } } )
-        //                       .create();
+        // B. Forward
+        ForwardPass::Config fwConfig;
+        fwConfig.outputColorHandle = builder.texture( "ColorBuffer" )
+                                         .asRenderTarget()
+                                         .asStorage()
+                                         .format( Graphics::Format::RGBA16_FLOAT )
+                                         .extent( rtExtent )
+                                         .clearValue( { .color = { 0.2f, 0.2f, 0.2f, 1.0f } } )
+                                         .create();
+        fwConfig.outputDepthHandle = builder.texture( "DepthBuffer" )
+                                         .asDepthStencil()
+                                         .format( Graphics::Format::D32 )
+                                         .extent( rtExtent )
+                                         .create();
+        fwConfig.bufferHandles = {
+            .vertex = upConfig.bufferHandles.vertex,
+            .index  = upConfig.bufferHandles.index,
+        };
+        fwConfig.matLib          = &_mtlLib;
+        fwConfig.matLayoutHandle = _globalMtlLayoutHandle;
+        fwConfig.gpuScene        = &_gpuScene;
+        fwConfig.uboOffsets      = transientOffsets;
 
-        // _passes.getPass<ForwardPass>()->addToGraph( builder, fwConfig );
+        _passes.getPass<ForwardPass>()->addToGraph( builder, fwConfig );
 
-        // // C. ToneMapping
-        // ToneMappingPass::Config tmConfig;
-        // tmConfig.input  = fwData.output;
-        // tmConfig.output = tmPass.outputHandle = builder.texture( "ToneMappingOutput" )
-        //                                             .format( _settings.common.backbufferFormat )
-        //                                             .extent( rtExtent )
-        //                                             .asStorage()
-        //                                             .create();
+        // C. ToneMapping
+        ToneMappingPass::Config tmConfig;
+        tmConfig.inputHandle  = fwConfig.outputColorHandle;
+        tmConfig.outputHandle = builder.texture( "ToneMappedBuffer" )
+                                    .format( _settings.common.backbufferFormat )
+                                    .extent( rtExtent )
+                                    .asStorage()
+                                    .create();
 
-        // _passes.getPass<ToneMappingPass>()->addToGraph( builder, tmConfig );
+        _passes.getPass<ToneMappingPass>()->addToGraph( builder, tmConfig );
 
-        // // D. Final Blit/Present
-        // Axion::Graphics::Passes::BlitToBackBuffer cpypass {};
-        // cpypass.inputHandle  = rtPass.output;
-        // cpypass.outputHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
-        // builder.addPass( "FinalBlitPass", cpypass );
+        // D. Final Blit/Present
+      
+        cpypass.inputHandle  = tmConfig.outputHandle;
+        cpypass.outputHandle = builder.import( "Backbuffer", _rnd->getCurrentBackbufferHandle() );
+        builder.addPass( "FinalBlitPass", cpypass );
     } );
+}
+
+void Rasterizer::setupMaterialLibrary() {
+
+    _globalMtlLayoutHandle = _rnd->pipelines().layout( "Global_Material_Layout" )
+                                 // Space 0: Geometry
+                                 .addSet( {
+                                     { 0, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, 1 }, // Vertex
+                                     { 1, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, 1 }  // Index
+                                 } )
+                                 // Space 1: Scene Data
+                                 .addSet( {
+                                     { 0, Graphics::RHI::DescriptorType::UniformBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Frame
+                                     { 0, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, 1 },  // Meshes
+                                     { 1, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, 1 },  // Instances
+                                     { 2, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, 1 }   // Lights
+                                 } )
+                                 // Space 2: Materials
+                                 //  .addSet( 2, { { DescriptorType::SRV, 0, 8 }, { DescriptorType::Sampler, 0, 2 } } )
+                                 // Constants
+                                 .setPushConstants( 128, 0, 2 )
+                                 .create();
+
+    _mtlLib.init( _settings.common.gfxApi );
+    _mtlLib.setTargetLayout( _globalMtlLayoutHandle );
+    _mtlLib.setPassFormats( MaterialPassType::Opaque,
+                            MaterialPassProfile {
+                                .renderTargetFormats = { Graphics::Format::RGBA16_FLOAT },
+                                .depthTargetFormat   = _settings.depthFormat,
+                            } );
 }
 
 void Rasterizer::registerMaterials() {
@@ -161,7 +201,7 @@ void Rasterizer::registerMaterials() {
     // In the future we could reand the file p xml/python and define materials from it.
     // For now, we manually declare
 
-    _matLib.beginMaterial( "TestMaterial" )
+    _mtlLib.beginMaterial( "TestMaterial" )
         .addPass( MaterialPassType::Opaque,
                   AXION_SHADER_DIR "/Slang/Materials/TestMaterial.slang",
                   { { "vsForward", Graphics::RHI::ShaderType::Vertex },
@@ -171,7 +211,7 @@ void Rasterizer::registerMaterials() {
 
 void Rasterizer::registerPasses() {
     _passes.registerPass<UploadPass>();
-    // _passes.registerPass<ForwardPass>();
+    _passes.registerPass<ForwardPass>();
     _passes.registerPass<ToneMappingPass>();
 }
 
