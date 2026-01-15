@@ -139,6 +139,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         fwConfig.bufferHandles = {
             .vertex = upConfig.bufferHandles.vertex,
             .index  = upConfig.bufferHandles.index,
+            .volatileUBO = _res.uboBufferHandles[_rnd->getCurrentFrameIndex()]
         };
         fwConfig.matLib          = &_mtlLib;
         fwConfig.matLayoutHandle = _globalMtlLayoutHandle;

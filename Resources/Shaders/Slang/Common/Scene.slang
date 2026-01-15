@@ -1,17 +1,27 @@
-
+//Aligned to 16 bytes strides doe tto ConstantBuffer usage
 struct FrameData {
     float4x4 viewProj;
     float4x4 invProj;
     float4x4 invView;
-    float3   cameraPosition;
-    float    time;
-    float2   clippingPlanes;
-    float2   resolution;
-    uint     lightCount;
-    uint     instanceCount;
-    float3   sceneAABBMin; // AABB desglosada para padding fácil
-    float3   sceneAABBMax;
+
+    float4 camPos_Time;  // .xyz = Pos, .w = Time
+    float4 res_Clip;     // .xy = Res, .zw = Near/Far
+    float4 sceneParams;  // .x = LightCount, .y = InstanceCount 
+    float4 sceneAABBMin; // .xyz = Min
+    float4 sceneAABBMax; // .xyz = Max
 };
+
+float3 getCameraPos( FrameData f ) { return f.camPos_Time.xyz; }
+float  getTime( FrameData f ) { return f.camPos_Time.w; }
+
+float2 getResolution( FrameData f ) { return f.res_Clip.xy; }
+float2 getClippingPlanes( FrameData f ) { return f.res_Clip.zw; } // x=Near, y=Far
+
+uint getLightCount( FrameData f ) { return (uint)f.sceneParams.x; }
+uint getInstanceCount( FrameData f ) { return (uint)f.sceneParams.y; }
+
+float3 getAABBMin( FrameData f ) { return f.sceneAABBMin.xyz; }
+float3 getAABBMax( FrameData f ) { return f.sceneAABBMax.xyz; }
 
 struct InstanceData {
     float4x4 modelMatrix;  // 64 bytes

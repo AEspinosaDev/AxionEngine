@@ -15,7 +15,7 @@ public:
         Graphics::RGResourceHandle vertex;
         Graphics::RGResourceHandle index;
         Graphics::RGResourceHandle material;
-        Graphics::RGResourceHandle volatileUBO;
+        Graphics::BufferHandle volatileUBO;
     };
 
     struct Config {
@@ -75,7 +75,7 @@ private:
         // -----------------------------------------------------
         auto* vb  = ctx.getBuffer( data.bufferHandles.vertex );
         auto* ib  = ctx.getBuffer( data.bufferHandles.index );
-        auto* ubo = ctx.getBuffer( data.bufferHandles.volatileUBO );
+        auto* ubo = ctx.resources.getBuffer( data.bufferHandles.volatileUBO );
 
         // SPACE 0: Persistent Data
         auto* set0 = ctx.allocateSet( matLayout, 0 );                        // Space 0

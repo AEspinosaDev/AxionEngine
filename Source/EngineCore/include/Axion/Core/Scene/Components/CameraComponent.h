@@ -16,9 +16,9 @@ struct CameraComponent {
 
     ProjectionType projectionType = ProjectionType::Perspective;
 
-    float FOV       = 45.0f; // Deg
-    float nearPlane = 0.1f;
-    float farPlane  = 1000.0f;
+    float FOV       = 60.0f; // Deg
+    float nearPlane = 0.01f;
+    float farPlane  = 10.0f;
     float orthoSize = 10.0f;
 
     bool primary = true;
@@ -32,7 +32,7 @@ struct CameraComponent {
 
         if ( projectionType == ProjectionType::Perspective )
         {
-            return Math::MTX::perspective( FOV, aspectRatio, nearPlane, farPlane );
+            return Math::MTX::perspective( Math::radians( FOV ), aspectRatio, nearPlane, farPlane );
         } else
         {
             float height = orthoSize;

@@ -23,7 +23,7 @@ void GPUScene::update( const Scene::Scene& cpuScene,
 }
 
 GPUScene::TransientOffsets GPUScene::uploadTransientData( Graphics::RHI::IBuffer* destBuffer ) {
-   TransientOffsets offsets;
+    TransientOffsets offsets;
 
     uint currentOffset = 0;
     // (D3D12/Vulkan)
@@ -215,6 +215,9 @@ void GPUScene::processLights( const Scene::Scene& cpuScene ) {
     }
 }
 
+#pragma region Frame
+#pragma endregion
+
 void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose ) {
     if ( cameraEntity && cameraEntity.hasComponent<Scene::CameraComponent>() &&
          cameraEntity.hasComponent<Scene::TransformComponent>() )
@@ -226,6 +229,7 @@ void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolu
         auto model = transComp.getMatrix();
 
         auto viewMat  = Math::MTX::inverse( model );
+        // auto viewMat     = Axion::Math::MTX::lookAt( { 0, 0, -2.0 }, { 0, 0, 0 }, { 0, 1, 0 } );
         auto viewProj = proj * viewMat;
 
         if ( transpose )
@@ -240,11 +244,28 @@ void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolu
             _frame.invProj  = Math::MTX::inverse( proj );
         }
 
-        _frame.cameraPosition = transComp.translation;
-        _frame.time           = _accumulatedTime;
-        _frame.resolution     = resolution;
-        _frame.lightCount     = (uint)_lights.size();
-        _frame.instanceCount  = (uint)_instances.size();
+        _frame.camPos_Time = Math::Vec4(
+            transComp.translation.x,
+            transComp.translation.y,
+            transComp.translation.z,
+            _accumulatedTime );
+
+        float nearPlane = camComp.nearPlane;
+        float farPlane  = camComp.farPlane;
+        _frame.res_Clip = Math::Vec4(
+            (float)resolution.width,
+            (float)resolution.height,
+            nearPlane,
+            farPlane );
+
+        _frame.sceneParams = Math::Vec4(
+            (float)_lights.size(),
+            (float)_instances.size(),
+            0.0f,
+            0.0f );
+
+        // _frame.sceneAABBMin = Math::Vec4( _sceneAABB.min.x, _sceneAABB.min.y, _sceneAABB.min.z, 0.0f );
+        // _frame.sceneAABBMax = Math::Vec4( _sceneAABB.max.x, _sceneAABB.max.y, _sceneAABB.max.z, 0.0f );
     }
 }
 

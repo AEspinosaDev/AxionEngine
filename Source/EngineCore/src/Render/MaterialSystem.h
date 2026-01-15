@@ -50,7 +50,7 @@ struct MaterialArchetype {
         std::string                               customIncludePath;
 
         Graphics::FillMode fillMode = Graphics::FillMode::Solid;
-        Graphics::CullMode cullMode = Graphics::CullMode::Back;
+        Graphics::CullMode cullMode = Graphics::CullMode::None;
         Graphics::BlendOp  blendOp  = Graphics::BlendOp::Add;
     };
     struct Description {

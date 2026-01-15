@@ -58,27 +58,27 @@ struct TransformComponent {
         rotation         = rotation * delta;
     }
 
-    // // Updates Translation, Rotation and Scale from a World Matrix.
-    // // NOTE: This uses glm::decompose under the hood. It requires the matrix to be orthogonal.
-    // void fromMatrix( const Math::Mat4& matrix ) {
-    //     Math::Vec3 skew;
-    //     Math::Vec4 perspective;
+    // Updates Translation, Rotation and Scale from a World Matrix.
+    // NOTE: This uses glm::decompose under the hood. It requires the matrix to be orthogonal.
+    void fromMatrix( const Math::Mat4& matrix ) {
+        Math::Vec3 skew;
+        Math::Vec4 perspective;
 
-    //     glm::decompose( matrix, scale, rotation, translation, skew, perspective );
+        Math::MTX::decompose( matrix, scale, rotation, translation, skew, perspective );
 
-    //     rotation = Math::normalize( rotation );
-    // }
+        rotation = Math::normalize( rotation );
+    }
 
-    // // Orients the transform to look at a specific target position.
-    // // This calculates the rotation needed so that the forward vector (-Z) points to 'target'.
-    // void lookAt( const Math::Vec3& target, const Math::Vec3& worldUp = { 0.0f, 1.0f, 0.0f } ) {
-    //     Math::Mat4 viewMat  = Math::MTX::lookAt( translation, target, worldUp );
-    //     Math::Mat4 worldMat = Math::MTX::inverse( viewMat );
+    // Orients the transform to look at a specific target position.
+    // This calculates the rotation needed so that the forward vector (-Z) points to 'target'.
+    void lookAt( const Math::Vec3& target, const Math::Vec3& worldUp = { 0.0f, 1.0f, 0.0f } ) {
+        Math::Mat4 viewMat  = Math::MTX::lookAt( translation, target, worldUp );
+        Math::Mat4 worldMat = Math::MTX::inverse( viewMat );
 
-    //     // Note: This effectively keeps the current translation and sets scale to 1.0
-    //     // (because lookAt generates a pure rotation/translation matrix).
-    //     fromMatrix( worldMat );
-    // }
+        // Note: This effectively keeps the current translation and sets scale to 1.0
+        // (because lookAt generates a pure rotation/translation matrix).
+        fromMatrix( worldMat );
+    }
 };
 
 } // namespace Core::Scene

@@ -9,4 +9,4 @@
         Type Name
 #endif
 
-static const uint CANON_VERTEX_STRIDE = 128;
+static const uint CANON_VERTEX_STRIDE = 64;

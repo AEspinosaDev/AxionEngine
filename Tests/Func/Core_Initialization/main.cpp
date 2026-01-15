@@ -36,6 +36,8 @@ int main( /*int argc, char* argv[]*/ ) {
         // Scene Setup
         auto cameraEntity = scene.createEntity( "MainCamera" );
         cameraEntity.addComponent<Core::Scene::CameraComponent>();
+        cameraEntity.getComponent<Core::Scene::TransformComponent>().position( { 0.0f, 0.0f, -3.0f } );
+        cameraEntity.getComponent<Core::Scene::TransformComponent>().lookAt( { 0.0f, 0.0f, 0.0f } );
 
         auto ajaxEntity = scene.createEntity( "Ajax" );
         ajaxEntity.addComponent<Core::Scene::MeshComponent>( cubeHandle );
@@ -57,6 +59,30 @@ int main( /*int argc, char* argv[]*/ ) {
 
         while ( !wnd.shouldClose() )
         {
+
+            static uint64_t                           frameCounter   = 0;
+            static double                             elapsedSeconds = 0.0;
+            static std::chrono::high_resolution_clock clock;
+            static auto                               t0 = clock.now();
+
+            frameCounter++;
+            auto t1        = clock.now();
+            auto deltaTime = t1 - t0;
+            t0             = t1;
+
+            elapsedSeconds += deltaTime.count() * 1e-9;
+            if ( elapsedSeconds > 1.0 )
+            {
+                wchar_t buffer[100];
+                double  fps = frameCounter / elapsedSeconds;
+                swprintf_s( buffer, 100, L"FPS: %.2f\n", fps );
+
+                OutputDebugStringW( buffer );
+
+                frameCounter   = 0;
+                elapsedSeconds = 0.0;
+            }
+
             wnd.update();
             rasterizer->render( scene, cameraEntity );
         }

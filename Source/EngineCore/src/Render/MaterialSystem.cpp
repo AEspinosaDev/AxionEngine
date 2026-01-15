@@ -105,19 +105,21 @@ void MaterialLibrary::createPipelines( Graphics::IPipelineRegistry& pipelines ) 
 
                 auto builder = pipelines.graphic( pipName ).shader( shaderHandle ).setLayout( _globalLayoutHandle );
 
-                Graphics::RHI::RasterizerState rasterizerState;
-                rasterizerState.fillMode              = pass.fillMode;
-                rasterizerState.cullMode              = pass.cullMode;
-                rasterizerState.frontCounterClockwise = false;
-                rasterizerState.depthBias             = 0;
-                rasterizerState.depthBiasClamp        = 0.0f;
-                rasterizerState.slopeScaledDepthBias  = 0.0f;
-                rasterizerState.depthClipEnable       = true;
-                rasterizerState.multisampleEnable     = false;
-                rasterizerState.antialiasedLineEnable = false;
+                // Graphics::RHI::RasterizerState rasterizerState;
+                // rasterizerState.fillMode              = pass.fillMode;
+                // // rasterizerState.cullMode              = pass.cullMode;
+                // rasterizerState.cullMode              = pass.cullMode;
+                // rasterizerState.frontCounterClockwise = false;
+                // rasterizerState.depthBias             = 0;
+                // rasterizerState.depthBiasClamp        = 0.0f;
+                // rasterizerState.slopeScaledDepthBias  = 0.0f;
+                // rasterizerState.depthClipEnable       = true;
+                // rasterizerState.multisampleEnable     = false;
+                // rasterizerState.antialiasedLineEnable = false;
 
                 builder.setTopology( rhiTopo );
-                builder.setRasterizer( rasterizerState );
+                // builder.setRasterizer( rasterizerState );
+                builder.cullNone();
 
                 for ( int i = 0; i < _passProfiles[t].renderTargetFormats.size(); ++i )
                 {

@@ -7,6 +7,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp> // For value_ptr
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/matrix_decompose.hpp> 
 
 AXION_NAMESPACE_BEGIN
 
@@ -57,6 +59,9 @@ inline Mat4 perspective( float fovY, float aspect, float zNear, float zFar ) {
     // m[1][1] *= -1;
 
     return m;
+}
+inline void decompose( const Mat4& m, Vec3& scale, Quat& rotation, Vec3& translation, Vec3& skew, Vec4& perspective ) {
+    glm::decompose( m, scale, rotation, translation, skew, perspective );
 }
 
 inline Mat4 rotate( const Mat4& m, float angle, const Vec3& axis ) {

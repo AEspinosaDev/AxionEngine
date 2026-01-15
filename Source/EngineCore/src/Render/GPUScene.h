@@ -39,13 +39,23 @@ struct GPUFrame {
     Math::Mat4 viewProj;
     Math::Mat4 invProj;
     Math::Mat4 invView;
-    Math::Vec3 cameraPosition;
-    float      time;
-    Math::Vec2 clippingPlanes;
-    Extent2D   resolution;
-    uint       lightCount;
-    uint       instanceCount;
-    Math::AABB sceneAABB; // Conservative bounds of the visible scene
+    
+    // Empaquetado: x,y,z = camPos | w = time
+    Math::Vec4 camPos_Time; 
+    
+    // Empaquetado: x,y = resolution | z,w = clippingPlanes (near, far)
+    Math::Vec4 res_Clip; 
+
+    // Empaquetado: x = lightCount | y = instanceCount | z,w = padding (basura)
+    // Nota: Usamos float/Vec4 aquí para mantener la alineación de 16 bytes,
+    // haremos el cast a uint en el shader o usaremos asuint().
+    Math::Vec4 sceneParams; 
+    
+    // x,y,z = AABB Min | w = padding
+    Math::Vec4 sceneAABBMin;
+    
+    // x,y,z = AABB Max | w = padding
+    Math::Vec4 sceneAABBMax;
 };
 
 struct GPULight {
