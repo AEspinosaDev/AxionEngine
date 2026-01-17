@@ -7,36 +7,41 @@ namespace Core::Platform {
 
 struct Window::Impl {
     std::unique_ptr<Graphics::IWindow> nativeWindow;
-    Settings                           setts;
+    
+    Graphics::PlatformType platformType;
 
-    Impl( const Settings& settings )
-        : setts( settings ) {
+    mutable Settings internalSettingsBuffer;
+
+    Impl( const Settings& startupSettings ) 
+        : platformType( startupSettings.platformType ) {
 
         Graphics::IWindow::Settings s;
-        s.name       = setts.name;
-        s.size       = setts.size;
-        s.fullscreen = setts.fullscreen;
-        s.centered   = setts.centered;
-        s.position   = setts.position;
-        s.iconPath   = setts.iconPath;
-        s.cursorPath = setts.cursorPath;
-        s.style      = setts.style;
+        s.name       = startupSettings.name;
+        s.size       = startupSettings.size;
+        s.fullscreen = startupSettings.fullscreen;
+        s.centered   = startupSettings.centered;
+        s.position   = startupSettings.position;
+        s.iconPath   = startupSettings.iconPath;
+        s.cursorPath = startupSettings.cursorPath;
+        s.style      = startupSettings.style;
 
-        if ( setts.platformType == Graphics::PlatformType::Win32 )
+        if ( platformType == Graphics::PlatformType::Win32 )
             nativeWindow = Graphics::createWindowForWin32( GetModuleHandle( nullptr ), s );
-        else if ( setts.platformType == Graphics::PlatformType::GLFW )
+        else if ( platformType == Graphics::PlatformType::GLFW )
             nativeWindow = Graphics::createWindowForGLFW( s );
     }
 };
 
 Window::Window( const Settings& settings )
     : _impl( std::make_unique<Impl>( settings ) ) {
-    AXION_LOG_INFO( Logger::Module::Core, "Window [{}] Created Succesfully", _impl->setts.name );
+    
+    AXION_LOG_INFO( Logger::Module::Core, "Window [{}] Created Succesfully", settings.name );
     AXION_LOG_INFO( Logger::Module::Core, toString() );
 }
 
 Window::~Window() {
-    AXION_LOG_INFO( Logger::Module::Core, "Destroying Window [{}]", _impl->setts.name );
+    std::string wndName = _impl->nativeWindow ? _impl->nativeWindow->getSettings().name : "Closed";
+    AXION_LOG_INFO( Logger::Module::Core, "Destroying Window [{}]", wndName );
 };
 
 bool Window::update() {
@@ -52,21 +57,38 @@ bool Window::shouldClose() const {
 }
 
 Extent2D Window::getSize() const {
-    return _impl->setts.size;
+    return _impl->nativeWindow->getSettings().size;
 }
 
 void Window::setSize( const Extent2D& size ) {
+    // BYPASS: Seteamos en la nativa
+    // _impl->nativeWindow->setSize( size );
 }
 
 bool Window::minimized() const {
     return _impl->nativeWindow->minimized();
 }
+
 const Window::Settings& Window::getSettings() const {
-    return _impl->setts;
+    
+    auto nativeSetts = _impl->nativeWindow->getSettings(); 
+
+    _impl->internalSettingsBuffer.name       = nativeSetts.name;
+    _impl->internalSettingsBuffer.size       = nativeSetts.size;
+    _impl->internalSettingsBuffer.fullscreen = nativeSetts.fullscreen;
+    _impl->internalSettingsBuffer.centered   = nativeSetts.centered;
+    _impl->internalSettingsBuffer.position   = nativeSetts.position;
+    _impl->internalSettingsBuffer.iconPath   = nativeSetts.iconPath;
+    _impl->internalSettingsBuffer.cursorPath = nativeSetts.cursorPath;
+    _impl->internalSettingsBuffer.style      = nativeSetts.style;
+    
+    _impl->internalSettingsBuffer.platformType = _impl->platformType;
+
+    return _impl->internalSettingsBuffer;
 }
 
 Graphics::PlatformType Window::getPlatformType() const {
-    return _impl->setts.platformType;
+    return _impl->platformType;
 }
 
 Graphics::IWindow* Window::getNativeWindow() const {
@@ -98,14 +120,16 @@ Event::EventDispatcher<Event::MouseScrollEvent>& Window::onMouseScroll() {
 }
 
 std::string Window::toString() const {
+    const auto& currentSettings = getSettings();
+
     std::string pltName = "Unknown";
-    if ( _impl->setts.platformType == Graphics::PlatformType::Win32 )
+    if ( currentSettings.platformType == Graphics::PlatformType::Win32 )
         pltName = "Win32";
-    else if ( _impl->setts.platformType == Graphics::PlatformType::GLFW )
+    else if ( currentSettings.platformType == Graphics::PlatformType::GLFW )
         pltName = "GLFW";
 
     return fmt::format(
-        "Window Settings:\n"
+        "Window Settings (Live State):\n"
         "  Name: {}\n"
         "  Platform: {}\n"
         "  VSync: {}\n"
@@ -119,17 +143,18 @@ std::string Window::toString() const {
         "  Centered: {}\n"
         "  Icon Path: {}\n"
         "  Cursor Path: {}\n",
-        _impl->setts.name,
+        currentSettings.name,
         pltName,
-        _impl->setts.vsync,
-        _impl->setts.fullscreen,
-        _impl->setts.position.x,
-        _impl->setts.position.y,
-        _impl->setts.size.width,
-        _impl->setts.size.height,
-        _impl->setts.centered,
-        _impl->setts.iconPath,
-        _impl->setts.cursorPath );
+        currentSettings.vsync,
+        currentSettings.fullscreen,
+        currentSettings.position.x,
+        currentSettings.position.y,
+        currentSettings.size.width,
+        currentSettings.size.height,
+        currentSettings.centered,
+        currentSettings.iconPath,
+        currentSettings.cursorPath );
 }
+
 } // namespace Core::Platform
 AXION_NAMESPACE_END

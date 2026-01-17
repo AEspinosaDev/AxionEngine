@@ -61,6 +61,7 @@ public:
     void attach( uint binding, ISampler* samp ) override;
     void attach( uint binding, IAccel* accel ) override;
     void attachDynamic( uint binding, IBuffer* buf, ulong offset, ulong range, uint stride, ResourceState bindingState ) override;
+    void attachBufferView( uint binding, const BufferView& bufferView, ResourceState bindingState ) override;
 
     void               setDebugName( const std::string& name ) override;
     const std::string& getDebugName() const override;

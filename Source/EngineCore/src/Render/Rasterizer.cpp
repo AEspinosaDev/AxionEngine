@@ -25,7 +25,7 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
         .RGAllocSize           = settings.memory.RGAllocSize,
         .RGAllocSBTSize        = settings.memory.RGAllocSBTSize,
         .RGDescriptorsPerFrame = settings.memory.RGDescriptorsPerFrame,
-        .RGTransientAllocSize  = settings.memory.volatileBufferSize,
+        .RGTransientAllocSize  = settings.memory.uploadBufferSize,
         .GCMode                = settings.common.GCMode,
         .autoSync              = true,
         .selectedDeviceID      = settings.common.selectedDeviceID };
@@ -106,8 +106,11 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                       deltaTime,
                       updateFlags );
 
-    auto currentUboBuffer = _rnd->resources().getBuffer( _res.uboBufferHandles[_rnd->getCurrentFrameIndex()] );
-    auto transientOffsets = _gpuScene.uploadTransientData( currentUboBuffer );
+    auto& currentFrameRes = _res.frame[_rnd->getCurrentFrameIndex()];
+    currentFrameRes.uboAllocator.reset();
+    currentFrameRes.ssboAllocator.reset();
+
+    auto transientViews = uploadTransientData( currentFrameRes.uboAllocator, currentFrameRes.ssboAllocator );
 
     _rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
         auto rtExtent = _window->getSettings().size.to3D();
@@ -138,14 +141,15 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                                          .create();
         fwConfig.bufferHandles = {
             .vertex = upConfig.bufferHandles.vertex,
-            .index  = upConfig.bufferHandles.index,
-            .volatileUBO = _res.uboBufferHandles[_rnd->getCurrentFrameIndex()]
-        };
+            .index  = upConfig.bufferHandles.index },
         fwConfig.matLib          = &_mtlLib;
         fwConfig.matLayoutHandle = _globalMtlLayoutHandle;
         fwConfig.gpuScene        = &_gpuScene;
-        fwConfig.uboOffsets      = transientOffsets;
 
+        fwConfig.frameView       = transientViews.frameView;
+        fwConfig.meshesView      = transientViews.meshesView;
+        fwConfig.instancesView   = transientViews.instancesView;
+        fwConfig.lightsView      = transientViews.lightsView;
         _passes.getPass<ForwardPass>()->addToGraph( builder, fwConfig );
 
         // C. ToneMapping
@@ -160,7 +164,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         _passes.getPass<ToneMappingPass>()->addToGraph( builder, tmConfig );
 
         // D. Final Blit/Present
-      
+
         cpypass.inputHandle  = tmConfig.outputHandle;
         cpypass.outputHandle = builder.import( "Backbuffer", _rnd->getCurrentBackbufferHandle() );
         builder.addPass( "FinalBlitPass", cpypass );
@@ -243,24 +247,128 @@ void Rasterizer::createResources() {
                                .asRaw()
                                .create();
 
-    // NOTA: Recuerda cambiar esto a FreeListAllocator/BuddyAllocator en el futuro
     // _res.geomAllocator = Graphics::RHI::LinearAllocator( r.getBuffer( _res.geomBufferHandle ) );
     // _res.matAllocator  = Graphics::RHI::LinearAllocator( r.getBuffer( _res.matBufferHandle ) );
 
     // B. PER-FRAME BUFFERS (Volatile)
     _framesInFlight = _rnd->getTotalFramesInFlight();
-    _res.uboBufferHandles.resize( _framesInFlight );
-    _res.uboBufferAllocators.reserve( _framesInFlight );
-
+    _res.frame.resize( _framesInFlight );
     for ( uint i = 0; i < _framesInFlight; ++i )
     {
-        _res.uboBufferHandles[i] = r.buffer( "GlobalUBO_" + std::to_string( i ) )
-                                       .size( _settings.memory.volatileBufferSize )
-                                       .onCPU()
-                                       .create();
+        _res.frame[i].uboBufferHandle = r.buffer( "GlobalUBO_" + std::to_string( i ) )
+                                            .size( 1024 )
+                                            .onCPU()
+                                            .create();
+        auto* uboBuffer = r.getBuffer( _res.frame[i].uboBufferHandle );
+        uboBuffer->map();
+        _res.frame[i].uboAllocator = Graphics::RHI::LinearAllocator( uboBuffer );
 
-        _res.uboBufferAllocators.emplace_back( r.getBuffer( _res.uboBufferHandles[i] ) );
+        _res.frame[i].ssboBufferHandle = r.buffer( "GlobalSSBO_" + std::to_string( i ) )
+                                             .size( _settings.memory.volatileBufferSize )
+                                             .onCPU()
+                                             .create();
+        auto* ssboBuffer = r.getBuffer( _res.frame[i].ssboBufferHandle );
+        ssboBuffer->map();
+        _res.frame[i].ssboAllocator = Graphics::RHI::LinearAllocator( ssboBuffer );
     }
+}
+
+Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::LinearAllocator& currentUBOAlloc,
+                                                            Graphics::RHI::LinearAllocator& currentSSBOAlloc ) {
+    TransientViews views;
+
+    // (D3D12/Vulkan)
+    const uint CBV_ALIGNMENT = 256;
+
+    // =================================================================================
+    // 1. FRAME DATA (UBO - Constant Buffer)
+    // =================================================================================
+    {
+        const auto& frameData = _gpuScene.frame();
+
+        views.frameView = currentUBOAlloc.allocate( sizeof( GPUFrame ), CBV_ALIGNMENT );
+
+        if ( views.frameView.isValid() )
+        {
+            memcpy( views.frameView.cpuAddress, &frameData, sizeof( GPUFrame ) );
+            views.frameView.stride = sizeof( GPUFrame );
+            views.frameView.count  = 1;
+        }
+    }
+
+    // =================================================================================
+    // 2. MESH DATA (SSBO - Structured Buffer)
+    // =================================================================================
+    {
+        const auto& meshes = _gpuScene.meshes();
+
+        if ( !meshes.empty() )
+        {
+            views.meshesView = currentSSBOAlloc.allocate<GPUMesh>( meshes.size() );
+
+            if ( views.meshesView.isValid() )
+            {
+                memcpy( views.meshesView.cpuAddress, meshes.data(), views.meshesView.size );
+            }
+        } else
+        {
+            // Dummy
+            views.meshesView       = currentSSBOAlloc.allocate<GPUMesh>( 1 );
+            views.meshesView.count = 0; // Empty
+            if ( views.meshesView.cpuAddress )
+                memset( views.meshesView.cpuAddress, 0, views.meshesView.size );
+        }
+    }
+
+    // =================================================================================
+    // 3. INSTANCE DATA (SSBO - Structured Buffer)
+    // =================================================================================
+    {
+        const auto& instances = _gpuScene.instances();
+
+        if ( !instances.empty() )
+        {
+            views.instancesView = currentSSBOAlloc.allocate<GPUInstance>( instances.size() );
+
+            if ( views.instancesView.isValid() )
+            {
+                memcpy( views.instancesView.cpuAddress, instances.data(), views.instancesView.size );
+            }
+        } else
+        {
+            // DUMMY
+            views.instancesView       = currentSSBOAlloc.allocate<GPUInstance>( 1 );
+            views.instancesView.count = 0;
+            if ( views.instancesView.cpuAddress )
+                memset( views.instancesView.cpuAddress, 0, views.instancesView.size );
+        }
+    }
+
+    // =================================================================================
+    // 4. LIGHT DATA (SSBO - Structured Buffer)
+    // =================================================================================
+    {
+        const auto& lights = _gpuScene.lights();
+
+        if ( !lights.empty() )
+        {
+            views.lightsView = currentSSBOAlloc.allocate<GPULight>( lights.size() );
+
+            if ( views.lightsView.isValid() )
+            {
+                memcpy( views.lightsView.cpuAddress, lights.data(), views.lightsView.size );
+            }
+        } else
+        {
+            // DUMMY
+            views.lightsView       = currentSSBOAlloc.allocate<GPULight>( 1 );
+            views.lightsView.count = 0;
+            if ( views.lightsView.cpuAddress )
+                memset( views.lightsView.cpuAddress, 0, views.lightsView.size );
+        }
+    }
+
+    return views;
 }
 
 } // namespace Core::Render

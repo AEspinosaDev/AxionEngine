@@ -56,6 +56,7 @@ private:
 
     //Topology
     //Needs AS
+    bool _needsAS = false;
 
     void calculateBounds() {
         _aabb = Math::AABB();

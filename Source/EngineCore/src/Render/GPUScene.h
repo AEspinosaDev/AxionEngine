@@ -3,8 +3,9 @@
 #include "Axion/Core/Scene/Entity.h"
 #include "Axion/Core/Scene/Scene.h"
 #include "Axion/Graphics/Handle.h"
-#include "Axion/Graphics/RHI/Resource.h"
 #include "queue"
+#include <span>
+
 
 AXION_NAMESPACE_BEGIN
 
@@ -29,44 +30,33 @@ AXION_ENUM_CLASS_FLAG_OPERATORS( GPUSceneUpdateFlags );
 struct GPUInstance {
     Math::Mat4 modelMatrix;  // 64 bytes
     Math::Mat4 normalMatrix; // 64 bytes
-    uint       materialID;   // Index or Offset into the Material Blob/Buffer
-    uint       meshID;       // Index into the GPUMesh Cache (NOT the Asset ID)
-    uint       active;       // Visibility flag
-    uint       raytraced;    // Flag for TLAS inclusion
+    uint       materialID;   // 4 bytes
+    uint       meshID;       // 4 bytes
+    uint       active;       // 4 bytes
+    uint       raytraced;    // 4 bytes
+
+    // Total: 144 bytes. (Multiple of 4, OK for StructuredBuffer).
 };
 
 struct GPUFrame {
     Math::Mat4 viewProj;
     Math::Mat4 invProj;
     Math::Mat4 invView;
-    
-    // Empaquetado: x,y,z = camPos | w = time
-    Math::Vec4 camPos_Time; 
-    
-    // Empaquetado: x,y = resolution | z,w = clippingPlanes (near, far)
-    Math::Vec4 res_Clip; 
-
-    // Empaquetado: x = lightCount | y = instanceCount | z,w = padding (basura)
-    // Nota: Usamos float/Vec4 aquí para mantener la alineación de 16 bytes,
-    // haremos el cast a uint en el shader o usaremos asuint().
-    Math::Vec4 sceneParams; 
-    
-    // x,y,z = AABB Min | w = padding
-    Math::Vec4 sceneAABBMin;
-    
-    // x,y,z = AABB Max | w = padding
-    Math::Vec4 sceneAABBMax;
+    Math::Vec4 camPos_Time;  // Packed: x,y,z = camPos | w = time
+    Math::Vec4 res_Clip;     // Packed: x,y = resolution | z,w = clippingPlanes (near, far)
+    Math::Vec4 sceneParams;  // Packed: x = lightCount | y = instanceCount | z,w = padding (unsused)
+    Math::Vec4 sceneAABBMin; // x,y,z = AABB Min | w = padding
+    Math::Vec4 sceneAABBMax; // x,y,z = AABB Max | w = padding
 };
 
 struct GPULight {
-    Math::Vec3 position;
-    Math::Vec3 color;
-    Math::Vec3 normal; // Direction for spot/directional lights
-    float      intensity;
-    float      radius; // Attenuation radius
-    float      area;   // For Area Lights / Soft Shadows
-    uint       active;
-    float      padding[3]; // Padding to align to 16 bytes (float4) for GPU
+
+    Math::Vec4 pos_Intensity; // Packed: xyz = Position, w = Intensity
+    Math::Vec4 col_Radius;    // Packed: xyz = Color, w = Radius
+    Math::Vec4 dir_Area;      // Packed: xyz = Direction/Normal, w = Area
+    Math::Vec4 settings;      // Settings: x = active. y,z,w = padding (unused)
+
+    // Total: 64 bytes. (Multiple of 4, OK for StructuredBuffer).
 };
 
 // -----------------------------------------------------------------------------
@@ -76,24 +66,23 @@ struct GPULight {
 // NOTE: This does NOT contain the vertex data itself. It acts as a descriptor/view
 // telling the Renderer WHERE in the MegaBuffer the data is located.
 struct GPUMesh {
-    // Memory layout in the Global Geometry Buffer
-    uint vertexOffset = 0;
-    uint indexOffset  = 0;
-    uint vertexCount  = 0;
-    uint indexCount   = 0;
+    // Offsets y Counts (16 bytes)
+    uint vertexOffset;
+    uint indexOffset;
+    uint vertexCount;
+    uint indexCount;
 
-    // Spatial data for Culling/Raytracing
-    Math::BoundingSphere bsphere;
-    Math::AABB           aabb;
+    Math::Vec4 bsphere; // Bounding Sphere (16 bytes) -> xyz = center, w = radius
+    Math::Vec4 aabbMin; // AABB Min (16 bytes) -> xyz = min, w = unused
+    Math::Vec4 aabbMax; // AABB Max (16 bytes) -> xyz = max, w = unused
 
-    bool needsAS = false; // Flag to build BLAS (Bottom Level Acceleration Structure)
-    bool valid   = false; // True if data is uploaded and resident in VRAM
+    // Flags y Tracking (16 bytes)
+    uint needsAS;
+    uint valid;
+    uint lastFrameUsed;
+    uint originalAssetID;
 
-    // Garbage Collection Tracker (Time-To-Live)
-    uint lastFrameUsed = 0;
-
-    // Back-reference to CPU Asset for cache invalidation
-    uint originalAssetID = 0;
+    // Total: 80 bytes. (Multiple of 4, OK for StructuredBuffer).
 };
 
 // -----------------------------------------------------------------------------
@@ -132,12 +121,7 @@ struct PendingMeshFree {
 class GPUScene
 {
 public:
-    struct TransientOffsets {
-        uint frameOffset    = 0;
-        uint meshOffset     = 0;
-        uint instanceOffset = 0;
-        uint lightOffset    = 0;
-    };
+  
 
     GPUScene()  = default;
     ~GPUScene() = default;
@@ -171,11 +155,6 @@ public:
                  float               deltaTime,
                  GPUSceneUpdateFlags flags = GPUSceneNone );
 
-    /**
-     * @brief Uploads the transient data to the main UBO buffer.
-     * @param destBuffer Raw pointer to a CPU VISIBLE RHI::IBuffer that handles all the transient uniforms.
-     */
-    TransientOffsets uploadTransientData( Graphics::RHI::IBuffer* destBuffer );
 
     void setGCMode( Graphics::GCMode mode ) { _resourceTTL = (uint)mode; }
 

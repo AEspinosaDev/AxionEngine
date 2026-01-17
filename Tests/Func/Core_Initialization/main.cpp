@@ -22,41 +22,46 @@ int main( /*int argc, char* argv[]*/ ) {
         Core::Scene::Scene         scene( "TestScene", &assets );
 
         Core::Render::RasterizerSettings rastDesc {};
-        rastDesc.common.name = "TestRasterizer";
+        rastDesc.common.name             = "TestRasterizer";
+        rastDesc.common.selectedDeviceID = 0;
 
         auto rasterizer = Core::Render::createRasterizer( &wnd, rastDesc );
         rasterizer->compileShaders();
 
         // Asset Loading
-        auto cubeHandle = assets.mesh( "Cube" ).createCube();
-        // assets.deleteMesh( cubeHandle );
-
-        auto ajaxHandle = assets.mesh( "Ajax" ).import( AXION_MESH_DIR "/ajax.obj" );
+        auto cubeHandle   = assets.mesh( "Cube" ).createCube();
+        auto sphreHandle  = assets.mesh( "Sphere" ).createSphere();
+        auto dragonHandle = assets.mesh( "Dragon" ).import( AXION_MESH_DIR "/dragon.obj" );
 
         // Scene Setup
         auto cameraEntity = scene.createEntity( "MainCamera" );
         cameraEntity.addComponent<Core::Scene::CameraComponent>();
-        cameraEntity.getComponent<Core::Scene::TransformComponent>().position( { 0.0f, 0.0f, -3.0f } );
+        cameraEntity.getComponent<Core::Scene::TransformComponent>().position( { 0.0f, 0.0f, -4.0f } );
         cameraEntity.getComponent<Core::Scene::TransformComponent>().lookAt( { 0.0f, 0.0f, 0.0f } );
 
-        auto ajaxEntity = scene.createEntity( "Ajax" );
-        ajaxEntity.addComponent<Core::Scene::MeshComponent>( cubeHandle );
+        auto cubeEntity = scene.createEntity( "Cube1" );
+        cubeEntity.addComponent<Core::Scene::MeshComponent>( cubeHandle );
+        cubeEntity.getComponent<Core::Scene::TransformComponent>().translation = { -1.0f, -1.0f, 0.0f };
 
-        // Checks if ECS works right
-        // {
-        //     auto meshCompVal = ajaxEntity.getComponent<Core::Scene::MeshComponent>().mesh;
-        //     if ( meshCompVal != ajaxHandle )
-        //         return EXIT_FAILURE;
+        auto cubeEntity2 = scene.createEntity( "Cube2" );
+        cubeEntity2.addComponent<Core::Scene::MeshComponent>( cubeHandle );
+        cubeEntity2.getComponent<Core::Scene::TransformComponent>().translation = { 1.0f, -1.0f, 0.0f };
 
-        //     auto transform0 = ajaxEntity.getComponent<Core::Scene::TransformComponent>();
-        //     ajaxEntity.getComponent<Core::Scene::TransformComponent>().translate( { 10.0f, 0.0f, 0.0f } );
-        //     auto transform1 = ajaxEntity.getComponent<Core::Scene::TransformComponent>();
-        //     if ( transform0.translation == transform1.translation )
-        //         return EXIT_FAILURE;
-        // }
+        auto sphereEntity = scene.createEntity( "Sphere" );
+        sphereEntity.addComponent<Core::Scene::MeshComponent>( sphreHandle );
+        sphereEntity.getComponent<Core::Scene::TransformComponent>().translation = { 1.0f, 1.0f, 0.0f };
+        sphereEntity.getComponent<Core::Scene::TransformComponent>().scale       = { 0.5f, 0.5f, 0.5f };
 
-        // scene.destroyEntity( entity2 );
+        auto dragonEntity = scene.createEntity( "Dragon" );
+        dragonEntity.addComponent<Core::Scene::MeshComponent>( dragonHandle );
+        dragonEntity.getComponent<Core::Scene::TransformComponent>().translation = { -1.0f, 1.0f, 0.0f };
 
+        auto eraseEvent = wnd.onKey().subscribe( [&]( const Event::KeyEvent& e ) {
+            if ( e.keyCode == Event::KeyCode::W && e.pressed )
+                scene.destroyEntity( sphereEntity );
+        } );
+
+        static auto startTime = std::chrono::high_resolution_clock::now();
         while ( !wnd.shouldClose() )
         {
 
@@ -82,6 +87,11 @@ int main( /*int argc, char* argv[]*/ ) {
                 frameCounter   = 0;
                 elapsedSeconds = 0.0;
             }
+            float time = std::chrono::duration<float>( t1 - startTime ).count();
+
+            // float angle = time * 1.0f;
+            // cubeEntity.getComponent<Core::Scene::TransformComponent>().rotate( { 0.0f, angle, 0.0f } );
+            // cubeEntity2.getComponent<Core::Scene::TransformComponent>().rotate( { 0.0f, 0.0f, angle } );
 
             wnd.update();
             rasterizer->render( scene, cameraEntity );

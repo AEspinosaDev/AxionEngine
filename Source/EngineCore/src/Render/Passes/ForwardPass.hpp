@@ -15,14 +15,17 @@ public:
         Graphics::RGResourceHandle vertex;
         Graphics::RGResourceHandle index;
         Graphics::RGResourceHandle material;
-        Graphics::BufferHandle volatileUBO;
     };
 
     struct Config {
-        GlobalBufferHandles        bufferHandles;
-        GPUScene::TransientOffsets uboOffsets;
-        GPUScene*                  gpuScene;
+        GlobalBufferHandles bufferHandles;
 
+        Graphics::RHI::BufferView frameView;
+        Graphics::RHI::BufferView meshesView;
+        Graphics::RHI::BufferView instancesView;
+        Graphics::RHI::BufferView lightsView;
+
+        GPUScene*                      gpuScene;
         MaterialLibrary*               matLib;
         Graphics::PipelineLayoutHandle matLayoutHandle;
 
@@ -73,9 +76,8 @@ private:
         // -----------------------------------------------------
         // BINDING GLOBAL RESOURCES (Space 0 & 1)
         // -----------------------------------------------------
-        auto* vb  = ctx.getBuffer( data.bufferHandles.vertex );
-        auto* ib  = ctx.getBuffer( data.bufferHandles.index );
-        auto* ubo = ctx.resources.getBuffer( data.bufferHandles.volatileUBO );
+        auto* vb = ctx.getBuffer( data.bufferHandles.vertex );
+        auto* ib = ctx.getBuffer( data.bufferHandles.index );
 
         // SPACE 0: Persistent Data
         auto* set0 = ctx.allocateSet( matLayout, 0 );                        // Space 0
@@ -88,10 +90,10 @@ private:
         auto* set1 = ctx.allocateSet( matLayout, 1 ); // Space 1
 
         // Frame (b0), Meshes (t0), Instances (t1), Lights (t2)
-        set1->attachDynamic( 0, ubo, data.uboOffsets.frameOffset, sizeof( GPUFrame ), 0, Graphics::RHI::ResourceState::ConstantBuffer );
-        set1->attachDynamic( 1, ubo, data.uboOffsets.meshOffset, scene.meshes().size() * sizeof( GPUMesh ), sizeof( GPUMesh ), Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachDynamic( 2, ubo, data.uboOffsets.instanceOffset, scene.instances().size() * sizeof( GPUInstance ), sizeof( GPUInstance ), Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachDynamic( 3, ubo, data.uboOffsets.lightOffset, scene.lights().size() * sizeof( GPULight ), sizeof( GPULight ), Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferView( 0, data.frameView, Graphics::RHI::ResourceState::ConstantBuffer );
+        set1->attachBufferView( 1, data.meshesView, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferView( 2, data.instancesView, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferView( 3, data.lightsView, Graphics::RHI::ResourceState::ShaderResource );
 
         cmd->bindDescriptorSet( 1, set1, matLayout );
 

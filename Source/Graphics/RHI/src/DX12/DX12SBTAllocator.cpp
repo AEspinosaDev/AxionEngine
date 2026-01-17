@@ -43,8 +43,8 @@ SBT::View DX12SBTAllocator::allocate( const ShaderBindingTable& sbt, IRayTracing
     // A) RayGen
     // Stride = 32 (ID) + Args. Align to 32.
     // Size Total = Stride (1 RayGen), aligned to 64.
-    uint rgStride = Helpers::alignu( D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES + sbt.rayGen.argsSize, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT );
-    uint rgSize   = Helpers::alignu( rgStride, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT );
+    uint rgStride = Helpers::alignubits( D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES + sbt.rayGen.argsSize, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT );
+    uint rgSize   = Helpers::alignubits( rgStride, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT );
 
     // B) Miss
     // Max stride
@@ -52,24 +52,24 @@ SBT::View DX12SBTAllocator::allocate( const ShaderBindingTable& sbt, IRayTracing
     for ( const auto& r : sbt.missGroups )
         maxMissArgs = std::max( maxMissArgs, r.argsSize );
 
-    uint missStride = Helpers::alignu( D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES + maxMissArgs, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT );
-    uint missSize   = Helpers::alignu( missStride * (uint)sbt.missGroups.size(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT );
+    uint missStride = Helpers::alignubits( D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES + maxMissArgs, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT );
+    uint missSize   = Helpers::alignubits( missStride * (uint)sbt.missGroups.size(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT );
 
     // C) Hit Groups
     uint maxHitArgs = 0;
     for ( const auto& r : sbt.hitGroups )
         maxHitArgs = std::max( maxHitArgs, r.argsSize );
 
-    uint hitStride = Helpers::alignu( D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES + maxHitArgs, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT );
-    uint hitSize   = Helpers::alignu( hitStride * (uint)sbt.hitGroups.size(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT );
+    uint hitStride = Helpers::alignubits( D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES + maxHitArgs, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT );
+    uint hitSize   = Helpers::alignubits( hitStride * (uint)sbt.hitGroups.size(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT );
 
     // D) Callables (Optional)
     uint maxCallArgs = 0;
     for ( const auto& r : sbt.callables )
         maxCallArgs = std::max( maxCallArgs, r.argsSize );
 
-    uint callStride = Helpers::alignu( D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES + maxCallArgs, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT );
-    uint callSize   = Helpers::alignu( callStride * (uint)sbt.callables.size(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT );
+    uint callStride = Helpers::alignubits( D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES + maxCallArgs, D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT );
+    uint callSize   = Helpers::alignubits( callStride * (uint)sbt.callables.size(), D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT );
 
     // -------------------------------------------------------------------------
     // 2. (Check bounds)

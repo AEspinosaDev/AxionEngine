@@ -1,4 +1,5 @@
 #pragma once
+#include "Axion/Common/Helpers.h"
 #include "Axion/Graphics/RHI/Common.h"
 #include "Axion/Graphics/RHI/Resource.h"
 
@@ -7,13 +8,20 @@ AXION_NAMESPACE_BEGIN
 namespace Graphics::RHI {
 
 struct BufferView {
-    ulong    gpuAddress = 0;
-    uchar*   cpuAddress = nullptr;
-    ulong    offset     = 0;
-    IBuffer* buffer     = nullptr;
+
+    IBuffer* buffer = nullptr;
+    ulong    size   = 0;
+    ulong    stride = 0;
+    ulong    count  = 0;
+    ulong    offset = 0;
+
+    ulong  gpuAddress = 0;
+    uchar* cpuAddress = nullptr;
 
     bool isValid() const { return buffer != nullptr; }
 };
+
+#pragma region LinearAllocator
 
 class BufferLinearAllocator
 {
@@ -33,9 +41,14 @@ public:
         }
     }
 
+    template <typename T>
+    AXION_FORCE_INLINE BufferView allocate( ulong count ) {
+        return allocate( count * sizeof( T ), sizeof( T ) );
+    }
+
     AXION_FORCE_INLINE BufferView allocate( ulong size, ulong alignment = 256 ) {
 
-        ulong alignedOffset = ( _currentOffset + ( alignment - 1 ) ) & ~( alignment - 1 );
+        ulong alignedOffset = Helpers::safeAlign( _currentOffset, alignment );
 
         if ( alignedOffset + size > _capacity )
         {
@@ -43,14 +56,25 @@ public:
                              "LinearAllocator with buffer [{}] Overflow! Request: {}, Available: {}",
                              _buffer->getDebugName(),
                              size,
-                             _capacity - alignedOffset );
+                             _capacity - _currentOffset );
             return {};
         }
 
         BufferView alloc;
         alloc.buffer     = _buffer;
         alloc.offset     = alignedOffset;
+        alloc.size       = size;
         alloc.gpuAddress = _gpuBase + alignedOffset;
+
+        if ( alignment > 0 )
+        {
+            alloc.stride = alignment;
+            alloc.count  = size / alignment;
+        } else
+        {
+            alloc.stride = size;
+            alloc.count  = 1;
+        }
 
         if ( _cpuBase )
             alloc.cpuAddress = _cpuBase + alignedOffset;
@@ -72,7 +96,6 @@ public:
 private:
     IBuffer* _buffer;
 
-    std::string _debugName;
     ulong       _gpuBase = 0;
     uchar*      _cpuBase = nullptr;
 
@@ -82,21 +105,170 @@ private:
 
 typedef BufferLinearAllocator LinearAllocator;
 
+#pragma endregion
+
+#pragma region FreeListAllocator
+
+
 class BufferFreeListAllocator
 {
+    struct FreeBlock
+    {
+        ulong offset;
+        ulong size;
+    };
+
 public:
+    BufferFreeListAllocator() {};
+    
+    BufferFreeListAllocator( IBuffer* buffer )
+        : _buffer( buffer ) {
+
+        AXION_LOG_ASSERT( buffer, Logger::Module::RHI, "FreeListAllocator initialized with null buffer" );
+
+        _capacity = buffer->getDescription().size;
+        _gpuBase  = buffer->getDeviceAddress();
+
+        if ( buffer->getDescription().memoryType != MemoryUsage::GPUOnly )
+        {
+            _cpuBase = static_cast<uchar*>( buffer->getData() );
+        }
+
+        _freeBlocks.push_back( { 0, _capacity } );
+    }
+
+    template <typename T>
+    AXION_FORCE_INLINE BufferView allocate( ulong count ) {
+        return allocate( count * sizeof( T ), sizeof( T ) );
+    }
+
+    BufferView allocate( ulong size, ulong alignment = 256 ) {
+        
+        for ( auto it = _freeBlocks.begin(); it != _freeBlocks.end(); ++it )
+        {
+            ulong alignedOffset = Helpers::safeAlign( it->offset, alignment );
+            ulong padding       = alignedOffset - it->offset;
+            ulong requiredSize  = size + padding;
+
+            if ( it->size >= requiredSize )
+            {
+
+                BufferView alloc;
+                alloc.buffer     = _buffer;
+                alloc.offset     = alignedOffset;
+                alloc.size       = size;
+                alloc.gpuAddress = _gpuBase + alignedOffset;
+                
+                if ( alignment > 0 ) {
+                    alloc.stride = alignment;
+                    alloc.count  = size / alignment;
+                } else {
+                    alloc.stride = size;
+                    alloc.count  = 1;
+                }
+
+                if ( _cpuBase ) alloc.cpuAddress = _cpuBase + alignedOffset;
+
+                // Update Free Slot
+                ulong totalConsumed = requiredSize;
+                ulong remainingSize = it->size - totalConsumed;
+
+                if ( remainingSize > 0 )
+                {
+                    it->offset += totalConsumed;
+                    it->size   = remainingSize;
+                }
+                else
+                {
+                    _freeBlocks.erase( it );
+                }
+
+                _usedSize += size; // Solo contamos lo útil, no el padding
+                return alloc;
+            }
+        }
+
+       
+        AXION_LOG_ERROR( Logger::Module::RHI,
+             "FreeListAllocator [{}] OOM! Request: {}, Max Free Block available: {}",
+             _buffer->getDebugName(), size, getMaxFreeBlockSize() );
+
+        return {};
+    }
+
+    void free( const BufferView& view ) {
+        if ( !view.isValid() || view.buffer != _buffer )
+        {
+            AXION_LOG_WARN( Logger::Module::RHI, "Trying to free invalid view or view from another buffer" );
+            return;
+        }
+
+        FreeBlock newBlock = { view.offset, view.size };
+        
+        // Fusion(Coalescing)
+        insertAndCoalesce( newBlock );
+
+        _usedSize -= view.size;
+    }
+
+    void reset() {
+        _freeBlocks.clear();
+        _freeBlocks.push_back( { 0, _capacity } );
+        _usedSize = 0;
+    }
+    
+    ulong getUsedSize() const { return _usedSize; }
+    ulong getTotalSize() const { return _capacity; }
+
 private:
-    IBuffer* _buffer;
+    
+    void insertAndCoalesce( FreeBlock block ) {
+        
+        auto it = std::upper_bound( _freeBlocks.begin(), _freeBlocks.end(), block.offset,
+            []( ulong val, const FreeBlock& b ) { return val < b.offset; } 
+        );
 
-    std::string _debugName;
+        it = _freeBlocks.insert( it, block );
+
+        
+        auto next = it;
+        ++next;
+        
+        //Eats next one if possible
+        if ( next != _freeBlocks.end() && (it->offset + it->size == next->offset) ) {
+            it->size += next->size; 
+            _freeBlocks.erase( next ); 
+        }
+
+        //Prev eats current
+        if ( it != _freeBlocks.begin() ) {
+            auto prev = it;
+            --prev;
+            if ( prev->offset + prev->size == it->offset ) {
+                prev->size += it->size; 
+                _freeBlocks.erase( it ); 
+            }
+        }
+    }
+
+    ulong getMaxFreeBlockSize() const {
+        ulong maxS = 0;
+        for(const auto& b : _freeBlocks) if(b.size > maxS) maxS = b.size;
+        return maxS;
+    }
+
+    IBuffer* _buffer = nullptr;
     ulong       _gpuBase = 0;
-    uchar*      _cpuBase = nullptr;
+    uchar* _cpuBase = nullptr;
 
-    ulong _capacity      = 0;
-    ulong _currentOffset = 0;
+    ulong _capacity = 0;
+    ulong _usedSize = 0;
+
+    std::vector<FreeBlock> _freeBlocks; 
 };
-
 typedef BufferFreeListAllocator FreeListAllocator;
+
+#pragma endregion
 
 DEFINE_COM_PTR_FOR_TYPE( ITransientAllocator, TransientAllocator )
 /**

@@ -24,13 +24,12 @@ float3 getAABBMin( FrameData f ) { return f.sceneAABBMin.xyz; }
 float3 getAABBMax( FrameData f ) { return f.sceneAABBMax.xyz; }
 
 struct InstanceData {
-    float4x4 modelMatrix;  // 64 bytes
-    float4x4 normalMatrix; // 64 bytes
-    uint     materialID;   // 4 bytes
-    uint     meshID;       // 4 bytes (Index into gMeshes)
-    uint     active;       // 4 bytes
-    uint     raytraced;    // 4 bytes
-    // Total: 144 bytes. (144 % 16 != 0), ojo con padding si usas arrays muy compactos,
+    float4x4 modelMatrix;
+    float4x4 normalMatrix;
+    uint     materialID;
+    uint     meshID;
+    uint     active;
+    uint     raytraced;
 };
 
 struct MeshData {
@@ -41,8 +40,8 @@ struct MeshData {
 
     float4 bsphere;
 
-    float3 aabbMin;
-    float3 aabbMax;
+    float4 aabbMin; // .w unused
+    float4 aabbMax; // .w unused
 
     uint needsAS;
     uint valid;
@@ -51,15 +50,13 @@ struct MeshData {
 };
 
 struct LightData {
-    float3 position;
-    float  padding0; // Slang/HLSL alinea float3+float a float4
-    float3 color;
-    float  padding1;
-    float3 normal;
-    float  intensity;
-    float  radius;
-    float  area;
-    uint   active;
-    float  padding2;
-    // Asegúrate de que esto suma lo mismo que tu struct C++ con padding[3]
+    float4 pos_Intensity; // .xyz = Pos, .w = Intensity
+    float4 col_Radius;    // .xyz = Col, .w = Radius
+    float4 dir_Area;      // .xyz = Nrm, .w = Area
+    float4 settings;      // .x = Active
 };
+
+float3 getLightPos( LightData l ) { return l.pos_Intensity.xyz; }
+float  getLightIntensity( LightData l ) { return l.pos_Intensity.w; }
+float3 getLightCol( LightData l ) { return l.col_Radius.xyz; }
+float  getLightRadius( LightData l ) { return l.col_Radius.w; }

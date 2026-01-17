@@ -121,7 +121,7 @@ void DX12DescriptorSet::attach( uint binding, IBuffer* buf, ResourceState bindin
 void DX12DescriptorSet::attachDynamic( uint binding, IBuffer* buf, ulong offset, ulong range, uint stride, ResourceState bindingState ) {
     AXION_LOG_ASSERT( buf, Logger::Module::RHI, "Binding null buffer!" );
 
-    auto* dxBuf     = static_cast<DX12Buffer*>( buf );
+    auto*           dxBuf  = static_cast<DX12Buffer*>( buf );
     ID3D12Resource* d3dRes = dxBuf->getNativeObject( ObjectTypes::DX12_Resource );
 
     D3D12_CPU_DESCRIPTOR_HANDLE destHandle = _views.startCPU;
@@ -142,7 +142,7 @@ void DX12DescriptorSet::attachDynamic( uint binding, IBuffer* buf, ulong offset,
         case ResourceState::ConstantBuffer: {
             D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
             cbvDesc.BufferLocation                  = gpuAddress;
-            cbvDesc.SizeInBytes = (UINT)Helpers::alignUp( range, (size_t)256 );
+            cbvDesc.SizeInBytes                     = (UINT)Helpers::alignUp( range, (size_t)256 );
 
             _device->CreateConstantBufferView( &cbvDesc, destHandle );
             break;
@@ -210,6 +210,10 @@ void DX12DescriptorSet::attachDynamic( uint binding, IBuffer* buf, ulong offset,
             AXION_LOG_ERROR( Logger::Module::RHI, "Unsupported or invalid binding state for buffer attachment" );
             break;
     }
+}
+
+void DX12DescriptorSet::attachBufferView( uint binding, const BufferView& bufferView, ResourceState bindingState ) {
+    attachDynamic( binding, bufferView.buffer, bufferView.offset, bufferView.size, bufferView.stride, bindingState );
 }
 
 void DX12DescriptorSet::attach( uint binding, ISampler* samp ) {

@@ -1,6 +1,7 @@
 #pragma once
 #include "Axion/Common/Math.h"
 #include "Axion/Graphics/RHI/Common.h"
+#include "Axion/Graphics/RHI/Memory.hpp"
 #include "Axion/Graphics/RHI/Resource.h"
 
 AXION_NAMESPACE_BEGIN
@@ -30,6 +31,7 @@ public:
     virtual void attach( uint binding, ISampler* samp )                                                                          = 0;
     virtual void attach( uint binding, IAccel* accel )                                                                           = 0;
     virtual void attachDynamic( uint binding, IBuffer* buf, ulong offset, ulong range, uint stride, ResourceState bindingState ) = 0;
+    virtual void attachBufferView( uint binding, const BufferView& bufferView, ResourceState bindingState )                      = 0;
 };
 
 DEFINE_COM_PTR_FOR_TYPE( IDescriptorAllocator, DescriptorAllocator )

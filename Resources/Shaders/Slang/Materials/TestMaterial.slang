@@ -49,8 +49,8 @@ VSOutput vsForward( VSInput input ) {
     float2 uv       = asfloat( gGlobalVertices.Load2( vertexAddress + 24 ) ); // Offset 24
 
     VSOutput output;
-    // float4   worldPos = mul( instance.modelMatrix, float4( localPos, 1.0 ) );
-    float4   worldPos =  float4( localPos, 1.0 ) ;
+    float4   worldPos = mul( instance.modelMatrix, float4( localPos, 1.0 ) );
+    // float4   worldPos =  float4( localPos, 1.0 ) ;
     output.position   = mul( gFrame.viewProj, worldPos );
     output.normal     = normalize( mul( (float3x3)instance.normalMatrix, localNrm ) );
     output.uv         = uv;

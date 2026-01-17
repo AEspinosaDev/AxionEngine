@@ -1,10 +1,12 @@
 #pragma once
 #include "Axion/Graphics/Passes/Utilitary.hpp"
+#include "Axion/Graphics/RHI/Memory.hpp"
 #include "GPUScene.h"
 #include "MaterialSystem.h"
 #include "PassSystem.h"
 #include <Axion/Core/Render/Rasterizer.h>
 #include <Axion/Graphics/Renderer.h>
+
 // High Level Passes
 #include "Passes/ForwardPass.hpp"
 #include "Passes/TonemappingPass.hpp"
@@ -43,6 +45,16 @@ private:
     void registerPasses();
     void createResources();
 
+    struct TransientViews {
+        Graphics::RHI::BufferView frameView;
+        Graphics::RHI::BufferView meshesView;
+        Graphics::RHI::BufferView instancesView;
+        Graphics::RHI::BufferView lightsView;
+    };
+
+    TransientViews uploadTransientData( Graphics::RHI::LinearAllocator& currentUBOAlloc,
+                                        Graphics::RHI::LinearAllocator& currentSSBOAlloc );
+
     Platform::Window*  _window = nullptr;
     RasterizerSettings _settings;
 
@@ -57,20 +69,24 @@ private:
     // Graphics & GPU Resources Logic and Handles
     GPUScene _gpuScene;
 
+    struct FrameResources {
+        Graphics::BufferHandle uboBufferHandle;
+        Graphics::BufferHandle ssboBufferHandle;
+
+        Graphics::RHI::LinearAllocator uboAllocator;
+        Graphics::RHI::LinearAllocator ssboAllocator;
+    };
     struct GPUResources {
-
-        Graphics::BufferHandle           vertexBufferHandle;
-        Graphics::BufferHandle           indexBufferHandle;
-        Graphics::RHI::FreeListAllocator vertexAllocator;
-        Graphics::RHI::FreeListAllocator indexAllocator;
-        Graphics::BufferHandle           matBufferHandle;
+        // Resource Handles
+        Graphics::BufferHandle vertexBufferHandle;
+        Graphics::BufferHandle indexBufferHandle;
+        Graphics::BufferHandle matBufferHandle;
+        // Reource Allocators
         Graphics::RHI::FreeListAllocator matAllocator;
+        Graphics::RHI::FreeListAllocator indexAllocator;
+        Graphics::RHI::FreeListAllocator vertexAllocator;
 
-        std::vector<Graphics::BufferHandle>         uboBufferHandles;    // Per-frame
-        std::vector<Graphics::RHI::LinearAllocator> uboBufferAllocators; // Per-frame
-
-        // Graphics::AccelHandle staticTLASHandle;
-        // Graphics::AccelHandle dynamicTLASHandle;
+        std::vector<FrameResources> frame;
     };
     GPUResources _res;
 

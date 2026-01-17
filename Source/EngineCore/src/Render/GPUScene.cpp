@@ -22,66 +22,6 @@ void GPUScene::update( const Scene::Scene& cpuScene,
     runGC();
 }
 
-GPUScene::TransientOffsets GPUScene::uploadTransientData( Graphics::RHI::IBuffer* destBuffer ) {
-    TransientOffsets offsets;
-
-    uint currentOffset = 0;
-    // (D3D12/Vulkan)
-    const uint CBV_ALIGNMENT = 256;
-
-    // 1. FRAME DATA (Constant Buffer)
-    // ---------------------------------------------------------
-    // CBVs requieren alineación de 256 bytes al inicio. Como currentOffset es 0, OK.
-    offsets.frameOffset = currentOffset;
-    destBuffer->copyData( _frame, currentOffset );
-
-    currentOffset += sizeof( GPUFrame );
-    currentOffset = Helpers::alignu( currentOffset, CBV_ALIGNMENT );
-
-    // 2. MESH METADATA (Structured Buffer)
-    // ---------------------------------------------------------
-    if ( sizeof( GPUMesh ) > 0 )
-        currentOffset = Helpers::alignu( currentOffset, sizeof( GPUMesh ) );
-
-    offsets.meshOffset = currentOffset;
-
-    if ( !_meshCache.empty() )
-    {
-        destBuffer->copyData( _meshCache, currentOffset );
-        currentOffset += _meshCache.size() * sizeof( GPUMesh );
-        // Ya no alineamos a 256 al final, el siguiente bloque se encargará de su propia alineación
-    }
-
-    // 3. INSTANCE DATA (Structured Buffer)
-    // ---------------------------------------------------------
-    // CRÍTICO: Alinear al tamaño del struct
-    if ( sizeof( GPUInstance ) > 0 )
-        currentOffset = Helpers::alignu( currentOffset, sizeof( GPUInstance ) );
-
-    offsets.instanceOffset = currentOffset;
-
-    if ( !_instances.empty() )
-    {
-        destBuffer->copyData( _instances, currentOffset );
-        currentOffset += _instances.size() * sizeof( GPUInstance );
-    }
-
-    // 4. LIGHT DATA (Structured Buffer)
-    // ---------------------------------------------------------
-    // CRÍTICO: Alinear al tamaño del struct
-    if ( sizeof( GPULight ) > 0 )
-        currentOffset = Helpers::alignu( currentOffset, sizeof( GPULight ) );
-
-    offsets.lightOffset = currentOffset;
-
-    if ( !_lights.empty() )
-    {
-        destBuffer->copyData( _lights, currentOffset );
-        currentOffset += _lights.size() * sizeof( GPULight );
-    }
-
-    return offsets;
-}
 
 void GPUScene::reset( float dt ) {
     _currentFrameIndex++;
@@ -104,12 +44,12 @@ void GPUScene::processMeshes( const Scene::Scene& cpuScene, bool transpose, bool
     if ( _assetToCacheLUT.size() < assets->getMeshCount() )
         _assetToCacheLUT.resize( assets->getMeshCount(), -1 );
 
-    auto meshView = cpuScene.getRegistry().multiView<const Scene::MeshComponent, const Scene::TransformComponent>();
+    auto meshesView = cpuScene.getRegistry().multiView<const Scene::MeshComponent, const Scene::TransformComponent>();
 
-    for ( ECS::EntityID entity : meshView )
+    for ( ECS::EntityID entity : meshesView )
     {
-        const auto& meshComp  = meshView.get<Scene::MeshComponent>( entity );
-        const auto& transComp = meshView.get<Scene::TransformComponent>( entity );
+        const auto& meshComp  = meshesView.get<Scene::MeshComponent>( entity );
+        const auto& transComp = meshesView.get<Scene::TransformComponent>( entity );
 
         if ( !meshComp.visible )
             continue;
@@ -161,9 +101,10 @@ void GPUScene::processMeshes( const Scene::Scene& cpuScene, bool transpose, bool
             {
                 gpuMesh.vertexCount = cpuMesh->getVertexCount();
                 gpuMesh.indexCount  = cpuMesh->getIndexCount();
-                gpuMesh.aabb        = cpuMesh->getAABB();
-                gpuMesh.bsphere     = cpuMesh->getBoundingSphere();
-                gpuMesh.needsAS     = true;
+                gpuMesh.aabbMin     = Math::Vec4( cpuMesh->getAABB().min, 0.0f );
+                gpuMesh.aabbMax     = Math::Vec4( cpuMesh->getAABB().max, 0.0f );
+                gpuMesh.bsphere     = Math::Vec4( cpuMesh->getBoundingSphere().center, cpuMesh->getBoundingSphere().radius );
+                gpuMesh.needsAS     = 1;
 
                 _pendingMeshUploads.push( { gpuCacheIndex, // Slot Index
                                             cpuMesh->getVertices(),
@@ -205,11 +146,11 @@ void GPUScene::processLights( const Scene::Scene& cpuScene ) {
         const auto& transComp = lightView.get<Scene::TransformComponent>( entity );
 
         GPULight light;
-        light.position = transComp.translation;
-        // light.color     = lightComp.color;
-        // light.intensity = lightComp.intensity;
-        // light.radius    = lightComp.radius;
-        light.active = 1;
+        // light.position = transComp.translation;
+        // // light.color     = lightComp.color;
+        // // light.intensity = lightComp.intensity;
+        // // light.radius    = lightComp.radius;
+        // light.active = 1;
 
         _lights.push_back( light );
     }
@@ -228,7 +169,7 @@ void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolu
         auto proj  = camComp.getProjection( resolution );
         auto model = transComp.getMatrix();
 
-        auto viewMat  = Math::MTX::inverse( model );
+        auto viewMat = Math::MTX::inverse( model );
         // auto viewMat     = Axion::Math::MTX::lookAt( { 0, 0, -2.0 }, { 0, 0, 0 }, { 0, 1, 0 } );
         auto viewProj = proj * viewMat;
 
