@@ -50,10 +50,12 @@ private:
         Graphics::RHI::BufferView meshesView;
         Graphics::RHI::BufferView instancesView;
         Graphics::RHI::BufferView lightsView;
+        Graphics::RHI::BufferView indirectCommandsView;
     };
 
     TransientViews uploadTransientData( Graphics::RHI::LinearAllocator& currentUBOAlloc,
-                                        Graphics::RHI::LinearAllocator& currentSSBOAlloc );
+                                        Graphics::RHI::LinearAllocator& currentSSBOAlloc,
+                                        Graphics::RHI::LinearAllocator& currentIndirectAlloc );
 
     Platform::Window*  _window = nullptr;
     RasterizerSettings _settings;
@@ -72,9 +74,11 @@ private:
     struct FrameResources {
         Graphics::BufferHandle uboBufferHandle;
         Graphics::BufferHandle ssboBufferHandle;
+        Graphics::BufferHandle indirectBufferHandle;
 
         Graphics::RHI::LinearAllocator uboAllocator;
         Graphics::RHI::LinearAllocator ssboAllocator;
+        Graphics::RHI::LinearAllocator indirectAllocator;
     };
     struct GPUResources {
         // Resource Handles

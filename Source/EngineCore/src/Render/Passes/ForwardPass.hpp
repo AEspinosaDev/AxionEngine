@@ -6,6 +6,8 @@
 
 AXION_NAMESPACE_BEGIN
 
+#define DRAW_INDIRECT 1
+
 namespace Core::Render {
 
 class ForwardPass : public IRenderPass
@@ -24,6 +26,7 @@ public:
         Graphics::RHI::BufferView meshesView;
         Graphics::RHI::BufferView instancesView;
         Graphics::RHI::BufferView lightsView;
+        Graphics::RHI::BufferView indirectCmdsView;
 
         GPUScene*                      gpuScene;
         MaterialLibrary*               matLib;
@@ -103,6 +106,30 @@ private:
         const auto& instances     = scene.instances();
         const auto& matArchetypes = data.matLib->getArchetypesRaw();
 
+#if DRAW_INDIRECT
+        if ( data.indirectCmdsView.count > 0 )
+        {
+
+            // A. BIND PIPELINE (Asumimos el único que tenemos por ahora: Opaque)
+            // En el futuro, aquí iteraríamos sobre "batches", pero ahora es todo uno.
+            Graphics::PipelineHandle psoHandle = matArchetypes[0].getPipeline( MaterialPassType::Opaque, MaterialTopologyType::Triangles );
+
+            if ( psoHandle.isValid() )
+            {
+                auto* pso = ctx.pipelines.getGraphicPipeline( psoHandle );
+                cmd->bindGraphicPipeline( pso );
+
+                cmd->bindIndexBuffer( ib ); 
+
+                // B. EXECUTE INDIRECT
+                cmd->drawIndexedIndirect(
+                    data.indirectCmdsView.buffer,
+                    data.indirectCmdsView.offset,
+                    data.indirectCmdsView.count );
+            }
+        }
+#else
+
         // TODO: Aquí iría el sorting de drawList en el futuro
 
         Graphics::PipelineHandle lastPipelineHandle;
@@ -141,6 +168,7 @@ private:
             cmd->draw( meshData.indexCount, 1 );
         }
 
+#endif
         cmd->endRendering();
     }
 };

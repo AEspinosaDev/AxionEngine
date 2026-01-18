@@ -8,6 +8,7 @@ namespace Graphics::RHI {
 DX12PipelineLayout::DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc )
     : _desc( desc ) {
     buildRootSignature( device );
+    buildIndirectCommandSignature( device );
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 Pipeline Layout [{}] created", _desc.debugName );
 }
 DX12PipelineLayout::~DX12PipelineLayout() {
@@ -146,6 +147,8 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
                                    _desc.pushConstant.customSpace,
                                    DX12Translator::get( _desc.pushConstant.stageMask ) );
         rootParams.push_back( pushParam );
+
+        _pushConstantRootIndex = (int32_t)rootParams.size() - 1;
     }
 
     D3D12_VERSIONED_ROOT_SIGNATURE_DESC rsDesc = {};
@@ -168,6 +171,64 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
 
     DX_CHECK( device->CreateRootSignature(
         0, serialized->GetBufferPointer(), serialized->GetBufferSize(), IID_PPV_ARGS( &_rootSignature ) ) );
+}
+
+void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Device2>& device ) {
+
+    if ( !_desc.enableIndirectRendering )
+        return;
+
+    if ( _pushConstantRootIndex == -1 )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI,
+                         "DX12 Pipeline Layout [{}] has 'enableIndirectRendering = true' but no push constants defined.",
+                         _desc.debugName );
+        return;
+    }
+
+    bool validSize = ( _desc.pushConstant.size == sizeof( uint ) );
+
+    AXION_LOG_ASSERT( validSize, Logger::Module::RHI, "DX12 Pipeline Layout [{}]: Push constant size must be 4 bytes (1 uint) for ObjectID. Current size: {}", _desc.debugName, _desc.pushConstant.size );
+
+    if ( !validSize )
+        return;
+
+    D3D12_INDIRECT_ARGUMENT_DESC argDesc[2];
+
+    argDesc[0].Type                             = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+    argDesc[0].Constant.RootParameterIndex      = (UINT)_pushConstantRootIndex;
+    argDesc[0].Constant.DestOffsetIn32BitValues = 0;
+    argDesc[0].Constant.Num32BitValuesToSet     = 1; // Escribimos 1 solo uint (4 bytes)
+
+    {
+        argDesc[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+
+        D3D12_COMMAND_SIGNATURE_DESC csDesc = {};
+        csDesc.NumArgumentDescs             = 2;
+        csDesc.pArgumentDescs               = argDesc;
+
+        csDesc.ByteStride = sizeof( DrawIndexedIndirectCommand );
+
+        DX_CHECK( device->CreateCommandSignature( &csDesc, _rootSignature.Get(), IID_PPV_ARGS( &_drawIndexedIndirectSignature ) ) );
+
+        std::string cmdSigName = _desc.debugName + " DrawIndirectSig";
+        _drawIndexedIndirectSignature->SetName( std::wstring( cmdSigName.begin(), cmdSigName.end() ).c_str() );
+    }
+
+    {
+        argDesc[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
+
+        D3D12_COMMAND_SIGNATURE_DESC csDesc = {};
+        csDesc.NumArgumentDescs             = 2;
+        csDesc.pArgumentDescs               = argDesc;
+
+        csDesc.ByteStride = sizeof( DispatchIndirectCommand );
+
+        DX_CHECK( device->CreateCommandSignature( &csDesc, _rootSignature.Get(), IID_PPV_ARGS( &_dispatchIndirectSignature ) ) );
+
+        std::string cmdSigName = _desc.debugName + " DispatchIndirectSig";
+        _dispatchIndirectSignature->SetName( std::wstring( cmdSigName.begin(), cmdSigName.end() ).c_str() );
+    }
 }
 
 D3D12_SHADER_VISIBILITY DX12PipelineLayout::getShaderVisibility( const std::vector<DescriptorBinding>& bindings ) {

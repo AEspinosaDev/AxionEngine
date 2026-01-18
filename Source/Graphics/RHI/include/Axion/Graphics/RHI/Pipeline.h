@@ -28,11 +28,12 @@ public:
         ShaderStage stageMask      = ShaderStage::Vertex | ShaderStage::Pixel;
     };
 
-
     struct Description {
         std::vector<DescriptorLayoutDesc> sets;
         PushConstantDesc                  pushConstant;
         std::string                       debugName = "";
+
+        bool enableIndirectRendering = false;
     };
     virtual ~IPipelineLayout()                                        = default;
     virtual const Description& getDescription() const                 = 0;

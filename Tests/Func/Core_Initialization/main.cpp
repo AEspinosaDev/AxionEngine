@@ -44,14 +44,14 @@ int main( /*int argc, char* argv[]*/ ) {
         cubeEntity.addComponent<Core::Scene::MeshComponent>( cubeHandle );
         cubeEntity.getComponent<Core::Scene::TransformComponent>().translation = { -1.0f, -1.0f, 0.0f };
 
-        auto ajaxEntity = scene.createEntity( "Ajax" );
-        ajaxEntity.addComponent<Core::Scene::MeshComponent>( ajaxHandle );
-        ajaxEntity.getComponent<Core::Scene::TransformComponent>().translation = { 1.0f, -1.0f, 0.0f };
-
         auto sphereEntity = scene.createEntity( "Sphere" );
         sphereEntity.addComponent<Core::Scene::MeshComponent>( sphreHandle );
         sphereEntity.getComponent<Core::Scene::TransformComponent>().translation = { 1.0f, 1.0f, 0.0f };
         sphereEntity.getComponent<Core::Scene::TransformComponent>().scale       = { 0.5f, 0.5f, 0.5f };
+
+        auto ajaxEntity = scene.createEntity( "Ajax" );
+        ajaxEntity.addComponent<Core::Scene::MeshComponent>( ajaxHandle );
+        ajaxEntity.getComponent<Core::Scene::TransformComponent>().translation = { 1.0f, -1.0f, 0.0f };
 
         auto dragonEntity = scene.createEntity( "Dragon" );
         dragonEntity.addComponent<Core::Scene::MeshComponent>( dragonHandle );

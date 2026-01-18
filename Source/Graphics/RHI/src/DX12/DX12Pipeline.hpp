@@ -28,13 +28,21 @@ public:
             return { -1, -1 };
         return _rootIndexMap[setIndex];
     }
+    ID3D12CommandSignature* getIndirectCommandSignature() const { return _drawIndexedIndirectSignature.Get(); }
+    ID3D12CommandSignature* getDispatchIndirectSignature() const { return _dispatchIndirectSignature.Get(); }
 
 private:
     void                           buildRootSignature( const ComPtr<ID3D12Device2>& device );
+    void                           buildIndirectCommandSignature( const ComPtr<ID3D12Device2>& device );
     static D3D12_SHADER_VISIBILITY getShaderVisibility( const std::vector<DescriptorBinding>& bindings );
 
     PipelineLayoutDesc          _desc;
     ComPtr<ID3D12RootSignature> _rootSignature;
+
+    // For Indirect Rendering
+    int                            _pushConstantRootIndex = -1;
+    ComPtr<ID3D12CommandSignature> _drawIndexedIndirectSignature;
+    ComPtr<ID3D12CommandSignature> _dispatchIndirectSignature;
 
     std::vector<uint> _viewCountPerSet;
     std::vector<uint> _samplerCountPerSet;

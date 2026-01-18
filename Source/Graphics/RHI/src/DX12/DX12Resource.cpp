@@ -396,11 +396,11 @@ std::string DX12Buffer::toString() const {
     return fmt::format( "" );
 }
 D3D12_VERTEX_BUFFER_VIEW DX12Buffer::getVBV() const {
-    AXION_LOG_ASSERT( _desc.usageFlags == BufferUsage::Vertex, Logger::Module::RHI, "Buffer Usage is not Vertex" );
+    AXION_LOG_ASSERT((_desc.usageFlags & BufferUsage::Vertex) != BufferUsage::None, Logger::Module::RHI, "Buffer Usage is not Vertex" );
     return _vbv;
 }
 D3D12_INDEX_BUFFER_VIEW DX12Buffer::getIBV() const {
-    AXION_LOG_ASSERT( _desc.usageFlags == BufferUsage::Index, Logger::Module::RHI, "Buffer Usage is not Index" );
+    AXION_LOG_ASSERT( (_desc.usageFlags & BufferUsage::Index) != BufferUsage::None, Logger::Module::RHI, "Buffer Usage is not Index" );
     return _ibv;
 }
 void DX12Buffer::createViews( DX12Device::Context& ctx ) {
@@ -465,13 +465,13 @@ void DX12Buffer::createViews( DX12Device::Context& ctx ) {
         ctx.device->CreateUnorderedAccessView( _resource.Get(), nullptr, &desc, _uavHandle );
     }
     // Special case for VBO/(IBO)
-    if ( _desc.usageFlags == BufferUsage::Index )
+    if ( (_desc.usageFlags & BufferUsage::Index) != BufferUsage::None )
     {
         _ibv.BufferLocation = _resource->GetGPUVirtualAddress();
         _ibv.SizeInBytes    = (UINT)_desc.size;
         _ibv.Format         = DXGI_FORMAT_R32_UINT;
     }
-    if ( _desc.usageFlags == BufferUsage::Vertex )
+    if ( (_desc.usageFlags & BufferUsage::Vertex) != BufferUsage::None )
     {
         _vbv.BufferLocation = _resource->GetGPUVirtualAddress();
         _vbv.SizeInBytes    = (UINT)_desc.size;

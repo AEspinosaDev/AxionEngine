@@ -139,6 +139,12 @@ public:
     virtual void bindVertexBuffer( uint slot, IBuffer* buffer ) = 0;
     virtual void bindIndexBuffer( IBuffer* buffer )             = 0;
 
+    virtual void drawIndexedIndirect( IBuffer* indirectBuffer,
+                                      ulong    bufferOffset,
+                                      uint     maxDrawCount,
+                                      IBuffer* countBuffer       = nullptr,
+                                      ulong    countBufferOffset = 0 ) = 0;
+
     /// @brief Pushes 32-bit constants directly to the pipeline (Root Constants).
     /// @tparam T The struct type to push. Must be 4-byte aligned.
     template <typename T>

@@ -38,11 +38,22 @@ namespace Graphics {
 namespace RHI {
 
 struct DrawIndexedIndirectCommand {
+    uint instanceID; ///< Current Instance ID
+
     uint indexCount;    ///< Number of indexes to draw
-    uint instanceCount; ///< Number of instances to draw 
+    uint instanceCount; ///< Number of instances to draw
     uint firstIndex;    ///< Offset in IndexBuffer (elements, not bytes)
-    int  vertexOffset;  ///< Offset in VertexBuffer 
+    int  vertexOffset;  ///< Offset in VertexBuffer
     uint firstInstance; ///< ID as base
+
+    uint _padding[2];
+};
+
+struct DispatchIndirectCommand {
+    uint instanceID;
+    uint threadGroupCountX;
+    uint threadGroupCountY;
+    uint threadGroupCountZ;
 };
 
 enum class BarrierPolicy

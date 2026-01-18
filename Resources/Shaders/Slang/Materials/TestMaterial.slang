@@ -4,6 +4,7 @@
 #include "Scene.slang"
 
 struct VSInput {
+    uint instanceID : SV_InstanceID;
     uint vertexID : SV_VertexID; // Vertex natural iterator
 };
 
@@ -36,12 +37,8 @@ VSOutput vsForward( VSInput input ) {
     InstanceData instance = gInstances[gPush.instanceID];
     MeshData     mesh     = gMeshes[instance.meshID];
 
-    // Index Pulling
-    uint indexAddress = mesh.indexOffset + ( input.vertexID * 4 );
-    uint vertexIndex  = gGlobalIndices.Load( indexAddress );
-
-    // Vertex Pulling
-    uint vertexAddress = mesh.vertexOffset + ( vertexIndex * CANON_VERTEX_STRIDE );
+    // // Vertex Pulling
+    uint vertexAddress = mesh.vertexOffset + ( input.vertexID * CANON_VERTEX_STRIDE );
 
     // Read Vertices
     float3 localPos = asfloat( gGlobalVertices.Load3( vertexAddress ) );      // Offset 0
@@ -52,7 +49,8 @@ VSOutput vsForward( VSInput input ) {
     float4   worldPos = mul( instance.modelMatrix, float4( localPos, 1.0 ) );
     // float4   worldPos =  float4( localPos, 1.0 ) ;
     output.position   = mul( gFrame.viewProj, worldPos );
-    output.normal     = normalize( mul( (float3x3)instance.normalMatrix, localNrm ) );
+    // output.normal     = normalize( mul( (float3x3)instance.normalMatrix, localNrm ) );
+    output.normal     = float3( 0, 1, 0 );
     output.uv         = uv;
 
     return output;

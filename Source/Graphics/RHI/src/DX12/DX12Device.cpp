@@ -80,7 +80,8 @@ SwapchainPtr DX12Device::createSwapchain( const NativeObject& Ptr, const Swapcha
 }
 
 CommandListPtr DX12Device::createCommandList( const CommandListDesc& desc ) {
-    DX12CommandList* raw = new DX12CommandList( _ctx.device, desc );
+    DX12CommandList* raw = new DX12CommandList( _ctx.device,
+                                                desc );
     CommandListPtr   cmd;
     cmd.attach( raw );
     return cmd;
@@ -441,24 +442,7 @@ void RHI::DX12Device::checkExtensions() {
         _ext.variableRateShadingSupported = _featureData.options6.VariableShadingRateTier >= D3D12_VARIABLE_SHADING_RATE_TIER_2;
     }
 
-    {
-        D3D12_INDIRECT_ARGUMENT_DESC argDesc = {};
-        D3D12_COMMAND_SIGNATURE_DESC csDesc  = {};
-        csDesc.NumArgumentDescs              = 1;
-        csDesc.pArgumentDescs                = &argDesc;
-
-        csDesc.ByteStride = 16;
-        argDesc.Type      = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
-        _ctx.device->CreateCommandSignature( &csDesc, nullptr, IID_PPV_ARGS( &_ctx.drawIndirectSignature ) );
-
-        csDesc.ByteStride = 20;
-        argDesc.Type      = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
-        _ctx.device->CreateCommandSignature( &csDesc, nullptr, IID_PPV_ARGS( &_ctx.drawIndexedIndirectSignature ) );
-
-        csDesc.ByteStride = 12;
-        argDesc.Type      = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH;
-        _ctx.device->CreateCommandSignature( &csDesc, nullptr, IID_PPV_ARGS( &_ctx.dispatchIndirectSignature ) );
-    }
+   
 
     if ( _desc.enableHeapDirectlyIndexed )
     {
@@ -588,7 +572,10 @@ std::string RHI::DX12Device::toString() const {
 
 void DX12Device::UploadContext::init( const ComPtr<ID3D12Device2>& device ) {
 
-    DX12CommandList* raw = new DX12CommandList( device, { .queueType = QueueType::Graphics, .numFrames = 1, .debugName = "Internal Device Command List" } );
+    DX12CommandList* raw = new DX12CommandList( device,
+                                                { .queueType = QueueType::Graphics, .numFrames = 1, .debugName = "Internal Device Command List" }
+
+    );
     _cmdList.attach( raw );
 
     // Create fence

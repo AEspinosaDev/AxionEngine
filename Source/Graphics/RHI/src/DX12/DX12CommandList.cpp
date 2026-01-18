@@ -7,8 +7,10 @@
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
-DX12CommandList::DX12CommandList( const ComPtr<ID3D12Device2>& device, const CommandListDesc& desc )
+DX12CommandList::DX12CommandList( const ComPtr<ID3D12Device2>& device,
+                                  const CommandListDesc&       desc )
     : _desc( desc ) {
+
     AXION_LOG_ASSERT( desc.numFrames > 0, Logger::Module::RHI, "Invalid frame number in CreateCommandList(). Must be greater than zero" );
     _cmdAllocators.resize( desc.numFrames );
 
@@ -444,15 +446,15 @@ void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set ) {
 void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set, IPipelineLayout* layout, PipelineBindPoint bindPoint ) {
     AXION_LOG_ASSERT( set, Logger::Module::RHI, "Binding NULL Descriptor Set" );
 
-    auto* dxSet    = static_cast<DX12DescriptorSet*>( set );
-    
+    auto* dxSet = static_cast<DX12DescriptorSet*>( set );
+
     if ( _currentLayout != layout || _bindPoint != bindPoint )
     {
         _currentLayout = layout;
         _bindPoint     = bindPoint;
-        
-        auto* dxLayout = static_cast<DX12PipelineLayout*>( layout );
-        ID3D12RootSignature* rootSig = static_cast<ID3D12RootSignature*>(
+
+        auto*                dxLayout = static_cast<DX12PipelineLayout*>( layout );
+        ID3D12RootSignature* rootSig  = static_cast<ID3D12RootSignature*>(
             dxLayout->getNativeObject( ObjectTypes::DX12_RootSignature ) );
 
         if ( _bindPoint == PipelineBindPoint::Compute || _bindPoint == PipelineBindPoint::RTX )
@@ -481,8 +483,8 @@ void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set, IPi
             _cmdList->SetDescriptorHeaps( heapCount, heapsToBind );
     }
 
-    auto* dxCurrentLayout = static_cast<DX12PipelineLayout*>( _currentLayout ); 
-    auto indices = dxCurrentLayout->getRootIndices( setIndex );
+    auto* dxCurrentLayout = static_cast<DX12PipelineLayout*>( _currentLayout );
+    auto  indices         = dxCurrentLayout->getRootIndices( setIndex );
 
     // Views
     if ( indices.first != -1 )
@@ -676,6 +678,29 @@ void DX12CommandList::bindIndexBuffer( IBuffer* buffer ) {
     auto* dxBuf = static_cast<DX12Buffer*>( buffer );
     auto  view  = dxBuf->getIBV();
     _cmdList->IASetIndexBuffer( &view );
+}
+
+void DX12CommandList::drawIndexedIndirect( IBuffer* indirectBuffer, ulong bufferOffset, uint maxDrawCount, IBuffer* countBuffer, ulong countBufferOffset ) {
+    AXION_LOG_ASSERT( indirectBuffer, Logger::Module::RHI, "Indirect command buffer cannot be null" );
+    AXION_LOG_ASSERT( maxDrawCount > 0, Logger::Module::RHI, "Max draw count must be > 0" );
+
+    ID3D12Resource* dxCountResource = nullptr;
+    if ( countBuffer )
+    {
+        dxCountResource = countBuffer->getNativeObject( ObjectTypes::DX12_Resource );
+
+        // DEBUG: Verificar que countBuffer tiene el flag INDIRECT_ARGUMENT si tienes tracking de estados
+        // AXION_ASSERT( dxCountBuffer->getState() == ResourceState::IndirectArgument );
+    }
+
+    auto* dxLayout = static_cast<DX12PipelineLayout*>( _currentLayout );
+    _cmdList->ExecuteIndirect(
+        dxLayout->getIndirectCommandSignature(),
+        maxDrawCount,
+        indirectBuffer->getNativeObject( ObjectTypes::DX12_Resource ),
+        bufferOffset,
+        dxCountResource,
+        countBufferOffset );
 }
 
 NativeObject DX12CommandList::getNativeObject( ObjectType objectType ) {

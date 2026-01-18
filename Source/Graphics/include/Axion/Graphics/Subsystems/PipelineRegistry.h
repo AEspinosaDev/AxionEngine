@@ -313,7 +313,6 @@ public:
         _desc.debugName = std::move( name );
     }
 
-
     /// @brief Defines a descriptor set (space) with a list of bindings.
     LayoutBuilder& addSet( std::vector<RHI::DescriptorBinding> bindings ) {
         RHI::DescriptorLayoutDesc set;
@@ -331,6 +330,12 @@ public:
         return *this;
     }
 
+    LayoutBuilder& enableIndirectRendering() {
+        _desc.enableIndirectRendering = true;
+        return *this;
+    }
+
+    /// @brief Finalizes configuration and creates the Layout.
     PipelineLayoutHandle create() {
         return _registry.createLayout( _desc );
     }
@@ -339,7 +344,6 @@ private:
     IPipelineRegistry&      _registry;
     RHI::PipelineLayoutDesc _desc;
 };
-
 
 } // namespace Graphics
 AXION_NAMESPACE_END

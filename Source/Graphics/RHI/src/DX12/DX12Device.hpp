@@ -87,9 +87,7 @@ public:
 
         UploadContext uploadContext = {};
 
-        ComPtr<ID3D12CommandSignature> drawIndirectSignature;
-        ComPtr<ID3D12CommandSignature> drawIndexedIndirectSignature;
-        ComPtr<ID3D12CommandSignature> dispatchIndirectSignature;
+      
     };
 
 private:

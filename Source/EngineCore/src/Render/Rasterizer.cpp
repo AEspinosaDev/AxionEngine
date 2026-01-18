@@ -109,8 +109,11 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
     auto& currentFrameRes = _res.frame[_rnd->getCurrentFrameIndex()];
     currentFrameRes.uboAllocator.reset();
     currentFrameRes.ssboAllocator.reset();
+    currentFrameRes.indirectAllocator.reset();
 
-    auto transientViews = uploadTransientData( currentFrameRes.uboAllocator, currentFrameRes.ssboAllocator );
+    auto transientViews = uploadTransientData( currentFrameRes.uboAllocator,
+                                               currentFrameRes.ssboAllocator,
+                                               currentFrameRes.indirectAllocator );
 
     _rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
         auto rtExtent = _window->getSettings().size.to3D();
@@ -148,10 +151,12 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         fwConfig.matLayoutHandle = _globalMtlLayoutHandle;
         fwConfig.gpuScene        = &_gpuScene;
 
-        fwConfig.frameView     = transientViews.frameView;
-        fwConfig.meshesView    = transientViews.meshesView;
-        fwConfig.instancesView = transientViews.instancesView;
-        fwConfig.lightsView    = transientViews.lightsView;
+        fwConfig.frameView        = transientViews.frameView;
+        fwConfig.meshesView       = transientViews.meshesView;
+        fwConfig.instancesView    = transientViews.instancesView;
+        fwConfig.lightsView       = transientViews.lightsView;
+        fwConfig.indirectCmdsView = transientViews.indirectCommandsView;
+
         _passes.getPass<ForwardPass>()->addToGraph( builder, fwConfig );
 
         // C. ToneMapping
@@ -176,10 +181,13 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 void Rasterizer::setupMaterialLibrary() {
 
     _globalMtlLayoutHandle = _rnd->pipelines().layout( "Global_Material_Layout" )
-                                 // Space 0: Geometry
+                                 // Space 0: Persistent (Geometry, Materials and Textures)
                                  .addSet( {
                                      { 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Vertex
                                      { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Index
+                                                                                                                                      // Materials
+                                                                                                                                      // Textures
+                                                                                                                                      // Samplers
                                  } )
                                  // Space 1: Scene Data
                                  .addSet( {
@@ -188,10 +196,9 @@ void Rasterizer::setupMaterialLibrary() {
                                      { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Instances
                                      { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Lights
                                  } )
-                                 // Space 2: Materials
-                                 //  .addSet( 2, { { DescriptorType::SRV, 0, 8 }, { DescriptorType::Sampler, 0, 2 } } )
-                                 // Constants
-                                 .setPushConstants( 128, 0, 2 )
+                                 // Space 2: Instance ID Push Constant
+                                 .setPushConstants( sizeof( uint ), 0, 2 )
+                                 .enableIndirectRendering()
                                  .create();
 
     _mtlLib.init( _settings.common.gfxApi );
@@ -242,6 +249,7 @@ void Rasterizer::createResources() {
                                  .size( _settings.memory.geometryBufferSize )
                                  .onGPU()
                                  .asRaw()
+                                 .asIBO()
                                  .create();
     _res.indexAllocator = Graphics::RHI::FreeListAllocator( r.getBuffer( _res.indexBufferHandle ) );
 
@@ -269,17 +277,27 @@ void Rasterizer::createResources() {
         _res.frame[i].ssboBufferHandle = r.buffer( "GlobalSSBO_" + std::to_string( i ) )
                                              .size( _settings.memory.volatileBufferSize )
                                              .onCPU()
-                                             .asIndirect()
                                              .create();
 
         auto* ssboBuffer = r.getBuffer( _res.frame[i].ssboBufferHandle );
         ssboBuffer->map();
         _res.frame[i].ssboAllocator = Graphics::RHI::LinearAllocator( ssboBuffer );
+
+        _res.frame[i].indirectBufferHandle = r.buffer( "IndirectArgBuffer" + std::to_string( i ) )
+                                                 .size( _settings.memory.volatileBufferSize )
+                                                 .onCPU()
+                                                 .asIndirect()
+                                                 .create();
+
+        auto* indBuffer = r.getBuffer( _res.frame[i].indirectBufferHandle );
+        indBuffer->map();
+        _res.frame[i].indirectAllocator = Graphics::RHI::LinearAllocator( indBuffer );
     }
 }
 
 Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::LinearAllocator& currentUBOAlloc,
-                                                            Graphics::RHI::LinearAllocator& currentSSBOAlloc ) {
+                                                            Graphics::RHI::LinearAllocator& currentSSBOAlloc,
+                                                            Graphics::RHI::LinearAllocator& currentIndirectAlloc ) {
     TransientViews views;
 
     // (D3D12/Vulkan)
@@ -373,78 +391,59 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
         }
     }
 
-    // // =================================================================================
-    // // 5. DRAW COMMANDS GENERATION (Strategy: Indirect Rendering)
-    // // =================================================================================
-    // // Aquí es donde el Rasterizer decide CÓMO va a dibujar los datos de la escena.
-    // {
-    //     // Accedemos a los datos crudos
-    //     const auto& instances = _gpuScene.instances();
-    //     const auto& meshes    = _gpuScene.meshes();
+    // =================================================================================
+    // 5. DRAW COMMANDS GENERATION (Strategy: Indirect Rendering)
+    // =================================================================================
+    {
+        const auto& instances = _gpuScene.instances();
+        const auto& meshes    = _gpuScene.meshes();
 
-    //     // Creamos un vector temporal en CPU.
-    //     // (Nota: En el futuro esto lo hará un Compute Shader en GPU)
-    //     std::vector<Graphics::RHI::DrawIndexedIndirectCommand> drawCmds;
-    //     drawCmds.reserve( instances.size() );
+        // Creamos un vector temporal en CPU.
+        // (Nota: En el futuro esto lo hará un Compute Shader en GPU)
+        std::vector<Graphics::RHI::DrawIndexedIndirectCommand> drawCmds;
+        drawCmds.reserve( instances.size() );
 
-    //     for ( size_t i = 0; i < instances.size(); ++i )
-    //     {
-    //         const auto& inst = instances[i];
+        for ( size_t i = 0; i < instances.size(); ++i )
+        {
+            const auto& inst = instances[i];
 
-    //         // 1. Cull rápido: Si está inactiva, pasamos.
-    //         if ( inst.active == 0 )
-    //             continue;
+            if ( inst.active == 0 )
+                continue;
 
-    //         // 2. Validación: Si apunta a una malla que no existe o no es válida.
-    //         if ( inst.meshID >= meshes.size() )
-    //             continue;
-    //         const auto& mesh = meshes[inst.meshID];
-    //         if ( !mesh.valid )
-    //             continue;
+            if ( inst.meshID >= meshes.size() )
+                continue;
+            const auto& mesh = meshes[inst.meshID];
+            if ( !mesh.valid )
+                continue;
 
-    //         // 3. Construcción del Comando
-    //         Graphics::RHI::DrawIndexedIndirectCommand cmd;
+            Graphics::RHI::DrawIndexedIndirectCommand cmd;
+            // auto                                      ss = sizeof( Graphics::RHI::DrawIndexedIndirectCommand );
 
-    //         // A. Cuántos índices tiene la malla
-    //         cmd.indexCount = mesh.indexCount;
+            cmd.indexCount    = mesh.indexCount;
+            cmd.instanceCount = 1;
+            cmd.firstIndex    = mesh.indexOffset / 4;
+            cmd.vertexOffset  = (int)( mesh.vertexOffset / sizeof( Assets::Vertex ) );
+            cmd.firstInstance = (uint)i;
+            cmd.instanceID    = (uint)i;
 
-    //         // B. Instancias (1 porque generamos un comando por entidad)
-    //         cmd.instanceCount = 1;
+            drawCmds.push_back( cmd );
+        }
+        // Subida al Buffer Transitorio (Indirect Buffer)
+        if ( !drawCmds.empty() )
+        {
+            views.indirectCommandsView = currentIndirectAlloc.allocate<Graphics::RHI::DrawIndexedIndirectCommand>( drawCmds.size() );
 
-    //         // C. First Index (Offset en el IndexBuffer global)
-    //         // IMPORTANTE: mesh.indexOffset está en BYTES. La GPU espera ELEMENTOS.
-    //         // Asumimos índices de 32 bits (4 bytes).
-    //         cmd.firstIndex = mesh.indexOffset / 4;
-
-    //         // D. Vertex Offset (Base Vertex Location)
-    //         // IMPORTANTE: mesh.vertexOffset está en BYTES. El comando espera OFFSET DE VÉRTICES.
-    //         // Esto permite sumar este valor al índice leído.
-    //         cmd.vertexOffset = (int32_t)( mesh.vertexOffset / sizeof( Assets::Vertex ) );
-
-    //         // E. First Instance (El ID Mágico)
-    //         // Este es el ID que usaremos en el shader para acceder a structuredBuffer[gl_InstanceIndex]
-    //         cmd.firstInstance = (uint32_t)i;
-
-    //         drawCmds.push_back( cmd );
-    //     }
-
-    //     // Subida al Buffer Transitorio (Indirect Buffer)
-    //     if ( !drawCmds.empty() )
-    //     {
-    //         // Pedimos memoria en el allocator (El buffer debe tener flag INDIRECT)
-    //         views.indirectCommandsView = currentSSBOAlloc.allocate<Graphics::RHI::DrawIndexedIndirectCommand>( drawCmds.size() );
-
-    //         if ( views.indirectCommandsView.isValid() )
-    //         {
-    //             memcpy( views.indirectCommandsView.cpuAddress, drawCmds.data(), views.indirectCommandsView.size );
-    //         }
-    //     } else
-    //     {
-    //         // Dummy allocation si la escena está vacía para no romper el binding
-    //         views.indirectCommandsView       = currentSSBOAlloc.allocate<Graphics::RHI::DrawIndexedIndirectCommand>( 1 );
-    //         views.indirectCommandsView.count = 0;
-    //     }
-    // }
+            if ( views.indirectCommandsView.isValid() )
+            {
+                memcpy( views.indirectCommandsView.cpuAddress, drawCmds.data(), views.indirectCommandsView.size );
+            }
+        } else
+        {
+            // Dummy allocation si la escena está vacía para no romper el binding
+            views.indirectCommandsView       = currentIndirectAlloc.allocate<Graphics::RHI::DrawIndexedIndirectCommand>( 1 );
+            views.indirectCommandsView.count = 0;
+        }
+    }
 
     return views;
 }
