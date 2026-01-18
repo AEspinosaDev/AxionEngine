@@ -37,6 +37,14 @@ namespace Graphics {
 
 namespace RHI {
 
+struct DrawIndexedIndirectCommand {
+    uint indexCount;    ///< Number of indexes to draw
+    uint instanceCount; ///< Number of instances to draw 
+    uint firstIndex;    ///< Offset in IndexBuffer (elements, not bytes)
+    int  vertexOffset;  ///< Offset in VertexBuffer 
+    uint firstInstance; ///< ID as base
+};
+
 enum class BarrierPolicy
 {
     Auto, // CommandList checks and emits barriers if its necessary for utility functions (Seguro)

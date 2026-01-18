@@ -16,8 +16,13 @@ public:
     };
     struct Config {
         GlobalBufferHandles bufferHandles;
-        GPUScene*           gpuScene             = nullptr;
-        ulong               maxAllocationSize = 0;
+
+        Graphics::RHI::FreeListAllocator* vertexAllocator = nullptr;
+        Graphics::RHI::FreeListAllocator* indexAllocator  = nullptr;
+        Graphics::RHI::FreeListAllocator* matAllocator    = nullptr;
+
+        GPUScene* gpuScene          = nullptr;
+        ulong     maxAllocationSize = 0;
     };
 
     void registerShaders( Graphics::IShaderRegistry& shaders ) override { /*NO OP*/ }
@@ -25,7 +30,8 @@ public:
 
     void addToGraph( Graphics::RenderGraphBuilder& builder, const Config& seedData ) {
         // Early Exit
-        if ( !seedData.gpuScene || !seedData.gpuScene->hasPendingUploads() )
+        if ( !seedData.gpuScene ||
+             ( !seedData.gpuScene->hasPendingUploads() && !seedData.gpuScene->hasPendingReleases() ) )
             return;
 
         builder.addPass<Config>( "UploadPass", seedData,
@@ -40,67 +46,87 @@ public:
 private:
     void execute( const Config& data, Graphics::RenderPassContext& ctx ) {
 
-        // Setup
+        uint totalUsedSpace = 0;
+
+        processMeshes( data, ctx, totalUsedSpace );
+        processMaterials( data, ctx, totalUsedSpace );
+        processTextures( data, ctx, totalUsedSpace );
+    }
+
+    void processMeshes( const Config& data, Graphics::RenderPassContext& ctx, uint& totalUsedSpace ) {
+
         auto* cmd       = ctx.cmd;
         auto& scene     = *data.gpuScene;
         auto* allocator = ctx.transAllocator;
 
-        uint totalUsedSpace = 0;
-
-        //--------------------------------------------
-        // GEOMETRY UPLOAD
-        //--------------------------------------------
-
         auto* vb = ctx.getBuffer( data.bufferHandles.vertex );
         auto* ib = ctx.getBuffer( data.bufferHandles.index );
 
-        static uint currentVtxOffset = 0;
-        static uint currentIdxOffset = 0;
-
-        auto& queue = scene.pendingMeshUploads();
-        while ( !queue.empty() )
+        // 1. UPLOAD QUEUE
+        auto& uploadQueue = scene.pendingMeshUploads();
+        while ( !uploadQueue.empty() )
         {
             if ( totalUsedSpace >= (uint)data.maxAllocationSize )
                 break;
 
-            auto uploadEntry = std::move( queue.front() );
-            queue.pop();
+            auto uploadEntry = std::move( uploadQueue.front() );
+            uploadQueue.pop();
 
             auto& gpuMesh = scene.meshes()[uploadEntry.GPUMeshID];
 
-            // Upload Vertices
-            uint vtxSize = uploadEntry.vertices.size() * sizeof( Assets::Vertex );
-            if ( vtxSize > 0 )
+            // A. Vertices
+            auto vertexBufferView = data.vertexAllocator->allocate<Assets::Vertex>( uploadEntry.vertices.size() );
+            if ( vertexBufferView.size > 0 )
             {
-                cmd->uploadBuffer( vb, uploadEntry.vertices.data(), vtxSize, currentVtxOffset, allocator, Graphics::RHI::BarrierPolicy::None );
-                gpuMesh.vertexOffset = currentVtxOffset;
-                currentVtxOffset += vtxSize;
+                cmd->uploadBuffer( vb, uploadEntry.vertices.data(), vertexBufferView.size, vertexBufferView.offset, allocator, Graphics::RHI::BarrierPolicy::None );
+                gpuMesh.vertexOffset = (uint)vertexBufferView.offset;
             }
 
-            // Upload Indices
-            uint idxSize = uploadEntry.indices.size() * sizeof( uint );
-            if ( idxSize > 0 )
+            // B. Indices
+            auto indexBufferView = data.indexAllocator->allocate<uint>( uploadEntry.indices.size() );
+            if ( indexBufferView.size > 0 )
             {
-                cmd->uploadBuffer( ib, uploadEntry.indices.data(), idxSize, currentIdxOffset, allocator, Graphics::RHI::BarrierPolicy::None );
-                gpuMesh.indexOffset = (uint)currentIdxOffset;
-                currentIdxOffset += idxSize;
+                cmd->uploadBuffer( ib, uploadEntry.indices.data(), indexBufferView.size, indexBufferView.offset, allocator, Graphics::RHI::BarrierPolicy::None );
+                gpuMesh.indexOffset = (uint)indexBufferView.offset;
             }
 
             gpuMesh.valid = true;
-            totalUsedSpace += vtxSize + idxSize;
+            totalUsedSpace += indexBufferView.size + vertexBufferView.size;
         }
 
-        //--------------------------------------------
-        // MATERIAL UPLOAD
-        //--------------------------------------------
+        // 2. DELETION QUEUE
+        auto& deletionQueue = scene.pendingMeshReleases();
+        while ( !deletionQueue.empty() )
+        {
+            auto deletionEntry = std::move( deletionQueue.front() );
+            deletionQueue.pop();
 
-        // TBD ...
+            if ( deletionEntry.vertexSize > 0 )
+            {
+                Graphics::RHI::BufferView vView;
+                vView.buffer = vb;
+                vView.offset = deletionEntry.vertexOffset;
+                vView.size   = deletionEntry.vertexSize;
+                data.vertexAllocator->free( vView );
+            }
 
-        //--------------------------------------------
-        // IMAGE UPLOAD
-        //--------------------------------------------
+            if ( deletionEntry.indexSize > 0 )
+            {
+                Graphics::RHI::BufferView iView;
+                iView.buffer = ib;
+                iView.offset = deletionEntry.indexOffset;
+                iView.size   = deletionEntry.indexSize;
+                data.indexAllocator->free( iView );
+            }
+        }
+    }
 
-        // TBD ...
+    void processMaterials( const Config& data, Graphics::RenderPassContext& ctx, uint& totalUsedSpace ) {
+        // TBD: Logic for Material Buffer Upload & GC
+    }
+
+    void processTextures( const Config& data, Graphics::RenderPassContext& ctx, uint& totalUsedSpace ) {
+        // TBD: Logic for Texture Copy & GC
     }
 };
 

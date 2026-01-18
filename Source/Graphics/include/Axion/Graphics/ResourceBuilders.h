@@ -177,6 +177,12 @@ public:
         return static_cast<T&>( *this );
     }
 
+    /// @brief Configures as a Indirect Buffer).
+    T& asIndirect() {
+        _desc.usageFlags |= BufferUsage::Indirect;
+        return static_cast<T&>( *this );
+    }
+
     /// @brief Configures as a constant buffer, great for uniform handling (CBO).
     T& asCBO() {
         _desc.usageFlags |= BufferUsage::Uniform;

@@ -297,6 +297,8 @@ DX12Buffer::DX12Buffer( const BufferDesc&    desc,
         default:
             if ( ( desc.usageFlags & BufferUsage::AccelerationStructure ) != BufferUsage::None )
                 initialState = ResourceState::RaytracingAS;
+            else if ( ( desc.usageFlags & BufferUsage::Indirect ) != BufferUsage::None )
+                initialState = ResourceState::IndirectArgument;
             else
                 initialState = ResourceState::Common;
             heapProps = CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_DEFAULT );

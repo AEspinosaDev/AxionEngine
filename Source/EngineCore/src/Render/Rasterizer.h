@@ -81,10 +81,10 @@ private:
         Graphics::BufferHandle vertexBufferHandle;
         Graphics::BufferHandle indexBufferHandle;
         Graphics::BufferHandle matBufferHandle;
-        // Reource Allocators
-        Graphics::RHI::FreeListAllocator matAllocator;
-        Graphics::RHI::FreeListAllocator indexAllocator;
+        // Resource Allocators
         Graphics::RHI::FreeListAllocator vertexAllocator;
+        Graphics::RHI::FreeListAllocator indexAllocator;
+        Graphics::RHI::FreeListAllocator matAllocator;
 
         std::vector<FrameResources> frame;
     };

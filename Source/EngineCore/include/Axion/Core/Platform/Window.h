@@ -31,7 +31,7 @@ public:
     struct Settings {
 
         Graphics::PlatformType platformType = Graphics::PlatformType::Win32;
-        bool                   vsync        = true;
+        bool                   vsync        = false;
         std::string            name         = "Axion Window";
         Extent2D               size         = { 1280, 720 };
         bool                   fullscreen   = false;

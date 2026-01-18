@@ -7,13 +7,15 @@ namespace Core::Platform {
 
 struct Window::Impl {
     std::unique_ptr<Graphics::IWindow> nativeWindow;
-    
+
     Graphics::PlatformType platformType;
+    bool                   useVsync = false;
 
     mutable Settings internalSettingsBuffer;
 
-    Impl( const Settings& startupSettings ) 
-        : platformType( startupSettings.platformType ) {
+    Impl( const Settings& startupSettings )
+        : platformType( startupSettings.platformType )
+        , useVsync( startupSettings.vsync ) {
 
         Graphics::IWindow::Settings s;
         s.name       = startupSettings.name;
@@ -34,7 +36,7 @@ struct Window::Impl {
 
 Window::Window( const Settings& settings )
     : _impl( std::make_unique<Impl>( settings ) ) {
-    
+
     AXION_LOG_INFO( Logger::Module::Core, "Window [{}] Created Succesfully", settings.name );
     AXION_LOG_INFO( Logger::Module::Core, toString() );
 }
@@ -70,8 +72,8 @@ bool Window::minimized() const {
 }
 
 const Window::Settings& Window::getSettings() const {
-    
-    auto nativeSetts = _impl->nativeWindow->getSettings(); 
+
+    auto nativeSetts = _impl->nativeWindow->getSettings();
 
     _impl->internalSettingsBuffer.name       = nativeSetts.name;
     _impl->internalSettingsBuffer.size       = nativeSetts.size;
@@ -81,8 +83,9 @@ const Window::Settings& Window::getSettings() const {
     _impl->internalSettingsBuffer.iconPath   = nativeSetts.iconPath;
     _impl->internalSettingsBuffer.cursorPath = nativeSetts.cursorPath;
     _impl->internalSettingsBuffer.style      = nativeSetts.style;
-    
+
     _impl->internalSettingsBuffer.platformType = _impl->platformType;
+    _impl->internalSettingsBuffer.vsync        = _impl->useVsync;
 
     return _impl->internalSettingsBuffer;
 }

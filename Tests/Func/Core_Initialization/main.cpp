@@ -32,6 +32,7 @@ int main( /*int argc, char* argv[]*/ ) {
         auto cubeHandle   = assets.mesh( "Cube" ).createCube();
         auto sphreHandle  = assets.mesh( "Sphere" ).createSphere();
         auto dragonHandle = assets.mesh( "Dragon" ).import( AXION_MESH_DIR "/dragon.obj" );
+        auto ajaxHandle   = assets.mesh( "Ajax" ).import( AXION_MESH_DIR "/ajax.obj" );
 
         // Scene Setup
         auto cameraEntity = scene.createEntity( "MainCamera" );
@@ -39,13 +40,13 @@ int main( /*int argc, char* argv[]*/ ) {
         cameraEntity.getComponent<Core::Scene::TransformComponent>().position( { 0.0f, 0.0f, -4.0f } );
         cameraEntity.getComponent<Core::Scene::TransformComponent>().lookAt( { 0.0f, 0.0f, 0.0f } );
 
-        auto cubeEntity = scene.createEntity( "Cube1" );
+        auto cubeEntity = scene.createEntity( "Cube" );
         cubeEntity.addComponent<Core::Scene::MeshComponent>( cubeHandle );
         cubeEntity.getComponent<Core::Scene::TransformComponent>().translation = { -1.0f, -1.0f, 0.0f };
 
-        auto cubeEntity2 = scene.createEntity( "Cube2" );
-        cubeEntity2.addComponent<Core::Scene::MeshComponent>( cubeHandle );
-        cubeEntity2.getComponent<Core::Scene::TransformComponent>().translation = { 1.0f, -1.0f, 0.0f };
+        auto ajaxEntity = scene.createEntity( "Ajax" );
+        ajaxEntity.addComponent<Core::Scene::MeshComponent>( ajaxHandle );
+        ajaxEntity.getComponent<Core::Scene::TransformComponent>().translation = { 1.0f, -1.0f, 0.0f };
 
         auto sphereEntity = scene.createEntity( "Sphere" );
         sphereEntity.addComponent<Core::Scene::MeshComponent>( sphreHandle );
