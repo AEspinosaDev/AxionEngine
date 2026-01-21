@@ -1,0 +1,61 @@
+
+#pragma once
+#include <Axion/Common/Graphics/Defines.h>
+
+AXION_NAMESPACE_BEGIN
+
+namespace Core::Render {
+
+enum class MaterialPassType : uchar
+{
+    Opaque       = 0,
+    Blend        = 1,
+    Geometry     = 2,
+    Shadow       = 3,
+    Voxelization = 4,
+    Raytracing   = 5,
+
+    Count
+};
+
+enum class MaterialTopologyType : uchar
+{
+    Triangles = 0,
+    Lines     = 1,
+    Points    = 2,
+    Meshlets  = 3,
+    Count
+};
+
+enum MaterialTopologyFlags : uchar
+{
+    MaterialTopologyNone      = 0,
+    MaterialTopologyTriangles = 1 << 0,
+    MaterialTopologyLines     = 1 << 1,
+    MaterialTopologyPoints    = 1 << 2,
+    MaterialTopologyMeshlets  = 1 << 3,
+};
+
+AXION_ENUM_CLASS_FLAG_OPERATORS( MaterialTopologyFlags )
+
+struct MaterialArchetypePassConfig {
+    MaterialPassType                          passType;
+    std::string                               shaderPath;
+    std::vector<Graphics::Shader::EntryPoint> entryPoints;
+    std::string                               customIncludePath;
+
+    Graphics::FillMode fillMode = Graphics::FillMode::Solid;
+    Graphics::CullMode cullMode = Graphics::CullMode::None;
+    Graphics::BlendOp  blendOp  = Graphics::BlendOp::Add;
+};
+
+struct MaterialArchetypeDesc {
+    std::string                              name;
+    std::vector<MaterialArchetypePassConfig> passConfigs;
+    MaterialTopologyFlags                    topologiesSupported = MaterialTopologyTriangles;
+    uint                                     payloadSize         = 0;
+};
+
+} // namespace Core::Render
+
+AXION_NAMESPACE_END

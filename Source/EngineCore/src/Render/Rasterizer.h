@@ -4,6 +4,7 @@
 #include "GPUScene.h"
 #include "MaterialSystem.h"
 #include "PassSystem.h"
+#include <Axion/Core/Assets/Material.h>
 #include <Axion/Core/Render/Rasterizer.h>
 #include <Axion/Graphics/Renderer.h>
 

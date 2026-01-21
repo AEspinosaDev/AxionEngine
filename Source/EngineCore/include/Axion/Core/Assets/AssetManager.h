@@ -26,7 +26,7 @@ public:
     // Forward declarations of nested builders
     class MeshBuilder;
     class TextureBuilder;
-    // class MaterialBuilder;
+    class MaterialBuilder;
 
     // -------------------------------------------------------------------------
     // ENTRY POINTS
@@ -39,6 +39,10 @@ public:
     /// @brief Starts the fluent construction of a CPU Texture.
     /// @param name Debug name for the resource.
     TextureBuilder texture( const std::string& name );
+
+    /// @brief Starts the fluent construction of a CPU Material.
+    /// @param name Debug name for the resource.
+    MaterialBuilder material( const std::string& name );
 
     // -------------------------------------------------------------------------
     // RUNTIME ACCESS
@@ -64,6 +68,22 @@ public:
     /// @brief Checks if a texture handle points to a live asset.
     [[nodiscard]] bool isValid( TextureHandle handle ) const;
 
+    /// @brief Retrieves the raw Material pointer associated with a handle.
+    /// @return Pointer to Material or nullptr if handle is invalid/dead.
+    template <typename T>
+    T* getMaterial( MaterialHandle handle ) {
+        Material* mat = getMaterialBase( handle );
+        return static_cast<T*>( mat );
+    }
+
+    Material* getMaterialBase( MaterialHandle handle ) const;
+
+    /// @brief Destroys the material and frees memory immediately.
+    void deleteMaterial( MaterialHandle handle );
+
+    /// @brief Checks if a material handle points to a live asset.
+    [[nodiscard]] bool isValid( MaterialHandle handle ) const;
+
     // -------------------------------------------------------------------------
     // LIFECYCLE & UTILS
     // -------------------------------------------------------------------------
@@ -73,6 +93,9 @@ public:
 
     /// @brief Returns the total number of texture slots occupied.
     [[nodiscard]] uint getTextureCount() const;
+
+    /// @brief Returns the total number of material slots occupied.
+    [[nodiscard]] uint getMaterialCount() const;
 
 private:
     MeshHandle    importMesh( const std::string& name, const std::string& filepath, MeshImportFlags flags );
@@ -90,12 +113,23 @@ private:
                                  const TextureType                                           type,
                                  const SamplerDesc&                                          samplerDesc = {} );
 
+    template <typename T, typename... Args>
+    MaterialHandle createMaterial( const std::string& name, Args&&... args ) {
+        static_assert( std::is_base_of<Material, T>::value,
+                       "AssetManager: The type T must derive from Core::Assets::Material" );
+
+        T* newMat = new T( name, std::forward<Args>( args )... );
+
+        return createMaterialAux( name, newMat );
+    }
+    MaterialHandle createMaterialAux( const std::string& name, Material* rawPtr );
+
     struct Impl;
     std::unique_ptr<Impl> _impl;
 
     friend class MeshBuilder;
     friend class TextureBuilder;
-    // friend class MaterialBuilder;
+    friend class MaterialBuilder;
 };
 
 // -----------------------------------------------------------------------------
@@ -134,6 +168,25 @@ public:
     /// @brief Creates a mesh from raw vertex and index data.
     MeshHandle create( const std::vector<Vertex>& vertices, const std::vector<uint>& indices = {} ) {
         return _manager.createMesh( _name, vertices, indices );
+    }
+
+private:
+    AssetManager& _manager;
+    std::string   _name;
+};
+
+/// @brief Fluent builder for configuring and creating Textures.
+class AssetManager::MaterialBuilder
+{
+public:
+    MaterialBuilder( AssetManager& m, std::string n )
+        : _manager( m )
+        , _name( std::move( n ) ) {}
+
+    /// @brief Creates a material from a given class and constructor arguments.
+    template <typename T, typename... Args>
+    MaterialHandle create( Args&&... args ) {
+        return _manager.createMaterial<T>( _name, std::forward<Args>( args )... );
     }
 
 private:

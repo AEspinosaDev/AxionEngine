@@ -112,7 +112,7 @@ PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, 
         shaderBundle.stageBlobs.begin(),
         shaderBundle.stageBlobs.end(),
         []( const auto& blob ) {
-            return blob.type == RHI::ShaderType::Compute;
+            return blob.type == ShaderType::Compute;
         } );
 
     if ( itStage == shaderBundle.stageBlobs.end() )
@@ -125,7 +125,7 @@ PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, 
     const auto& blob = *itStage;
 
     desc.shaderModule = {
-        .type       = RHI::ShaderType::Compute,
+        .type       = ShaderType::Compute,
         .code       = blob.code.data(),
         .codeSize   = blob.code.size(),
         .entryPoint = blob.entryPointName };

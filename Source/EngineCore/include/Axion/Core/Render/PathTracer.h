@@ -20,8 +20,6 @@ public:
 typedef IPathTracer::Settings PathTracerSettings;
 
 RendererPtr createPathTracer( Platform::Window* wnd, PathTracerSettings settings = {} );
-};
-
-} // namespace Core::Render
+}; // namespace Core::Render
 
 AXION_NAMESPACE_END

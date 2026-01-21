@@ -1,4 +1,5 @@
 #pragma once
+#include "Axion/Core/Render/MaterialArchetype.h"
 #include "Axion/Graphics/Subsystems/PipelineRegistry.h"
 #include "Axion/Graphics/Subsystems/ShaderRegistry.h"
 #include <array>
@@ -10,57 +11,9 @@ AXION_NAMESPACE_BEGIN
 
 namespace Core::Render {
 
-enum class MaterialPassType : uchar
-{
-    Opaque       = 0,
-    Blend        = 1,
-    Geometry     = 2,
-    Shadow       = 3,
-    Voxelization = 4,
-    Raytracing   = 5,
-
-    Count
-};
-
-enum class MaterialTopologyType : uchar
-{
-    Triangles = 0,
-    Lines     = 1,
-    Points    = 2,
-    Meshlets  = 3,
-    Count
-};
-
-enum MaterialTopologyFlags : uchar
-{
-    MaterialTopologyNone      = 0,
-    MaterialTopologyTriangles = 1 << 0,
-    MaterialTopologyLines     = 1 << 1,
-    MaterialTopologyPoints    = 1 << 2,
-    MaterialTopologyMeshlets  = 1 << 3,
-};
-
-AXION_ENUM_CLASS_FLAG_OPERATORS( MaterialTopologyFlags )
-
 struct MaterialArchetype {
-    struct PassConfig {
-        MaterialPassType                          passType;
-        std::string                               shaderPath;
-        std::vector<Graphics::Shader::EntryPoint> entryPoints;
-        std::string                               customIncludePath;
 
-        Graphics::FillMode fillMode = Graphics::FillMode::Solid;
-        Graphics::CullMode cullMode = Graphics::CullMode::None;
-        Graphics::BlendOp  blendOp  = Graphics::BlendOp::Add;
-    };
-    struct Description {
-        std::string             name;
-        std::vector<PassConfig> passConfigs;
-        MaterialTopologyFlags   topologiesSupported = MaterialTopologyTriangles;
-        uint                    payloadSize         = 0;
-    };
-
-    Description desc {};
+    MaterialArchetypeDesc desc {};
 
     //  Resources
     std::array<Graphics::ShaderHandle, (size_t)MaterialPassType::Count> shaderHandles;
@@ -75,8 +28,6 @@ struct MaterialArchetype {
     }
 };
 
-typedef MaterialArchetype::Description MaterialArchetypeDesc;
-
 struct MaterialPassProfile {
     std::vector<Graphics::Format> renderTargetFormats;
     Graphics::Format              depthTargetFormat = Graphics::Format::D32;
@@ -88,6 +39,7 @@ public:
     class ArchetypeBuilder;
 
     ArchetypeBuilder beginMaterial( const std::string& name );
+    void             registerArchetype( const MaterialArchetypeDesc& desc );
 
     void init( Graphics::API api );
 
@@ -105,8 +57,6 @@ public:
     uint getArchetypeID( const std::string& name );
 
 private:
-    void registerArchetype( const MaterialArchetypeDesc& desc );
-
     std::string                 toString( MaterialPassType type );
     std::string                 toString( MaterialTopologyType type );
     Graphics::PrimitiveTopology toRHITopology( MaterialTopologyType type );
@@ -117,7 +67,7 @@ private:
 
     std::array<MaterialPassProfile, (size_t)MaterialPassType::Count> _passProfiles;
 
-    Graphics::PipelineLayoutHandle _globalLayoutHandle; //Global Shader Contract
+    Graphics::PipelineLayoutHandle _globalLayoutHandle; // Global Shader Contract
 
     Graphics::API _api;
     bool          _initialized = false;
@@ -138,7 +88,7 @@ public:
                                const std::string&                               path,
                                const std::vector<Graphics::Shader::EntryPoint>& entryPoints,
                                const std::string&                               customIncludePath = "" ) {
-        MaterialArchetype::PassConfig p;
+        MaterialArchetypePassConfig p;
         p.shaderPath        = path;
         p.passType          = type;
         p.entryPoints       = entryPoints;

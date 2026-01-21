@@ -1,6 +1,7 @@
 #pragma once
 #include "Axion/Common/Logging.h"
 #include "Axion/Core/Assets/AssetManager.h"
+#include "Axion/Core/Assets/Materials/UnlitMaterial.h"
 #include "Axion/Core/Platform/Window.h"
 #include "Axion/Core/Render/Rasterizer.h"
 #include "Axion/Core/Scene/Entity.h"
@@ -33,6 +34,8 @@ int main( /*int argc, char* argv[]*/ ) {
         auto sphreHandle  = assets.mesh( "Sphere" ).createSphere();
         auto dragonHandle = assets.mesh( "Dragon" ).import( AXION_MESH_DIR "/dragon.obj" );
         auto ajaxHandle   = assets.mesh( "Ajax" ).import( AXION_MESH_DIR "/ajax.obj" );
+
+        auto unlitHandle = assets.material( "Unlit" ).create<Core::Assets::UnlitMaterial>();
 
         // Scene Setup
         auto cameraEntity = scene.createEntity( "MainCamera" );

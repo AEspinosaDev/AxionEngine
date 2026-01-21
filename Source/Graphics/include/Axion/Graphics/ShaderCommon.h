@@ -18,14 +18,10 @@ enum NativeFormat : uchar
     GLSL    ///< OpenGL Shading Language.
 };
 
-struct EntryPoint {
-    std::string     name; // Eg: "vsMain"
-    RHI::ShaderType type;
-};
 
 struct ProgramBundle {
     struct StageBlob {
-        RHI::ShaderType    type;
+        ShaderType    type;
         std::vector<uchar> code;
         std::string        entryPointName;
     };

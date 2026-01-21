@@ -100,7 +100,7 @@ public:
     }
 
     /// @brief Enables or disables automatic reflection via Slang.
-    /// Default is true 
+    /// Default is true
     Builder& autoReflect( bool opt ) {
         _desc.autoReflect = opt;
         return *this;
@@ -110,52 +110,52 @@ public:
 
     /// @brief Adds a Vertex Shader entry point.
     Builder& vs( const std::string& entryName ) {
-        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Vertex } );
+        _desc.entryPoints.push_back( { entryName, ShaderType::Vertex } );
         return *this;
     }
     /// @brief Adds a Pixel (Fragment) Shader entry point.
     Builder& ps( const std::string& entryName ) {
-        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Pixel } );
+        _desc.entryPoints.push_back( { entryName, ShaderType::Pixel } );
         return *this;
     }
     /// @brief Adds a Compute Shader entry point.
     Builder& cs( const std::string& entryName ) {
-        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Compute } );
+        _desc.entryPoints.push_back( { entryName, ShaderType::Compute } );
         return *this;
     }
     /// @brief Adds a Geometry Shader entry point.
     Builder& gs( const std::string& entryName ) {
-        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Geometry } );
+        _desc.entryPoints.push_back( { entryName, ShaderType::Geometry } );
         return *this;
     }
     /// @brief Adds a Hull (Tessellation Control) Shader entry point.
     Builder& hs( const std::string& entryName ) {
-        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Hull } );
+        _desc.entryPoints.push_back( { entryName, ShaderType::Hull } );
         return *this;
     }
     /// @brief Adds a Domain (Tessellation Evaluation) Shader entry point.
     Builder& ds( const std::string& entryName ) {
-        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Domain } );
+        _desc.entryPoints.push_back( { entryName, ShaderType::Domain } );
         return *this;
     }
     /// @brief Adds a Raygen Shader entry point.
     Builder& raygen( const std::string& entryName ) {
-        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::RayGeneration } );
+        _desc.entryPoints.push_back( { entryName, ShaderType::RayGeneration } );
         return *this;
     }
     /// @brief Adds a Miss Shader entry point.
     Builder& miss( const std::string& entryName ) {
-        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Miss } );
+        _desc.entryPoints.push_back( { entryName, ShaderType::Miss } );
         return *this;
     }
     /// @brief Adds a Closest Hit Shader entry point.
     Builder& closestHit( const std::string& entryName ) {
-        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::ClosestHit } );
+        _desc.entryPoints.push_back( { entryName, ShaderType::ClosestHit } );
         return *this;
     }
     /// @brief Adds a Callable Shader entry point.
     Builder& callable( const std::string& entryName ) {
-        _desc.entryPoints.push_back( { entryName, RHI::ShaderType::Callable } );
+        _desc.entryPoints.push_back( { entryName, ShaderType::Callable } );
         return *this;
     }
 

@@ -212,15 +212,25 @@ void Rasterizer::setupMaterialLibrary() {
 
 void Rasterizer::registerMaterials() {
 
-    // In the future we could reand the file p xml/python and define materials from it.
-    // For now, we manually declare
 
-    _mtlLib.beginMaterial( "TestMaterial" )
-        .addPass( MaterialPassType::Opaque,
-                  AXION_SHADER_DIR "/Slang/Materials/TestMaterial.slang",
-                  { { "vsForward", Graphics::RHI::ShaderType::Vertex },
-                    { "psForward", Graphics::RHI::ShaderType::Pixel } } )
-        .finish();
+    Assets::GlobalMaterialRegistry::enumerate(
+        [&]( const std::string& name, Assets::GlobalMaterialRegistry::SetupCallback setupFunc ) {
+            MaterialArchetypeDesc desc;
+
+            setupFunc( desc );
+
+            _mtlLib.registerArchetype( desc );
+
+        } );
+
+
+
+    // _mtlLib.beginMaterial( "TestMaterial" )
+    //     .addPass( MaterialPassType::Opaque,
+    //               AXION_SHADER_DIR "/Slang/Materials/Test.slang",
+    //               { { "vsForward", Graphics::ShaderType::Vertex },
+    //                 { "psForward", Graphics::ShaderType::Pixel } } )
+    //     .finish();
 }
 
 void Rasterizer::registerPasses() {

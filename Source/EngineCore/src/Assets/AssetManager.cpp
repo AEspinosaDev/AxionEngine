@@ -32,9 +32,9 @@ struct AssetManager::Impl {
     std::unordered_map<std::string, TextureHandle> textureHandles;
     std::queue<uint>                               textureFreeIndices;
 
-    // std::vector<AssetRecord<Material>> materials;
-    // std::unordered_map<std::string, MaterialHandle> materialHandles;
-    // std::queue<uint>                            materialFreeIndices;
+    std::vector<AssetRecord<Material>>              materials;
+    std::unordered_map<std::string, MaterialHandle> materialHandles;
+    std::queue<uint>                                materialFreeIndices;
 
     std::mutex mutex;
 
@@ -173,6 +173,70 @@ struct AssetManager::Impl {
         textureFreeIndices.push( handle.id );
 
         AXION_LOG_INFO( Logger::Module::Core, "Deleted Texture ID: {} [{}]", handle.id, deletedName );
+    }
+
+    MaterialHandle addMaterial( std::unique_ptr<Material> mat, const std::string& key = "" ) {
+        uint id         = UINT32_MAX;
+        uint generation = 0;
+
+        if ( !materialFreeIndices.empty() )
+        {
+            id = materialFreeIndices.front();
+            materialFreeIndices.pop();
+
+            auto& slot  = materials[id];
+            slot.active = true;
+            slot.asset  = std::move( mat );
+            generation  = slot.generation; // Keep existing generation count
+        } else
+        {
+            id         = static_cast<uint>( materials.size() );
+            generation = 0;
+
+            AssetRecord<Material> newSlot;
+            newSlot.asset      = std::move( mat );
+            newSlot.generation = 0;
+            newSlot.active     = true;
+
+            materials.push_back( std::move( newSlot ) );
+        }
+
+        MaterialHandle handle { id, generation };
+
+        if ( !key.empty() )
+        {
+            materialHandles[key] = handle;
+        }
+
+        return handle;
+    }
+
+    void removeMaterial( MaterialHandle handle ) {
+        if ( handle.id >= materials.size() )
+            return;
+
+        auto& slot = materials[handle.id];
+
+        if ( !slot.active || slot.generation != handle.generation )
+        {
+            AXION_LOG_WARN( Logger::Module::Core, "Attempted to delete invalid Material Handle: {}", handle.id );
+            return;
+        }
+
+        auto deletedName = slot.asset->getName();
+        if ( !deletedName.empty() )
+        {
+            materialHandles.erase( deletedName );
+        }
+
+        // Reset
+        slot.asset.reset();
+        slot.active = false;
+        slot.generation++; // Increment generation to invalidate old handles
+
+        materialFreeIndices.push( handle.id );
+
+        AXION_LOG_INFO( Logger::Module::Core, "Deleted Material ID: {}", handle.id );
     }
 };
 
@@ -689,6 +753,7 @@ TextureHandle AssetManager::createTexture( const std::string&                   
                                            const SamplerDesc&                      samplerDesc ) {
     return TextureHandle();
 }
+
 const Texture* AssetManager::getTexture( TextureHandle handle ) const {
     if ( !handle.isValid() || handle.id >= _impl->textures.size() )
         return nullptr;
@@ -721,15 +786,62 @@ bool AssetManager::isValid( TextureHandle handle ) const {
 
     return true;
 }
+
 uint AssetManager::getTextureCount() const {
     return _impl->textures.size();
 }
 
 #pragma endregion
 #pragma region Material
+MaterialHandle AssetManager::createMaterialAux( const std::string& name, Material* rawPtr ) {
+    if ( !rawPtr )
+        return {};
+
+    std::unique_ptr<Material> matPtr( rawPtr );
+
+    std::scoped_lock lock( _impl->mutex );
+
+    return _impl->addMaterial( std::move( matPtr ), name );
+}
+
+Material* AssetManager::getMaterialBase( MaterialHandle handle ) const {
+    if ( !handle.isValid() || handle.id >= _impl->materials.size() )
+        return nullptr;
+
+    const auto& slot = _impl->materials[handle.id];
+
+    if ( !slot.active || slot.generation != handle.generation )
+    {
+        return nullptr;
+    }
+
+    return slot.asset.get();
+}
+void AssetManager::deleteMaterial( MaterialHandle handle ) {
+    std::scoped_lock lock( _impl->mutex );
+    _impl->removeMaterial( handle );
+}
+bool AssetManager::isValid( MaterialHandle handle ) const {
+    std::scoped_lock lock( _impl->mutex );
+
+    if ( !handle.isValid() || handle.id >= _impl->materials.size() )
+        return false;
+
+    const auto& slot = _impl->materials[handle.id];
+
+    if ( !slot.active || slot.generation != handle.generation )
+        return false;
+
+    return true;
+}
+
+uint AssetManager::getMaterialCount() const {
+    return _impl->materials.size();
+}
 
 #pragma endregion
 #pragma region Entry
+
 AssetManager::MeshBuilder AssetManager::mesh( const std::string& name ) {
     return AssetManager::MeshBuilder( *this, name );
 }
@@ -738,5 +850,8 @@ AssetManager::TextureBuilder AssetManager::texture( const std::string& name ) {
     return AssetManager::TextureBuilder( *this, name );
 }
 
+AssetManager::MaterialBuilder AssetManager::material( const std::string& name ) {
+    return AssetManager::MaterialBuilder( *this, name );
+}
 } // namespace Core::Assets
 AXION_NAMESPACE_END
