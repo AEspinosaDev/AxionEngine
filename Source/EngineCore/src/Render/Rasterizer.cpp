@@ -155,11 +155,12 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         fwConfig.matLayoutHandle = _globalMtlLayoutHandle;
         fwConfig.gpuScene        = &_gpuScene;
 
-        fwConfig.frameView     = transientViews.frameView;
-        fwConfig.meshesView    = transientViews.meshesView;
-        fwConfig.materialsView = transientViews.mtlView;
-        fwConfig.instancesView = transientViews.instancesView;
-        fwConfig.lightsView    = transientViews.lightsView;
+        fwConfig.frameView       = transientViews.frameView;
+        fwConfig.meshesView      = transientViews.meshesView;
+        fwConfig.materialsView   = transientViews.mtlView;
+        fwConfig.instancesView   = transientViews.instancesView;
+        fwConfig.lightsView      = transientViews.lightsView;
+        fwConfig.redirectionView = transientViews.redirectView;
 
         fwConfig.indirectData = indirectCmdData;
 
@@ -186,6 +187,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
 void Rasterizer::setupMaterialLibrary() {
 
+    // Global Layout (BINDLESS)
     _globalMtlLayoutHandle = _rnd->pipelines().layout( "Global_Material_Layout" )
                                  // Space 0: Persistent (Geometry, Materials and Textures)
                                  .addSet( {
@@ -201,7 +203,8 @@ void Rasterizer::setupMaterialLibrary() {
                                      { 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Meshes
                                      { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Materials
                                      { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Instances
-                                     { 3, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Lights
+                                     { 3, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Lights
+                                     { 4, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // HW. Instance Redirection Buffer
                                  } )
                                  // Space 2: Instance ID Push Constant
                                  .setPushConstants( sizeof( uint ), 0, 2 )
@@ -426,11 +429,39 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
                 memset( views.lightsView.cpuAddress, 0, views.lightsView.size );
         }
     }
+    // =================================================================================
+    // 6. INSTANCE REDIRECTION DATA (for true instancing) (SSBO - Structured Buffer)
+    // =================================================================================
+    {
+        const auto& sortedKeys = _gpuScene.getSortedKeys();
+
+        if ( !sortedKeys.empty() )
+        {
+            views.redirectView = currentSSBOAlloc.allocate<uint>( sortedKeys.size() );
+
+            if ( views.redirectView.isValid() )
+            {
+                auto* redirectPtr = (uint*)views.redirectView.cpuAddress;
+
+                for ( size_t i = 0; i < sortedKeys.size(); ++i )
+                {
+                    redirectPtr[i] = sortedKeys[i].originalInstanceIdx;
+                }
+            }
+        } else
+        {
+            views.redirectView       = currentSSBOAlloc.allocate<uint>( 1 );
+            views.redirectView.count = 0;
+            if ( views.redirectView.cpuAddress )
+                memset( views.redirectView.cpuAddress, 0, views.redirectView.size );
+        }
+    }
 
     return views;
 }
 
-IndirectCommandData Rasterizer::uploadIndirectCommands( Graphics::RHI::LinearAllocator& currentIndirectAlloc ) {
+IndirectCommandData Rasterizer::uploadIndirectCommands(
+    Graphics::RHI::LinearAllocator& indirectAlloc ) {
     const auto& sortedKeys = _gpuScene.getSortedKeys();
     const auto& instances  = _gpuScene.instances();
     const auto& meshes     = _gpuScene.meshes();
@@ -439,71 +470,121 @@ IndirectCommandData Rasterizer::uploadIndirectCommands( Graphics::RHI::LinearAll
     if ( sortedKeys.empty() )
         return indirectData;
 
-    auto       mainView     = currentIndirectAlloc.allocate<Graphics::RHI::DrawIndexedIndirectCommand>( sortedKeys.size() );
-    const auto RHI_CMD_SIZE = sizeof( Graphics::RHI::DrawIndexedIndirectCommand );
+    // 1. ALLOCATIONS
+    // =================================================================================
 
-    if ( !mainView.isValid() )
+    size_t maxPossibleCommands = meshes.size() * _mtlLib.getArchetypesCount();
+    maxPossibleCommands        = std::max<size_t>( maxPossibleCommands, 1 );
+
+    auto cmdAlloc = indirectAlloc.allocate<Graphics::RHI::DrawIndexedIndirectCommand>( maxPossibleCommands );
+
+    if ( !cmdAlloc.isValid() )
         return indirectData;
+
+    auto*      cmdPtr       = (Graphics::RHI::DrawIndexedIndirectCommand*)cmdAlloc.cpuAddress;
+    const auto RHI_CMD_SIZE = sizeof( Graphics::RHI::DrawIndexedIndirectCommand );
 
     indirectData.batches.reserve( _mtlLib.getArchetypesCount() );
 
-    // Map ptr
-    auto* cmdPtr = (Graphics::RHI::DrawIndexedIndirectCommand*)mainView.cpuAddress;
+    // 2. LOOP
+    // =================================================================================
 
-    uint currentArch, currentTopo, currentMatID;
-    sortedKeys[0].unpack( currentArch, currentTopo, currentMatID );
+    uint currentArch = 0, currentTopo = 0, currentMeshID = 0;
+    sortedKeys[0].unpack( currentArch, currentTopo, currentMeshID );
 
-    uint batchStartIdx = 0;
-    uint batchCount    = 0;
+    auto lastMesh = meshes[instances[sortedKeys[0].originalInstanceIdx].meshID];
 
-    for ( ulong i = 0; i < sortedKeys.size(); ++i )
+    // Trackers
+    uint batchStartOffsetInRedirect = 0;
+    uint instanceAccumulator        = 0;
+
+    uint cmdWriteIdx          = 0;
+    uint cmdsInCurrentArch    = 0;
+    uint archBatchStartCmdIdx = 0;
+
+    for ( size_t i = 0; i < sortedKeys.size(); ++i )
     {
+        uint arch, topo, meshID;
+        sortedKeys[i].unpack( arch, topo, meshID );
 
-        uint        originalIdx = sortedKeys[i].originalInstanceIdx;
-        const auto& inst        = instances[originalIdx];
-        const auto& mesh        = meshes[inst.meshID];
+        bool breakInstancing = ( meshID != currentMeshID ) ||
+                               ( arch != currentArch ) ||
+                               ( topo != currentTopo );
 
-        Graphics::RHI::DrawIndexedIndirectCommand cmd;
-        cmd.indexCount    = mesh.indexCount;
-        cmd.instanceCount = 1;
-        cmd.firstIndex    = mesh.indexOffset / 4;
-        cmd.vertexOffset  = (int)( mesh.vertexOffset / sizeof( Assets::Vertex ) );
-        cmd.firstInstance = originalIdx;
-        cmd.instanceID    = originalIdx;
+        if ( breakInstancing && instanceAccumulator > 0 )
+        {
+            Graphics::RHI::DrawIndexedIndirectCommand cmd;
+            cmd.indexCount    = lastMesh.indexCount;
+            cmd.instanceCount = instanceAccumulator;
+            cmd.firstIndex    = lastMesh.indexOffset / 4;
+            cmd.vertexOffset  = (int)( lastMesh.vertexOffset / sizeof( Assets::Vertex ) );
+            cmd.firstInstance = 0; // Unused
 
-        cmdPtr[i] = cmd;
+            cmd.baseInstanceID = batchStartOffsetInRedirect;
 
-        uint arch, topo, matID;
-        sortedKeys[i].unpack( arch, topo, matID );
+            cmdPtr[cmdWriteIdx++] = cmd;
+            cmdsInCurrentArch++;
+
+            // Reset
+            instanceAccumulator        = 0;
+            batchStartOffsetInRedirect = (uint)i;
+
+            // Update Trackers
+            currentMeshID    = meshID;
+            uint originalIdx = sortedKeys[i].originalInstanceIdx;
+            lastMesh         = meshes[instances[originalIdx].meshID];
+        }
 
         if ( arch != currentArch || topo != currentTopo )
         {
             indirectData.batches.push_back( { .archetypeID  = currentArch,
                                               .topologyID   = currentTopo,
-                                              .bufferOffset = (uint)( mainView.offset + ( batchStartIdx * RHI_CMD_SIZE ) ),
-                                              .drawCount    = batchCount } );
+                                              .bufferOffset = (uint)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
+                                              .drawCount    = cmdsInCurrentArch } );
 
-            currentArch   = arch;
-            currentTopo   = topo;
-            batchStartIdx = (uint)i;
-            batchCount    = 0;
+            currentArch          = arch;
+            currentTopo          = topo;
+            cmdsInCurrentArch    = 0;
+            archBatchStartCmdIdx = cmdWriteIdx;
         }
-        batchCount++;
+
+        instanceAccumulator++;
     }
 
-    // Cerrar el último batch
-    if ( batchCount > 0 )
+    // 3. Close
+    // =================================================================================
+
+    if ( instanceAccumulator > 0 )
+    {
+        Graphics::RHI::DrawIndexedIndirectCommand cmd;
+        cmd.indexCount       = lastMesh.indexCount;
+        cmd.instanceCount    = instanceAccumulator;
+        cmd.firstIndex       = lastMesh.indexOffset / 4;
+        cmd.vertexOffset     = (int)( lastMesh.vertexOffset / sizeof( Assets::Vertex ) );
+        cmd.firstInstance    = 0;
+        cmd.baseInstanceID = batchStartOffsetInRedirect;
+
+        cmdPtr[cmdWriteIdx++] = cmd;
+        cmdsInCurrentArch++;
+    }
+
+    // Último Render Batch
+    if ( cmdsInCurrentArch > 0 )
     {
         indirectData.batches.push_back( { .archetypeID  = currentArch,
                                           .topologyID   = currentTopo,
-                                          .bufferOffset = (uint)( mainView.offset + ( batchStartIdx * RHI_CMD_SIZE ) ),
-                                          .drawCount    = batchCount } );
+                                          .bufferOffset = (uint)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
+                                          .drawCount    = cmdsInCurrentArch } );
     }
 
-    indirectData.bufferView = mainView;
+    // 4. Finish
+    // =================================================================================
+
+    indirectData.bufferView      = cmdAlloc;
+    indirectData.bufferView.size = cmdWriteIdx * RHI_CMD_SIZE;
+
     return indirectData;
 }
-
 } // namespace Core::Render
 
 AXION_NAMESPACE_END

@@ -50,7 +50,7 @@ int main( /*int argc, char* argv[]*/ ) {
         cubeEntity.getComponent<Core::Scene::TransformComponent>().translation = { -1.0f, -1.0f, 0.0f };
 
         auto sphereEntity = scene.createEntity( "Sphere" );
-        sphereEntity.addComponent<Core::Scene::MeshComponent>( sphreHandle, unlitHandle );
+        sphereEntity.addComponent<Core::Scene::MeshComponent>( cubeHandle, unlitHandle );
         sphereEntity.getComponent<Core::Scene::TransformComponent>().translation = { 1.0f, 1.0f, 0.0f };
         sphereEntity.getComponent<Core::Scene::TransformComponent>().scale       = { 0.5f, 0.5f, 0.5f };
 

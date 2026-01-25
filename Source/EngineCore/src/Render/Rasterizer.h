@@ -53,6 +53,7 @@ private:
         Graphics::RHI::BufferView mtlView;
         Graphics::RHI::BufferView instancesView;
         Graphics::RHI::BufferView lightsView;
+        Graphics::RHI::BufferView redirectView;
     };
 
     TransientViews      uploadTransientData( Graphics::RHI::LinearAllocator& currentUBOAlloc,

@@ -28,6 +28,7 @@ public:
         Graphics::RHI::BufferView materialsView;
         Graphics::RHI::BufferView instancesView;
         Graphics::RHI::BufferView lightsView;
+        Graphics::RHI::BufferView redirectionView;
 
         IndirectCommandData indirectData;
 
@@ -98,12 +99,13 @@ private:
         // SPACE 1: Volatile Data (Views into the giant UBO)
         auto* set1 = ctx.allocateSet( matLayout, 1 ); // Space 1
 
-        // Frame (b0), Meshes (t0), Materials (t1), Instances (t2, Lights (t3)
+        // Frame (b0), Meshes (t0), Materials (t1), Instances (t2, Lights (t3), Redirection (t4)
         set1->attachBufferView( 0, data.frameView, Graphics::RHI::ResourceState::ConstantBuffer );
         set1->attachBufferView( 1, data.meshesView, Graphics::RHI::ResourceState::ShaderResource );
         set1->attachBufferView( 2, data.materialsView, Graphics::RHI::ResourceState::ShaderResource );
         set1->attachBufferView( 3, data.instancesView, Graphics::RHI::ResourceState::ShaderResource );
         set1->attachBufferView( 4, data.lightsView, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferView( 5, data.redirectionView, Graphics::RHI::ResourceState::ShaderResource );
 
         cmd->bindDescriptorSet( 1, set1, matLayout );
 

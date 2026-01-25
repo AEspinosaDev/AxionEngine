@@ -3,6 +3,7 @@
 
 struct VSInput {
     uint vertexID : SV_VertexID;
+    uint instanceID : SV_InstanceID;
 };
 
 struct VSOutput {
@@ -16,7 +17,7 @@ struct VSOutput {
 
 [shader( "vertex" )]
 VSOutput vsForward( VSInput input ) {
-    InstanceData instance = getInstanceData();
+    InstanceData instance = getInstanceData(input.instanceID);
     MeshData     mesh     = getMeshData( instance.meshID );
 
     uint vertexAddress = mesh.vertexOffset + ( input.vertexID * CANON_VERTEX_STRIDE );

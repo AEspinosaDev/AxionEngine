@@ -11,7 +11,7 @@ set(CMAKE_FOLDER "Tests")
 # FUNCTIONAL TESTS
 add_subdirectory(Func/GFX_ClearBackbuffer)
 add_subdirectory(Func/GFX_UpdateAccels)
-add_subdirectory(Func/Core_Initialization)
+add_subdirectory(Func/Core_Stress)
 
 
 

@@ -188,7 +188,7 @@ void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Devic
 
     bool validSize = ( _desc.pushConstant.size == sizeof( uint ) );
 
-    AXION_LOG_ASSERT( validSize, Logger::Module::RHI, "DX12 Pipeline Layout [{}]: Push constant size must be 4 bytes (1 uint) for ObjectID. Current size: {}", _desc.debugName, _desc.pushConstant.size );
+    AXION_LOG_ASSERT( validSize, Logger::Module::RHI, "DX12 Pipeline Layout [{}]: Push constant size must be 4 bytes (1 uint) for baseInstanceID. Current size: {}", _desc.debugName, _desc.pushConstant.size );
 
     if ( !validSize )
         return;
@@ -198,7 +198,7 @@ void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Devic
     argDesc[0].Type                             = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
     argDesc[0].Constant.RootParameterIndex      = (UINT)_pushConstantRootIndex;
     argDesc[0].Constant.DestOffsetIn32BitValues = 0;
-    argDesc[0].Constant.Num32BitValuesToSet     = 1; // Escribimos 1 solo uint (4 bytes)
+    argDesc[0].Constant.Num32BitValuesToSet     = 1; // Base Instance ID
 
     {
         argDesc[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;

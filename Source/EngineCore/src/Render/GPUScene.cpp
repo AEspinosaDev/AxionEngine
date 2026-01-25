@@ -80,7 +80,7 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, const MaterialLib
             uint archID   = _materialCache.cache[gpuMaterialID].archetypeID;
 
             SortKey key;
-            key.key                 = makeSortKey( archID, topology, gpuMaterialID );
+            key.key                 = makeSortKey( archID, topology, gpuMeshID );
             key.originalInstanceIdx = (uint)_instances.size() - 1;
 
             _sortedKeys.push_back( key );

@@ -21,13 +21,14 @@ int main( /*int argc, char* argv[]*/ ) {
 #endif
 
         Core::Platform::Window     wnd( { .platformType = Graphics::PlatformType::Win32,
-                                          .name         = "Core Init Test - 1000 Objects" } );
+                                          .name         = "Core Stress Test - Thousands of objects" } );
         Core::Assets::AssetManager assets;
         Core::Scene::Scene         scene( "TestScene", &assets );
 
         Core::Render::RasterizerSettings rastDesc {};
-        rastDesc.common.name             = "TestRasterizer";
-        rastDesc.common.selectedDeviceID = 0;
+        rastDesc.common.name               = "TestRasterizer";
+        rastDesc.common.selectedDeviceID   = 0;
+        rastDesc.memory.volatileBufferSize = 1024 * 1024 * 64;
 
         auto rasterizer = Core::Render::createRasterizer( &wnd, rastDesc );
         rasterizer->compileShaders();
@@ -61,8 +62,8 @@ int main( /*int argc, char* argv[]*/ ) {
         std::uniform_real_distribution<float> scaleDist( 0.5f, 1.2f );
         std::uniform_real_distribution<float> rotDist( 0.0f, 360.0f );
 
-        int   gridSize = 12; // 10x10x10 = 1000 objetos
-        float spacing  = 3.5f;
+        int   gridSize = 20; // 10x10x10 = 1000 objetos
+        float spacing  = 3.0f;
         float offset   = ( gridSize * spacing ) * 0.5f;
 
         uint counter = 0;
@@ -146,7 +147,7 @@ int main( /*int argc, char* argv[]*/ ) {
             float camZ   = cos( time * 0.2f ) * radius;
 
             auto& camTrans = cameraEntity.getComponent<Core::Scene::TransformComponent>();
-            camTrans.position( { camX, radius * 0.5f, camZ } ); 
+            camTrans.position( { camX, radius * 0.5f, camZ } );
             camTrans.lookAt( { 0.0f, 0.0f, 0.0f } );
 
             wnd.update();

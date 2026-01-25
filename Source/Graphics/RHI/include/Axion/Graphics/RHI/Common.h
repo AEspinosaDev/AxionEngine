@@ -38,7 +38,7 @@ namespace Graphics {
 namespace RHI {
 
 struct DrawIndexedIndirectCommand {
-    uint instanceID; ///< Current Instance ID
+    uint baseInstanceID; ///< Current Instance ID + offset
 
     uint indexCount;    ///< Number of indexes to draw
     uint instanceCount; ///< Number of instances to draw
@@ -50,7 +50,7 @@ struct DrawIndexedIndirectCommand {
 };
 
 struct DispatchIndirectCommand {
-    uint instanceID;
+    uint baseInstanceID;
     uint threadGroupCountX;
     uint threadGroupCountY;
     uint threadGroupCountZ;
@@ -179,7 +179,6 @@ enum class FormatSupport : uint
 };
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( FormatSupport )
-
 
 enum class DescriptorType : uchar
 {

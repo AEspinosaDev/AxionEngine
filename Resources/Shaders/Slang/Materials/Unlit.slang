@@ -28,11 +28,13 @@ struct UnlitMaterialPayload
 
 struct VSInput {
     uint vertexID : SV_VertexID;
+    uint instanceID : SV_InstanceID;
 };
 
 struct VSOutput {
     float4 position : SV_Position;
-    float2 uv : TEXCOORD0;
+    float2               uv : TEXCOORD0;
+    nointerpolation uint materialID : DATA0;
 };
 
 // -----------------------------------------------------------
@@ -42,7 +44,7 @@ struct VSOutput {
 [shader("vertex")]
 VSOutput vsForward(VSInput input) 
 {
-    InstanceData instance = getInstanceData();
+    InstanceData instance = getInstanceData(input.instanceID);
     MeshData mesh = getMeshData(instance.meshID);
 
     uint vertexAddress = mesh.vertexOffset + (input.vertexID * CANON_VERTEX_STRIDE);
@@ -53,7 +55,8 @@ VSOutput vsForward(VSInput input)
     VSOutput output;
     float4 worldPos = mul(instance.modelMatrix, float4(localPos, 1.0));
     output.position = mul(gFrame.viewProj, worldPos);
-    output.uv       = uv;
+    output.uv         = uv;
+    output.materialID = instance.materialID;
 
     return output;
 }
@@ -61,8 +64,7 @@ VSOutput vsForward(VSInput input)
 [shader("fragment")]
 float4 psForward(VSOutput input) : SV_Target 
 {
-    InstanceData instance = getInstanceData();
-    MaterialData materialHeader = getMaterialData(instance.materialID);
+    MaterialData materialHeader = getMaterialData(input.materialID);
 
     UnlitMaterialPayload mat = UnlitMaterialPayload.load(materialHeader.bufferOffset);
 

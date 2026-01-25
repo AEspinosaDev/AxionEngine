@@ -61,10 +61,10 @@ public:
         ulong key;
         uint  originalInstanceIdx;
 
-        void unpack( uint& archID, uint& topology, uint& matID ) const {
-            archID   = ( key >> 48 ) & 0xFFFF;
-            topology = ( key >> 44 ) & 0xF;
-            matID    = (uint)( key & 0xFFFFFFFFF );
+        void unpack( uint& archID, uint& topology, uint& meshID ) const {
+            archID   = (uint)( ( key >> 48 ) & 0xFFFF );
+            topology = (uint)( ( key >> 44 ) & 0xF );
+            meshID   = (uint)( key & 0xFFFFFFFFFFF );
         }
     };
 
@@ -108,9 +108,11 @@ private:
     void processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose );
     void runGC();
 
-    AXION_FORCE_INLINE ulong makeSortKey( uint archID, uint topology, uint matID ) {
-        // [Archetype 16b] [Topology 4b] [Material 44b]
-        return ( (ulong)archID << 48 ) | ( (ulong)topology << 44 ) | matID;
+    AXION_FORCE_INLINE ulong makeSortKey( uint archID, uint topology, uint meshID ) {
+        // [Archetype 16b] [Topology 4b] [Mesh 44b]
+        return ( (ulong)archID << 48 ) |
+               ( (ulong)topology << 44 ) |
+               ( (ulong)meshID & 0xFFFFFFFFFFF );
     }
 
     // -- Transient Data (Cleared every frame) --
@@ -119,6 +121,7 @@ private:
     std::vector<GPULight>    _lights;
 
     std::vector<SortKey> _sortedKeys;
+    std::vector<uint>    _redirectInstaceIDs;
 
     // -- Persistent Data Cache --
     template <typename T>

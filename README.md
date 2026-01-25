@@ -44,6 +44,7 @@ Axion is designed with strict modularity in mind. You are not forced to use the 
     - Hot-Reloading support.
     - **Automatic Reflection** using SLANG.
     - Agnostic compilation to DXIL and SPIR-V.
+- **GPU-Driven Rendering:** Indirect Rendering, true instancing and GPU Culling.
 - **Modern Architecture:** PIMPL idioms, ECS integration, and strict RAII resource management.
 - **Tooling:** Integrated Logger, Windowing, and Event systems.
 
