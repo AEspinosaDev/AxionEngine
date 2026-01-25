@@ -3,8 +3,9 @@
 #include <Axion/Common/Graphics/Defines.h>
 #include <Axion/Common/Math.h>
 #include <Axion/Core/Assets/Handle.h>
-#include <Axion/Core/Render/MaterialArchetype.h>
+#include <Axion/Core/Render/Defines.h>
 #include <functional>
+#include <string_view>
 
 AXION_NAMESPACE_BEGIN
 
@@ -17,7 +18,8 @@ class GlobalMaterialRegistry
 public:
     using SetupCallback = std::function<void( Render::MaterialArchetypeDesc& )>;
 
-    static void registerMaterial( const std::string& name, SetupCallback callback );
+    static void registerMaterial( std::string_view name, SetupCallback callback );
+
     static void enumerate( std::function<void( const std::string& name, SetupCallback callback )> visitor );
 };
 
@@ -32,23 +34,31 @@ public:
     Material& operator=( Material&& )      = default;
 
     [[nodiscard]] const std::string& getName() const { return _name; }
-    // Dirty Flag System
-    [[nodiscard]] bool isDirty() const { return _isDirty; }
-    void               clearDirty() { _isDirty = false; }
+    [[nodiscard]] bool               isDirty() const { return _isDirty; }
+    void                             clearDirty();
 
-    virtual uint getGPUPayloadSize() const = 0;
+    virtual std::string_view getArchetypeName() const = 0;
+    virtual uint             getPayloadSize() const   = 0;
 
-    using TextureResolver                                                             = std::function<uint32_t( TextureHandle )>;
-    virtual void writeGPUPayload( void* dest, const TextureResolver& resolver ) const = 0;
+    // using TextureResolver                                                          = std::function<uint32_t( TextureHandle )>;
+    virtual void writePayload( void* dest ) const = 0;
 
 protected:
     friend class AssetManager;
+
+    void setOwner( AssetManager* owner, MaterialHandle handle ) {
+        _owner  = owner;
+        _handle = handle;
+    }
 
     explicit Material( std::string name )
         : _name( std::move( name ) )
         , _isDirty( true ) {}
 
-    void markDirty() { _isDirty = true; }
+    void markDirty();
+
+    AssetManager*  _owner = nullptr;
+    MaterialHandle _handle;
 
     std::string _name;
     bool        _isDirty;
@@ -58,18 +68,24 @@ protected:
 
 AXION_NAMESPACE_END
 
-#define AXION_REGISTER_MATERIAL( CLASS_NAME, STRING_NAME )                                                   \
-                                                                                                             \
-    static void setup##CLASS_NAME( Axion::Core::Render::MaterialArchetypeDesc& desc );                       \
-                                                                                                             \
-    namespace {                                                                                              \
-    struct Register##CLASS_NAME {                                                                            \
-        Register##CLASS_NAME() {                                                                             \
-                                                                                                             \
-            Axion::Core::Assets::GlobalMaterialRegistry::registerMaterial( STRING_NAME, setup##CLASS_NAME ); \
-        }                                                                                                    \
-    };                                                                                                       \
-    static Register##CLASS_NAME global_reg_##CLASS_NAME;                                                     \
-    }                                                                                                        \
-                                                                                                             \
+#define AXION_DECLARE_MATERIAL_ARCH_NAME( STRING_NAME )        \
+public:                                                        \
+    static constexpr std::string_view ARCHETYPE = STRING_NAME; \
+                                                               \
+    virtual std::string_view getArchetypeName() const override { return ARCHETYPE; }
+
+#define AXION_REGISTER_MATERIAL( CLASS_NAME )                                          \
+    static void setup##CLASS_NAME( Axion::Core::Render::MaterialArchetypeDesc& desc ); \
+                                                                                       \
+    namespace {                                                                        \
+    struct Register##CLASS_NAME {                                                      \
+        Register##CLASS_NAME() {                                                       \
+            Axion::Core::Assets::GlobalMaterialRegistry::registerMaterial(             \
+                Axion::Core::Assets::CLASS_NAME::ARCHETYPE,                            \
+                setup##CLASS_NAME );                                                   \
+        }                                                                              \
+    };                                                                                 \
+    static Register##CLASS_NAME global_reg_##CLASS_NAME;                               \
+    }                                                                                  \
+                                                                                       \
     static void setup##CLASS_NAME( Axion::Core::Render::MaterialArchetypeDesc& desc )

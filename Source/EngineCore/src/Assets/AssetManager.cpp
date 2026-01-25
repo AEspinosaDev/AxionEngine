@@ -35,8 +35,10 @@ struct AssetManager::Impl {
     std::vector<AssetRecord<Material>>              materials;
     std::unordered_map<std::string, MaterialHandle> materialHandles;
     std::queue<uint>                                materialFreeIndices;
+    std::vector<uchar>                              dirtyMaterialLUT;
 
     std::mutex mutex;
+    std::mutex dirtyMutex;
 
     MeshHandle addMesh( Mesh&& mesh, const std::string& key = "" ) {
 
@@ -188,6 +190,9 @@ struct AssetManager::Impl {
             slot.active = true;
             slot.asset  = std::move( mat );
             generation  = slot.generation; // Keep existing generation count
+
+            dirtyMaterialLUT[id] = true;
+
         } else
         {
             id         = static_cast<uint>( materials.size() );
@@ -199,6 +204,7 @@ struct AssetManager::Impl {
             newSlot.active     = true;
 
             materials.push_back( std::move( newSlot ) );
+            dirtyMaterialLUT.push_back( true );
         }
 
         MaterialHandle handle { id, generation };
@@ -300,9 +306,19 @@ MeshHandle AssetManager::importMesh( const std::string& name, const std::string&
         return MeshHandle();
     }
 
+    Graphics::PrimitiveTopology topology = Graphics::PrimitiveTopology::TriangleList;
+    if ( flags & MeshImportAsLines )
+    {
+        topology = Graphics::PrimitiveTopology::LineList;
+    } else if ( flags & MeshImportAsPoints )
+    {
+        topology = Graphics::PrimitiveTopology::PointList;
+    }
+
     Mesh mesh( meshName,
                std::move( meshData.vertices ),
                std::move( meshData.indices ),
+               topology,
                flags & MeshImportComputeBounds );
 
     if ( !success )
@@ -318,9 +334,10 @@ MeshHandle AssetManager::importMesh( const std::string& name, const std::string&
     return handle;
 }
 
-MeshHandle AssetManager::createMesh( const std::string&         name,
-                                     const std::vector<Vertex>& vertices,
-                                     const std::vector<uint>&   indices ) {
+MeshHandle AssetManager::createMesh( const std::string&          name,
+                                     const std::vector<Vertex>&  vertices,
+                                     const std::vector<uint>&    indices,
+                                     Graphics::PrimitiveTopology topology ) {
 
     std::scoped_lock lock( _impl->mutex );
     std::string      meshName = name;
@@ -339,6 +356,7 @@ MeshHandle AssetManager::createMesh( const std::string&         name,
     Mesh mesh( meshName );
     mesh._vertices = vertices;
     mesh._indices  = indices;
+    mesh._topology = topology;
 
     mesh.calculateBounds();
 
@@ -801,7 +819,16 @@ MaterialHandle AssetManager::createMaterialAux( const std::string& name, Materia
 
     std::scoped_lock lock( _impl->mutex );
 
-    return _impl->addMaterial( std::move( matPtr ), name );
+    auto handle = _impl->addMaterial( std::move( matPtr ), name );
+
+    auto& slot = _impl->materials[handle.id];
+
+    if ( slot.asset )
+        slot.asset->setOwner( this, handle );
+
+    notifyMaterialDirty( handle );
+
+    return handle;
 }
 
 Material* AssetManager::getMaterialBase( MaterialHandle handle ) const {
@@ -839,7 +866,22 @@ uint AssetManager::getMaterialCount() const {
     return _impl->materials.size();
 }
 
+void AssetManager::notifyMaterialDirty( MaterialHandle handle, bool dirty ) {
+    std::lock_guard<std::mutex> lock( _impl->dirtyMutex );
+    _impl->dirtyMaterialLUT[handle.id] = dirty;
+}
+// o(1) complexity, fast and only one wait
+std::pair<const uchar*, size_t> AssetManager::getMaterialDirtyLUT() const {
+    std::lock_guard<std::mutex> lock( _impl->dirtyMutex );
+
+    if ( _impl->dirtyMaterialLUT.empty() )
+        return { nullptr, 0 };
+
+    return { _impl->dirtyMaterialLUT.data(), _impl->dirtyMaterialLUT.size() };
+}
+
 #pragma endregion
+
 #pragma region Entry
 
 AssetManager::MeshBuilder AssetManager::mesh( const std::string& name ) {

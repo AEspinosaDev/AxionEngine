@@ -96,12 +96,13 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         return;
     }
 
-    GPUSceneUpdateFlags updateFlags = GPUSceneNone;
+    GPUSceneUpdateFlags updateFlags = GPUSceneSortInstances;
     if ( _settings.common.gfxApi == Graphics::API::DirectX12 )
         updateFlags |= GPUSceneTransposeMatrices;
 
     _gpuScene.update( scene,
                       cameraEntity,
+                      _mtlLib,
                       _window->getSize(),
                       deltaTime,
                       updateFlags );
@@ -111,9 +112,9 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
     currentFrameRes.ssboAllocator.reset();
     currentFrameRes.indirectAllocator.reset();
 
-    auto transientViews = uploadTransientData( currentFrameRes.uboAllocator,
-                                               currentFrameRes.ssboAllocator,
-                                               currentFrameRes.indirectAllocator );
+    auto transientViews  = uploadTransientData( currentFrameRes.uboAllocator,
+                                               currentFrameRes.ssboAllocator );
+    auto indirectCmdData = uploadIndirectCommands( currentFrameRes.indirectAllocator );
 
     _rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
         auto rtExtent = _window->getSettings().size.to3D();
@@ -121,11 +122,13 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         // A. Upload
         UploadPass::Config upConfig;
         upConfig.bufferHandles = {
-            .vertex = builder.import( "GlobalVertexBuffer", _res.vertexBufferHandle ),
-            .index  = builder.import( "GlobalIndexBuffer", _res.indexBufferHandle ) };
+            .vertex    = builder.import( "GlobalVertexBuffer", _res.vertexBufferHandle ),
+            .index     = builder.import( "GlobalIndexBuffer", _res.indexBufferHandle ),
+            .materials = builder.import( "GlobalMaterialBuffer", _res.mtlBufferHandle ) };
         upConfig.gpuScene          = &_gpuScene;
         upConfig.vertexAllocator   = &_res.vertexAllocator;
         upConfig.indexAllocator    = &_res.indexAllocator;
+        upConfig.matAllocator      = &_res.mtlAllocator;
         upConfig.maxAllocationSize = _settings.memory.uploadBufferSize;
 
         _passes.getPass<UploadPass>()->addToGraph( builder, upConfig );
@@ -145,17 +148,20 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                                          .extent( rtExtent )
                                          .create();
         fwConfig.bufferHandles = {
-            .vertex = upConfig.bufferHandles.vertex,
-            .index  = upConfig.bufferHandles.index },
+            .vertex   = upConfig.bufferHandles.vertex,
+            .index    = upConfig.bufferHandles.index,
+            .material = upConfig.bufferHandles.materials },
         fwConfig.matLib          = &_mtlLib;
         fwConfig.matLayoutHandle = _globalMtlLayoutHandle;
         fwConfig.gpuScene        = &_gpuScene;
 
-        fwConfig.frameView        = transientViews.frameView;
-        fwConfig.meshesView       = transientViews.meshesView;
-        fwConfig.instancesView    = transientViews.instancesView;
-        fwConfig.lightsView       = transientViews.lightsView;
-        fwConfig.indirectCmdsView = transientViews.indirectCommandsView;
+        fwConfig.frameView     = transientViews.frameView;
+        fwConfig.meshesView    = transientViews.meshesView;
+        fwConfig.materialsView = transientViews.mtlView;
+        fwConfig.instancesView = transientViews.instancesView;
+        fwConfig.lightsView    = transientViews.lightsView;
+
+        fwConfig.indirectData = indirectCmdData;
 
         _passes.getPass<ForwardPass>()->addToGraph( builder, fwConfig );
 
@@ -184,8 +190,8 @@ void Rasterizer::setupMaterialLibrary() {
                                  // Space 0: Persistent (Geometry, Materials and Textures)
                                  .addSet( {
                                      { 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Vertex
-                                     { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Index
-                                                                                                                                      // Materials
+                                     { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Index
+                                     { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Materials
                                                                                                                                       // Textures
                                                                                                                                       // Samplers
                                  } )
@@ -193,8 +199,9 @@ void Rasterizer::setupMaterialLibrary() {
                                  .addSet( {
                                      { 0, Graphics::RHI::DescriptorType::UniformBuffer, Graphics::RHI::ShaderStage::All, 1 },         // Frame
                                      { 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Meshes
-                                     { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Instances
-                                     { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Lights
+                                     { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Materials
+                                     { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Instances
+                                     { 3, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Lights
                                  } )
                                  // Space 2: Instance ID Push Constant
                                  .setPushConstants( sizeof( uint ), 0, 2 )
@@ -212,7 +219,6 @@ void Rasterizer::setupMaterialLibrary() {
 
 void Rasterizer::registerMaterials() {
 
-
     Assets::GlobalMaterialRegistry::enumerate(
         [&]( const std::string& name, Assets::GlobalMaterialRegistry::SetupCallback setupFunc ) {
             MaterialArchetypeDesc desc;
@@ -220,10 +226,7 @@ void Rasterizer::registerMaterials() {
             setupFunc( desc );
 
             _mtlLib.registerArchetype( desc );
-
         } );
-
-
 
     // _mtlLib.beginMaterial( "TestMaterial" )
     //     .addPass( MaterialPassType::Opaque,
@@ -243,7 +246,7 @@ void Rasterizer::createResources() {
 
     auto& r = _rnd->resources();
 
-    // A. GLOBAL BUFFERS (Persistent)
+    //------------------------- A. GLOBAL BUFFERS (Persistent) -------------------
     _res.vertexBufferHandle = r.buffer( "GlobalVertexBuffer" )
                                   .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
                                   .view( Graphics::BufferViewFlags::BufferViewShaderResource )
@@ -263,15 +266,16 @@ void Rasterizer::createResources() {
                                  .create();
     _res.indexAllocator = Graphics::RHI::FreeListAllocator( r.getBuffer( _res.indexBufferHandle ) );
 
-    _res.matBufferHandle = r.buffer( "GlobalMaterialBuffer" )
+    _res.mtlBufferHandle = r.buffer( "GlobalMaterialBuffer" )
                                .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
                                .view( Graphics::BufferViewFlags::BufferViewShaderResource )
                                .size( _settings.memory.materialBufferSize )
                                .onGPU()
                                .asRaw()
                                .create();
+    _res.mtlAllocator = Graphics::RHI::FreeListAllocator( r.getBuffer( _res.mtlBufferHandle ) );
 
-    // B. PER-FRAME BUFFERS (Volatile)
+    // ----------------------- B. PER-FRAME BUFFERS (Volatile) -------------------
     _framesInFlight = _rnd->getTotalFramesInFlight();
     _res.frame.resize( _framesInFlight );
     for ( uint i = 0; i < _framesInFlight; ++i )
@@ -306,8 +310,7 @@ void Rasterizer::createResources() {
 }
 
 Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::LinearAllocator& currentUBOAlloc,
-                                                            Graphics::RHI::LinearAllocator& currentSSBOAlloc,
-                                                            Graphics::RHI::LinearAllocator& currentIndirectAlloc ) {
+                                                            Graphics::RHI::LinearAllocator& currentSSBOAlloc ) {
     TransientViews views;
 
     // (D3D12/Vulkan)
@@ -354,7 +357,30 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
     }
 
     // =================================================================================
-    // 3. INSTANCE DATA (SSBO - Structured Buffer)
+    // 3. MATERIAL DATA (SSBO - Structured Buffer)
+    // =================================================================================
+    {
+        const auto& mtls = _gpuScene.materials();
+
+        if ( !mtls.empty() )
+        {
+            views.mtlView = currentSSBOAlloc.allocate<GPUMaterial>( mtls.size() );
+
+            if ( views.mtlView.isValid() )
+            {
+                memcpy( views.mtlView.cpuAddress, mtls.data(), views.mtlView.size );
+            }
+        } else
+        {
+            // DUMMY
+            views.mtlView       = currentSSBOAlloc.allocate<GPUMaterial>( 1 );
+            views.mtlView.count = 0;
+            if ( views.mtlView.cpuAddress )
+                memset( views.mtlView.cpuAddress, 0, views.mtlView.size );
+        }
+    }
+    // =================================================================================
+    // 4. INSTANCE DATA (SSBO - Structured Buffer)
     // =================================================================================
     {
         const auto& instances = _gpuScene.instances();
@@ -378,7 +404,7 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
     }
 
     // =================================================================================
-    // 4. LIGHT DATA (SSBO - Structured Buffer)
+    // 5. LIGHT DATA (SSBO - Structured Buffer)
     // =================================================================================
     {
         const auto& lights = _gpuScene.lights();
@@ -401,61 +427,81 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
         }
     }
 
-    // =================================================================================
-    // 5. DRAW COMMANDS GENERATION (Strategy: Indirect Rendering)
-    // =================================================================================
+    return views;
+}
+
+IndirectCommandData Rasterizer::uploadIndirectCommands( Graphics::RHI::LinearAllocator& currentIndirectAlloc ) {
+    const auto& sortedKeys = _gpuScene.getSortedKeys();
+    const auto& instances  = _gpuScene.instances();
+    const auto& meshes     = _gpuScene.meshes();
+
+    IndirectCommandData indirectData;
+    if ( sortedKeys.empty() )
+        return indirectData;
+
+    auto       mainView     = currentIndirectAlloc.allocate<Graphics::RHI::DrawIndexedIndirectCommand>( sortedKeys.size() );
+    const auto RHI_CMD_SIZE = sizeof( Graphics::RHI::DrawIndexedIndirectCommand );
+
+    if ( !mainView.isValid() )
+        return indirectData;
+
+    indirectData.batches.reserve( _mtlLib.getArchetypesCount() );
+
+    // Map ptr
+    auto* cmdPtr = (Graphics::RHI::DrawIndexedIndirectCommand*)mainView.cpuAddress;
+
+    uint currentArch, currentTopo, currentMatID;
+    sortedKeys[0].unpack( currentArch, currentTopo, currentMatID );
+
+    uint batchStartIdx = 0;
+    uint batchCount    = 0;
+
+    for ( ulong i = 0; i < sortedKeys.size(); ++i )
     {
-        const auto& instances = _gpuScene.instances();
-        const auto& meshes    = _gpuScene.meshes();
 
-        // Creamos un vector temporal en CPU.
-        // (Nota: En el futuro esto lo hará un Compute Shader en GPU)
-        std::vector<Graphics::RHI::DrawIndexedIndirectCommand> drawCmds;
-        drawCmds.reserve( instances.size() );
+        uint        originalIdx = sortedKeys[i].originalInstanceIdx;
+        const auto& inst        = instances[originalIdx];
+        const auto& mesh        = meshes[inst.meshID];
 
-        for ( size_t i = 0; i < instances.size(); ++i )
+        Graphics::RHI::DrawIndexedIndirectCommand cmd;
+        cmd.indexCount    = mesh.indexCount;
+        cmd.instanceCount = 1;
+        cmd.firstIndex    = mesh.indexOffset / 4;
+        cmd.vertexOffset  = (int)( mesh.vertexOffset / sizeof( Assets::Vertex ) );
+        cmd.firstInstance = originalIdx;
+        cmd.instanceID    = originalIdx;
+
+        cmdPtr[i] = cmd;
+
+        uint arch, topo, matID;
+        sortedKeys[i].unpack( arch, topo, matID );
+
+        if ( arch != currentArch || topo != currentTopo )
         {
-            const auto& inst = instances[i];
+            indirectData.batches.push_back( { .archetypeID  = currentArch,
+                                              .topologyID   = currentTopo,
+                                              .bufferOffset = (uint)( mainView.offset + ( batchStartIdx * RHI_CMD_SIZE ) ),
+                                              .drawCount    = batchCount } );
 
-            if ( inst.active == 0 )
-                continue;
-
-            if ( inst.meshID >= meshes.size() )
-                continue;
-            const auto& mesh = meshes[inst.meshID];
-            if ( !mesh.valid )
-                continue;
-
-            Graphics::RHI::DrawIndexedIndirectCommand cmd;
-            // auto                                      ss = sizeof( Graphics::RHI::DrawIndexedIndirectCommand );
-
-            cmd.indexCount    = mesh.indexCount;
-            cmd.instanceCount = 1;
-            cmd.firstIndex    = mesh.indexOffset / 4;
-            cmd.vertexOffset  = (int)( mesh.vertexOffset / sizeof( Assets::Vertex ) );
-            cmd.firstInstance = (uint)i;
-            cmd.instanceID    = (uint)i;
-
-            drawCmds.push_back( cmd );
+            currentArch   = arch;
+            currentTopo   = topo;
+            batchStartIdx = (uint)i;
+            batchCount    = 0;
         }
-        // Subida al Buffer Transitorio (Indirect Buffer)
-        if ( !drawCmds.empty() )
-        {
-            views.indirectCommandsView = currentIndirectAlloc.allocate<Graphics::RHI::DrawIndexedIndirectCommand>( drawCmds.size() );
-
-            if ( views.indirectCommandsView.isValid() )
-            {
-                memcpy( views.indirectCommandsView.cpuAddress, drawCmds.data(), views.indirectCommandsView.size );
-            }
-        } else
-        {
-            // Dummy allocation si la escena está vacía para no romper el binding
-            views.indirectCommandsView       = currentIndirectAlloc.allocate<Graphics::RHI::DrawIndexedIndirectCommand>( 1 );
-            views.indirectCommandsView.count = 0;
-        }
+        batchCount++;
     }
 
-    return views;
+    // Cerrar el último batch
+    if ( batchCount > 0 )
+    {
+        indirectData.batches.push_back( { .archetypeID  = currentArch,
+                                          .topologyID   = currentTopo,
+                                          .bufferOffset = (uint)( mainView.offset + ( batchStartIdx * RHI_CMD_SIZE ) ),
+                                          .drawCount    = batchCount } );
+    }
+
+    indirectData.bufferView = mainView;
+    return indirectData;
 }
 
 } // namespace Core::Render

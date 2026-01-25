@@ -15,6 +15,7 @@ add_subdirectory(GFX_Raytracing)
 add_subdirectory(GFX_VertexPulling)
 
 # Core Module (Core)
+add_subdirectory(Core_SampleScene)
 
 # Interop (Core + GFX)
 add_subdirectory(Interop_TextureSamplers)

@@ -38,7 +38,8 @@ public:
 
                                  []( Graphics::RenderPassBuilder& pb, Config& data ) {
                 data.bufferHandles.vertex = pb.write( data.bufferHandles.vertex, Graphics::RHI::ResourceState::CopyDest );
-                data.bufferHandles.index  = pb.write( data.bufferHandles.index,  Graphics::RHI::ResourceState::CopyDest ); },
+                data.bufferHandles.index = pb.write( data.bufferHandles.index, Graphics::RHI::ResourceState::CopyDest );
+                data.bufferHandles.materials  = pb.write( data.bufferHandles.materials,  Graphics::RHI::ResourceState::CopyDest ); },
 
                                  [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
     }
@@ -122,7 +123,77 @@ private:
     }
 
     void processMaterials( const Config& data, Graphics::RenderPassContext& ctx, uint& totalUsedSpace ) {
-        // TBD: Logic for Material Buffer Upload & GC
+
+        auto* cmd       = ctx.cmd;
+        auto& scene     = *data.gpuScene;
+        auto* allocator = ctx.transAllocator;
+        auto* mtlb      = ctx.getBuffer( data.bufferHandles.materials );
+
+        const ulong ALIGNMENT = 16;
+        // 1. UPLOAD QUEUE
+        auto& uploadQueue = scene.pendingMaterialUploads();
+        while ( !uploadQueue.empty() )
+        {
+            if ( totalUsedSpace >= (uint)data.maxAllocationSize )
+                break;
+
+            auto uploadEntry = std::move( uploadQueue.front() );
+            uploadQueue.pop();
+
+            auto& gpuMtl = scene.materials()[uploadEntry.GPUMaterialID];
+
+            // --- FIX MEMORY LEAK (UPDATE LOGIC) ---
+            // Si el material ya existía en VRAM (es un update, no un create),
+            // liberamos la memoria vieja antes de pedir nueva.
+            // NOTA: Podrías intentar reutilizarla si el tamaño es igual,
+            // pero Free+Alloc evita fragmentación si el tamaño cambia.
+            if ( gpuMtl.bufferOffset != 0 ) // Asumiendo que 0 es null/inválido
+            {
+                Graphics::RHI::BufferView oldView;
+                oldView.buffer = mtlb;
+                oldView.offset = gpuMtl.bufferOffset;
+                oldView.size   = gpuMtl.payloadSize; // Usamos el tamaño viejo guardado en GPU struct
+
+                data.matAllocator->free( oldView );
+
+                gpuMtl.bufferOffset = 0;
+            }
+
+            auto mtlBufferView = data.matAllocator->allocate( uploadEntry.payload.size(), ALIGNMENT );
+
+            if ( mtlBufferView.size > 0 )
+            {
+                cmd->uploadBuffer( mtlb,
+                                   uploadEntry.payload.data(),
+                                   mtlBufferView.size,
+                                   mtlBufferView.offset,
+                                   allocator,
+                                   Graphics::RHI::BarrierPolicy::None );
+
+                gpuMtl.bufferOffset = (uint)mtlBufferView.offset;
+                gpuMtl.payloadSize  = (uint)uploadEntry.payload.size();
+            }
+
+            totalUsedSpace += (uint)mtlBufferView.size;
+        }
+
+        // 2. DELETION QUEUE
+        auto& deletionQueue = scene.pendingMaterialReleases();
+        while ( !deletionQueue.empty() )
+        {
+            auto deletionEntry = std::move( deletionQueue.front() );
+            deletionQueue.pop();
+
+            if ( deletionEntry.payloadSize > 0 )
+            {
+                Graphics::RHI::BufferView mView;
+                mView.buffer = mtlb;
+                mView.offset = deletionEntry.bufferOffset;
+                mView.size   = deletionEntry.payloadSize;
+
+                data.matAllocator->free( mView );
+            }
+        }
     }
 
     void processTextures( const Config& data, Graphics::RenderPassContext& ctx, uint& totalUsedSpace ) {

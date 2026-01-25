@@ -1,4 +1,5 @@
 #pragma once
+#include "../DrawIndirect.h"
 #include "../GPUScene.h"
 #include "../MaterialSystem.h"
 #include "../PassSystem.h"
@@ -24,9 +25,11 @@ public:
 
         Graphics::RHI::BufferView frameView;
         Graphics::RHI::BufferView meshesView;
+        Graphics::RHI::BufferView materialsView;
         Graphics::RHI::BufferView instancesView;
         Graphics::RHI::BufferView lightsView;
-        Graphics::RHI::BufferView indirectCmdsView;
+
+        IndirectCommandData indirectData;
 
         GPUScene*                      gpuScene;
         MaterialLibrary*               matLib;
@@ -50,7 +53,8 @@ public:
                 data.outputDepthHandle = pb.write( data.outputDepthHandle, Graphics::RHI::ResourceState::DepthWrite );
 
                 data.bufferHandles.vertex = pb.read( data.bufferHandles.vertex, Graphics::RHI::ResourceState::GeneralRead );
-                data.bufferHandles.index  = pb.read( data.bufferHandles.index,  Graphics::RHI::ResourceState::GeneralRead ); },
+                data.bufferHandles.index = pb.read( data.bufferHandles.index, Graphics::RHI::ResourceState::GeneralRead );
+                data.bufferHandles.material  = pb.read( data.bufferHandles.material,  Graphics::RHI::ResourceState::GeneralRead ); },
 
                                  // EXECUTE
                                  [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
@@ -79,93 +83,109 @@ private:
         // -----------------------------------------------------
         // BINDING GLOBAL RESOURCES (Space 0 & 1)
         // -----------------------------------------------------
-        auto* vb = ctx.getBuffer( data.bufferHandles.vertex );
-        auto* ib = ctx.getBuffer( data.bufferHandles.index );
+        auto* vb   = ctx.getBuffer( data.bufferHandles.vertex );
+        auto* ib   = ctx.getBuffer( data.bufferHandles.index );
+        auto* mtlb = ctx.getBuffer( data.bufferHandles.material );
 
         // SPACE 0: Persistent Data
-        auto* set0 = ctx.allocateSet( matLayout, 0 );                        // Space 0
-        set0->attach( 0, vb, Graphics::RHI::ResourceState::ShaderResource ); // t0
-        set0->attach( 1, ib, Graphics::RHI::ResourceState::ShaderResource ); // t1
+        auto* set0 = ctx.allocateSet( matLayout, 0 );                          // Space 0
+        set0->attach( 0, vb, Graphics::RHI::ResourceState::ShaderResource );   // t0
+        set0->attach( 1, ib, Graphics::RHI::ResourceState::ShaderResource );   // t1
+        set0->attach( 2, mtlb, Graphics::RHI::ResourceState::ShaderResource ); // t2
 
         cmd->bindDescriptorSet( 0, set0, matLayout );
 
         // SPACE 1: Volatile Data (Views into the giant UBO)
         auto* set1 = ctx.allocateSet( matLayout, 1 ); // Space 1
 
-        // Frame (b0), Meshes (t0), Instances (t1), Lights (t2)
+        // Frame (b0), Meshes (t0), Materials (t1), Instances (t2, Lights (t3)
         set1->attachBufferView( 0, data.frameView, Graphics::RHI::ResourceState::ConstantBuffer );
         set1->attachBufferView( 1, data.meshesView, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferView( 2, data.instancesView, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferView( 3, data.lightsView, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferView( 2, data.materialsView, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferView( 3, data.instancesView, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferView( 4, data.lightsView, Graphics::RHI::ResourceState::ShaderResource );
 
         cmd->bindDescriptorSet( 1, set1, matLayout );
 
         // -----------------------------------------------------
         // 3. DRAW LOOP
         // -----------------------------------------------------
-        const auto& instances     = scene.instances();
         const auto& matArchetypes = data.matLib->getArchetypesRaw();
 
 #if DRAW_INDIRECT
-        if ( data.indirectCmdsView.count > 0 )
-        {
+        cmd->bindIndexBuffer( ib );
 
-            // A. BIND PIPELINE (Asumimos el único que tenemos por ahora: Opaque)
-            // En el futuro, aquí iteraríamos sobre "batches", pero ahora es todo uno.
-            Graphics::PipelineHandle psoHandle = matArchetypes[0].getPipeline( MaterialPassType::Opaque, MaterialTopologyType::Triangles );
+        for ( const auto& batch : data.indirectData.batches )
+        {
+            if ( batch.drawCount == 0 )
+                continue;
+
+            // auto topologyType = (MaterialTopologyType)toGFXTopology( ()batch.topologyID );
+
+            Graphics::PipelineHandle psoHandle = matArchetypes[batch.archetypeID].getPipeline(
+                MaterialPassType::Opaque, TopologyType::Triangles );
 
             if ( psoHandle.isValid() )
             {
                 auto* pso = ctx.pipelines.getGraphicPipeline( psoHandle );
                 cmd->bindGraphicPipeline( pso );
 
-                cmd->bindIndexBuffer( ib ); 
-
-                // B. EXECUTE INDIRECT
                 cmd->drawIndexedIndirect(
-                    data.indirectCmdsView.buffer,
-                    data.indirectCmdsView.offset,
-                    data.indirectCmdsView.count );
+                    data.indirectData.bufferView.buffer,
+                    batch.bufferOffset,
+                    batch.drawCount );
             }
         }
 #else
 
-        // TODO: Aquí iría el sorting de drawList en el futuro
+        const auto& sortedKeys = scene.getSortedKeys();
+        const auto& instances  = scene.instances();
+        const auto& meshes     = scene.meshes();
+
+        uint lastArchetypeID = UINT32_MAX;
+        uint lastTopologyID  = UINT32_MAX;
 
         Graphics::PipelineHandle lastPipelineHandle;
 
-        // uint                     lastMeshID = MAX_UINT32;
-        for ( ulong i = 0; i < instances.size(); ++i )
+        for ( const auto& keyData : sortedKeys )
         {
-            const auto& inst = instances[i];
+            uint        originalIdx = keyData.originalInstanceIdx;
+            const auto& inst        = instances[originalIdx];
+
             if ( inst.active == 0 )
                 continue;
 
-            const auto& meshData = scene.meshes()[inst.meshID];
+            const auto& mesh = meshes[inst.meshID];
 
-            Graphics::PipelineHandle targetPipelineHandle = matArchetypes[0].getPipeline( MaterialPassType::Opaque, MaterialTopologyType::Triangles );
-            if ( targetPipelineHandle != lastPipelineHandle )
+            uint currentArch, currentTopo, currentMatID;
+            keyData.unpack( currentArch, currentTopo, currentMatID );
+
+            if ( currentArch != lastArchetypeID || currentTopo != lastTopologyID )
             {
-                if ( targetPipelineHandle.isValid() )
-                {
-                    auto* pso = ctx.pipelines.getGraphicPipeline( targetPipelineHandle );
-                    cmd->bindGraphicPipeline( pso );
-                    lastPipelineHandle = targetPipelineHandle;
+                // auto topologyType = (MaterialTopologyType)currentTopo;
 
-                    // NOTA IMPORTANTE:
-                    // Al cambiar el PSO, DX12 *mantiene* los DescriptorSets 0 y 1 bindeados
-                    // porque el RootSignature es el mismo (gracias al GlobalLayout).
+                Graphics::PipelineHandle targetHandle = matArchetypes[currentArch].getPipeline(
+                    MaterialPassType::Opaque,
+                    TopologyType::Triangles );
+
+                if ( targetHandle.isValid() && targetHandle != lastPipelineHandle )
+                {
+                    auto* pso = ctx.pipelines.getGraphicPipeline( targetHandle );
+                    cmd->bindGraphicPipeline( pso );
+                    lastPipelineHandle = targetHandle;
                 }
+
+                lastArchetypeID = currentArch;
+                lastTopologyID  = currentTopo;
             }
 
             struct Push {
                 uint instanceID;
-            } push = { (uint)i };
+            } push = { originalIdx };
 
-            // Set instance ID
             cmd->pushConstants( 2, push );
 
-            cmd->draw( meshData.indexCount, 1 );
+            cmd->draw( mesh.indexCount, 1 );
         }
 
 #endif

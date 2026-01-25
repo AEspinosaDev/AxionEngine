@@ -17,6 +17,9 @@ enum MeshImportFlags : uint
     MeshImportLoadAnimations  = 1 << 3,
     MeshImportComputeTangents = 1 << 4,
     MeshImportComputeBounds   = 1 << 5,
+    MeshImportAsLines         = 1 << 6,
+    MeshImportAsPoints        = 1 << 7,
+    MeshImportAsMeshlet       = 1 << 8,
 };
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( MeshImportFlags );

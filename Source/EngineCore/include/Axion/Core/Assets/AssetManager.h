@@ -97,9 +97,15 @@ public:
     /// @brief Returns the total number of material slots occupied.
     [[nodiscard]] uint getMaterialCount() const;
 
+    void                            notifyMaterialDirty( MaterialHandle handle, bool dirty = true );
+    std::pair<const uchar*, size_t> getMaterialDirtyLUT() const;
+
 private:
     MeshHandle    importMesh( const std::string& name, const std::string& filepath, MeshImportFlags flags );
-    MeshHandle    createMesh( const std::string& name, const std::vector<Vertex>& vertices, const std::vector<uint>& indices = {} );
+    MeshHandle    createMesh( const std::string&          name,
+                              const std::vector<Vertex>&  vertices,
+                              const std::vector<uint>&    indices  = {},
+                              Graphics::PrimitiveTopology topology = Graphics::PrimitiveTopology::TriangleList );
     MeshHandle    createQuad( const std::string& name, uint subdivisions = 0 );
     MeshHandle    createCube( const std::string& name );
     MeshHandle    createSphere( const std::string& name, uint segments = 32 );

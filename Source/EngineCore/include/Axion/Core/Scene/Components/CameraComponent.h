@@ -18,7 +18,7 @@ struct CameraComponent {
 
     float FOV       = 60.0f; // Deg
     float nearPlane = 0.01f;
-    float farPlane  = 10.0f;
+    float farPlane  = 1000.0f;
     float orthoSize = 10.0f;
 
     bool primary = true;

@@ -9,8 +9,6 @@ namespace Core::Render {
 
 DEFINE_UNIQUE_PTR_FOR_TYPE( IRenderer, Renderer )
 
-class GPUScene;
-
 struct MemoryBudget {
     ulong geometryBufferSize    = 512 * 1024 * 1024; ///< Initial memory reservation persistent static geometry buffer -Vertex/Index- (512MB default)
     ulong materialBufferSize    = 16 * 1024 * 1024;  ///< Initial memory reservation persistent static material buffer (16MB default)

@@ -6,6 +6,31 @@ AXION_NAMESPACE_BEGIN
 
 namespace Core::Render {
 
+enum class TopologyType : uchar
+{
+    Triangles = 0,
+    Lines     = 1,
+    Points    = 2,
+    Meshlets  = 3,
+    Count
+};
+
+static constexpr Graphics::PrimitiveTopology toGFXTopology( TopologyType type ) {
+    switch ( type )
+    {
+        case TopologyType::Triangles:
+            return Graphics::PrimitiveTopology::TriangleList;
+        case TopologyType::Lines:
+            return Graphics::PrimitiveTopology::LineList;
+        case TopologyType::Points:
+            return Graphics::PrimitiveTopology::PointList;
+        case TopologyType::Meshlets:
+            return Graphics::PrimitiveTopology::TriangleList;
+        default:
+            return Graphics::PrimitiveTopology::TriangleList;
+    }
+}
+
 enum class MaterialPassType : uchar
 {
     Opaque       = 0,
@@ -15,15 +40,6 @@ enum class MaterialPassType : uchar
     Voxelization = 4,
     Raytracing   = 5,
 
-    Count
-};
-
-enum class MaterialTopologyType : uchar
-{
-    Triangles = 0,
-    Lines     = 1,
-    Points    = 2,
-    Meshlets  = 3,
     Count
 };
 

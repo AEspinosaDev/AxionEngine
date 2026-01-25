@@ -25,7 +25,7 @@ void MaterialLibrary::setPassFormats( MaterialPassType passType, const MaterialP
     _passProfiles[(size_t)passType] = profile;
 }
 
-uint MaterialLibrary::getArchetypeID( const std::string& name ) {
+uint MaterialLibrary::getArchetypeID( const std::string& name ) const {
     if ( auto it = _archetypeLookup.find( name ); it != _archetypeLookup.end() )
         return it->second;
 
@@ -82,10 +82,10 @@ void MaterialLibrary::createPipelines( Graphics::IPipelineRegistry& pipelines ) 
 
             const auto& profile = _passProfiles[(size_t)pass.passType];
 
-            for ( int t = 0; t < (int)MaterialTopologyType::Count; ++t )
+            for ( int t = 0; t < (int)TopologyType::Count; ++t )
             {
-                auto topoType  = (MaterialTopologyType)t;
-                auto rhiTopo   = toRHITopology( topoType );
+                auto topoType  = (TopologyType)t;
+                auto rhiTopo   = toGFXTopology( topoType );
                 auto topoFlags = topologyToFlags( topoType );
 
                 if ( !( arch.desc.topologiesSupported & topoFlags ) )
@@ -153,48 +153,33 @@ std::string MaterialLibrary::toString( MaterialPassType type ) {
     }
 }
 
-std::string MaterialLibrary::toString( MaterialTopologyType type ) {
+std::string MaterialLibrary::toString( TopologyType type ) {
     switch ( type )
     {
-        case MaterialTopologyType::Triangles:
+        case TopologyType::Triangles:
             return "Tri";
-        case MaterialTopologyType::Lines:
+        case TopologyType::Lines:
             return "Line";
-        case MaterialTopologyType::Points:
+        case TopologyType::Points:
             return "Pnt";
-        case MaterialTopologyType::Meshlets:
+        case TopologyType::Meshlets:
             return "Mesh";
         default:
             return "Unknown";
     }
 }
 
-Graphics::PrimitiveTopology MaterialLibrary::toRHITopology( MaterialTopologyType type ) {
-    switch ( type )
-    {
-        case MaterialTopologyType::Triangles:
-            return Graphics::PrimitiveTopology::TriangleList;
-        case MaterialTopologyType::Lines:
-            return Graphics::PrimitiveTopology::LineList;
-        case MaterialTopologyType::Points:
-            return Graphics::PrimitiveTopology::PointList;
-        case MaterialTopologyType::Meshlets:
-            return Graphics::PrimitiveTopology::TriangleList;
-        default:
-            return Graphics::PrimitiveTopology::TriangleList;
-    }
-}
 
-MaterialTopologyFlags MaterialLibrary::topologyToFlags( MaterialTopologyType type ) {
+MaterialTopologyFlags MaterialLibrary::topologyToFlags( TopologyType type ) {
     switch ( type )
     {
-        case MaterialTopologyType::Triangles:
+        case TopologyType::Triangles:
             return MaterialTopologyTriangles;
-        case MaterialTopologyType::Lines:
+        case TopologyType::Lines:
             return MaterialTopologyLines;
-        case MaterialTopologyType::Points:
+        case TopologyType::Points:
             return MaterialTopologyPoints;
-        case MaterialTopologyType::Meshlets:
+        case TopologyType::Meshlets:
             return MaterialTopologyNone;
         default:
             return MaterialTopologyTriangles;

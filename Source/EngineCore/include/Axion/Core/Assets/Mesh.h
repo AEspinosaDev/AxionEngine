@@ -1,6 +1,7 @@
 #pragma once
-#include <Axion/Common/Defines.h>
+#include <Axion/Common/Graphics/Defines.h>
 #include <Axion/Common/Math.h>
+#include <Axion/Core/Render/Defines.h>
 
 AXION_NAMESPACE_BEGIN
 
@@ -33,11 +34,17 @@ public:
     [[nodiscard]] const std::vector<uint>&    getIndices() const { return _indices; }
     [[nodiscard]] uint                        getVertexCount() const { return (uint)_vertices.size(); }
     [[nodiscard]] uint                        getIndexCount() const { return (uint)_indices.size(); }
+    [[nodiscard]] Graphics::PrimitiveTopology getTopology() const { return _topology; }
+    [[nodiscard]] bool                        needsAS() const { return _needsAS; }
 
 private:
     friend class AssetManager;
 
-    explicit Mesh( std::string name, std::vector<Vertex>&& verts, std::vector<uint>&& inds, bool computeBounds = true )
+    explicit Mesh( std::string                 name,
+                   std::vector<Vertex>&&       verts,
+                   std::vector<uint>&&         inds,
+                   Graphics::PrimitiveTopology topology      = Graphics::PrimitiveTopology::TriangleList,
+                   bool                        computeBounds = true )
         : _name( std::move( name ) )
         , _vertices( std::move( verts ) )
         , _indices( std::move( inds ) ) {
@@ -54,8 +61,10 @@ private:
     Math::BoundingSphere _boundingSphere {};
     // Graphics
 
-    //Topology
-    //Needs AS
+    // Topology
+    Graphics::PrimitiveTopology _topology = Graphics::PrimitiveTopology::TriangleList;
+
+    // Needs AS
     bool _needsAS = false;
 
     void calculateBounds() {

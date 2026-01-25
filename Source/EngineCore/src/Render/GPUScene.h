@@ -3,9 +3,10 @@
 #include "Axion/Core/Scene/Entity.h"
 #include "Axion/Core/Scene/Scene.h"
 #include "Axion/Graphics/Handle.h"
+#include "GPUObjects.h"
+#include "MaterialSystem.h"
 #include "queue"
 #include <span>
-
 
 AXION_NAMESPACE_BEGIN
 
@@ -18,94 +19,9 @@ enum GPUSceneUpdateFlags : uint
     GPUSceneForceRaytrace     = 1 << 1, // Force all objects to be marked for Raytracing AS
     GPUSceneTransposeMatrices = 1 << 2, // Required for DX12 (Row-Major vs Col-Major mismatch)
     GPUSceneForgetCache       = 1 << 3, // Force a full cache rebuild (useful for level reload)
+    GPUSceneSortInstances     = 1 << 4, // Instances will be sorted by material archetype, primitive and distance if needed
 };
 AXION_ENUM_CLASS_FLAG_OPERATORS( GPUSceneUpdateFlags );
-
-// -----------------------------------------------------------------------------
-// TRANSIENT DATA (PER-FRAME)
-// -----------------------------------------------------------------------------
-// These structures represent the linear "stream" of data for the current frame.
-// They are cleared and rebuilt every Update(). Designed for linear GPU access (StructuredBuffers).
-
-struct GPUInstance {
-    Math::Mat4 modelMatrix;  // 64 bytes
-    Math::Mat4 normalMatrix; // 64 bytes
-    uint       materialID;   // 4 bytes
-    uint       meshID;       // 4 bytes
-    uint       active;       // 4 bytes
-    uint       raytraced;    // 4 bytes
-
-    // Total: 144 bytes. (Multiple of 4, OK for StructuredBuffer).
-};
-
-struct GPUFrame {
-    Math::Mat4 viewProj;
-    Math::Mat4 invProj;
-    Math::Mat4 invView;
-    Math::Vec4 camPos_Time;  // Packed: x,y,z = camPos | w = time
-    Math::Vec4 res_Clip;     // Packed: x,y = resolution | z,w = clippingPlanes (near, far)
-    Math::Vec4 sceneParams;  // Packed: x = lightCount | y = instanceCount | z,w = padding (unsused)
-    Math::Vec4 sceneAABBMin; // x,y,z = AABB Min | w = padding
-    Math::Vec4 sceneAABBMax; // x,y,z = AABB Max | w = padding
-};
-
-struct GPULight {
-
-    Math::Vec4 pos_Intensity; // Packed: xyz = Position, w = Intensity
-    Math::Vec4 col_Radius;    // Packed: xyz = Color, w = Radius
-    Math::Vec4 dir_Area;      // Packed: xyz = Direction/Normal, w = Area
-    Math::Vec4 settings;      // Settings: x = active. y,z,w = padding (unused)
-
-    // Total: 64 bytes. (Multiple of 4, OK for StructuredBuffer).
-};
-
-// -----------------------------------------------------------------------------
-// PERSISTENT DATA (CACHE METADATA)
-// -----------------------------------------------------------------------------
-// Represents a geometry slot in VRAM.
-// NOTE: This does NOT contain the vertex data itself. It acts as a descriptor/view
-// telling the Renderer WHERE in the MegaBuffer the data is located.
-struct GPUMesh {
-    // Offsets y Counts (16 bytes)
-    uint vertexOffset;
-    uint indexOffset;
-    uint vertexCount;
-    uint indexCount;
-
-    Math::Vec4 bsphere; // Bounding Sphere (16 bytes) -> xyz = center, w = radius
-    Math::Vec4 aabbMin; // AABB Min (16 bytes) -> xyz = min, w = unused
-    Math::Vec4 aabbMax; // AABB Max (16 bytes) -> xyz = max, w = unused
-
-    // Flags y Tracking (16 bytes)
-    uint needsAS;
-    uint valid;
-    uint lastFrameUsed;
-    uint originalAssetID;
-
-    // Total: 80 bytes. (Multiple of 4, OK for StructuredBuffer).
-};
-
-// -----------------------------------------------------------------------------
-// MESSAGE QUEUES (RHI COMMANDS)
-// -----------------------------------------------------------------------------
-// GPUScene cannot allocate GPU memory directly (it's API agnostic).
-// It uses these structures to send "Orders" to the Renderer/Allocator.
-
-// Order: "Please upload this raw CPU data to VRAM and tell me the offsets"
-struct PendingMeshEntry {
-    uint                        GPUMeshID; // Destination Slot in _meshCache
-    std::vector<Assets::Vertex> vertices;  // Raw data copy (safe against asset unloading)
-    std::vector<uint>           indices;
-};
-
-// Order: "This slot is empty, please mark this VRAM region as free"
-struct PendingMeshFree {
-    uint vertexOffset;
-    uint vertexSize;
-    uint indexOffset;
-    uint indexSize;
-    uint GPUMeshID; // Slot to recycle
-};
 
 // -----------------------------------------------------------------------------
 // GPU SCENE MIDDLEWARE
@@ -121,8 +37,6 @@ struct PendingMeshFree {
 class GPUScene
 {
 public:
-  
-
     GPUScene()  = default;
     ~GPUScene() = default;
 
@@ -133,11 +47,28 @@ public:
     std::vector<GPULight>&    lights() { return _lights; }
 
     // Persistent cache access (Used to bind SRVs for geometry)
-    std::vector<GPUMesh>& meshes() { return _meshCache; }
+    std::vector<GPUMesh>& meshes() { return _meshCache.cache; }
+    // Persistent cache access (Used to bind SRVs for materials)
+    std::vector<GPUMaterial>& materials() { return _materialCache.cache; }
 
     // Command Queues consumption
-    std::queue<PendingMeshEntry>& pendingMeshUploads() { return _pendingMeshUploads; }
-    std::queue<PendingMeshFree>&  pendingMeshReleases() { return _pendingMeshReleases; }
+    std::queue<PendingMeshUpload>&     pendingMeshUploads() { return _pendingMeshUploads; }
+    std::queue<PendingMeshFree>&       pendingMeshReleases() { return _pendingMeshReleases; }
+    std::queue<PendingMaterialUpload>& pendingMaterialUploads() { return _pendingMtlUploads; }
+    std::queue<PendingMaterialFree>&   pendingMaterialReleases() { return _pendingMtlReleases; }
+
+    struct SortKey {
+        ulong key;
+        uint  originalInstanceIdx;
+
+        void unpack( uint& archID, uint& topology, uint& matID ) const {
+            archID   = ( key >> 48 ) & 0xFFFF;
+            topology = ( key >> 44 ) & 0xF;
+            matID    = (uint)( key & 0xFFFFFFFFF );
+        }
+    };
+
+    const std::vector<SortKey>& getSortedKeys() const { return _sortedKeys; }
 
     // Query
     bool hasPendingUploads() const;
@@ -149,39 +80,64 @@ public:
      * @param cameraEntity The point of view for this render pass (Culling/ViewProj).
      * @param flags Modifiers for the update pipeline (e.g., DX12 Transpose).
      */
-    void update( const Scene::Scene& cpuScene,
-                 Scene::Entity&      cameraEntity,
-                 const Extent2D&     resolution,
-                 float               deltaTime,
-                 GPUSceneUpdateFlags flags = GPUSceneNone );
-
+    void update( const Scene::Scene&    cpuScene,
+                 Scene::Entity&         cameraEntity,
+                 const MaterialLibrary& mtlLib,
+                 const Extent2D&        resolution,
+                 float                  deltaTime,
+                 GPUSceneUpdateFlags    flags = GPUSceneNone );
 
     void setGCMode( Graphics::GCMode mode ) { _resourceTTL = (uint)mode; }
 
 private:
     // -- Internal Pipeline Stages --
     void reset( float dt );
-    void processMeshes( const Scene::Scene& cpuScene, bool transpose, bool forceRaytrace );
+
+    void processInstances( const Scene::Scene&    cpuScene,
+                           const MaterialLibrary& mtlLib,
+                           bool                   sort,
+                           bool                   transpose,
+                           bool                   forceRaytrace );
+    uint processMesh( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::MeshHandle& cpuMeshHandle );
+    uint processMaterial( const Axion::Core::Assets::AssetManager*   assets,
+                          const MaterialLibrary&                     mtlLib,
+                          std::pair<const uchar*, size_t>&           dirtyLUT,
+                          const Axion::Core::Assets::MaterialHandle& cpuMtlHandle );
+
     void processLights( const Scene::Scene& cpuScene );
     void processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose );
     void runGC();
+
+    AXION_FORCE_INLINE ulong makeSortKey( uint archID, uint topology, uint matID ) {
+        // [Archetype 16b] [Topology 4b] [Material 44b]
+        return ( (ulong)archID << 48 ) | ( (ulong)topology << 44 ) | matID;
+    }
 
     // -- Transient Data (Cleared every frame) --
     GPUFrame                 _frame;
     std::vector<GPUInstance> _instances;
     std::vector<GPULight>    _lights;
 
+    std::vector<SortKey> _sortedKeys;
+
     // -- Persistent Data Cache --
-    // The slot container. Indices here are stable until GC.
-    std::vector<GPUMesh> _meshCache;
-    // Slots that were freed and can be reused.
-    std::queue<ulong> _freeIndexQueue;
-    // O(1) Look-Up Table mapping [CPU_AssetID] -> [GPU_CacheSlot]
-    std::vector<int> _assetToCacheLUT;
+    template <typename T>
+    struct GPUCache {
+        // The slot container. Indices here are stable until GC.
+        std::vector<T> cache;
+        // Slots that were freed and can be reused.
+        std::queue<ulong> freeIndexQueue;
+        // O(1) Look-Up Table mapping [CPU_AssetID] -> [GPU_CacheSlot]
+        std::vector<int> assetToCacheLUT;
+    };
+    GPUCache<GPUMesh>     _meshCache;
+    GPUCache<GPUMaterial> _materialCache;
 
     // -- Communication Queues --
-    std::queue<PendingMeshEntry> _pendingMeshUploads;
-    std::queue<PendingMeshFree>  _pendingMeshReleases;
+    std::queue<PendingMeshUpload>     _pendingMeshUploads;
+    std::queue<PendingMeshFree>       _pendingMeshReleases;
+    std::queue<PendingMaterialUpload> _pendingMtlUploads;
+    std::queue<PendingMaterialFree>   _pendingMtlReleases;
 
     // -- State --
     bool  _forceRaytrace     = false;

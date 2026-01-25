@@ -1,6 +1,7 @@
 #pragma once
 #include "Axion/Graphics/Passes/Utilitary.hpp"
 #include "Axion/Graphics/RHI/Memory.hpp"
+#include "DrawIndirect.h"
 #include "GPUScene.h"
 #include "MaterialSystem.h"
 #include "PassSystem.h"
@@ -49,14 +50,14 @@ private:
     struct TransientViews {
         Graphics::RHI::BufferView frameView;
         Graphics::RHI::BufferView meshesView;
+        Graphics::RHI::BufferView mtlView;
         Graphics::RHI::BufferView instancesView;
         Graphics::RHI::BufferView lightsView;
-        Graphics::RHI::BufferView indirectCommandsView;
     };
 
-    TransientViews uploadTransientData( Graphics::RHI::LinearAllocator& currentUBOAlloc,
-                                        Graphics::RHI::LinearAllocator& currentSSBOAlloc,
-                                        Graphics::RHI::LinearAllocator& currentIndirectAlloc );
+    TransientViews      uploadTransientData( Graphics::RHI::LinearAllocator& currentUBOAlloc,
+                                             Graphics::RHI::LinearAllocator& currentSSBOAlloc );
+    IndirectCommandData uploadIndirectCommands( Graphics::RHI::LinearAllocator& currentIndirectAlloc );
 
     Platform::Window*  _window = nullptr;
     RasterizerSettings _settings;
@@ -85,11 +86,11 @@ private:
         // Resource Handles
         Graphics::BufferHandle vertexBufferHandle;
         Graphics::BufferHandle indexBufferHandle;
-        Graphics::BufferHandle matBufferHandle;
+        Graphics::BufferHandle mtlBufferHandle;
         // Resource Allocators
         Graphics::RHI::FreeListAllocator vertexAllocator;
         Graphics::RHI::FreeListAllocator indexAllocator;
-        Graphics::RHI::FreeListAllocator matAllocator;
+        Graphics::RHI::FreeListAllocator mtlAllocator;
 
         std::vector<FrameResources> frame;
     };

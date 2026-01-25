@@ -1,5 +1,5 @@
 #pragma once
-#include "Axion/Core/Render/MaterialArchetype.h"
+#include "Axion/Core/Render/Defines.h"
 #include "Axion/Graphics/Subsystems/PipelineRegistry.h"
 #include "Axion/Graphics/Subsystems/ShaderRegistry.h"
 #include <array>
@@ -17,13 +17,13 @@ struct MaterialArchetype {
 
     //  Resources
     std::array<Graphics::ShaderHandle, (size_t)MaterialPassType::Count> shaderHandles;
-    using TopologyArray = std::array<Graphics::PipelineHandle, (size_t)MaterialTopologyType::Count>;
+    using TopologyArray = std::array<Graphics::PipelineHandle, (size_t)TopologyType::Count>;
     std::array<TopologyArray, (size_t)MaterialPassType::Count> pipelines;
 
     MaterialArchetype() {
     }
 
-    Graphics::PipelineHandle getPipeline( MaterialPassType pass, MaterialTopologyType topo ) const {
+    Graphics::PipelineHandle getPipeline( MaterialPassType pass, TopologyType topo ) const {
         return pipelines[(size_t)pass][(size_t)topo];
     }
 };
@@ -52,15 +52,17 @@ public:
     void createPipelines( Graphics::IPipelineRegistry& pipelines );
 
     AXION_FORCE_INLINE const std::vector<MaterialArchetype>& getArchetypesRaw() const { return _archetypes; }
+    AXION_FORCE_INLINE ulong                                 getArchetypesCount() const { return _archetypes.size(); }
     AXION_FORCE_INLINE bool                                  isInitialized() const { return _initialized; }
 
-    uint getArchetypeID( const std::string& name );
+    uint getArchetypeID( const std::string& name ) const;
+
+   
 
 private:
-    std::string                 toString( MaterialPassType type );
-    std::string                 toString( MaterialTopologyType type );
-    Graphics::PrimitiveTopology toRHITopology( MaterialTopologyType type );
-    MaterialTopologyFlags       topologyToFlags( MaterialTopologyType type );
+    std::string           toString( MaterialPassType type );
+    std::string           toString( TopologyType type );
+    MaterialTopologyFlags topologyToFlags( TopologyType type );
 
     std::vector<MaterialArchetype>        _archetypes;
     std::unordered_map<std::string, uint> _archetypeLookup;
@@ -102,7 +104,7 @@ public:
     //     addPass( MaterialPassPermutation::Blend, path, "vsForward", "psForward" );
     //     return *this;
     // }
-    // ArchetypeBuilder& supportForTopology( MaterialTopologyType type ) {
+    // ArchetypeBuilder& supportForTopology( TopologyType type ) {
     //     _archDesc.topologiesSupported |= MaterialLibrary::topologyToFlags( type );
     //     return *this;
     // }

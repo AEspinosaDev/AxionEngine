@@ -1,4 +1,5 @@
 #include <Axion/Common/Logging.h>
+#include <Axion/Core/Assets/AssetManager.h>
 #include <Axion/Core/Assets/Material.h>
 #include <map>
 
@@ -10,9 +11,9 @@ static std::map<std::string, GlobalMaterialRegistry::SetupCallback>& getRegistry
     return registry;
 }
 
-void GlobalMaterialRegistry::registerMaterial( const std::string& name, SetupCallback callback ) {
-    getRegistryInternal()[name] = callback;
-
+void GlobalMaterialRegistry::registerMaterial( std::string_view name, SetupCallback callback ) 
+{
+    getRegistryInternal()[std::string(name)] = callback;
     AXION_LOG_INFO( Logger::Module::Core, "[PRE-EXECUTION MSG] REGISTERED MATERIAL CLASS: {}", name );
 }
 
@@ -21,6 +22,28 @@ void GlobalMaterialRegistry::enumerate( std::function<void( const std::string& n
     for ( const auto& [name, callback] : reg )
     {
         visitor( name, callback );
+    }
+}
+
+void Material::clearDirty() {
+    if ( _isDirty )
+    {
+        _isDirty = false;
+        if ( _owner )
+        {
+            _owner->notifyMaterialDirty( _handle, false );
+        }
+    }
+}
+
+void Material::markDirty() {
+    if ( !_isDirty )
+    {
+        _isDirty = true;
+        if ( _owner )
+        {
+            _owner->notifyMaterialDirty( _handle, true );
+        }
     }
 }
 

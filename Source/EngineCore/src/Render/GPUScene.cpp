@@ -4,118 +4,61 @@ AXION_NAMESPACE_BEGIN
 
 namespace Core::Render {
 
-void GPUScene::update( const Scene::Scene& cpuScene,
-                       Scene::Entity&      cameraEntity,
-                       const Extent2D&     resolution,
-                       float               deltaTime,
-                       GPUSceneUpdateFlags flags ) {
+void GPUScene::update( const Scene::Scene&    cpuScene,
+                       Scene::Entity&         cameraEntity,
+                       const MaterialLibrary& mtlLib,
+                       const Extent2D&        resolution,
+                       float                  deltaTime,
+                       GPUSceneUpdateFlags    flags ) {
 
     bool transposeMatrices = ( flags & GPUSceneTransposeMatrices ) != GPUSceneNone;
     bool forceRaytrace     = ( flags & GPUSceneForceRaytrace ) != GPUSceneNone;
+    bool sortInstances     = ( flags & GPUSceneSortInstances ) != GPUSceneNone;
 
     reset( deltaTime );
 
-    processMeshes( cpuScene, transposeMatrices, forceRaytrace );
+    processInstances( cpuScene, mtlLib, sortInstances, transposeMatrices, forceRaytrace );
     processLights( cpuScene );
     processFrame( cameraEntity, resolution, transposeMatrices );
 
     runGC();
 }
 
-
 void GPUScene::reset( float dt ) {
     _currentFrameIndex++;
     _accumulatedTime += dt;
     _instances.clear();
     _lights.clear();
+    _sortedKeys.clear();
 }
 
-#pragma region Meshes
+#pragma region Instances
 #pragma endregion
 
-void GPUScene::processMeshes( const Scene::Scene& cpuScene, bool transpose, bool forceRaytrace ) {
+void GPUScene::processInstances( const Scene::Scene& cpuScene, const MaterialLibrary& mtlLib, bool sort, bool transpose, bool forceRaytrace ) {
 
-    _instances.reserve( cpuScene.getRegistry().view<Scene::MeshComponent>().size() );
-    _lights.reserve( cpuScene.getRegistry().view<Scene::LightComponent>().size() );
+    ulong instanceCount = cpuScene.getRegistry().view<Scene::MeshComponent>().size();
+    _instances.reserve( instanceCount );
+    if ( sort )
+        _sortedKeys.reserve( instanceCount );
 
     auto* assets = cpuScene.assets();
 
     // Ensure LUT is big enough for all current assets.
-    if ( _assetToCacheLUT.size() < assets->getMeshCount() )
-        _assetToCacheLUT.resize( assets->getMeshCount(), -1 );
+    if ( _meshCache.assetToCacheLUT.size() < assets->getMeshCount() )
+        _meshCache.assetToCacheLUT.resize( assets->getMeshCount(), -1 );
 
-    auto meshesView = cpuScene.getRegistry().multiView<const Scene::MeshComponent, const Scene::TransformComponent>();
+    auto meshesView  = cpuScene.getRegistry().multiView<const Scene::MeshComponent, const Scene::TransformComponent>();
+    auto mtlDirtyLUT = assets->getMaterialDirtyLUT();
 
+    // Process Meshes & Materials
     for ( ECS::EntityID entity : meshesView )
     {
         const auto& meshComp  = meshesView.get<Scene::MeshComponent>( entity );
         const auto& transComp = meshesView.get<Scene::TransformComponent>( entity );
 
-        if ( !meshComp.visible )
-            continue;
-
-        uint cpuAssetID    = meshComp.mesh.id;
-        uint gpuCacheIndex = 0;
-
-        // --- CACHE LOOKUP (O(1) Array Access) ---
-
-        // Safety check: if asset ID is larger than current LUT size (rare race condition), grow
-        if ( cpuAssetID >= _assetToCacheLUT.size() )
-            _assetToCacheLUT.resize( cpuAssetID + 1, -1 );
-
-        int cachedIndex = _assetToCacheLUT[cpuAssetID];
-
-        if ( cachedIndex != -1 )
-        {
-            // A. ALREADY IN CACHE
-            gpuCacheIndex = (uint)cachedIndex;
-        } else
-        {
-            // B. NEW ALLOCATION NEEDED
-            if ( !_freeIndexQueue.empty() )
-            {
-                // Recycle slot
-                gpuCacheIndex = _freeIndexQueue.front();
-                _freeIndexQueue.pop();
-            } else
-            {
-                // Grow vector
-                gpuCacheIndex = (uint)_meshCache.size();
-                _meshCache.emplace_back();
-            }
-
-            // Register in LUT immediately
-            _assetToCacheLUT[cpuAssetID] = (int)gpuCacheIndex;
-
-            _meshCache[gpuCacheIndex].valid           = false;
-            _meshCache[gpuCacheIndex].originalAssetID = cpuAssetID;
-        }
-
-        // --- UPLOAD LOGIC ---
-        auto& gpuMesh = _meshCache[gpuCacheIndex];
-
-        if ( !gpuMesh.valid )
-        {
-            auto* cpuMesh = assets->getMesh( meshComp.mesh );
-            if ( cpuMesh )
-            {
-                gpuMesh.vertexCount = cpuMesh->getVertexCount();
-                gpuMesh.indexCount  = cpuMesh->getIndexCount();
-                gpuMesh.aabbMin     = Math::Vec4( cpuMesh->getAABB().min, 0.0f );
-                gpuMesh.aabbMax     = Math::Vec4( cpuMesh->getAABB().max, 0.0f );
-                gpuMesh.bsphere     = Math::Vec4( cpuMesh->getBoundingSphere().center, cpuMesh->getBoundingSphere().radius );
-                gpuMesh.needsAS     = 1;
-
-                _pendingMeshUploads.push( { gpuCacheIndex, // Slot Index
-                                            cpuMesh->getVertices(),
-                                            cpuMesh->getIndices() } );
-
-                gpuMesh.valid = true;
-            }
-        }
-
-        if ( gpuMesh.valid )
-            gpuMesh.lastFrameUsed = _currentFrameIndex;
+        uint gpuMeshID     = processMesh( assets, meshComp.mesh );
+        uint gpuMaterialID = processMaterial( assets, mtlLib, mtlDirtyLUT, meshComp.material );
 
         // --- INSTANCE DATA ---
         GPUInstance instance;
@@ -124,19 +67,176 @@ void GPUScene::processMeshes( const Scene::Scene& cpuScene, bool transpose, bool
         if ( transpose )
             instance.modelMatrix = Math::MTX::transpose( instance.modelMatrix );
 
-        instance.meshID     = gpuCacheIndex; // SLOT index
-        instance.materialID = 0;             // For now
-        instance.active     = 1;
+        instance.meshID     = gpuMeshID;
+        instance.materialID = gpuMaterialID;
+        instance.active     = meshComp.visible;
         instance.raytraced  = meshComp.raytraced || forceRaytrace ? 1 : 0;
 
         _instances.push_back( instance );
+
+        if ( sort )
+        {
+            uint topology = (uint)_meshCache.cache[gpuMeshID].aabbMax_Topology.w;
+            uint archID   = _materialCache.cache[gpuMaterialID].archetypeID;
+
+            SortKey key;
+            key.key                 = makeSortKey( archID, topology, gpuMaterialID );
+            key.originalInstanceIdx = (uint)_instances.size() - 1;
+
+            _sortedKeys.push_back( key );
+        }
+    }
+
+    if ( sort )
+    {
+        std::sort( _sortedKeys.begin(), _sortedKeys.end(), []( const SortKey& a, const SortKey& b ) { return a.key < b.key; } );
     }
 }
 
-#pragma region Lights
+#pragma region Mesh
 #pragma endregion
 
+uint GPUScene::processMesh( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::MeshHandle& cpuMeshHandle ) {
+    uint cpuAssetID    = cpuMeshHandle.id;
+    uint gpuCacheIndex = 0;
+
+    // Safety check: if asset ID is larger than current LUT size (rare race condition), grow
+    if ( cpuAssetID >= _meshCache.assetToCacheLUT.size() )
+        _meshCache.assetToCacheLUT.resize( cpuAssetID + 1, -1 );
+
+    int cachedIndex = _meshCache.assetToCacheLUT[cpuAssetID];
+
+    if ( cachedIndex != -1 )
+    {
+        // A. ALREADY IN CACHE
+        gpuCacheIndex = (uint)cachedIndex;
+    } else
+    {
+        // B. NEW ALLOCATION NEEDED
+        if ( !_meshCache.freeIndexQueue.empty() )
+        {
+            // Recycle slot
+            gpuCacheIndex = _meshCache.freeIndexQueue.front();
+            _meshCache.freeIndexQueue.pop();
+        } else
+        {
+            // Grow vector
+            gpuCacheIndex = (uint)_meshCache.cache.size();
+            _meshCache.cache.emplace_back();
+        }
+
+        // Register in LUT immediately
+        _meshCache.assetToCacheLUT[cpuAssetID] = (int)gpuCacheIndex;
+
+        _meshCache.cache[gpuCacheIndex].valid           = false;
+        _meshCache.cache[gpuCacheIndex].originalAssetID = cpuAssetID;
+    }
+
+    // --- UPLOAD LOGIC ---
+    auto& gpuMesh = _meshCache.cache[gpuCacheIndex];
+
+    if ( !gpuMesh.valid )
+    {
+        // Slow indirection
+        auto* cpuMesh = assets->getMesh( cpuMeshHandle );
+        if ( cpuMesh )
+        {
+            gpuMesh.vertexCount      = cpuMesh->getVertexCount();
+            gpuMesh.indexCount       = cpuMesh->getIndexCount();
+            gpuMesh.aabbMin          = Math::Vec4( cpuMesh->getAABB().min, 0.0f );
+            gpuMesh.aabbMax_Topology = Math::Vec4( cpuMesh->getAABB().max, (float)cpuMesh->getTopology() );
+            gpuMesh.bsphere          = Math::Vec4( cpuMesh->getBoundingSphere().center, cpuMesh->getBoundingSphere().radius );
+            gpuMesh.needsAS          = 1;
+
+            _pendingMeshUploads.push( { gpuCacheIndex, // Slot Index
+                                        cpuMesh->getVertices(),
+                                        cpuMesh->getIndices() } );
+
+            gpuMesh.valid = true;
+        }
+    }
+
+    if ( gpuMesh.valid )
+        gpuMesh.lastFrameUsed = _currentFrameIndex;
+
+    return gpuCacheIndex;
+}
+
+#pragma region Material
+#pragma endregion
+
+uint GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets,
+                                const MaterialLibrary&                     mtlLib,
+                                std::pair<const uchar*, size_t>&           dirtyLUT,
+                                const Axion::Core::Assets::MaterialHandle& cpuMtlHandle ) {
+    uint cpuAssetID    = cpuMtlHandle.id;
+    uint gpuCacheIndex = 0;
+
+    if ( cpuAssetID >= _materialCache.assetToCacheLUT.size() )
+        _materialCache.assetToCacheLUT.resize( cpuAssetID + 1, -1 );
+
+    int cachedIndex = _materialCache.assetToCacheLUT[cpuAssetID];
+
+    if ( cachedIndex != -1 )
+    {
+        // A. ALREADY IN CACHE
+        gpuCacheIndex = (uint)cachedIndex;
+    } else
+    {
+        // B. NEW ALLOCATION NEEDED
+        if ( !_materialCache.freeIndexQueue.empty() )
+        {
+            // Recycle slot
+            gpuCacheIndex = _materialCache.freeIndexQueue.front();
+            _materialCache.freeIndexQueue.pop();
+        } else
+        {
+            // Grow vector
+            gpuCacheIndex = (uint)_materialCache.cache.size();
+            _materialCache.cache.emplace_back();
+        }
+
+        // Register in LUT immediately
+        _materialCache.assetToCacheLUT[cpuAssetID] = (int)gpuCacheIndex;
+    }
+
+    // --- UPDATE LOGIC ---
+    bool isDirty = false;
+    if ( cpuAssetID < dirtyLUT.second )
+    {
+        isDirty = ( dirtyLUT.first[cpuAssetID] != 0 );
+    }
+
+    if ( isDirty )
+    {
+        // Slow indirection
+        auto* cpuMaterial = assets->getMaterialBase( cpuMtlHandle );
+        auto& gpuMtl      = _materialCache.cache[gpuCacheIndex];
+
+        gpuMtl.payloadSize = cpuMaterial->getPayloadSize();
+        gpuMtl.archetypeID = mtlLib.getArchetypeID( std::string( cpuMaterial->getArchetypeName() ) );
+
+        PendingMaterialUpload entry;
+        entry.GPUMaterialID = gpuCacheIndex;
+
+        entry.payload.resize( gpuMtl.payloadSize );
+        cpuMaterial->writePayload( entry.payload.data() );
+
+        _pendingMtlUploads.push( std::move( entry ) );
+
+        cpuMaterial->clearDirty();
+    }
+
+    _materialCache.cache[gpuCacheIndex].lastFrameUsed = _currentFrameIndex;
+
+    return gpuCacheIndex;
+}
+
+#pragma endregion
+#pragma region Lights
+
 void GPUScene::processLights( const Scene::Scene& cpuScene ) {
+    _lights.reserve( cpuScene.getRegistry().view<Scene::LightComponent>().size() );
     auto lightView = cpuScene.getRegistry().multiView<const Scene::LightComponent, const Scene::TransformComponent>();
 
     for ( ECS::EntityID entity : lightView )
@@ -169,8 +269,7 @@ void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolu
         auto proj  = camComp.getProjection( resolution );
         auto model = transComp.getMatrix();
 
-        auto viewMat = Math::MTX::inverse( model );
-        // auto viewMat     = Axion::Math::MTX::lookAt( { 0, 0, -2.0 }, { 0, 0, 0 }, { 0, 1, 0 } );
+        auto viewMat  = Math::MTX::inverse( model );
         auto viewProj = proj * viewMat;
 
         if ( transpose )
@@ -214,9 +313,9 @@ void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolu
 #pragma endregion
 
 void GPUScene::runGC() {
-    for ( ulong i = 0; i < _meshCache.size(); ++i )
+    for ( ulong i = 0; i < _meshCache.cache.size(); ++i )
     {
-        auto& gpuMesh = _meshCache[i];
+        auto& gpuMesh = _meshCache.cache[i];
 
         if ( gpuMesh.valid )
         {
@@ -233,12 +332,12 @@ void GPUScene::runGC() {
                     (uint)i // Cache Slot Index
                 } );
 
-                if ( gpuMesh.originalAssetID < _assetToCacheLUT.size() )
+                if ( gpuMesh.originalAssetID < _meshCache.assetToCacheLUT.size() )
                 {
-                    _assetToCacheLUT[gpuMesh.originalAssetID] = -1;
+                    _meshCache.assetToCacheLUT[gpuMesh.originalAssetID] = -1;
                 }
 
-                _freeIndexQueue.push( (uint)i );
+                _meshCache.freeIndexQueue.push( (uint)i );
 
                 gpuMesh.valid        = false;
                 gpuMesh.vertexOffset = 0;
@@ -252,11 +351,11 @@ void GPUScene::runGC() {
 }
 
 bool GPUScene::hasPendingUploads() const {
-    return !_pendingMeshUploads.empty();
+    return !_pendingMeshUploads.empty() || !_pendingMtlUploads.empty();
 }
 
 bool GPUScene::hasPendingReleases() const {
-    return !_pendingMeshReleases.empty();
+    return !_pendingMeshReleases.empty() || !_pendingMtlReleases.empty();
 }
 
 } // namespace Core::Render

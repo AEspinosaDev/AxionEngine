@@ -22,7 +22,6 @@ class MultiView
     template<typename T>
     using PoolType = Pool<RawType<T>>;
 
-    // Define si guardamos 'Pool<T>*' o 'const Pool<T>*'
     template<typename T>
     using PoolPtr = std::conditional_t<std::is_const_v<T>, const PoolType<T>*, PoolType<T>*>;
 
@@ -32,7 +31,6 @@ class MultiView
     template<typename Search> 
     struct Resolver<Search> { using type = void; };
 
-    // Caso Recursivo
     template<typename Search, typename Head, typename... Tail>
     struct Resolver<Search, Head, Tail...> {
         using type = std::conditional_t<

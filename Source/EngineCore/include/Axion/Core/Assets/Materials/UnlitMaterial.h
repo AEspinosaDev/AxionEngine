@@ -7,6 +7,8 @@ namespace Core::Assets {
 
 class UnlitMaterial : public Material
 {
+    AXION_DECLARE_MATERIAL_ARCH_NAME( "Unlit" );
+
 public:
     struct alignas( 16 ) GPUPayload {
         Math::Vec3 color;
@@ -53,20 +55,20 @@ public:
     [[nodiscard]] TextureHandle     getColorTexture() const { return _colorTextureHandle; }
     [[nodiscard]] float             getTextureOverrideStrength() const { return _textureOverrideStrength; }
 
-    uint getGPUPayloadSize() const override {
+    uint getPayloadSize() const override {
         return sizeof( GPUPayload );
     };
-    void writeGPUPayload( void* dest, const TextureResolver& resolver ) const override {
+    void writePayload( void* dest ) const override {
 
         GPUPayload tempPacket;
         tempPacket.color            = _color;
         tempPacket.emissivePower    = _emissivePower;
         tempPacket.overrideStrength = _textureOverrideStrength;
 
-        if ( _colorTextureHandle.isValid() && resolver )
-            tempPacket.textureIndex = resolver( _colorTextureHandle );
-        else
-            tempPacket.textureIndex = 0;
+        // if ( _colorTextureHandle.isValid() && resolver )
+        //     tempPacket.textureIndex = resolver( _colorTextureHandle );
+        // else
+        tempPacket.textureIndex = 0;
 
         tempPacket.padding[0] = 0.0f;
         tempPacket.padding[1] = 0.0f;
@@ -90,9 +92,9 @@ private:
 
 AXION_NAMESPACE_END
 
-AXION_REGISTER_MATERIAL( UnlitMaterial, "Unlit" ) {
+AXION_REGISTER_MATERIAL( UnlitMaterial ) {
 
-    desc.name = "Unlit";
+    desc.name = Axion::Core::Assets::UnlitMaterial::ARCHETYPE;
 
     desc.payloadSize = sizeof( Axion::Core::Assets::UnlitMaterial::GPUPayload );
 
@@ -100,17 +102,10 @@ AXION_REGISTER_MATERIAL( UnlitMaterial, "Unlit" ) {
 
     Axion::Core::Render::MaterialArchetypePassConfig pass;
     pass.passType    = Axion::Core::Render::MaterialPassType::Opaque;
-    pass.shaderPath  = AXION_SHADER_DIR "/Slang/Materials/Test.slang";
+    pass.shaderPath  = AXION_SHADER_DIR "/Slang/Materials/Unlit.slang";
     pass.entryPoints = {
         { "vsForward", Axion::Graphics::ShaderType::Vertex },
         { "psForward", Axion::Graphics::ShaderType::Pixel } };
 
     desc.passConfigs.push_back( pass );
-}
-
-struct GPUMaterial{
-    uint offset;
-    uint payloadSize;
-    uint archetype;
-    array supportedPasses;
 }
