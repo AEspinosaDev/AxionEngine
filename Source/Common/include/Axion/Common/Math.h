@@ -8,7 +8,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp> // For value_ptr
 #define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/matrix_decompose.hpp> 
+#include <glm/gtx/matrix_decompose.hpp>
 
 AXION_NAMESPACE_BEGIN
 
@@ -225,6 +225,13 @@ struct AABB {
 struct BoundingSphere {
     Vec3  center = { 0, 0, 0 };
     float radius = 0.0f;
+};
+
+struct Frustum {
+    // x, y, z = Normal
+    // w = Origin Dist (D)
+    // Order: Left, Right, Bottom, Top, Near, Far
+    Vec4 planes[6];
 };
 
 #pragma endregion

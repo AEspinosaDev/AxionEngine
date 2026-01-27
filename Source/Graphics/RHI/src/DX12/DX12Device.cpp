@@ -50,7 +50,7 @@ DX12Device::DX12Device( const IDX12Device::Description& desc ) {
     _initialized = true;
 
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 Device [{}] created", _desc.debugName );
-    AXION_LOG_INFO( Logger::Module::RHI, toString() );
+    AXION_LOG_INFO( Logger::Module::RHI, "{}", toString() );
 }
 
 DX12Device::~DX12Device() {
@@ -441,8 +441,6 @@ void RHI::DX12Device::checkExtensions() {
     {
         _ext.variableRateShadingSupported = _featureData.options6.VariableShadingRateTier >= D3D12_VARIABLE_SHADING_RATE_TIER_2;
     }
-
-   
 
     if ( _desc.enableHeapDirectlyIndexed )
     {

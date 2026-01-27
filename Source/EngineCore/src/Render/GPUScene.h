@@ -121,7 +121,6 @@ private:
     std::vector<GPULight>    _lights;
 
     std::vector<SortKey> _sortedKeys;
-    std::vector<uint>    _redirectInstaceIDs;
 
     // -- Persistent Data Cache --
     template <typename T>

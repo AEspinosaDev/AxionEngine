@@ -9,7 +9,7 @@ namespace Graphics {
 RendererPtr Graphics::createRenderer( IWindow* wnd, const RendererSettings& settings ) {
     auto rnd = NEW_U( Renderer )( wnd, settings );
     AXION_LOG_INFO( Logger::Module::GFX, "Renderer Created Succesfully" );
-    AXION_LOG_INFO( Logger::Module::GFX, rnd->toString() );
+    AXION_LOG_INFO( Logger::Module::GFX, "{}", rnd->toString() );
     return rnd;
 }
 

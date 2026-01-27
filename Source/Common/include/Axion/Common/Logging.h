@@ -139,28 +139,27 @@ AXION_NAMESPACE_END
 
 #ifdef AXION_DEBUG
 
-#define AXION_LOG_INFO( module, fmt, ... ) \
-    Axion::Logger::log(                    \
-        Axion::Logger::Level::Info,        \
-        module,                            \
-        std::vformat( fmt, std::make_format_args( __VA_ARGS__ ) ) )
-
-#define AXION_LOG_WARN( module, fmt, ... )                         \
-    Axion::Logger::log(                                            \
-        Axion::Logger::Level::Warn,                                \
-        module,                                                    \
-        std::vformat( fmt, std::make_format_args( __VA_ARGS__ ) ), \
-        __FILE__,                                                  \
-        __LINE__,                                                  \
+#define AXION_LOG_INFO( module, fmt_str, ... ) \
+    Axion::Logger::log(                        \
+        Axion::Logger::Level::Info,            \
+        module,                                \
+        fmt::format( fmt_str, ##__VA_ARGS__ ) )
+#define AXION_LOG_WARN( module, fmt_str, ... ) \
+    Axion::Logger::log(                        \
+        Axion::Logger::Level::Warn,            \
+        module,                                \
+        fmt::format( fmt_str, ##__VA_ARGS__ ), \
+        __FILE__,                              \
+        __LINE__,                              \
         __func__ )
 
-#define AXION_LOG_ERROR( module, fmt, ... )                        \
-    Axion::Logger::log(                                            \
-        Axion::Logger::Level::Error,                               \
-        module,                                                    \
-        std::vformat( fmt, std::make_format_args( __VA_ARGS__ ) ), \
-        __FILE__,                                                  \
-        __LINE__,                                                  \
+#define AXION_LOG_ERROR( module, fmt_str, ... ) \
+    Axion::Logger::log(                         \
+        Axion::Logger::Level::Error,            \
+        module,                                 \
+        fmt::format( fmt_str, ##__VA_ARGS__ ),  \
+        __FILE__,                               \
+        __LINE__,                               \
         __func__ )
 
 #define AXION_LOG_ASSERT( cond, module, msg, ... )         \

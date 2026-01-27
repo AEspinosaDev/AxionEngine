@@ -9,7 +9,8 @@ namespace Graphics {
 RendererPtr Graphics::createHeadlessRenderer( const RendererSettings& settings ) {
     auto rnd = NEW_U( HeadlessRenderer )( settings );
     AXION_LOG_INFO( Logger::Module::GFX, "Headless Renderer Created Succesfully" );
-    AXION_LOG_INFO( Logger::Module::GFX, rnd->toString() );
+    AXION_LOG_INFO( Logger::Module::GFX, "{}", rnd->toString() );
+
     return rnd;
 }
 

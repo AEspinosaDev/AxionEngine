@@ -38,7 +38,7 @@ Window::Window( const Settings& settings )
     : _impl( std::make_unique<Impl>( settings ) ) {
 
     AXION_LOG_INFO( Logger::Module::Core, "Window [{}] Created Succesfully", settings.name );
-    AXION_LOG_INFO( Logger::Module::Core, toString() );
+    AXION_LOG_INFO( Logger::Module::Core, "{}", toString() );
 }
 
 Window::~Window() {

@@ -4,6 +4,8 @@
 #include <format>
 #include <iostream>
 #include <sstream>
+#include <fmt/core.h>
+#include <fmt/format.h>
 
 AXION_NAMESPACE_BEGIN
 
