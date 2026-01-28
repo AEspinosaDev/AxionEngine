@@ -15,6 +15,8 @@ public struct FrameData
     public float4 sceneAABBMin; // .xyz = Min (w unused)
     public float4 sceneAABBMax; // .xyz = Max (w unused)
 
+    public float4 frustrum[6];
+
     // --- Helper Methods (Getters) ---
     
     public float3 getCameraPos() { return camPos_Time.xyz; }

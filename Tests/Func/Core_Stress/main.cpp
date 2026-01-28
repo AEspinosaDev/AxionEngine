@@ -26,6 +26,7 @@ int main( /*int argc, char* argv[]*/ ) {
         Core::Scene::Scene         scene( "TestScene", &assets );
 
         Core::Render::RasterizerSettings rastDesc {};
+        rastDesc.useGPUCulling             = false;
         rastDesc.common.name               = "TestRasterizer";
         rastDesc.common.selectedDeviceID   = 0;
         rastDesc.memory.volatileBufferSize = 1024 * 1024 * 64;

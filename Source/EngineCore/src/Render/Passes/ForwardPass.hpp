@@ -133,7 +133,7 @@ private:
                 cmd->bindGraphicPipeline( pso );
 
                 cmd->drawIndexedIndirect(
-                    data.indirectData.bufferView.buffer,
+                    data.indirectData.cmdBufferView.buffer,
                     batch.bufferOffset,
                     batch.drawCount );
             }

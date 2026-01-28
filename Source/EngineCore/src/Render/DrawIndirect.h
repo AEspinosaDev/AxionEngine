@@ -17,7 +17,8 @@ struct IndirectDrawBatch {
 };
 
 struct IndirectCommandData {
-    Graphics::RHI::BufferView      bufferView;
+    Graphics::RHI::BufferView      cmdBufferView;
+    Graphics::RHI::BufferView      batchMapView;
     std::vector<IndirectDrawBatch> batches;
 };
 

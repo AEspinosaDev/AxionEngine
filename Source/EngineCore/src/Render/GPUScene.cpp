@@ -304,8 +304,11 @@ void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolu
             0.0f,
             0.0f );
 
-        // _frame.sceneAABBMin = Math::Vec4( _sceneAABB.min.x, _sceneAABB.min.y, _sceneAABB.min.z, 0.0f );
-        // _frame.sceneAABBMax = Math::Vec4( _sceneAABB.max.x, _sceneAABB.max.y, _sceneAABB.max.z, 0.0f );
+        _frame.sceneAABBMin = Math::Vec4( 0.0f );
+        _frame.sceneAABBMax = Math::Vec4( 0.0f );
+
+        Math::Frustum f = Math::createFrustumFromMatrix( viewProj );
+        memcpy( _frame.frustrumPlanes, f.planes, sizeof( glm::vec4 ) * 6 );
     }
 }
 

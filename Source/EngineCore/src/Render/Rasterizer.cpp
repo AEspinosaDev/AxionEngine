@@ -114,7 +114,8 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
     auto transientViews  = uploadTransientData( currentFrameRes.uboAllocator,
                                                currentFrameRes.ssboAllocator );
-    auto indirectCmdData = uploadIndirectCommands( currentFrameRes.indirectAllocator );
+    auto indirectCmdData = uploadIndirectCommandData( currentFrameRes.ssboAllocator,
+                                                      currentFrameRes.indirectAllocator );
 
     _rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
         auto rtExtent = _window->getSettings().size.to3D();
@@ -133,7 +134,14 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
         _passes.getPass<UploadPass>()->addToGraph( builder, upConfig );
 
-        // B. Forward
+        // B. Culling
+        if ( _settings.useGPUCulling )
+        {
+        }
+
+        // C. Depth Pre-Pass
+
+        // D. Forward
         ForwardPass::Config fwConfig;
         fwConfig.outputColorHandle = builder.texture( "ColorBuffer" )
                                          .asRenderTarget()
@@ -166,7 +174,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
         _passes.getPass<ForwardPass>()->addToGraph( builder, fwConfig );
 
-        // C. ToneMapping
+        // E. ToneMapping
         ToneMappingPass::Config tmConfig;
         tmConfig.inputHandle  = fwConfig.outputColorHandle;
         tmConfig.outputHandle = builder.texture( "ToneMappedBuffer" )
@@ -177,7 +185,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
         _passes.getPass<ToneMappingPass>()->addToGraph( builder, tmConfig );
 
-        // D. Final Blit/Present
+        // F. Final Blit/Present
 
         cpypass.inputHandle  = tmConfig.outputHandle;
         cpypass.outputHandle = builder.import( "Backbuffer", _rnd->getCurrentBackbufferHandle() );
@@ -204,7 +212,8 @@ void Rasterizer::setupMaterialLibrary() {
                                      { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Materials
                                      { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Instances
                                      { 3, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Lights
-                                     { 4, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // HW. Instance Redirection Buffer
+                                     { 4, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Instance Redirection Buffer
+                                                                                                                                      //  { 5, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Indirect. Batch Redirection Buffer
                                  } )
                                  // Space 2: Instance ID Push Constant
                                  .setPushConstants( sizeof( uint ), 0, 2 )
@@ -300,15 +309,22 @@ void Rasterizer::createResources() {
         ssboBuffer->map();
         _res.frame[i].ssboAllocator = Graphics::RHI::LinearAllocator( ssboBuffer );
 
-        _res.frame[i].indirectBufferHandle = r.buffer( "IndirectArgBuffer" + std::to_string( i ) )
-                                                 .size( _settings.memory.volatileBufferSize )
-                                                 .onCPU()
-                                                 .asIndirect()
-                                                 .create();
+        _res.frame[i].indirectCmdBufferHandle = r.buffer( "IndirectCommandBuffer_" + std::to_string( i ) )
+                                                    .size( _settings.memory.volatileBufferSize )
+                                                    .onCPU()
+                                                    .asIndirect()
+                                                    .create();
 
-        auto* indBuffer = r.getBuffer( _res.frame[i].indirectBufferHandle );
+        auto* indBuffer = r.getBuffer( _res.frame[i].indirectCmdBufferHandle );
         indBuffer->map();
         _res.frame[i].indirectAllocator = Graphics::RHI::LinearAllocator( indBuffer );
+
+        _res.frame[i].culledInstanceBufferHandle = r.buffer( "IndirectCulledInstanceBuffer_" + std::to_string( i ) )
+                                                       .size( _settings.memory.volatileBufferSize )
+                                                       .stride( sizeof( uint ) )
+                                                       .onGPU()
+                                                       .asSSBO()
+                                                       .create();
     }
 }
 
@@ -460,8 +476,9 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
     return views;
 }
 
-IndirectCommandData Rasterizer::uploadIndirectCommands(
-    Graphics::RHI::LinearAllocator& indirectAlloc ) {
+IndirectCommandData Rasterizer::uploadIndirectCommandData(
+    Graphics::RHI::LinearAllocator& currentSSBOAlloc,
+    Graphics::RHI::LinearAllocator& currentIndirectAlloc ) {
     const auto& sortedKeys = _gpuScene.getSortedKeys();
     const auto& instances  = _gpuScene.instances();
     const auto& meshes     = _gpuScene.meshes();
@@ -476,7 +493,7 @@ IndirectCommandData Rasterizer::uploadIndirectCommands(
     size_t maxPossibleCommands = meshes.size() * _mtlLib.getArchetypesCount();
     maxPossibleCommands        = std::max<size_t>( maxPossibleCommands, 1 );
 
-    auto cmdAlloc = indirectAlloc.allocate<Graphics::RHI::DrawIndexedIndirectCommand>( maxPossibleCommands );
+    auto cmdAlloc = currentIndirectAlloc.allocate<Graphics::RHI::DrawIndexedIndirectCommand>( maxPossibleCommands );
 
     if ( !cmdAlloc.isValid() )
         return indirectData;
@@ -484,7 +501,7 @@ IndirectCommandData Rasterizer::uploadIndirectCommands(
     auto*      cmdPtr       = (Graphics::RHI::DrawIndexedIndirectCommand*)cmdAlloc.cpuAddress;
     const auto RHI_CMD_SIZE = sizeof( Graphics::RHI::DrawIndexedIndirectCommand );
 
-    indirectData.batches.reserve( _mtlLib.getArchetypesCount() );
+    indirectData.batches.reserve( _mtlLib.getArchetypesCount() ); // Optimistic
 
     // 2. LOOP
     // =================================================================================
@@ -502,6 +519,14 @@ IndirectCommandData Rasterizer::uploadIndirectCommands(
     uint cmdsInCurrentArch    = 0;
     uint archBatchStartCmdIdx = 0;
 
+    uint*                     indirectCmdMapPtr = nullptr;
+    Graphics::RHI::BufferView cmdMapAlloc {};
+    if ( _settings.useGPUCulling )
+    {
+        cmdMapAlloc       = currentSSBOAlloc.allocate<uint>( instances.size() );
+        indirectCmdMapPtr = (uint*)cmdMapAlloc.cpuAddress;
+    }
+
     for ( size_t i = 0; i < sortedKeys.size(); ++i )
     {
         uint arch, topo, meshID;
@@ -515,14 +540,16 @@ IndirectCommandData Rasterizer::uploadIndirectCommands(
         {
             Graphics::RHI::DrawIndexedIndirectCommand cmd;
             cmd.indexCount    = lastMesh.indexCount;
-            cmd.instanceCount = instanceAccumulator;
+            cmd.instanceCount = _settings.useGPUCulling ? 0 : instanceAccumulator;
             cmd.firstIndex    = lastMesh.indexOffset / 4;
             cmd.vertexOffset  = (int)( lastMesh.vertexOffset / sizeof( Assets::Vertex ) );
-            cmd.firstInstance = 0; // Unused
+            cmd.firstInstance = 0;
 
             cmd.baseInstanceID = batchStartOffsetInRedirect;
 
-            cmdPtr[cmdWriteIdx++] = cmd;
+            cmdPtr[cmdWriteIdx] = cmd;
+
+            cmdWriteIdx++;
             cmdsInCurrentArch++;
 
             // Reset
@@ -548,6 +575,9 @@ IndirectCommandData Rasterizer::uploadIndirectCommands(
             archBatchStartCmdIdx = cmdWriteIdx;
         }
 
+        if ( _settings.useGPUCulling )
+            indirectCmdMapPtr[i] = cmdWriteIdx;
+
         instanceAccumulator++;
     }
 
@@ -557,11 +587,12 @@ IndirectCommandData Rasterizer::uploadIndirectCommands(
     if ( instanceAccumulator > 0 )
     {
         Graphics::RHI::DrawIndexedIndirectCommand cmd;
-        cmd.indexCount       = lastMesh.indexCount;
-        cmd.instanceCount    = instanceAccumulator;
-        cmd.firstIndex       = lastMesh.indexOffset / 4;
-        cmd.vertexOffset     = (int)( lastMesh.vertexOffset / sizeof( Assets::Vertex ) );
-        cmd.firstInstance    = 0;
+        cmd.indexCount     = lastMesh.indexCount;
+        cmd.instanceCount  = _settings.useGPUCulling ? 0 : instanceAccumulator;
+        cmd.firstIndex     = lastMesh.indexOffset / 4;
+        cmd.vertexOffset   = (int)( lastMesh.vertexOffset / sizeof( Assets::Vertex ) );
+        cmd.firstInstance  = 0;
+        
         cmd.baseInstanceID = batchStartOffsetInRedirect;
 
         cmdPtr[cmdWriteIdx++] = cmd;
@@ -580,8 +611,9 @@ IndirectCommandData Rasterizer::uploadIndirectCommands(
     // 4. Finish
     // =================================================================================
 
-    indirectData.bufferView      = cmdAlloc;
-    indirectData.bufferView.size = cmdWriteIdx * RHI_CMD_SIZE;
+    indirectData.cmdBufferView      = cmdAlloc;
+    indirectData.cmdBufferView.size = cmdWriteIdx * RHI_CMD_SIZE;
+    indirectData.batchMapView       = cmdMapAlloc;
 
     return indirectData;
 }

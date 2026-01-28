@@ -32,6 +32,7 @@ struct GPUFrame {
     Math::Vec4 sceneParams;  // Packed: x = lightCount | y = instanceCount | z,w = padding (unsused)
     Math::Vec4 sceneAABBMin; // x,y,z = AABB Min | w = padding
     Math::Vec4 sceneAABBMax; // x,y,z = AABB Max | w = padding
+    Math::Vec4 frustrumPlanes[6];
 };
 
 struct GPULight {

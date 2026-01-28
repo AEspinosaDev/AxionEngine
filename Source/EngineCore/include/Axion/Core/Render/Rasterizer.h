@@ -11,10 +11,11 @@ class IRasterizer : public IRenderer
 {
 public:
     struct Settings {
-        std::string      mtlLibraryPath = "";
-        Graphics::Format depthFormat    = Graphics::Format::D32;
-        CommonSettings   common {};
-        MemoryBudget     memory {};
+        bool             useGPUCulling = true;
+        Graphics::Format depthFormat   = Graphics::Format::D32;
+
+        CommonSettings common {};
+        MemoryBudget   memory {};
     };
 
     virtual Settings getSettings() const                     = 0;
