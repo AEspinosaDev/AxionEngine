@@ -14,8 +14,8 @@ struct MemoryBudget {
     ulong materialBufferSize    = 16 * 1024 * 1024;  ///< Initial memory reservation persistent static material buffer (16MB default)
     ulong volatileBufferSize    = 16 * 1024 * 1024;  ///< Initial memory reservation for per-frame volatile buffer -Enough for UBOs, Transforms, Lights, GUI, etc- (16MB default)
     ulong uploadBufferSize      = 128 * 1024 * 1024; ///< Initial memory reservation for per-frame transient upload buffer -for texture/accel/data streaming- (128MB default)
+    ulong GPUCommandBuffersSize = 1024 * 1024;       ///< Initial memory reservation for per-frame Shader Binding Tables and Indirect Commands data (1MB default).
     ulong RGAllocSize           = 1024 * 1024;       ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
-    ulong RGAllocSBTSize        = 1024 * 1024;       ///< Initial memory reservation for per-frame Shader Binding Tables data (1MB default).
     uint  RGDescriptorsPerFrame = 2048;              ///< Initial memory reservation for per-frame DescriptorSet data.
 };
 

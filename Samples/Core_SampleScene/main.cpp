@@ -24,6 +24,7 @@ int main( /*int argc, char* argv[]*/ ) {
 
         Core::Render::RasterizerSettings rastDesc {};
         rastDesc.common.name             = "TestRasterizer";
+        rastDesc.useGPUCulling           = true;
         rastDesc.common.selectedDeviceID = 0;
 
         auto rasterizer = Core::Render::createRasterizer( &wnd, rastDesc );

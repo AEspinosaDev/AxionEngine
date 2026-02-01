@@ -9,6 +9,7 @@
 #include <glm/gtc/type_ptr.hpp> // For value_ptr
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtc/matrix_access.hpp> 
 
 AXION_NAMESPACE_BEGIN
 
@@ -233,6 +234,36 @@ struct Frustum {
     // Order: Left, Right, Bottom, Top, Near, Far
     Vec4 planes[6];
 };
+
+inline Frustum createFrustumFromMatrix(const glm::mat4& viewProj) {
+    Frustum frustum;
+
+    // Gribb-Hartmann Extraction
+
+    // 1. LEFT Plane:   row4 + row1
+    frustum.planes[0] = glm::row(viewProj, 3) + glm::row(viewProj, 0);
+    // 2. RIGHT Plane:  row4 - row1
+    frustum.planes[1] = glm::row(viewProj, 3) - glm::row(viewProj, 0);
+    // 3. BOTTOM Plane: row4 + row2
+    frustum.planes[2] = glm::row(viewProj, 3) + glm::row(viewProj, 1);
+    // 4. TOP Plane:    row4 - row2
+    frustum.planes[3] = glm::row(viewProj, 3) - glm::row(viewProj, 1);
+
+    // 5. NEAR Plane:   row4 + row3 (OpenGL/GLM default -1..1)
+    // Vulkan/DX con clip 0..1 puro, only row3, 
+    frustum.planes[4] = glm::row(viewProj, 3) + glm::row(viewProj, 2);
+    // 6. FAR Plane:    row4 - row3
+    frustum.planes[5] = glm::row(viewProj, 3) - glm::row(viewProj, 2);
+
+    for (int i = 0; i < 6; ++i) {
+        glm::vec3 normal = glm::vec3(frustum.planes[i]);
+        float length = glm::length(normal);
+
+        frustum.planes[i] /= length;
+    }
+
+    return frustum;
+}
 
 #pragma endregion
 #pragma region Algorithms

@@ -26,6 +26,7 @@ int main( /*int argc, char* argv[]*/ ) {
         Core::Scene::Scene         scene( "TestScene", &assets );
 
         Core::Render::RasterizerSettings rastDesc {};
+        rastDesc.useGPUCulling             = true;
         rastDesc.common.name               = "TestRasterizer";
         rastDesc.common.selectedDeviceID   = 0;
         rastDesc.memory.volatileBufferSize = 1024 * 1024 * 64;
@@ -37,8 +38,8 @@ int main( /*int argc, char* argv[]*/ ) {
         // -------------------------------------------------------------------------
         auto cubeHandle   = assets.mesh( "Cube" ).createCube();
         auto sphereHandle = assets.mesh( "Sphere" ).createSphere();
-        auto dragonHandle = assets.mesh( "Dragon" ).import( AXION_MESH_DIR "/dragon.obj" );
-        auto ajaxHandle   = assets.mesh( "Ajax" ).import( AXION_MESH_DIR "/ajax.obj" );
+        // auto dragonHandle = assets.mesh( "Dragon" ).import( AXION_MESH_DIR "/dragon.obj" );
+        // auto ajaxHandle   = assets.mesh( "Ajax" ).import( AXION_MESH_DIR "/ajax.obj" );
 
         // Materials
         auto unlitHandle = assets.material( "UnlitRed" ).create<Core::Assets::UnlitMaterial>();
@@ -62,7 +63,7 @@ int main( /*int argc, char* argv[]*/ ) {
         std::uniform_real_distribution<float> scaleDist( 0.5f, 1.2f );
         std::uniform_real_distribution<float> rotDist( 0.0f, 360.0f );
 
-        int   gridSize = 20; // 10x10x10 = 1000 objetos
+        int   gridSize = 30; // 10x10x10 = 1000 objetos
         float spacing  = 3.0f;
         float offset   = ( gridSize * spacing ) * 0.5f;
 

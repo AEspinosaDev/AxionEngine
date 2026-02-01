@@ -198,6 +198,9 @@ uint GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   asset
 
         // Register in LUT immediately
         _materialCache.assetToCacheLUT[cpuAssetID] = (int)gpuCacheIndex;
+
+        _materialCache.cache[gpuCacheIndex].originalAssetID = cpuAssetID;
+        _materialCache.cache[gpuCacheIndex].valid           = true;
     }
 
     // --- UPDATE LOGIC ---
@@ -304,8 +307,11 @@ void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolu
             0.0f,
             0.0f );
 
-        // _frame.sceneAABBMin = Math::Vec4( _sceneAABB.min.x, _sceneAABB.min.y, _sceneAABB.min.z, 0.0f );
-        // _frame.sceneAABBMax = Math::Vec4( _sceneAABB.max.x, _sceneAABB.max.y, _sceneAABB.max.z, 0.0f );
+        _frame.sceneAABBMin = Math::Vec4( 0.0f );
+        _frame.sceneAABBMax = Math::Vec4( 0.0f );
+
+        Math::Frustum f = Math::createFrustumFromMatrix( viewProj );
+        memcpy( _frame.frustrumPlanes, f.planes, sizeof( glm::vec4 ) * 6 );
     }
 }
 
@@ -346,6 +352,33 @@ void GPUScene::runGC() {
 
                 AXION_LOG_INFO( Logger::Module::Core, "GC: Recycled mesh slot {}", i );
             }
+        }
+    }
+    for ( ulong i = 0; i < _materialCache.cache.size(); ++i )
+    {
+        auto& gpuMat = _materialCache.cache[i];
+
+        if ( _currentFrameIndex - gpuMat.lastFrameUsed > _resourceTTL )
+        {
+            _pendingMtlReleases.push( {
+                gpuMat.bufferOffset,
+                gpuMat.payloadSize,
+                (uint)i // Cache Slot Index
+            } );
+
+            if ( gpuMat.originalAssetID < _materialCache.assetToCacheLUT.size() )
+            {
+                _materialCache.assetToCacheLUT[gpuMat.originalAssetID] = -1;
+            }
+
+            _materialCache.freeIndexQueue.push( (uint)i );
+
+            gpuMat.valid        = false;
+            gpuMat.bufferOffset = 0;
+            gpuMat.payloadSize  = 0;
+            gpuMat.archetypeID  = 0;
+
+            AXION_LOG_INFO( Logger::Module::Core, "GC: Recycled material slot {}", i );
         }
     }
 }

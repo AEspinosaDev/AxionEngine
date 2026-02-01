@@ -1,6 +1,5 @@
 #pragma once
 #include "Axion/Common/Math.h"
-#include "Axion/Common/Math.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -32,6 +31,7 @@ struct GPUFrame {
     Math::Vec4 sceneParams;  // Packed: x = lightCount | y = instanceCount | z,w = padding (unsused)
     Math::Vec4 sceneAABBMin; // x,y,z = AABB Min | w = padding
     Math::Vec4 sceneAABBMax; // x,y,z = AABB Max | w = padding
+    Math::Vec4 frustrumPlanes[6];
 };
 
 struct GPULight {
@@ -71,11 +71,15 @@ struct GPUMesh {
 };
 
 struct GPUMaterial {
-    // Offsets y Counts (16 bytes)
+    // Offsets y Counts (32 bytes)
     uint bufferOffset;
     uint payloadSize;
-    uint lastFrameUsed;
     uint archetypeID;
+    uint valid;
+
+    uint lastFrameUsed;
+    uint originalAssetID;
+    uint uv[2];
     // Maybe I could aadd here basic ovverides (albedo, uv, etc) that dont need the slow staging route
 };
 
@@ -113,7 +117,6 @@ struct PendingMaterialFree {
     uint payloadSize;
     uint GPUMaterialID;
 };
-
 
 } // namespace Core::Render
 

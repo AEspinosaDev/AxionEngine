@@ -10,7 +10,9 @@
 #include <Axion/Graphics/Renderer.h>
 
 // High Level Passes
+#include "Passes/CullingPass.hpp"
 #include "Passes/ForwardPass.hpp"
+#include "Passes/IndirectUploadPass.hpp"
 #include "Passes/TonemappingPass.hpp"
 #include "Passes/UploadPass.hpp"
 
@@ -58,7 +60,8 @@ private:
 
     TransientViews      uploadTransientData( Graphics::RHI::LinearAllocator& currentUBOAlloc,
                                              Graphics::RHI::LinearAllocator& currentSSBOAlloc );
-    IndirectCommandData uploadIndirectCommands( Graphics::RHI::LinearAllocator& currentIndirectAlloc );
+    IndirectCommandData uploadIndirectCommandData( Graphics::RHI::LinearAllocator& currentSSBOAlloc,
+                                                   Graphics::RHI::LinearAllocator& currentIndirectAlloc );
 
     Platform::Window*  _window = nullptr;
     RasterizerSettings _settings;
@@ -75,22 +78,28 @@ private:
     GPUScene _gpuScene;
 
     struct FrameResources {
-        Graphics::BufferHandle uboBufferHandle;
-        Graphics::BufferHandle ssboBufferHandle;
-        Graphics::BufferHandle indirectBufferHandle;
-
+        Graphics::BufferHandle         uboBufferHandle;
         Graphics::RHI::LinearAllocator uboAllocator;
+
+        Graphics::BufferHandle         ssboBufferHandle;
         Graphics::RHI::LinearAllocator ssboAllocator;
+
+        // Indirect Rendering
+        Graphics::BufferHandle         indirectStagingBufferHandle;
         Graphics::RHI::LinearAllocator indirectAllocator;
+        Graphics::BufferHandle         indirectTemplateBufferHandle;
+        Graphics::BufferHandle         indirectBufferHandle;
+        Graphics::BufferHandle         culledInstanceBufferHandle;
     };
     struct GPUResources {
         // Resource Handles
-        Graphics::BufferHandle vertexBufferHandle;
-        Graphics::BufferHandle indexBufferHandle;
-        Graphics::BufferHandle mtlBufferHandle;
-        // Resource Allocators
+        Graphics::BufferHandle           vertexBufferHandle;
         Graphics::RHI::FreeListAllocator vertexAllocator;
+
+        Graphics::BufferHandle           indexBufferHandle;
         Graphics::RHI::FreeListAllocator indexAllocator;
+
+        Graphics::BufferHandle           mtlBufferHandle;
         Graphics::RHI::FreeListAllocator mtlAllocator;
 
         std::vector<FrameResources> frame;
@@ -98,6 +107,8 @@ private:
     GPUResources _res;
 
     Graphics::RendererPtr _rnd = nullptr;
+
+    IndirectCommandData::Cache _indirectCommandDataCache;
 
     uint _framesInFlight;
 };
