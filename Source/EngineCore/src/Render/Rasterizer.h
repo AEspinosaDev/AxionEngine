@@ -12,6 +12,7 @@
 // High Level Passes
 #include "Passes/CullingPass.hpp"
 #include "Passes/ForwardPass.hpp"
+#include "Passes/IndirectUploadPass.hpp"
 #include "Passes/TonemappingPass.hpp"
 #include "Passes/UploadPass.hpp"
 
@@ -55,7 +56,6 @@ private:
         Graphics::RHI::BufferView instancesView;
         Graphics::RHI::BufferView lightsView;
         Graphics::RHI::BufferView redirectView;
-        Graphics::RHI::BufferView indirectCmdRedirectView;
     };
 
     TransientViews      uploadTransientData( Graphics::RHI::LinearAllocator& currentUBOAlloc,
@@ -84,12 +84,12 @@ private:
         Graphics::BufferHandle         ssboBufferHandle;
         Graphics::RHI::LinearAllocator ssboAllocator;
 
-        // R-W
-        Graphics::BufferHandle         indirectCmdBufferHandle;
+        // Indirect Rendering
+        Graphics::BufferHandle         indirectStagingBufferHandle;
         Graphics::RHI::LinearAllocator indirectAllocator;
-
-        // R-W
-        Graphics::BufferHandle culledInstanceBufferHandle;
+        Graphics::BufferHandle         indirectTemplateBufferHandle;
+        Graphics::BufferHandle         indirectBufferHandle;
+        Graphics::BufferHandle         culledInstanceBufferHandle;
     };
     struct GPUResources {
         // Resource Handles
@@ -107,6 +107,8 @@ private:
     GPUResources _res;
 
     Graphics::RendererPtr _rnd = nullptr;
+
+    IndirectCommandData::Cache _indirectCommandDataCache;
 
     uint _framesInFlight;
 };

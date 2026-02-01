@@ -15,7 +15,7 @@ public:
         Graphics::RGResourceHandle materials;
     };
     struct Config {
-        GlobalBufferHandles bufferHandles;
+        GlobalBufferHandles outGlobalBufferHandles;
 
         Graphics::RHI::FreeListAllocator* vertexAllocator = nullptr;
         Graphics::RHI::FreeListAllocator* indexAllocator  = nullptr;
@@ -37,10 +37,9 @@ public:
         builder.addPass<Config>( "UploadPass", seedData,
 
                                  []( Graphics::RenderPassBuilder& pb, Config& data ) {
-                data.bufferHandles.vertex = pb.write( data.bufferHandles.vertex, Graphics::RHI::ResourceState::CopyDest );
-                data.bufferHandles.index = pb.write( data.bufferHandles.index, Graphics::RHI::ResourceState::CopyDest );
-                data.bufferHandles.materials  = pb.write( data.bufferHandles.materials,  Graphics::RHI::ResourceState::CopyDest ); },
-
+                data.outGlobalBufferHandles.vertex = pb.write( data.outGlobalBufferHandles.vertex, Graphics::RHI::ResourceState::CopyDest );
+                data.outGlobalBufferHandles.index = pb.write( data.outGlobalBufferHandles.index, Graphics::RHI::ResourceState::CopyDest );
+                data.outGlobalBufferHandles.materials  = pb.write( data.outGlobalBufferHandles.materials,  Graphics::RHI::ResourceState::CopyDest ); },
                                  [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
     }
 
@@ -60,8 +59,8 @@ private:
         auto& scene     = *data.gpuScene;
         auto* allocator = ctx.transAllocator;
 
-        auto* vb = ctx.getBuffer( data.bufferHandles.vertex );
-        auto* ib = ctx.getBuffer( data.bufferHandles.index );
+        auto* vb = ctx.getBuffer( data.outGlobalBufferHandles.vertex );
+        auto* ib = ctx.getBuffer( data.outGlobalBufferHandles.index );
 
         // 1. UPLOAD QUEUE
         auto& uploadQueue = scene.pendingMeshUploads();
@@ -127,7 +126,7 @@ private:
         auto* cmd       = ctx.cmd;
         auto& scene     = *data.gpuScene;
         auto* allocator = ctx.transAllocator;
-        auto* mtlb      = ctx.getBuffer( data.bufferHandles.materials );
+        auto* mtlb      = ctx.getBuffer( data.outGlobalBufferHandles.materials );
 
         const ulong ALIGNMENT = 16;
         // 1. UPLOAD QUEUE

@@ -21,23 +21,26 @@ public:
     };
 
     struct Config {
-        GlobalBufferHandles bufferHandles;
+        GlobalBufferHandles inGlobalBufferHandles;
 
-        Graphics::RHI::BufferView frameView;
-        Graphics::RHI::BufferView meshesView;
-        Graphics::RHI::BufferView materialsView;
-        Graphics::RHI::BufferView instancesView;
-        Graphics::RHI::BufferView lightsView;
-        Graphics::RHI::BufferView redirectionView;
+        Graphics::RHI::BufferView inFrameView;
+        Graphics::RHI::BufferView inMeshesView;
+        Graphics::RHI::BufferView inMaterialsView;
+        Graphics::RHI::BufferView inInstancesView;
+        Graphics::RHI::BufferView inLightsView;
+        Graphics::RHI::BufferView inRedirectionView;
 
-        IndirectCommandData indirectData;
+        IndirectCommandData        indirectData;
+        Graphics::RGResourceHandle inIndirectBufferHandle;
+        Graphics::RGResourceHandle inCulledRedirectBufferHandle;
+        bool                       useGPUCulling = false;
 
         GPUScene*                      gpuScene;
         MaterialLibrary*               matLib;
         Graphics::PipelineLayoutHandle matLayoutHandle;
 
-        Graphics::RGResourceHandle outputColorHandle;
-        Graphics::RGResourceHandle outputDepthHandle;
+        Graphics::RGResourceHandle outColorHandle;
+        Graphics::RGResourceHandle outDepthHandle;
     };
 
     void registerShaders( Graphics::IShaderRegistry& ) override { /* NO OP */ }
@@ -49,13 +52,17 @@ public:
 
                                  // SETUP: Declaramos lecturas y escrituras
                                  []( Graphics::RenderPassBuilder& pb, Config& data ) {
-                
-                data.outputColorHandle = pb.write( data.outputColorHandle, Graphics::RHI::ResourceState::RenderTarget ); 
-                data.outputDepthHandle = pb.write( data.outputDepthHandle, Graphics::RHI::ResourceState::DepthWrite );
-
-                data.bufferHandles.vertex = pb.read( data.bufferHandles.vertex, Graphics::RHI::ResourceState::GeneralRead );
-                data.bufferHandles.index = pb.read( data.bufferHandles.index, Graphics::RHI::ResourceState::GeneralRead );
-                data.bufferHandles.material  = pb.read( data.bufferHandles.material,  Graphics::RHI::ResourceState::GeneralRead ); },
+                                    //Rendertargets
+                                     data.outColorHandle = pb.write( data.outColorHandle, Graphics::RHI::ResourceState::RenderTarget );
+                                     data.outDepthHandle = pb.write( data.outDepthHandle, Graphics::RHI::ResourceState::DepthWrite );
+                                    //Global
+                                     data.inGlobalBufferHandles.vertex   = pb.read( data.inGlobalBufferHandles.vertex, Graphics::RHI::ResourceState::GeneralRead );
+                                     data.inGlobalBufferHandles.index    = pb.read( data.inGlobalBufferHandles.index, Graphics::RHI::ResourceState::GeneralRead );
+                                     data.inGlobalBufferHandles.material = pb.read( data.inGlobalBufferHandles.material, Graphics::RHI::ResourceState::GeneralRead );
+                                    //Indirect
+                                    if(data.useGPUCulling){
+                                     data.inIndirectBufferHandle    = pb.read( data.inIndirectBufferHandle, Graphics::RHI::ResourceState::IndirectArgument );
+                                     data.inCulledRedirectBufferHandle = pb.read( data.inCulledRedirectBufferHandle, Graphics::RHI::ResourceState::ShaderResource );} },
 
                                  // EXECUTE
                                  [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
@@ -68,8 +75,8 @@ private:
         auto& scene = *data.gpuScene;
 
         // RenderTargets
-        auto* rtv = ctx.getTexture( data.outputColorHandle );
-        auto* dsv = ctx.getTexture( data.outputDepthHandle );
+        auto* rtv = ctx.getTexture( data.outColorHandle );
+        auto* dsv = ctx.getTexture( data.outDepthHandle );
 
         // Global Layout
         auto* matLayout = ctx.pipelines.getLayout( data.matLayoutHandle );
@@ -84,9 +91,9 @@ private:
         // -----------------------------------------------------
         // BINDING GLOBAL RESOURCES (Space 0 & 1)
         // -----------------------------------------------------
-        auto* vb   = ctx.getBuffer( data.bufferHandles.vertex );
-        auto* ib   = ctx.getBuffer( data.bufferHandles.index );
-        auto* mtlb = ctx.getBuffer( data.bufferHandles.material );
+        auto* vb   = ctx.getBuffer( data.inGlobalBufferHandles.vertex );
+        auto* ib   = ctx.getBuffer( data.inGlobalBufferHandles.index );
+        auto* mtlb = ctx.getBuffer( data.inGlobalBufferHandles.material );
 
         // SPACE 0: Persistent Data
         auto* set0 = ctx.allocateSet( matLayout, 0 );                          // Space 0
@@ -100,12 +107,24 @@ private:
         auto* set1 = ctx.allocateSet( matLayout, 1 ); // Space 1
 
         // Frame (b0), Meshes (t0), Materials (t1), Instances (t2, Lights (t3), Redirection (t4)
-        set1->attachBufferView( 0, data.frameView, Graphics::RHI::ResourceState::ConstantBuffer );
-        set1->attachBufferView( 1, data.meshesView, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferView( 2, data.materialsView, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferView( 3, data.instancesView, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferView( 4, data.lightsView, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferView( 5, data.redirectionView, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferView( 0, data.inFrameView, Graphics::RHI::ResourceState::ConstantBuffer );
+        set1->attachBufferView( 1, data.inMeshesView, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferView( 2, data.inMaterialsView, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferView( 3, data.inInstancesView, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferView( 4, data.inLightsView, Graphics::RHI::ResourceState::ShaderResource );
+
+        if ( data.useGPUCulling )
+        {
+            auto* culledBuf = ctx.getBuffer( data.inCulledRedirectBufferHandle );
+
+            Graphics::RHI::BufferView culledView;
+            culledView.buffer = culledBuf;
+            culledView.offset = 0;
+            culledView.size   = data.inRedirectionView.size;
+            culledView.stride = data.inRedirectionView.stride;
+            set1->attachBufferView( 5, culledView, Graphics::RHI::ResourceState::ShaderResource );
+        } else
+            set1->attachBufferView( 5, data.inRedirectionView, Graphics::RHI::ResourceState::ShaderResource );
 
         cmd->bindDescriptorSet( 1, set1, matLayout );
 
@@ -116,6 +135,7 @@ private:
 
 #if DRAW_INDIRECT
         cmd->bindIndexBuffer( ib );
+        auto* indirectBuffer = data.useGPUCulling ? ctx.getBuffer( data.inIndirectBufferHandle ) : data.indirectData.commandBufferView.buffer;
 
         for ( const auto& batch : data.indirectData.batches )
         {
@@ -133,7 +153,7 @@ private:
                 cmd->bindGraphicPipeline( pso );
 
                 cmd->drawIndexedIndirect(
-                    data.indirectData.cmdBufferView.buffer,
+                    indirectBuffer,
                     batch.bufferOffset,
                     batch.drawCount );
             }
@@ -144,9 +164,8 @@ private:
         const auto& instances  = scene.instances();
         const auto& meshes     = scene.meshes();
 
-        uint lastArchetypeID = UINT32_MAX;
-        uint lastTopologyID  = UINT32_MAX;
-
+        uint                     lastArchetypeID = UINT32_MAX;
+        uint                     lastTopologyID  = UINT32_MAX;
         Graphics::PipelineHandle lastPipelineHandle;
 
         for ( const auto& keyData : sortedKeys )
@@ -158,36 +177,39 @@ private:
                 continue;
 
             const auto& mesh = meshes[inst.meshID];
-
-            uint currentArch, currentTopo, currentMatID;
-            keyData.unpack( currentArch, currentTopo, currentMatID );
+            uint        currentArch, currentTopo, currentMeshID;
+            keyData.unpack( currentArch, currentTopo, currentMeshID );
 
             if ( currentArch != lastArchetypeID || currentTopo != lastTopologyID )
             {
-                // auto topologyType = (MaterialTopologyType)currentTopo;
-
                 Graphics::PipelineHandle targetHandle = matArchetypes[currentArch].getPipeline(
-                    MaterialPassType::Opaque,
-                    TopologyType::Triangles );
+                    MaterialPassType::Opaque, TopologyType::Triangles );
 
                 if ( targetHandle.isValid() && targetHandle != lastPipelineHandle )
                 {
                     auto* pso = ctx.pipelines.getGraphicPipeline( targetHandle );
-                    cmd->bindGraphicPipeline( pso );
-                    lastPipelineHandle = targetHandle;
+                    if ( pso )
+                    {
+                        cmd->bindGraphicPipeline( pso );
+                        lastPipelineHandle = targetHandle;
+                    }
                 }
-
                 lastArchetypeID = currentArch;
                 lastTopologyID  = currentTopo;
             }
 
             struct Push {
                 uint instanceID;
-            } push = { originalIdx };
+            };
+            Push p = { originalIdx };
+            cmd->pushConstants( 2, p ); // Space 2
 
-            cmd->pushConstants( 2, push );
-
-            cmd->draw( mesh.indexCount, 1 );
+            cmd->drawIndexed(
+                mesh.indexCount,
+                1,
+                mesh.indexOffset / 4,                                  // Asumiendo indices de 32 bits (4 bytes)
+                (int)( mesh.vertexOffset / sizeof( Assets::Vertex ) ), // Vertex Offset en cantidad de vértices, no bytes
+                0 );
         }
 
 #endif

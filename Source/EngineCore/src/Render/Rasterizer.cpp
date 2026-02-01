@@ -23,7 +23,7 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
         .presentMode           = wnd->getSettings().vsync ? Graphics::PresentMode::Vsync : Graphics::PresentMode::Immediate,
         .backbufferFormat      = settings.common.backbufferFormat,
         .RGAllocSize           = settings.memory.RGAllocSize,
-        .RGAllocSBTSize        = settings.memory.RGAllocSBTSize,
+        .RGAllocSBTSize        = settings.memory.GPUCommandBuffersSize,
         .RGDescriptorsPerFrame = settings.memory.RGDescriptorsPerFrame,
         .RGTransientAllocSize  = settings.memory.uploadBufferSize,
         .GCMode                = settings.common.GCMode,
@@ -32,7 +32,7 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
 
     _rnd = Graphics::createRenderer( wnd->getNativeWindow(), rndStts );
 
-    // Configure Material Library & Contract
+    // Configure Material Library & Global Layout Contract
     setupMaterialLibrary();
 
     // Registrations
@@ -87,6 +87,8 @@ void Rasterizer::compileShaders( uint threadCount ) {
     AXION_LOG_INFO( Logger::Module::Core, "End of shader compilation for Renderer [{}]. Time elapsed: {:.2f} ms", _settings.common.name, duration.count() );
 }
 
+#pragma region Render
+
 void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity, float deltaTime ) {
 
     // Early Exit
@@ -120,9 +122,11 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
     _rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
         auto rtExtent = _window->getSettings().size.to3D();
 
-        // A. Upload
+        //----------------------------
+        // A. Upload Global Data
+        //----------------------------
         UploadPass::Config upConfig;
-        upConfig.bufferHandles = {
+        upConfig.outGlobalBufferHandles = {
             .vertex    = builder.import( "GlobalVertexBuffer", _res.vertexBufferHandle ),
             .index     = builder.import( "GlobalIndexBuffer", _res.indexBufferHandle ),
             .materials = builder.import( "GlobalMaterialBuffer", _res.mtlBufferHandle ) };
@@ -134,49 +138,83 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
         _passes.getPass<UploadPass>()->addToGraph( builder, upConfig );
 
-        // B. Culling
+        //----------------------------
+        // B. GPU-Culling
+        //----------------------------
+        CullingPass::Config cullConfig;
         if ( _settings.useGPUCulling )
         {
+            IndirectUploadPass::Config indUpConfig;
+            indUpConfig.inOutIndirectBufferHandle         = builder.import( "IndirectCommandBuffer", currentFrameRes.indirectBufferHandle );
+            indUpConfig.inOutIndirectTemplateBufferHandle = currentFrameRes.indirectTemplateBufferHandle;
+            indUpConfig.indirectData                      = indirectCmdData;
+
+            _passes.getPass<IndirectUploadPass>()->addToGraph( builder, indUpConfig );
+
+            cullConfig.outIndirectBufferHandle       = indUpConfig.inOutIndirectBufferHandle;
+            cullConfig.outCulledRedirectBufferHandle = builder.import( "IndirectCulledInstanceBuffer", currentFrameRes.culledInstanceBufferHandle );
+
+            cullConfig.inFrameView       = transientViews.frameView;
+            cullConfig.inMeshesView      = transientViews.meshesView;
+            cullConfig.inInstancesView   = transientViews.instancesView;
+            cullConfig.inRedirectionView = transientViews.redirectView;
+
+            cullConfig.indirectData = indirectCmdData;
+
+            cullConfig.instanceCount = (uint)_gpuScene.instances().size();
+
+            _passes.getPass<CullingPass>()->addToGraph( builder, cullConfig );
         }
 
+        //----------------------------
         // C. Depth Pre-Pass
+        //----------------------------
 
+        // TBD.....
+
+        //----------------------------
         // D. Forward
+        //----------------------------
         ForwardPass::Config fwConfig;
-        fwConfig.outputColorHandle = builder.texture( "ColorBuffer" )
-                                         .asRenderTarget()
-                                         .asStorage()
-                                         .format( Graphics::Format::RGBA16_FLOAT )
-                                         .extent( rtExtent )
-                                         .clearValue( { .color = { 0.2f, 0.2f, 0.2f, 1.0f } } )
-                                         .create();
-        fwConfig.outputDepthHandle = builder.texture( "DepthBuffer" )
-                                         .asDepthStencil()
-                                         .format( Graphics::Format::D32 )
-                                         .extent( rtExtent )
-                                         .create();
-        fwConfig.bufferHandles = {
-            .vertex   = upConfig.bufferHandles.vertex,
-            .index    = upConfig.bufferHandles.index,
-            .material = upConfig.bufferHandles.materials },
+        fwConfig.outColorHandle = builder.texture( "ColorBuffer" )
+                                      .asRenderTarget()
+                                      .asStorage()
+                                      .format( Graphics::Format::RGBA16_FLOAT )
+                                      .extent( rtExtent )
+                                      .clearValue( { .color = { 0.2f, 0.2f, 0.2f, 1.0f } } )
+                                      .create();
+        fwConfig.outDepthHandle = builder.texture( "DepthBuffer" )
+                                      .asDepthStencil()
+                                      .format( Graphics::Format::D32 )
+                                      .extent( rtExtent )
+                                      .create();
+        fwConfig.inGlobalBufferHandles = {
+            .vertex   = upConfig.outGlobalBufferHandles.vertex,
+            .index    = upConfig.outGlobalBufferHandles.index,
+            .material = upConfig.outGlobalBufferHandles.materials },
         fwConfig.matLib          = &_mtlLib;
         fwConfig.matLayoutHandle = _globalMtlLayoutHandle;
         fwConfig.gpuScene        = &_gpuScene;
 
-        fwConfig.frameView       = transientViews.frameView;
-        fwConfig.meshesView      = transientViews.meshesView;
-        fwConfig.materialsView   = transientViews.mtlView;
-        fwConfig.instancesView   = transientViews.instancesView;
-        fwConfig.lightsView      = transientViews.lightsView;
-        fwConfig.redirectionView = transientViews.redirectView;
+        fwConfig.inFrameView       = transientViews.frameView;
+        fwConfig.inMeshesView      = transientViews.meshesView;
+        fwConfig.inMaterialsView   = transientViews.mtlView;
+        fwConfig.inInstancesView   = transientViews.instancesView;
+        fwConfig.inLightsView      = transientViews.lightsView;
+        fwConfig.inRedirectionView = transientViews.redirectView;
 
-        fwConfig.indirectData = indirectCmdData;
+        fwConfig.indirectData                 = indirectCmdData;
+        fwConfig.inIndirectBufferHandle       = cullConfig.outIndirectBufferHandle;
+        fwConfig.inCulledRedirectBufferHandle = cullConfig.outCulledRedirectBufferHandle;
+        fwConfig.useGPUCulling                = _settings.useGPUCulling;
 
         _passes.getPass<ForwardPass>()->addToGraph( builder, fwConfig );
 
+        //----------------------------
         // E. ToneMapping
+        //----------------------------
         ToneMappingPass::Config tmConfig;
-        tmConfig.inputHandle  = fwConfig.outputColorHandle;
+        tmConfig.inputHandle  = fwConfig.outColorHandle;
         tmConfig.outputHandle = builder.texture( "ToneMappedBuffer" )
                                     .format( _settings.common.backbufferFormat )
                                     .extent( rtExtent )
@@ -185,13 +223,18 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
         _passes.getPass<ToneMappingPass>()->addToGraph( builder, tmConfig );
 
+        //----------------------------
         // F. Final Blit/Present
+        //----------------------------
 
         cpypass.inputHandle  = tmConfig.outputHandle;
         cpypass.outputHandle = builder.import( "Backbuffer", _rnd->getCurrentBackbufferHandle() );
         builder.addPass( "FinalBlitPass", cpypass );
     } );
 }
+
+#pragma endregion
+#pragma region Resources
 
 void Rasterizer::setupMaterialLibrary() {
 
@@ -213,7 +256,6 @@ void Rasterizer::setupMaterialLibrary() {
                                      { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Instances
                                      { 3, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Lights
                                      { 4, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Instance Redirection Buffer
-                                                                                                                                      //  { 5, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Indirect. Batch Redirection Buffer
                                  } )
                                  // Space 2: Instance ID Push Constant
                                  .setPushConstants( sizeof( uint ), 0, 2 )
@@ -240,7 +282,7 @@ void Rasterizer::registerMaterials() {
             _mtlLib.registerArchetype( desc );
         } );
 
-    // _mtlLib.beginMaterial( "TestMaterial" )
+    // _mtlLib.beginMaterial( "ErrorMaterial" )
     //     .addPass( MaterialPassType::Opaque,
     //               AXION_SHADER_DIR "/Slang/Materials/Test.slang",
     //               { { "vsForward", Graphics::ShaderType::Vertex },
@@ -250,6 +292,8 @@ void Rasterizer::registerMaterials() {
 
 void Rasterizer::registerPasses() {
     _passes.registerPass<UploadPass>();
+    _passes.registerPass<IndirectUploadPass>();
+    _passes.registerPass<CullingPass>();
     _passes.registerPass<ForwardPass>();
     _passes.registerPass<ToneMappingPass>();
 }
@@ -309,15 +353,25 @@ void Rasterizer::createResources() {
         ssboBuffer->map();
         _res.frame[i].ssboAllocator = Graphics::RHI::LinearAllocator( ssboBuffer );
 
-        _res.frame[i].indirectCmdBufferHandle = r.buffer( "IndirectCommandBuffer_" + std::to_string( i ) )
-                                                    .size( _settings.memory.volatileBufferSize )
-                                                    .onCPU()
-                                                    .asIndirect()
-                                                    .create();
-
-        auto* indBuffer = r.getBuffer( _res.frame[i].indirectCmdBufferHandle );
+        // ----------------------- C. PER-FRAME INDIRECT RENDERING BUFFERS (Volatile) -------------------
+        _res.frame[i].indirectStagingBufferHandle = r.buffer( "IndirectStagingCommandBuffer_" + std::to_string( i ) )
+                                                        .size( _settings.memory.GPUCommandBuffersSize )
+                                                        .onCPU()
+                                                        .create();
+        auto* indBuffer = r.getBuffer( _res.frame[i].indirectStagingBufferHandle );
         indBuffer->map();
         _res.frame[i].indirectAllocator = Graphics::RHI::LinearAllocator( indBuffer );
+
+        _res.frame[i].indirectBufferHandle = r.buffer( "IndirectCommandBuffer_" + std::to_string( i ) )
+                                                 .size( _settings.memory.GPUCommandBuffersSize )
+                                                 .asSSBO()
+                                                 .stride( sizeof( Graphics::RHI::DrawIndexedIndirectCommand ) )
+                                                 .create();
+        _res.frame[i].indirectTemplateBufferHandle = r.buffer( "IndirectTemplateCommandBuffer_" + std::to_string( i ) )
+                                                         .size( _settings.memory.GPUCommandBuffersSize )
+                                                         .asSSBO()
+                                                         .stride( sizeof( Graphics::RHI::DrawIndexedIndirectCommand ) )
+                                                         .create();
 
         _res.frame[i].culledInstanceBufferHandle = r.buffer( "IndirectCulledInstanceBuffer_" + std::to_string( i ) )
                                                        .size( _settings.memory.volatileBufferSize )
@@ -327,6 +381,9 @@ void Rasterizer::createResources() {
                                                        .create();
     }
 }
+
+#pragma endregion
+#pragma region CPU-GPU Uploads
 
 Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::LinearAllocator& currentUBOAlloc,
                                                             Graphics::RHI::LinearAllocator& currentSSBOAlloc ) {
@@ -587,12 +644,12 @@ IndirectCommandData Rasterizer::uploadIndirectCommandData(
     if ( instanceAccumulator > 0 )
     {
         Graphics::RHI::DrawIndexedIndirectCommand cmd;
-        cmd.indexCount     = lastMesh.indexCount;
-        cmd.instanceCount  = _settings.useGPUCulling ? 0 : instanceAccumulator;
-        cmd.firstIndex     = lastMesh.indexOffset / 4;
-        cmd.vertexOffset   = (int)( lastMesh.vertexOffset / sizeof( Assets::Vertex ) );
-        cmd.firstInstance  = 0;
-        
+        cmd.indexCount    = lastMesh.indexCount;
+        cmd.instanceCount = _settings.useGPUCulling ? 0 : instanceAccumulator;
+        cmd.firstIndex    = lastMesh.indexOffset / 4;
+        cmd.vertexOffset  = (int)( lastMesh.vertexOffset / sizeof( Assets::Vertex ) );
+        cmd.firstInstance = 0;
+
         cmd.baseInstanceID = batchStartOffsetInRedirect;
 
         cmdPtr[cmdWriteIdx++] = cmd;
@@ -611,9 +668,50 @@ IndirectCommandData Rasterizer::uploadIndirectCommandData(
     // 4. Finish
     // =================================================================================
 
-    indirectData.cmdBufferView      = cmdAlloc;
-    indirectData.cmdBufferView.size = cmdWriteIdx * RHI_CMD_SIZE;
-    indirectData.batchMapView       = cmdMapAlloc;
+    indirectData.commandBufferView      = cmdAlloc;
+    indirectData.commandBufferView.size = cmdWriteIdx * RHI_CMD_SIZE;
+    indirectData.batchMapView           = cmdMapAlloc;
+
+    if ( !_settings.useGPUCulling )
+        return indirectData;
+
+#ifdef AXION_DEBUG
+    indirectData.dirty = true;
+
+#else
+    size_t currentCmdCount = cmdWriteIdx;
+    size_t currentMapCount = instances.size();
+
+    bool structuralChanges = false;
+
+    if ( currentCmdCount != _indirectCommandDataCache.commands.size() )
+        structuralChanges = true;
+    else if ( std::memcmp( cmdPtr, _indirectCommandDataCache.commands.data(), currentCmdCount * sizeof( Graphics::RHI::DrawIndexedIndirectCommand ) ) != 0 )
+        structuralChanges = true;
+
+    if ( !structuralChanges )
+    {
+        if ( currentMapCount != _indirectCommandDataCache.batchMap.size() )
+            structuralChanges = true;
+        else if ( std::memcmp( indirectCmdMapPtr, _indirectCommandDataCache.batchMap.data(), currentMapCount * sizeof( uint ) ) != 0 )
+            structuralChanges = true;
+    }
+
+    if ( structuralChanges )
+    {
+        _indirectCommandDataCache.commands.assign( cmdPtr, cmdPtr + currentCmdCount );
+
+        _indirectCommandDataCache.batchMap.assign( indirectCmdMapPtr, indirectCmdMapPtr + currentMapCount );
+
+        //  CPU->GPU
+        indirectData.dirty = true;
+    } else
+    {
+        // CPU->GPU
+        indirectData.dirty = false;
+    }
+
+#endif
 
     return indirectData;
 }

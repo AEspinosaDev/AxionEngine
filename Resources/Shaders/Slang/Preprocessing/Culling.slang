@@ -14,7 +14,7 @@ RWStructuredBuffer<uint>                       gCulledRedirect : register( u1, s
 
 // Space 2: Push Constants
 public struct PushConstant {
-    public uint totalInstanceCount; 
+    public uint totalInstanceCount;
 };
 
 PUSH_CONSTANT( PushConstant, gPush, b0, space2 );
@@ -42,14 +42,14 @@ void computeMain( uint3 dispatchThreadId: SV_DispatchThreadID ) {
     scale.y           = length( instance.modelMatrix[1].xyz );
     scale.z           = length( instance.modelMatrix[2].xyz );
     float maxScale    = max( scale.x, max( scale.y, scale.z ) );
-    float worldRadius = mesh.bsphere.w * maxScale;
+    float worldRadius = mesh.bsphere.w * maxScale * 1.2;
 
     bool isVisible = true;
 
     [unroll]
     for ( int i = 0; i < 6; i++ )
     {
-        float4 plane = gFrame.frustrum[i];
+        float4 plane = gFrame.frustrumPlanes[i];
         if ( dot( float4( worldCenter, 1.0 ), plane ) < -worldRadius )
         {
             isVisible = false;
