@@ -164,10 +164,20 @@ public:
         _desc.rasterizerState.cullMode = CullMode::None;
         return *this;
     }
+    GraphicBuilder& cullMode( CullMode mode ) {
+        _desc.rasterizerState.cullMode = mode;
+        return *this;
+    }
 
-    /// @brief Disables depth testing and writing.
+    /// @brief Disables depth testing.
     GraphicBuilder& disableDepth() {
         _desc.depthStencilState.depthEnable = false;
+        return *this;
+    }
+
+    /// @brief Manually sets the full rasterizer state.
+    GraphicBuilder& setDepthStencilState( const RHI::DepthStencilState& depthState ) {
+        _desc.depthStencilState = depthState;
         return *this;
     }
 

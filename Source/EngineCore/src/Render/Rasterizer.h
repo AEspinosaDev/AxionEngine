@@ -11,6 +11,7 @@
 
 // High Level Passes
 #include "Passes/CullingPass.hpp"
+#include "Passes/DepthPass.hpp"
 #include "Passes/ForwardPass.hpp"
 #include "Passes/IndirectUploadPass.hpp"
 #include "Passes/TonemappingPass.hpp"

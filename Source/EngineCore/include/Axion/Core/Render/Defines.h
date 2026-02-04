@@ -33,12 +33,14 @@ static constexpr Graphics::PrimitiveTopology toGFXTopology( TopologyType type ) 
 
 enum class MaterialPassType : uchar
 {
-    Opaque       = 0,
-    Blend        = 1,
-    Geometry     = 2,
-    Shadow       = 3,
-    Voxelization = 4,
-    Raytracing   = 5,
+    Opaque      = 0,
+    Blend       = 1,
+    Geometry    = 2,
+    Composition = 3,
+    Depth       = 4,
+    Shadow      = 5,
+    Raytracing  = 6,
+    Wireframe   = 7,
 
     Count
 };
@@ -60,9 +62,14 @@ struct MaterialArchetypePassConfig {
     std::vector<Graphics::Shader::EntryPoint> entryPoints;
     std::string                               customIncludePath;
 
-    Graphics::FillMode fillMode = Graphics::FillMode::Solid;
-    Graphics::CullMode cullMode = Graphics::CullMode::None;
-    Graphics::BlendOp  blendOp  = Graphics::BlendOp::Add;
+    Graphics::FillMode  fillMode   = Graphics::FillMode::Solid;
+    Graphics::CullMode  cullMode   = Graphics::CullMode::Back;
+    Graphics::BlendOp   blendOp    = Graphics::BlendOp::Add;
+    Graphics::CompareOp depthOp    = Graphics::CompareOp::LessEqual;
+    bool                depthWrite = true;
+    bool                depthTest  = true;
+
+    std::string customPassAlias = "";
 };
 
 struct MaterialArchetypeDesc {

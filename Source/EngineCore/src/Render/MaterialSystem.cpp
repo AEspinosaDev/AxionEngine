@@ -7,12 +7,9 @@ MaterialLibrary::ArchetypeBuilder MaterialLibrary::beginMaterial( const std::str
     return MaterialLibrary::ArchetypeBuilder( *this, name );
 }
 
-void MaterialLibrary::init( Graphics::API api ) {
-    _api = api;
-
-    // beginMaterial( "ErrorMagenta" )
-    //     .addPass( MaterialPassType::Opaque, "Assets/Shaders/Error.slang", ... )
-    //     .finish();
+void MaterialLibrary::init( Graphics::API api, MaterialPassSupportFlags defaultPassSupportFlags ) {
+    _api                     = api;
+    _defaultPassSupportFlags = defaultPassSupportFlags;
 
     _initialized = true;
 }
@@ -41,6 +38,8 @@ void MaterialLibrary::registerArchetype( const MaterialArchetypeDesc& desc ) {
     MaterialArchetype arch;
     arch.desc = desc;
 
+    enforceDefaultPasses( arch.desc );
+
     _archetypes.push_back( arch );
     _archetypeLookup[desc.name] = (uint)_archetypes.size() - 1;
 
@@ -53,8 +52,15 @@ void MaterialLibrary::registerShaders( Graphics::IShaderRegistry& shaders ) {
     {
         for ( auto& pass : arch.desc.passConfigs )
         {
-            std::string shaderName = arch.desc.name + "_shader_" + toString( pass.passType );
-            auto        builder    = shaders.shader( shaderName )
+            std::string baseName;
+            if ( !pass.customPassAlias.empty() )
+                baseName = pass.customPassAlias;
+            else
+                baseName = arch.desc.name;
+
+            std::string shaderName = baseName + "_shader_" + toString( pass.passType );
+
+            auto builder = shaders.shader( shaderName )
                                .path( pass.shaderPath )
                                .entryPoints( pass.entryPoints )
                                .include( AXION_SHADER_DIR "/Slang/Common" )
@@ -80,7 +86,9 @@ void MaterialLibrary::createPipelines( Graphics::IPipelineRegistry& pipelines ) 
                 continue;
             }
 
-            const auto& profile = _passProfiles[(size_t)pass.passType];
+            const size_t passTypeID = (size_t)pass.passType;
+
+            const auto& profile = _passProfiles[passTypeID];
 
             for ( int t = 0; t < (int)TopologyType::Count; ++t )
             {
@@ -91,7 +99,7 @@ void MaterialLibrary::createPipelines( Graphics::IPipelineRegistry& pipelines ) 
                 if ( !( arch.desc.topologiesSupported & topoFlags ) )
                     continue;
 
-                auto& shaderHandle = arch.shaderHandles[(size_t)pass.passType];
+                auto& shaderHandle = arch.shaderHandles[passTypeID];
                 if ( !shaderHandle.isValid() )
                 {
                     if ( !pass.shaderPath.empty() )
@@ -101,7 +109,14 @@ void MaterialLibrary::createPipelines( Graphics::IPipelineRegistry& pipelines ) 
                     continue;
                 }
 
-                std::string pipName = arch.desc.name + "_pip_" + toString( topoType ) + "_" + toString( pass.passType );
+                std::string baseName;
+
+                if ( !pass.customPassAlias.empty() )
+                    baseName = pass.customPassAlias;
+                else
+                    baseName = arch.desc.name;
+
+                std::string pipName = baseName + "_pip_" + toString( topoType ) + "_" + toString( pass.passType );
 
                 auto builder = pipelines.graphic( pipName ).shader( shaderHandle ).setLayout( _globalLayoutHandle );
 
@@ -116,21 +131,73 @@ void MaterialLibrary::createPipelines( Graphics::IPipelineRegistry& pipelines ) 
                 // rasterizerState.depthClipEnable       = true;
                 // rasterizerState.multisampleEnable     = false;
                 // rasterizerState.antialiasedLineEnable = false;
+                // builder.setRasterizer( rasterizerState );
 
                 builder.setTopology( rhiTopo );
-                // builder.setRasterizer( rasterizerState );
-                builder.cullNone();
+                builder.cullMode( pass.cullMode );
 
-                for ( int i = 0; i < _passProfiles[t].renderTargetFormats.size(); ++i )
+                builder.setDepthStencilState( { .depthEnable    = pass.depthTest,
+                                                .depthWriteMask = pass.depthWrite,
+                                                .depthFunc      = pass.depthOp } );
+
+                for ( int i = 0; i < _passProfiles[passTypeID].renderTargetFormats.size(); ++i )
                 {
-                    builder.addRenderTarget( _passProfiles[(size_t)pass.passType].renderTargetFormats[i] );
+                    builder.addRenderTarget( _passProfiles[passTypeID].renderTargetFormats[i] );
                 }
-                builder.setDepthFormat( _passProfiles[(size_t)pass.passType].depthTargetFormat );
+                builder.setDepthFormat( _passProfiles[passTypeID].depthTargetFormat );
 
-                arch.pipelines[(size_t)pass.passType][t] = builder.create();
+                arch.pipelines[passTypeID][t] = builder.create();
             }
         }
     }
+}
+
+void MaterialLibrary::enforceDefaultPasses( MaterialArchetypeDesc& desc ) {
+
+    MaterialPassSupportFlags currentArchSupportedPasses = MaterialPassSupportNone;
+
+    for ( const auto& pass : desc.passConfigs )
+    {
+        if ( pass.passType == MaterialPassType::Opaque )
+            currentArchSupportedPasses |= MaterialPassSupportOpaque;
+        if ( pass.passType == MaterialPassType::Depth )
+            currentArchSupportedPasses |= MaterialPassSupportDepth;
+        if ( pass.passType == MaterialPassType::Shadow )
+            currentArchSupportedPasses |= MaterialPassSupportShadow;
+    }
+
+    bool globalDepthEnabled = ( _defaultPassSupportFlags & MaterialPassSupportDepth );
+    bool isOpaque           = ( currentArchSupportedPasses & MaterialPassSupportOpaque );
+    bool hasDepth           = ( currentArchSupportedPasses & MaterialPassSupportDepth );
+
+    if ( globalDepthEnabled && isOpaque && !hasDepth )
+    {
+        MaterialArchetypePassConfig defaultDepthPass;
+        defaultDepthPass.passType = MaterialPassType::Depth;
+
+        defaultDepthPass.customPassAlias = "Global_Depth";
+
+        defaultDepthPass.shaderPath  = AXION_SHADER_DIR "/Slang/Preprocess/DepthOnly.slang";
+        defaultDepthPass.entryPoints = { { "vsDepth", Graphics::ShaderType::Vertex } };
+
+        desc.passConfigs.push_back( defaultDepthPass );
+    }
+
+    // bool globalShadowEnabled = ( _defaultPassSupportFlags & MaterialPassSupportShadow );
+    // bool hasShadow           = ( currentArchSupportedPasses & MaterialPassSupportShadow );
+
+    // if ( globalShadowEnabled && isOpaque && !hasShadow )
+    // {
+    //     MaterialArchetypePassConfig defaultShadowPass;
+    //     defaultShadowPass.passType = MaterialPassType::Shadow;
+
+    //     defaultShadowPass.customPassAlias = "Global_Shadow";
+
+    //     defaultShadowPass.shaderPath = AXION_SHADER_DIR "/Slang/System/ShadowCaster.slang";
+    //     defaultShadowPass.entryPoints = { { "vertexMain", Graphics::ShaderType::Vertex } };
+
+    //     desc.passConfigs.push_back( defaultShadowPass );
+    // }
 }
 
 std::string MaterialLibrary::toString( MaterialPassType type ) {
@@ -144,8 +211,8 @@ std::string MaterialLibrary::toString( MaterialPassType type ) {
             return "Geometry";
         case MaterialPassType::Shadow:
             return "Shadow";
-        case MaterialPassType::Voxelization:
-            return "Voxel";
+        case MaterialPassType::Depth:
+            return "Depth";
         case MaterialPassType::Raytracing:
             return "RT";
         default:
@@ -168,7 +235,6 @@ std::string MaterialLibrary::toString( TopologyType type ) {
             return "Unknown";
     }
 }
-
 
 MaterialTopologyFlags MaterialLibrary::topologyToFlags( TopologyType type ) {
     switch ( type )

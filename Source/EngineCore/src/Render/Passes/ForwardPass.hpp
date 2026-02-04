@@ -56,9 +56,9 @@ public:
                                      data.outColorHandle = pb.write( data.outColorHandle, Graphics::RHI::ResourceState::RenderTarget );
                                      data.outDepthHandle = pb.write( data.outDepthHandle, Graphics::RHI::ResourceState::DepthWrite );
                                     //Global
-                                     data.inGlobalBufferHandles.vertex   = pb.read( data.inGlobalBufferHandles.vertex, Graphics::RHI::ResourceState::GeneralRead );
-                                     data.inGlobalBufferHandles.index    = pb.read( data.inGlobalBufferHandles.index, Graphics::RHI::ResourceState::GeneralRead );
-                                     data.inGlobalBufferHandles.material = pb.read( data.inGlobalBufferHandles.material, Graphics::RHI::ResourceState::GeneralRead );
+                                     data.inGlobalBufferHandles.vertex   = pb.read( data.inGlobalBufferHandles.vertex, Graphics::RHI::ResourceState::ShaderResource );
+                                     data.inGlobalBufferHandles.index    = pb.read( data.inGlobalBufferHandles.index, Graphics::RHI::ResourceState::ShaderResource );
+                                     data.inGlobalBufferHandles.material = pb.read( data.inGlobalBufferHandles.material, Graphics::RHI::ResourceState::ShaderResource );
                                     //Indirect
                                     if(data.useGPUCulling){
                                      data.inIndirectBufferHandle    = pb.read( data.inIndirectBufferHandle, Graphics::RHI::ResourceState::IndirectArgument );
@@ -85,7 +85,7 @@ private:
         Graphics::RHI::RenderingDesc info;
         info.renderArea = rtv->getDescription().size.to2D();
         info.colorAttachments.push_back( { .texture = rtv } );
-        info.depthStencilAttachment = { .texture = dsv };
+        info.depthStencilAttachment = { .texture = dsv, .loadOp = Graphics::RHI::LoadOp::Load };
         ctx.cmd->beginRendering( info );
 
         // -----------------------------------------------------

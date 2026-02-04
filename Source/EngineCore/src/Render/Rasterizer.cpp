@@ -170,7 +170,32 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         // C. Depth Pre-Pass
         //----------------------------
 
-        // TBD.....
+        DepthPrePass::Config dpConfig;
+        dpConfig.outDepthHandle = builder.texture( "DepthBuffer" )
+                                      .asDepthStencil()
+                                      .format( Graphics::Format::D32 )
+                                      .extent( rtExtent )
+                                      .create();
+        dpConfig.inGlobalBufferHandles = {
+            .vertex   = upConfig.outGlobalBufferHandles.vertex,
+            .index    = upConfig.outGlobalBufferHandles.index,
+            .material = upConfig.outGlobalBufferHandles.materials },
+        dpConfig.matLib          = &_mtlLib;
+        dpConfig.matLayoutHandle = _globalMtlLayoutHandle;
+
+        dpConfig.inFrameView       = transientViews.frameView;
+        dpConfig.inMeshesView      = transientViews.meshesView;
+        dpConfig.inMaterialsView   = transientViews.mtlView;
+        dpConfig.inInstancesView   = transientViews.instancesView;
+        dpConfig.inLightsView      = transientViews.lightsView;
+        dpConfig.inRedirectionView = transientViews.redirectView;
+
+        dpConfig.indirectData                 = indirectCmdData;
+        dpConfig.inIndirectBufferHandle       = cullConfig.outIndirectBufferHandle;
+        dpConfig.inCulledRedirectBufferHandle = cullConfig.outCulledRedirectBufferHandle;
+        dpConfig.useGPUCulling                = _settings.useGPUCulling;
+
+        _passes.getPass<DepthPrePass>()->addToGraph( builder, dpConfig );
 
         //----------------------------
         // D. Forward
@@ -183,15 +208,11 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                                       .extent( rtExtent )
                                       .clearValue( { .color = { 0.2f, 0.2f, 0.2f, 1.0f } } )
                                       .create();
-        fwConfig.outDepthHandle = builder.texture( "DepthBuffer" )
-                                      .asDepthStencil()
-                                      .format( Graphics::Format::D32 )
-                                      .extent( rtExtent )
-                                      .create();
+        fwConfig.outDepthHandle        = dpConfig.outDepthHandle;
         fwConfig.inGlobalBufferHandles = {
-            .vertex   = upConfig.outGlobalBufferHandles.vertex,
-            .index    = upConfig.outGlobalBufferHandles.index,
-            .material = upConfig.outGlobalBufferHandles.materials },
+            .vertex   = dpConfig.inGlobalBufferHandles.vertex,
+            .index    = dpConfig.inGlobalBufferHandles.index,
+            .material = dpConfig.inGlobalBufferHandles.material },
         fwConfig.matLib          = &_mtlLib;
         fwConfig.matLayoutHandle = _globalMtlLayoutHandle;
         fwConfig.gpuScene        = &_gpuScene;
@@ -238,6 +259,8 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
 void Rasterizer::setupMaterialLibrary() {
 
+    _mtlLib.init( _settings.common.gfxApi, MaterialPassSupportDepth );
+
     // Global Layout (BINDLESS)
     _globalMtlLayoutHandle = _rnd->pipelines().layout( "Global_Material_Layout" )
                                  // Space 0: Persistent (Geometry, Materials and Textures)
@@ -262,12 +285,18 @@ void Rasterizer::setupMaterialLibrary() {
                                  .enableIndirectRendering()
                                  .create();
 
-    _mtlLib.init( _settings.common.gfxApi );
     _mtlLib.setTargetLayout( _globalMtlLayoutHandle );
+
+    // Standard opaque pass
     _mtlLib.setPassFormats( MaterialPassType::Opaque,
                             MaterialPassProfile {
                                 .renderTargetFormats = { Graphics::Format::RGBA16_FLOAT },
                                 .depthTargetFormat   = _settings.depthFormat,
+                            } );
+    // Depth pre-pass
+    _mtlLib.setPassFormats( MaterialPassType::Depth,
+                            MaterialPassProfile {
+                                .depthTargetFormat = _settings.depthFormat,
                             } );
 }
 
@@ -294,6 +323,7 @@ void Rasterizer::registerPasses() {
     _passes.registerPass<UploadPass>();
     _passes.registerPass<IndirectUploadPass>();
     _passes.registerPass<CullingPass>();
+    _passes.registerPass<DepthPrePass>();
     _passes.registerPass<ForwardPass>();
     _passes.registerPass<ToneMappingPass>();
 }

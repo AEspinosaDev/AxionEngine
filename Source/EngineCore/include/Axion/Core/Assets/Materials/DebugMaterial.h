@@ -32,7 +32,6 @@ private:
 
     explicit DebugMaterial( std::string name )
         : Material( std::move( name ) ) {}
-
 };
 
 } // namespace Core::Assets
@@ -53,6 +52,9 @@ AXION_REGISTER_MATERIAL( DebugMaterial ) {
     pass.entryPoints = {
         { "vsForward", Axion::Graphics::ShaderType::Vertex },
         { "psForward", Axion::Graphics::ShaderType::Pixel } };
+
+    pass.depthWrite = false;
+    pass.depthOp    = Axion::Graphics::CompareOp::Equal;
 
     desc.passConfigs.push_back( pass );
 }

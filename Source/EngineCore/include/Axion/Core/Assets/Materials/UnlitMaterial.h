@@ -106,6 +106,8 @@ AXION_REGISTER_MATERIAL( UnlitMaterial ) {
     pass.entryPoints = {
         { "vsForward", Axion::Graphics::ShaderType::Vertex },
         { "psForward", Axion::Graphics::ShaderType::Pixel } };
+    pass.depthWrite = false;
+    pass.depthOp    = Axion::Graphics::CompareOp::Equal;
 
     desc.passConfigs.push_back( pass );
 }

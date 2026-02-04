@@ -33,6 +33,21 @@ struct MaterialPassProfile {
     Graphics::Format              depthTargetFormat = Graphics::Format::D32;
 };
 
+enum MaterialPassSupportFlags : uchar
+{
+    MaterialPassSupportNone        = 1 << 0,
+    MaterialPassSupportOpaque      = 1 << 1,
+    MaterialPassSupportTranslucent = 1 << 2,
+    MaterialPassSupportDepth       = 1 << 3,
+    MaterialPassSupportShadow      = 1 << 4,
+    MaterialPassSupportVoxel       = 1 << 5,
+    MaterialPassSupportWireframe   = 1 << 6,
+    MaterialPassSupportRaytracing  = 1 << 7,
+    MaterialPassSupportCount       = 1 << 8,
+};
+
+AXION_ENUM_CLASS_FLAG_OPERATORS( MaterialPassSupportFlags )
+
 class MaterialLibrary
 {
 public:
@@ -41,7 +56,7 @@ public:
     ArchetypeBuilder beginMaterial( const std::string& name );
     void             registerArchetype( const MaterialArchetypeDesc& desc );
 
-    void init( Graphics::API api );
+    void init( Graphics::API api, MaterialPassSupportFlags defaultPassSupportFlags = MaterialPassSupportNone );
 
     void setTargetLayout( Graphics::PipelineLayoutHandle globalLayout );
 
@@ -57,9 +72,9 @@ public:
 
     uint getArchetypeID( const std::string& name ) const;
 
-   
-
 private:
+    void enforceDefaultPasses( MaterialArchetypeDesc& desc );
+
     std::string           toString( MaterialPassType type );
     std::string           toString( TopologyType type );
     MaterialTopologyFlags topologyToFlags( TopologyType type );
@@ -71,8 +86,9 @@ private:
 
     Graphics::PipelineLayoutHandle _globalLayoutHandle; // Global Shader Contract
 
-    Graphics::API _api;
-    bool          _initialized = false;
+    Graphics::API                   _api;
+    bool                            _initialized             = false;
+    MaterialPassSupportFlags _defaultPassSupportFlags;
 
     friend class ArchetypeBuilder;
 };

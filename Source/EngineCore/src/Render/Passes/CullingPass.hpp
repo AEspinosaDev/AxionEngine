@@ -29,7 +29,7 @@ public:
         _shHandle = shaders
                         .shader( "CullingShader" )
                         .asDXIL()
-                        .path( AXION_SHADER_DIR "/Slang/Preprocessing/Culling.slang" )
+                        .path( AXION_SHADER_DIR "/Slang/Preprocess/Culling.slang" )
                         .include( AXION_SHADER_DIR "/Slang/Common" )
                         .cs( "computeMain" )
                         .load();

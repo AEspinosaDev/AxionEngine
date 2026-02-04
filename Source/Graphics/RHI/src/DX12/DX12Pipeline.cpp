@@ -243,16 +243,13 @@ DX12GraphicPipeline::DX12GraphicPipeline( const ComPtr<ID3D12Device2>& device, c
 
     // Basic validation: need at least vertex and pixel for graphics PSO
     const ShaderModule* vsModule = nullptr;
-    const ShaderModule* psModule = nullptr;
     for ( const auto& m : desc.shaderModules )
     {
         if ( m.type == ShaderType::Vertex )
             vsModule = &m;
-        if ( m.type == ShaderType::Pixel )
-            psModule = &m;
     }
 
-    AXION_LOG_ASSERT( vsModule && psModule, Logger::Module::RHI, "DX12 Graphic Pipeline requires at least VS and PS modules." );
+    AXION_LOG_ASSERT( vsModule , Logger::Module::RHI, "DX12 Graphic Pipeline requires at least a VS module." );
 
     createPipelineState( device );
 
