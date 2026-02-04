@@ -63,7 +63,7 @@ struct MaterialArchetypePassConfig {
     std::string                               customIncludePath;
 
     Graphics::FillMode  fillMode   = Graphics::FillMode::Solid;
-    Graphics::CullMode  cullMode   = Graphics::CullMode::Back;
+    Graphics::CullMode  cullMode   = Graphics::CullMode::Front;
     Graphics::BlendOp   blendOp    = Graphics::BlendOp::Add;
     Graphics::CompareOp depthOp    = Graphics::CompareOp::LessEqual;
     bool                depthWrite = true;
