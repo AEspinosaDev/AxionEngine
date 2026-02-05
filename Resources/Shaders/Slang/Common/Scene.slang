@@ -90,7 +90,7 @@ public struct LightData {
     public float4 pos_Intensity; // .xyz = Pos, .w = Intensity
     public float4 col_Radius;    // .xyz = Col, .w = Radius
     public float4 dir_Area;      // .xyz = Nrm, .w = Area
-    public float4 settings;      // .x = Active
+    public float4 settings;      // .x = Active // .y = type
 
     // --- Helpers ---
     public float3 getPosition() { return pos_Intensity.xyz; }

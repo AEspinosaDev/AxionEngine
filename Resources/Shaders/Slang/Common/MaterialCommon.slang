@@ -41,3 +41,44 @@ public MeshData getMeshData( uint meshID ) {
 public MaterialData getMaterialData( uint materialID ) {
     return gMaterials[materialID];
 }
+
+// -----------------------------------------------------------
+// CANONICAL VERTEX
+// -----------------------------------------------------------
+
+struct CanonVertex
+{
+    uint address;
+
+    static CanonVertex fromIndex( uint vertexID, uint offsetInVertices )
+    {
+        CanonVertex v;
+        v.address = offsetInVertices + ( vertexID * CANON_VERTEX_STRIDE );;
+        return v;
+    }
+
+    property float3 position 
+    {
+        get { return asfloat( gGlobalVertices.Load3( address ) ); }
+    }
+
+    property float3 normal 
+    {
+        get { return asfloat( gGlobalVertices.Load3( address + 12 ) ); }
+    }
+
+    property float2 uv 
+    {
+        get { return asfloat( gGlobalVertices.Load2( address + 24 ) ); }
+    }
+
+    property float4 tangent 
+    {
+        get { return asfloat( gGlobalVertices.Load4( address + 32 ) ); }
+    }
+
+    property float4 color 
+    {
+        get { return asfloat( gGlobalVertices.Load4( address + 48 ) ); }
+    }
+};

@@ -53,8 +53,6 @@ AXION_REGISTER_MATERIAL( DebugMaterial ) {
         { "vsForward", Axion::Graphics::ShaderType::Vertex },
         { "psForward", Axion::Graphics::ShaderType::Pixel } };
 
-    pass.depthWrite = false;
-    pass.depthOp    = Axion::Graphics::CompareOp::Equal;
 
     desc.passConfigs.push_back( pass );
 }

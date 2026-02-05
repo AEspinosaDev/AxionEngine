@@ -156,10 +156,17 @@ void MaterialLibrary::enforceDefaultPasses( MaterialArchetypeDesc& desc ) {
 
     MaterialPassSupportFlags currentArchSupportedPasses = MaterialPassSupportNone;
 
-    for ( const auto& pass : desc.passConfigs )
+    size_t opaquePassIndex = -1;
+
+    for ( size_t i = 0; i < desc.passConfigs.size(); ++i )
     {
+        const auto& pass = desc.passConfigs[i];
+
         if ( pass.passType == MaterialPassType::Opaque )
+        {
             currentArchSupportedPasses |= MaterialPassSupportOpaque;
+            opaquePassIndex = i;
+        }
         if ( pass.passType == MaterialPassType::Depth )
             currentArchSupportedPasses |= MaterialPassSupportDepth;
         if ( pass.passType == MaterialPassType::Shadow )
@@ -173,14 +180,23 @@ void MaterialLibrary::enforceDefaultPasses( MaterialArchetypeDesc& desc ) {
     if ( globalDepthEnabled && isOpaque && !hasDepth )
     {
         MaterialArchetypePassConfig defaultDepthPass;
-        defaultDepthPass.passType = MaterialPassType::Depth;
-
+        defaultDepthPass.passType        = MaterialPassType::Depth;
         defaultDepthPass.customPassAlias = "Global_Depth";
 
         defaultDepthPass.shaderPath  = AXION_SHADER_DIR "/Slang/Preprocess/DepthOnly.slang";
         defaultDepthPass.entryPoints = { { "vsDepth", Graphics::ShaderType::Vertex } };
 
         desc.passConfigs.push_back( defaultDepthPass );
+
+        hasDepth = true;
+    }
+
+    if ( hasDepth && isOpaque && opaquePassIndex != -1 )
+    {
+        auto& opaquePass = desc.passConfigs[opaquePassIndex];
+
+        opaquePass.depthWrite = false;
+        opaquePass.depthOp    = Graphics::CompareOp::LessEqual;
     }
 
     // bool globalShadowEnabled = ( _defaultPassSupportFlags & MaterialPassSupportShadow );

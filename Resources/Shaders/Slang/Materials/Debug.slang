@@ -20,10 +20,10 @@ VSOutput vsForward( VSInput input ) {
     InstanceData instance = getInstanceData(input.instanceID);
     MeshData     mesh     = getMeshData( instance.meshID );
 
-    uint vertexAddress = mesh.vertexOffset + ( input.vertexID * CANON_VERTEX_STRIDE );
-
-    float3 localPos = asfloat( gGlobalVertices.Load3( vertexAddress ) );
-    float2 uv       = asfloat( gGlobalVertices.Load2( vertexAddress + 24 ) );
+    // Vertex fetch
+    CanonVertex v        = CanonVertex.fromIndex( input.vertexID, mesh.vertexOffset );
+    float3      localPos = v.position;
+    float2      uv       = v.uv;
 
     VSOutput output;
     float4   worldPos = mul( instance.modelMatrix, float4( localPos, 1.0 ) );

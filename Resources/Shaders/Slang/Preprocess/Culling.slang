@@ -1,4 +1,5 @@
 #include "Defines.slang"
+#include "IndirectCommand.slang"
 #include "Scene.slang"
 
 // Space 0: Inputs

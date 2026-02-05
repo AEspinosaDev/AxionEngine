@@ -41,6 +41,7 @@ public:
 
         Graphics::RGResourceHandle outColorHandle;
         Graphics::RGResourceHandle outDepthHandle;
+        bool                       clearDepth = false;
     };
 
     void registerShaders( Graphics::IShaderRegistry& ) override { /* NO OP */ }
@@ -85,7 +86,7 @@ private:
         Graphics::RHI::RenderingDesc info;
         info.renderArea = rtv->getDescription().size.to2D();
         info.colorAttachments.push_back( { .texture = rtv } );
-        info.depthStencilAttachment = { .texture = dsv, .loadOp = Graphics::RHI::LoadOp::Load };
+        info.depthStencilAttachment = { .texture = dsv, .loadOp = !data.clearDepth ? Graphics::RHI::LoadOp::Load : Graphics::RHI::LoadOp::Clear };
         ctx.cmd->beginRendering( info );
 
         // -----------------------------------------------------

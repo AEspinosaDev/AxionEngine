@@ -1,4 +1,5 @@
 
+#include "Defines.slang"
 
 // -----------------------------------------------------------------
 // Basis Operations
@@ -21,7 +22,6 @@ float3x3 getTangentBasis( float3 tangentZ )
 // -----------------------------------------------------------------
 // Warping
 // -----------------------------------------------------------------
-const static float PI = 3.14159265358979323846;
 
 // PDF = 1
 float4 uniformSampleSphere( float2 E ) {
