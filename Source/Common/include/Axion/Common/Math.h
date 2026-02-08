@@ -8,8 +8,8 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp> // For value_ptr
 #define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtc/matrix_access.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
-#include <glm/gtc/matrix_access.hpp> 
 
 AXION_NAMESPACE_BEGIN
 
@@ -65,6 +65,7 @@ inline void decompose( const Mat4& m, Vec3& scale, Quat& rotation, Vec3& transla
     glm::decompose( m, scale, rotation, translation, skew, perspective );
 }
 
+
 inline Mat4 rotate( const Mat4& m, float angle, const Vec3& axis ) {
     return glm::rotate( m, angle, axis );
 }
@@ -105,6 +106,12 @@ inline Mat4 ortho( float left, float right, float bottom, float top, float nearP
 #pragma region Utils
 
 // --- Utility Helpers ---
+
+
+inline float length( const Vec3& v ) {
+    return glm::length( v );
+}
+
 
 inline Quat quat( const Vec3& eulerRadians ) {
     return glm::quat( eulerRadians );
@@ -235,29 +242,30 @@ struct Frustum {
     Vec4 planes[6];
 };
 
-inline Frustum createFrustumFromMatrix(const glm::mat4& viewProj) {
+inline Frustum createFrustumFromMatrix( const glm::mat4& viewProj ) {
     Frustum frustum;
 
     // Gribb-Hartmann Extraction
 
     // 1. LEFT Plane:   row4 + row1
-    frustum.planes[0] = glm::row(viewProj, 3) + glm::row(viewProj, 0);
+    frustum.planes[0] = glm::row( viewProj, 3 ) + glm::row( viewProj, 0 );
     // 2. RIGHT Plane:  row4 - row1
-    frustum.planes[1] = glm::row(viewProj, 3) - glm::row(viewProj, 0);
+    frustum.planes[1] = glm::row( viewProj, 3 ) - glm::row( viewProj, 0 );
     // 3. BOTTOM Plane: row4 + row2
-    frustum.planes[2] = glm::row(viewProj, 3) + glm::row(viewProj, 1);
+    frustum.planes[2] = glm::row( viewProj, 3 ) + glm::row( viewProj, 1 );
     // 4. TOP Plane:    row4 - row2
-    frustum.planes[3] = glm::row(viewProj, 3) - glm::row(viewProj, 1);
+    frustum.planes[3] = glm::row( viewProj, 3 ) - glm::row( viewProj, 1 );
 
     // 5. NEAR Plane:   row4 + row3 (OpenGL/GLM default -1..1)
-    // Vulkan/DX con clip 0..1 puro, only row3, 
-    frustum.planes[4] = glm::row(viewProj, 3) + glm::row(viewProj, 2);
+    // Vulkan/DX con clip 0..1 puro, only row3,
+    frustum.planes[4] = glm::row( viewProj, 3 ) + glm::row( viewProj, 2 );
     // 6. FAR Plane:    row4 - row3
-    frustum.planes[5] = glm::row(viewProj, 3) - glm::row(viewProj, 2);
+    frustum.planes[5] = glm::row( viewProj, 3 ) - glm::row( viewProj, 2 );
 
-    for (int i = 0; i < 6; ++i) {
-        glm::vec3 normal = glm::vec3(frustum.planes[i]);
-        float length = glm::length(normal);
+    for ( int i = 0; i < 6; ++i )
+    {
+        glm::vec3 normal = glm::vec3( frustum.planes[i] );
+        float     length = glm::length( normal );
 
         frustum.planes[i] /= length;
     }
@@ -298,6 +306,62 @@ inline TangentBinormal computeTriangleTangent(
     result.bitangent.z = f * ( -deltaUV2.x * edge1.z + deltaUV1.x * edge2.z );
 
     return result;
+}
+
+inline Vec3 kelvinToRGB( float k ) {
+    float temp = clamp( k, 1000.0f, 40000.0f ) / 100.0f;
+
+    float r, g, b;
+
+    if ( temp <= 66.0f )
+    {
+        r = 255.0f;
+    } else
+    {
+        r = temp - 60.0f;
+        r = 329.698727446f * std::pow( r, -0.1332047592f );
+        r = clamp( r, 0.0f, 255.0f );
+    }
+
+    if ( temp <= 66.0f )
+    {
+        g = temp;
+        g = 99.4708025861f * std::log( g ) - 161.1195681661f;
+        g = clamp( g, 0.0f, 255.0f );
+    } else
+    {
+        g = temp - 60.0f;
+        g = 288.1221695283f * std::pow( g, -0.0755148492f );
+        g = clamp( g, 0.0f, 255.0f );
+    }
+
+    if ( temp >= 66.0f )
+    {
+        b = 255.0f;
+    } else
+    {
+        if ( temp <= 19.0f )
+        {
+            b = 0.0f;
+        } else
+        {
+            b = temp - 10.0f;
+            b = 138.5177312231f * std::log( b ) - 305.0447927307f;
+            b = clamp( b, 0.0f, 255.0f );
+        }
+    }
+
+    Math::Vec3 sRGB = { r / 255.0f, g / 255.0f, b / 255.0f };
+
+    // 3. IMPORTANTÍSIMO: Convertir de sRGB a Linear Space
+    // Los motores PBR trabajan en Linear. Si no haces esto,
+    // la luz se verá "lavada" y incorrecta matemáticamente.
+    Math::Vec3 linearColor;
+    linearColor.x = std::pow( sRGB.x, 2.2f );
+    linearColor.y = std::pow( sRGB.y, 2.2f );
+    linearColor.z = std::pow( sRGB.z, 2.2f );
+
+    return linearColor;
 }
 
 } // namespace Math

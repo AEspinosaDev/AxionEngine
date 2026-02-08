@@ -99,6 +99,10 @@ bool GLFWWindow::minimized() const {
     return _minimized;
 }
 
+void GLFWWindow::setTitle( const std::string& title ) {
+    glfwSetWindowTitle( _hWnd, title.c_str() );
+}
+
 RHI::NativeObject GLFWWindow::getNativeObject() {
     auto native = RHI::NativeObject( RHI::ObjectTypes::GLFW_Window, _hWnd );
     return native;

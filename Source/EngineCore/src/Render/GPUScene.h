@@ -42,9 +42,10 @@ public:
 
     // -- Read-Write Accessors for the Renderer --
     // The Renderer consumes these vectors to fill the Volatile Allocators (LinearAllocators)
-    GPUFrame&                 frame() { return _frame; }
-    std::vector<GPUInstance>& instances() { return _instances; }
-    std::vector<GPULight>&    lights() { return _lights; }
+    GPUFrame&                    frame() { return _frame; }
+    std::vector<GPUInstance>&    instances() { return _instances; }
+    std::vector<GPULight>&       lights() { return _lights; }
+    std::vector<GPUEnvironment>& environments() { return _environments; }
 
     // Persistent cache access (Used to bind SRVs for geometry)
     std::vector<GPUMesh>& meshes() { return _meshCache.cache; }
@@ -106,6 +107,8 @@ private:
 
     void processLights( const Scene::Scene& cpuScene );
     void processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose );
+    void processEnvironments( const Scene::Scene& cpuScene );
+
     void runGC();
 
     AXION_FORCE_INLINE ulong makeSortKey( uint archID, uint topology, uint meshID ) {
@@ -116,9 +119,10 @@ private:
     }
 
     // -- Transient Data (Cleared every frame) --
-    GPUFrame                 _frame;
-    std::vector<GPUInstance> _instances;
-    std::vector<GPULight>    _lights;
+    GPUFrame                    _frame;
+    std::vector<GPUInstance>    _instances;
+    std::vector<GPULight>       _lights;
+    std::vector<GPUEnvironment> _environments;
 
     std::vector<SortKey> _sortedKeys;
 

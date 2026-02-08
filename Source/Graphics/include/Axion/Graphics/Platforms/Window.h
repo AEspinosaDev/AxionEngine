@@ -76,6 +76,8 @@ public:
      */
     virtual const Settings& getSettings() const = 0;
 
+    virtual void setTitle( const std::string& title ) = 0;
+
     /**
      * @brief Updates the window configuration.
      *

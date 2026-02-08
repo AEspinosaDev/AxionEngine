@@ -8,6 +8,8 @@
 #include <Axion/Core/Scene/Components/TagComponent.h>
 #include <Axion/Core/Scene/Components/TransformComponent.h>
 #include <Axion/Core/Scene/Components/CameraComponent.h>
+#include <Axion/Core/Scene/Components/EnvironmentComponent.h>
+
 
 AXION_NAMESPACE_BEGIN
 

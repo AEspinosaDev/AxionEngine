@@ -10,7 +10,7 @@ public struct FrameData {
 
     public float4 camPos_Time;  // .xyz = Pos, .w = Time
     public float4 res_Clip;     // .xy = Res, .zw = Near/Far
-    public float4 sceneParams;  // .x = LightCount, .y = InstanceCount
+    public float4 sceneParams;  // .x = LightCount, .y = InstanceCount, .z = enviromentCount
     public float4 sceneAABBMin; // .xyz = Min (w unused)
     public float4 sceneAABBMax; // .xyz = Max (w unused)
 
@@ -26,6 +26,7 @@ public struct FrameData {
 
     public uint getLightCount() { return (uint)sceneParams.x; }
     public uint getInstanceCount() { return (uint)sceneParams.y; }
+    public uint getEnvCount() { return (uint)sceneParams.z; }
 
     public float3 getAABBMin() { return sceneAABBMin.xyz; }
     public float3 getAABBMax() { return sceneAABBMax.xyz; }
@@ -86,21 +87,80 @@ public struct MaterialData {
 // ------------------------------------------------------------------
 // LIGHT DATA
 // ------------------------------------------------------------------
+
+#define LIGHT_TYPE_DIR 0
+#define LIGHT_TYPE_POINT 1
+#define LIGHT_TYPE_SPOT 2
+#define LIGHT_TYPE_AREA 3
+
 public struct LightData {
-    public float4 pos_Intensity; // .xyz = Pos, .w = Intensity
-    public float4 col_Radius;    // .xyz = Col, .w = Radius
-    public float4 dir_Area;      // .xyz = Nrm, .w = Area
-    public float4 settings;      // .x = Active // .y = type
+    float4 pos_Intensity;
+    float4 col_Range;
+    float4 dir_Type;
+    float4 params;
 
-    // --- Helpers ---
-    public float3 getPosition() { return pos_Intensity.xyz; }
-    public float  getIntensity() { return pos_Intensity.w; }
+    // --- Getters Semánticos ---
 
-    public float3 getColor() { return col_Radius.xyz; }
-    public float  getRadius() { return col_Radius.w; }
+    property float3 position {
+        get { return pos_Intensity.xyz; }
+    }
+    property float intensity {
+        get { return pos_Intensity.w; }
+    }
+    property float3 color {
+        get { return col_Range.xyz; }
+    }
+    property float range {
+        get { return col_Range.w; }
+    }
+    property float3 direction {
+        get { return dir_Type.xyz; }
+    } // Directional/Spot only
+    property uint type {
+        get { return (uint)dir_Type.w; }
+    }
+    property bool isActive {
+        get { return params.w > 0.5; }
+    }
 
-    public float3 getDirection() { return dir_Area.xyz; }
-    public float  getArea() { return dir_Area.w; } // For area lights
+    property float spotInnerCos {
+        get { return params.x; }
+    }
+    property float spotOuterCos {
+        get { return params.y; }
+    }
 
-    public bool isActive() { return settings.x > 0.5; }
+    // property float2 areaSize { get { return params.zw; } } // Width/Height reutilizando slots
+};
+
+// ------------------------------------------------------------------
+// ENVIROMENT DATA
+// ------------------------------------------------------------------
+
+#define ENV_TYPE_CONST 0
+#define ENV_TYPE_PROC 1
+#define ENV_TYPE_HDRI 2
+
+public struct EnvData {
+    float4 skyColor_Intensity;
+    float4 groundColor_Type;
+    uint   colorCubeMapID;
+    uint   irradianceMapID;
+    uint   prefilteredMapID;
+    uint   brdfLUTID;
+    float4 rotation_Blend;
+    float4 procSettings;
+
+    property float3 skyColor {
+        get { return skyColor_Intensity.xyz; }
+    }
+    property float3 groundColor {
+        get { return groundColor_Type.xyz; }
+    }
+    property float intensity {
+        get { return skyColor_Intensity.w; }
+    }
+    property uint type {
+        get { return (uint)groundColor_Type.w; }
+    }
 };

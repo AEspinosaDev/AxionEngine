@@ -1,6 +1,6 @@
 // Materials/StandardPBR.slang
 #include "MaterialCommon.slang"
-#include "BxDFs/CookTorranceBRDF.slang"
+#include "CookTorranceBRDF.slang"
 
 struct StandardPBRPayload {
     // Chunk 0
@@ -113,30 +113,42 @@ float4 psForward( VSOutput input )
     {
         LightData light = gLights[i];
 
-        if ( !light.isActive() )
+        if ( !light.isActive )
             continue;
 
-        float3 L           = float3( 0.0 );
-        float  attenuation = 1.0;
+        float3 L;
+        float3 radiance = evalLight( light, input.worldPos, L );
 
-        // Here ask for type (VPL, Dir, Spot, Area is future because it needs sampling)
-
-        float3 lightVec = light.getPosition() - input.worldPos;
-        float  dist     = length( lightVec );
-
-        L = normalize( lightVec );
-
-        float radius = light.getRadius();
-        attenuation  = max( 0.0, 1.0 - ( dist / radius ) );
-
-        float3 radiance = light.getColor() * light.getIntensity() * attenuation;
-
-        lo += brdf.eval( L, V, N ) * radiance;
+        if ( any( radiance > 0.0001 ) )
+        {
+            lo += brdf.eval( L, V, N ) * radiance;
+        }
     }
 
     // Ambient / Emissive
-    float3 ambient = float3( 0.03 ) * albedo * mat.aoStrength;
-    float3 color   = lo + ambient + mat.emissiveFactor;
+    float3 ambient = float3( 0.0 );
+
+    uint envCount = gFrame.getEnvCount();
+    for ( uint i = 0; i < envCount; ++i )
+    {
+        EnvData env = gEnvs[i];
+        float3 envIrradiance = evalEnviroment( env, N );
+
+        float3 kD_ambient     = ( 1.0 - metallic );
+        float3 ambientDiffuse = kD_ambient * albedo * envIrradiance * mat.aoStrength;
+
+        float3 ambientSpecular = float3( 0.0 );
+
+        if ( metallic > 0.01 )
+        {
+            float reflectionDim = 1.0 / ( 1.0 + roughness * 8.0 );
+
+            ambientSpecular = env.skyColor * env.groundColor * albedo * reflectionDim;
+        }
+        ambient += ambientDiffuse + ambientSpecular;
+    }
+
+    float3 color = lo + ambient + mat.emissiveFactor;
 
     return float4( color, 1.0 );
 }

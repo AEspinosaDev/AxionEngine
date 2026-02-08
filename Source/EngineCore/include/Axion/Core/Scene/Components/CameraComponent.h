@@ -23,6 +23,13 @@ struct CameraComponent {
 
     bool primary = true;
 
+    bool  usePhysical          = false;
+    float exposureCompensation = 0.0f;
+    // --- Physically Based --
+    float aperture     = 16.0f;         // f-stop (f/1.8, f/16...) ->  Depth of Field
+    float shutterSpeed = 1.0f / 125.0f; // Seconds (1/60, 1/1000...) -> Motion Blur
+    float ISO          = 100.0f;        // Sensibilidad -> Noise
+
     CameraComponent()                         = default;
     CameraComponent( const CameraComponent& ) = default;
 
@@ -39,6 +46,19 @@ struct CameraComponent {
             float width  = orthoSize * aspectRatio;
 
             return Math::MTX::ortho( -width, width, -height, height, nearPlane, farPlane );
+        }
+    }
+
+    float getEV100() const {
+        if ( usePhysical )
+        {
+            // Lagarde's Magic Formula
+            // EV = log2( (N^2 * 100) / (S * t) )
+            return std::log2f( ( aperture * aperture * 100.0f ) / ( ISO * shutterSpeed ) );
+        } else
+        {
+            const float standardAutoExposureEV = 9.7f;
+            return standardAutoExposureEV - exposureCompensation;
         }
     }
 };

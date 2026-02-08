@@ -188,6 +188,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         dpConfig.inMaterialsView   = transientViews.mtlView;
         dpConfig.inInstancesView   = transientViews.instancesView;
         dpConfig.inLightsView      = transientViews.lightsView;
+        dpConfig.inEnvsView        = transientViews.envsView;
         dpConfig.inRedirectionView = transientViews.redirectView;
 
         dpConfig.indirectData                 = indirectCmdData;
@@ -222,6 +223,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         fwConfig.inMaterialsView   = transientViews.mtlView;
         fwConfig.inInstancesView   = transientViews.instancesView;
         fwConfig.inLightsView      = transientViews.lightsView;
+        fwConfig.inEnvsView        = transientViews.envsView;
         fwConfig.inRedirectionView = transientViews.redirectView;
 
         fwConfig.indirectData                 = indirectCmdData;
@@ -235,8 +237,11 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         // E. ToneMapping
         //----------------------------
         ToneMappingPass::Config tmConfig;
-        tmConfig.inputHandle  = fwConfig.outColorHandle;
-        tmConfig.outputHandle = builder.texture( "ToneMappedBuffer" )
+        float                   ev100          = cameraEntity.getComponent<Scene::CameraComponent>().getEV100();
+        float                   exposureFactor = 1.0f / ( 1.2f * std::pow( 2.0f, ev100 ) );
+        tmConfig.exposure                      = exposureFactor;
+        tmConfig.inputHandle                   = fwConfig.outColorHandle;
+        tmConfig.outputHandle                  = builder.texture( "ToneMappedBuffer" )
                                     .format( _settings.common.backbufferFormat )
                                     .extent( rtExtent )
                                     .asStorage()
@@ -278,7 +283,8 @@ void Rasterizer::setupMaterialLibrary() {
                                      { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Materials
                                      { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Instances
                                      { 3, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Lights
-                                     { 4, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Instance Redirection Buffer
+                                     { 4, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Environments
+                                     { 5, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Instance Redirection Buffer
                                  } )
                                  // Space 2: Instance ID Push Constant
                                  .setPushConstants( sizeof( uint ), 0, 2 )
@@ -533,7 +539,31 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
         }
     }
     // =================================================================================
-    // 6. INSTANCE REDIRECTION DATA (for true instancing) (SSBO - Structured Buffer)
+    // 6. ENV DATA (SSBO - Structured Buffer)
+    // =================================================================================
+    {
+        const auto& envs = _gpuScene.environments();
+
+        if ( !envs.empty() )
+        {
+            views.envsView = currentSSBOAlloc.allocate<GPUEnvironment>( envs.size() );
+
+            if ( views.envsView.isValid() )
+            {
+                memcpy( views.envsView.cpuAddress, envs.data(), views.envsView.size );
+            }
+        } else
+        {
+            // DUMMY
+            views.envsView       = currentSSBOAlloc.allocate<GPUEnvironment>( 1 );
+            views.envsView.count = 0;
+            if ( views.envsView.cpuAddress )
+                memset( views.envsView.cpuAddress, 0, views.envsView.size );
+        }
+    }
+
+    // =================================================================================
+    // 7. INSTANCE REDIRECTION DATA (for true instancing) (SSBO - Structured Buffer)
     // =================================================================================
     {
         const auto& sortedKeys = _gpuScene.getSortedKeys();

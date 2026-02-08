@@ -22,13 +22,24 @@ struct GPUInstance {
     // Total: 144 bytes. (Multiple of 4, OK for StructuredBuffer).
 };
 
+struct GPUEnvironment {
+    Math::Vec4 skyColor_Intensity;
+    Math::Vec4 groundColor_Type;
+    uint       colorCubeMapID   = 0xFFFFFFFF;
+    uint       irradianceMapID  = 0xFFFFFFFF;
+    uint       prefilteredMapID = 0xFFFFFFFF;
+    uint       brdfLUTID        = 0xFFFFFFFF;
+    Math::Vec4 rotation_BlendDist;
+    Math::Vec4 procSettings;
+};
+
 struct GPUFrame {
     Math::Mat4 viewProj;
     Math::Mat4 invProj;
     Math::Mat4 invView;
     Math::Vec4 camPos_Time;  // Packed: x,y,z = camPos | w = time
     Math::Vec4 res_Clip;     // Packed: x,y = resolution | z,w = clippingPlanes (near, far)
-    Math::Vec4 sceneParams;  // Packed: x = lightCount | y = instanceCount | z,w = padding (unsused)
+    Math::Vec4 sceneParams;  // Packed: x = lightCount | y = instanceCount | z = enviromentCount | w = padding (unsused)
     Math::Vec4 sceneAABBMin; // x,y,z = AABB Min | w = padding
     Math::Vec4 sceneAABBMax; // x,y,z = AABB Max | w = padding
     Math::Vec4 frustrumPlanes[6];
@@ -38,9 +49,12 @@ struct GPULight {
 
     Math::Vec4 pos_Intensity; // Packed: xyz = Position, w = Intensity
     Math::Vec4 col_Radius;    // Packed: xyz = Color, w = Radius
-    Math::Vec4 dir_Area;      // Packed: xyz = Direction/Normal, w = Area
-    Math::Vec4 settings;      // Settings: x = active. y,z,w = padding (unused)
-
+    Math::Vec4 dir_Type;      // Packed: xyz = Direction/Normal, w = Area
+    // x = Spot Inner Angle Cosine
+    // y = Spot Outer Angle Cosine
+    // z = ShadowMap Index (or Area Light Width)
+    // w = Active flag (or Area Light Height)
+    Math::Vec4 settings;
     // Total: 64 bytes. (Multiple of 4, OK for StructuredBuffer).
 };
 

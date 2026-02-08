@@ -19,6 +19,7 @@ void GPUScene::update( const Scene::Scene&    cpuScene,
 
     processInstances( cpuScene, mtlLib, sortInstances, transposeMatrices, forceRaytrace );
     processLights( cpuScene );
+    processEnvironments( cpuScene );
     processFrame( cameraEntity, resolution, transposeMatrices );
 
     runGC();
@@ -29,6 +30,7 @@ void GPUScene::reset( float dt ) {
     _accumulatedTime += dt;
     _instances.clear();
     _lights.clear();
+    _environments.clear();
     _sortedKeys.clear();
 }
 
@@ -249,11 +251,30 @@ void GPUScene::processLights( const Scene::Scene& cpuScene ) {
         const auto& transComp = lightView.get<Scene::TransformComponent>( entity );
 
         GPULight light;
-        // light.position = transComp.translation;
-        // // light.color     = lightComp.color;
-        // // light.intensity = lightComp.intensity;
-        // // light.radius    = lightComp.radius;
-        // light.active = 1;
+        if ( !lightComp.active )
+            continue;
+
+        light.pos_Intensity = Math::Vec4( transComp.translation, lightComp.intensity );
+        light.dir_Type      = Math::Vec4( transComp.forward(), (float)lightComp.type );
+
+        light.settings = { Math::radians( lightComp.innerAngle * 0.5f ),
+                           Math::radians( lightComp.outerAngle * 0.5f ),
+                           0.0f,
+                           lightComp.active ? 1.0f : 0.0f };
+
+        Math::Vec3 finalColor = lightComp.color;
+
+        if ( lightComp.useTemperature )
+        {
+            Math::Vec3 kelvinColor = Axion::Math::kelvinToRGB( lightComp.temperature );
+            finalColor             = finalColor * kelvinColor;
+        }
+
+        light.col_Radius = {
+            finalColor.x,
+            finalColor.y,
+            finalColor.z,
+            lightComp.range };
 
         _lights.push_back( light );
     }
@@ -266,6 +287,8 @@ void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolu
     if ( cameraEntity && cameraEntity.hasComponent<Scene::CameraComponent>() &&
          cameraEntity.hasComponent<Scene::TransformComponent>() )
     {
+        // Frame General Information
+
         const auto& camComp   = cameraEntity.getComponent<Scene::CameraComponent>();
         const auto& transComp = cameraEntity.getComponent<Scene::TransformComponent>();
 
@@ -304,7 +327,7 @@ void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolu
         _frame.sceneParams = Math::Vec4(
             (float)_lights.size(),
             (float)_instances.size(),
-            0.0f,
+            (float)_environments.size(),
             0.0f );
 
         _frame.sceneAABBMin = Math::Vec4( 0.0f );
@@ -312,6 +335,31 @@ void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolu
 
         Math::Frustum f = Math::createFrustumFromMatrix( viewProj );
         memcpy( _frame.frustrumPlanes, f.planes, sizeof( glm::vec4 ) * 6 );
+    }
+}
+
+#pragma region Envs
+#pragma endregion
+void GPUScene::processEnvironments( const Scene::Scene& cpuScene ) {
+
+    _environments.reserve( cpuScene.getRegistry().view<Scene::EnvironmentComponent>().size() );
+    auto envView = cpuScene.getRegistry().multiView<const Scene::EnvironmentComponent, const Scene::TransformComponent>();
+
+    for ( ECS::EntityID entity : envView )
+    {
+        GPUEnvironment env;
+
+        const auto& envComp   = envView.get<Scene::EnvironmentComponent>( entity );
+        const auto& transComp = envView.get<Scene::TransformComponent>( entity );
+
+        if ( !envComp.active )
+            continue;
+
+        env.groundColor_Type   = Math::Vec4( envComp.groundColor, (float)envComp.type );
+        env.skyColor_Intensity = Math::Vec4( envComp.skyColor, envComp.intensity );
+        env.rotation_BlendDist = Math::Vec4( transComp.rotation.x, transComp.rotation.y, transComp.rotation.z, envComp.blendDistance );
+
+        _environments.push_back( env );
     }
 }
 

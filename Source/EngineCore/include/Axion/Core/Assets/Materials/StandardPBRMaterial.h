@@ -162,13 +162,13 @@ AXION_REGISTER_MATERIAL( StandardPBRMaterial ) {
     desc.topologiesSupported = Axion::Core::Render::MaterialTopologyTriangles;
 
     Axion::Core::Render::MaterialArchetypePassConfig pass;
-    pass.passType = Axion::Core::Render::MaterialPassType::Opaque;
+    pass.passType   = Axion::Core::Render::MaterialPassType::Opaque;
     pass.shaderPath = AXION_SHADER_DIR "/Slang/Materials/StandardPBR.slang";
 
     pass.entryPoints = {
         { "vsForward", Axion::Graphics::ShaderType::Vertex },
         { "psForward", Axion::Graphics::ShaderType::Pixel } };
+    pass.customIncludePath = AXION_SHADER_DIR "/Slang/BxDFs";
 
     desc.passConfigs.push_back( pass );
-
 }

@@ -76,6 +76,9 @@ public:
      */
     void setFullscreen( bool fullscreen );
 
+    void setTitle( const std::string& title );
+
+
     /**
      * @brief Checks if the window has received a request to close (e.g., user pressed 'X').
      * @return True if the window should close.

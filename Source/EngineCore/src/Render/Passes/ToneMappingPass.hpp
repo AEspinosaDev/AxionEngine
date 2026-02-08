@@ -12,6 +12,7 @@ public:
         Graphics::RGResourceHandle inputHandle;  // HDR
         Graphics::RGResourceHandle outputHandle; // LDR
         uint                       tonemapType;
+        float                      exposure = 1.0f;
     };
 
     void registerShaders( Graphics::IShaderRegistry& shaders ) override {
@@ -50,6 +51,8 @@ private:
 
         ctx.cmd->bindComputePipeline( pso );
         ctx.cmd->bindDescriptorSet( 0, set0 );
+
+        ctx.cmd->pushConstants( 1, data.exposure );
 
         auto size = texIn->getDescription().size;
         ctx.cmd->dispatch( { ( size.width + 7 ) / 8, ( size.height + 7 ) / 8, 1 } );

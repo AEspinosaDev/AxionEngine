@@ -25,6 +25,7 @@ public:
         Graphics::RHI::BufferView inMaterialsView;
         Graphics::RHI::BufferView inInstancesView;
         Graphics::RHI::BufferView inLightsView;
+        Graphics::RHI::BufferView inEnvsView;
         Graphics::RHI::BufferView inRedirectionView;
 
         IndirectCommandData        indirectData;
@@ -102,6 +103,7 @@ private:
         set1->attachBufferView( 2, data.inMaterialsView, Graphics::RHI::ResourceState::ShaderResource );
         set1->attachBufferView( 3, data.inInstancesView, Graphics::RHI::ResourceState::ShaderResource );
         set1->attachBufferView( 4, data.inLightsView, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferView( 5, data.inEnvsView, Graphics::RHI::ResourceState::ShaderResource );
 
         if ( data.useGPUCulling )
         {
@@ -112,9 +114,9 @@ private:
             culledView.offset = 0;
             culledView.size   = data.inRedirectionView.size;
             culledView.stride = data.inRedirectionView.stride;
-            set1->attachBufferView( 5, culledView, Graphics::RHI::ResourceState::ShaderResource );
+            set1->attachBufferView( 6, culledView, Graphics::RHI::ResourceState::ShaderResource );
         } else
-            set1->attachBufferView( 5, data.inRedirectionView, Graphics::RHI::ResourceState::ShaderResource );
+            set1->attachBufferView( 6, data.inRedirectionView, Graphics::RHI::ResourceState::ShaderResource );
 
         cmd->bindDescriptorSet( 1, set1, matLayout );
 

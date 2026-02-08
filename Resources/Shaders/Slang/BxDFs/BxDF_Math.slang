@@ -1,4 +1,4 @@
-#include "Defines.slang"
+// #include "Defines.slang"
 
 float D_GGX(float NdotH, float roughness) {
     float a = roughness * roughness;

@@ -62,6 +62,10 @@ Extent2D Window::getSize() const {
     return _impl->nativeWindow->getSettings().size;
 }
 
+void Window::setTitle( const std::string& title ){
+    _impl->nativeWindow->setTitle( title );
+}
+
 void Window::setSize( const Extent2D& size ) {
     // BYPASS: Seteamos en la nativa
     // _impl->nativeWindow->setSize( size );

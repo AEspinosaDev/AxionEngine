@@ -1,16 +1,26 @@
 #pragma once
 #include "Axion/Common/Logging.h"
 #include "Axion/Core/Assets/AssetManager.h"
-#include "Axion/Core/Assets/Materials/DebugMaterial.h"
-#include "Axion/Core/Assets/Materials/UnlitMaterial.h"
+#include "Axion/Core/Assets/Materials/StandardPBRMaterial.h"
 #include "Axion/Core/Platform/Window.h"
 #include "Axion/Core/Render/Rasterizer.h"
 #include "Axion/Core/Scene/Entity.h"
 #include "Axion/Core/Scene/Scene.h"
-#include <random> // Necesario para la generación aleatoria
+#include <random>
 #include <vector>
+#include <map>
 
 USING_AXION_NAMESPACE
+
+// Helper para gestionar el input de forma más cómoda
+struct InputState {
+    std::map<Event::KeyCode, bool> keys;
+    bool rightMousePressed = false;
+    float lastMouseX = 0.0f;
+    float lastMouseY = 0.0f;
+    float yaw = 0.0f;
+    float pitch = 0.0f;
+};
 
 int main( /*int argc, char* argv[]*/ ) {
 
@@ -20,8 +30,11 @@ int main( /*int argc, char* argv[]*/ ) {
         Logger::init( Logger::Level::Info, "CoreInitializationTest.log" );
 #endif
 
-        Core::Platform::Window     wnd( { .platformType = Graphics::PlatformType::Win32,
-                                          .name         = "Core Stress Test - Thousands of objects" } );
+        Core::Platform::Window wnd( {
+            .platformType = Graphics::PlatformType::Win32,
+            .vsync        = true,
+            .name         = "100K Instances - Free Camera Test",
+        } );
         Core::Assets::AssetManager assets;
         Core::Scene::Scene         scene( "TestScene", &assets );
 
@@ -34,27 +47,50 @@ int main( /*int argc, char* argv[]*/ ) {
         auto rasterizer = Core::Render::createRasterizer( &wnd, rastDesc );
         rasterizer->compileShaders();
 
-        // 1. ASSETS
-        // -------------------------------------------------------------------------
+        // 1. ASSETS & MATERIALS 
         auto cubeHandle   = assets.mesh( "Cube" ).createCube();
         auto sphereHandle = assets.mesh( "Sphere" ).createSphere();
-        // auto dragonHandle = assets.mesh( "Dragon" ).import( AXION_MESH_DIR "/dragon.obj" );
-        // auto ajaxHandle   = assets.mesh( "Ajax" ).import( AXION_MESH_DIR "/ajax.obj" );
 
-        // Materials
-        auto unlitHandle = assets.material( "UnlitRed" ).create<Core::Assets::UnlitMaterial>();
-        assets.getMaterial<Core::Assets::UnlitMaterial>( unlitHandle )->setColor( { 1.0f, 0.2f, 0.2f } );
+        auto matGoldH = assets.material( "Gold" ).create<Core::Assets::StandardPBRMaterial>();
+        auto matGold  = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matGoldH );
+        matGold->setAlbedo( { 1.0f, 0.76f, 0.33f } );
+        matGold->setMetallic( 1.0f );
+        matGold->setRoughness( 0.3f );
 
-        auto unlitHandle2 = assets.material( "UnlitBlue" ).create<Core::Assets::UnlitMaterial>();
-        assets.getMaterial<Core::Assets::UnlitMaterial>( unlitHandle2 )->setColor( { 0.2f, 0.4f, 1.0f } );
+        auto matRedH = assets.material( "RedPlastic" ).create<Core::Assets::StandardPBRMaterial>();
+        auto matRed  = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matRedH );
+        matRed->setAlbedo( { 0.8f, 0.05f, 0.05f } );
+        matRed->setMetallic( 0.0f );
+        matRed->setRoughness( 0.2f );
 
-        auto debugHandle = assets.material( "DebugMtl" ).create<Core::Assets::DebugMaterial>();
+        auto matSilverH = assets.material( "BrushedSteel" ).create<Core::Assets::StandardPBRMaterial>();
+        auto matSilver  = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matSilverH );
+        matSilver->setAlbedo( { 0.6f, 0.65f, 0.7f } );
+        matSilver->setMetallic( 1.0f );
+        matSilver->setRoughness( 0.45f );
 
-        // 2. PROCEDURAL (GRID 10x10x10)
-        // -------------------------------------------------------------------------
+        // 2. LIGHTING
+        auto envEntity = scene.createEntity( "GlobalVolume" );
+        envEntity.addComponent<Core::Scene::EnvironmentComponent>();
+        auto& env = envEntity.getComponent<Core::Scene::EnvironmentComponent>();
+        env.skyColor    = { 0.5f, 0.7f, 1.0f };
+        env.groundColor = { 0.2f, 0.2f, 0.25f };
+        env.intensity   = 1.0f;
 
+        auto sunEntity = scene.createEntity( "Sun" );
+        sunEntity.addComponent<Core::Scene::LightComponent>();
+        auto& sunComp = sunEntity.getComponent<Core::Scene::LightComponent>();
+        sunComp.type           = Core::Scene::LightComponent::Type::Directional;
+        sunComp.intensity      = 10.0f; 
+        sunComp.color          = { 1.0f, 0.95f, 0.9f };
+        sunComp.useTemperature = false;
+        
+        auto& sunTrans = sunEntity.getComponent<Core::Scene::TransformComponent>();
+        sunTrans.lookAt( { 1.0f, -1.0f, 0.5f } );
+
+        // 3. GENERACIÓN PROCEDURAL
         std::vector<Core::Assets::MeshHandle>     meshPool = { cubeHandle, sphereHandle };
-        std::vector<Core::Assets::MaterialHandle> matPool  = { unlitHandle, unlitHandle2, debugHandle };
+        std::vector<Core::Assets::MaterialHandle> matPool  = { matGoldH, matRedH, matSilverH };
 
         std::random_device                    rd;
         std::mt19937                          gen( rd() );
@@ -63,93 +99,132 @@ int main( /*int argc, char* argv[]*/ ) {
         std::uniform_real_distribution<float> scaleDist( 0.5f, 1.2f );
         std::uniform_real_distribution<float> rotDist( 0.0f, 360.0f );
 
-        int   gridSize = 30; // 10x10x10 = 1000 objetos
+        int   gridSize = 50;
         float spacing  = 3.0f;
         float offset   = ( gridSize * spacing ) * 0.5f;
 
         uint counter = 0;
-        for ( int x = 0; x < gridSize; ++x )
-        {
-            for ( int y = 0; y < gridSize; ++y )
-            {
-                for ( int z = 0; z < gridSize; ++z )
-                {
-                    // Crear Entidad
-                    auto entity = scene.createEntity( "GridObj" + counter );
-                    counter++;
+        for ( int x = 0; x < gridSize; ++x ) {
+            for ( int y = 0; y < gridSize; ++y ) {
+                for ( int z = 0; z < gridSize; ++z ) {
+                    auto entity = scene.createEntity( "GridObj" + std::to_string( counter++ ) );
+                    
+                    entity.addComponent<Core::Scene::MeshComponent>( 
+                        meshPool[meshDist( gen )], 
+                        matPool[matDist( gen )] 
+                    );
 
-                    // Elegir Mesh y Material al azar
-                    auto selectedMesh = meshPool[meshDist( gen )];
-                    auto selectedMat  = matPool[matDist( gen )];
+                    auto& transform = entity.getComponent<Core::Scene::TransformComponent>();
+                    transform.translation = { 
+                        ( x * spacing ) - offset, 
+                        ( y * spacing ) - offset, 
+                        ( z * spacing ) - offset 
+                    };
 
-                    entity.addComponent<Core::Scene::MeshComponent>( selectedMesh, selectedMat );
-
-                    float posX = ( x * spacing ) - offset;
-                    float posY = ( y * spacing ) - offset;
-                    float posZ = ( z * spacing ) - offset;
-
-                    auto& transform       = entity.getComponent<Core::Scene::TransformComponent>();
-                    transform.translation = { posX, posY, posZ };
-
-                    transform.rotate( { Math::radians( rotDist( gen ) ),
-                                        Math::radians( rotDist( gen ) ),
-                                        0.0f } );
-
-                    float s         = scaleDist( gen );
+                    transform.rotate( { Math::radians( rotDist( gen ) ), Math::radians( rotDist( gen ) ), 0.0f } );
+                    float s = scaleDist( gen );
                     transform.scale = { s, s, s };
                 }
             }
         }
 
-        // 3. SCENE SETUP
+        // 4. CÁMARA & INPUT SETUP
         // -------------------------------------------------------------------------
         auto cameraEntity = scene.createEntity( "MainCamera" );
         cameraEntity.addComponent<Core::Scene::CameraComponent>();
-        cameraEntity.getComponent<Core::Scene::TransformComponent>().position( { 0.0f, 0.0f, -50.0f } );
-        cameraEntity.getComponent<Core::Scene::TransformComponent>().lookAt( { 0.0f, 0.0f, 0.0f } );
+        
+        auto& camTrans = cameraEntity.getComponent<Core::Scene::TransformComponent>();
+        camTrans.position( { 0.0f, 0.0f, 100.0f } ); 
+        camTrans.lookAt( { 0.0f, 0.0f, 0.0f } );
 
-        // //Evento simple de borrado (opcional, borra el ultimo creado si pulsas W)
-        // auto eraseEvent = wnd.onKey().subscribe( [&]( const Event::KeyEvent& e ) {
-        //     if ( e.keyCode == Event::KeyCode::W && e.pressed )
-        //         // Nota: destroyEntity necesita una entidad válida,
-        //         // aquí solo es ejemplo, mejor no borrar nada en el stress test
-        //         // Logger::info( "Key Pressed" );
-        // } );
+        cameraEntity.getComponent<Core::Scene::CameraComponent>().exposureCompensation = 8.5f;
 
+        InputState input;
+        
+        auto keySub = wnd.onKey().subscribe( [&]( const Event::KeyEvent& e ) {
+            input.keys[e.keyCode] = e.pressed;
+        });
+
+        auto mouseBtnSub = wnd.onMouseButton().subscribe( [&]( const Event::MouseButtonEvent& e ) {
+            if (e.button == 1) {
+                input.rightMousePressed = e.pressed;
+                if(e.pressed) {
+                } else {
+                }
+            }
+        });
+
+        // Ratón (Movimiento)
+        auto mouseMoveSub = wnd.onMouseMove().subscribe( [&]( const Event::MouseMoveEvent& e ) {
+            if (input.rightMousePressed) {
+                float sensitivity = 0.002f;
+                float deltaX = e.x - input.lastMouseX;
+                float deltaY = e.y - input.lastMouseY;
+
+                input.yaw   -= deltaX * sensitivity;
+                input.pitch -= deltaY * sensitivity;
+
+                input.pitch = std::max( -1.5f, std::min( 1.5f, input.pitch ) );
+            }
+            input.lastMouseX = (float)e.x;
+            input.lastMouseY = (float)e.y;
+        });
+
+
+        // BUCLE PRINCIPAL
         static auto startTime = std::chrono::high_resolution_clock::now();
         while ( !wnd.shouldClose() )
         {
-            static uint64_t                           frameCounter   = 0;
-            static double                             elapsedSeconds = 0.0;
+            static uint64_t frameCounter = 0;
+            static double   elapsedSeconds = 0.0;
             static std::chrono::high_resolution_clock clock;
-            static auto                               t0 = clock.now();
+            static auto t0 = clock.now();
 
             frameCounter++;
-            auto t1        = clock.now();
+            auto t1 = clock.now();
             auto deltaTime = t1 - t0;
-            t0             = t1;
+            t0 = t1;
+            
+            float dt = std::chrono::duration<float>(deltaTime).count();
 
-            elapsedSeconds += deltaTime.count() * 1e-9;
-            if ( elapsedSeconds > 1.0 )
+            elapsedSeconds += dt;
+         if ( elapsedSeconds > 1.0 )
             {
-                wchar_t buffer[100];
-                double  fps = frameCounter / elapsedSeconds;
-                swprintf_s( buffer, 100, L"FPS: %.2f | Objects: %d\n", fps, gridSize * gridSize * gridSize );
-                OutputDebugStringW( buffer );
+                double fps = frameCounter / elapsedSeconds;
+                
+                wchar_t buffer[256];
+                swprintf_s( buffer, 256, L"Axion Engine | Objects: %d | FPS: %.2f | GPU: MDI Active", 
+                            gridSize * gridSize * gridSize, fps );
+
+                OutputDebugStringW( buffer ); 
+                OutputDebugStringW( L"\n" );
 
                 frameCounter   = 0;
                 elapsedSeconds = 0.0;
             }
 
-            // Animación simple: Rotate Camera
-            float time   = std::chrono::duration<float>( t1 - startTime ).count();
-            float radius = 50.0f;
-            float camX   = sin( time * 0.2f ) * radius;
-            float camZ   = cos( time * 0.2f ) * radius;
+            float speed = 20.0f * dt; // Unidades por segundo
+            if (input.keys[Event::KeyCode::Shift]) speed *= 4.0f; // Turbo con Shift
 
-            auto& camTrans = cameraEntity.getComponent<Core::Scene::TransformComponent>();
-            camTrans.position( { camX, radius * 0.5f, camZ } );
-            camTrans.lookAt( { 0.0f, 0.0f, 0.0f } );
+            Math::Vec3 forward = camTrans.forward(); 
+            Math::Vec3 right   = camTrans.right();
+            Math::Vec3 up      = {0.0f, 1.0f, 0.0f}; // Global UP para movimiento más natural
+
+            Math::Vec3 movement = {0.0f, 0.0f, 0.0f};
+
+            if (input.keys[Event::KeyCode::W]) movement += forward;
+            if (input.keys[Event::KeyCode::S]) movement -= forward;
+            if (input.keys[Event::KeyCode::D]) movement += right;
+            if (input.keys[Event::KeyCode::A]) movement -= right;
+            if (input.keys[Event::KeyCode::Q]) movement += up;   // Subir
+            if (input.keys[Event::KeyCode::E]) movement -= up;   // Bajar
+
+            if (Math::length(movement) > 0.0f) {
+                movement = Math::normalize(movement) * speed;
+                camTrans.translation += movement;
+            }
+
+            camTrans.rotate ( { input.pitch, input.yaw, 0.0f }); // Roll siempre 0
 
             wnd.update();
             rasterizer->render( scene, cameraEntity );

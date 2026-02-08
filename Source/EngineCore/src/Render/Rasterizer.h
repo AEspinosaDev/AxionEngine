@@ -56,6 +56,7 @@ private:
         Graphics::RHI::BufferView mtlView;
         Graphics::RHI::BufferView instancesView;
         Graphics::RHI::BufferView lightsView;
+        Graphics::RHI::BufferView envsView;
         Graphics::RHI::BufferView redirectView;
     };
 

@@ -142,6 +142,10 @@ void Win32Window::setFullscreen( bool fullscreen ) {
 bool Win32Window::minimized() const {
     return _minimized;
 }
+void Win32Window::setTitle( const std::string& title ) {
+    ::SetWindowTextA( _hWnd, title.c_str() );
+}
+
 RHI::NativeObject Win32Window::getNativeObject() {
     auto native = RHI::NativeObject( RHI::ObjectTypes::WIN32_WINDOW, _hWnd );
     return native;
