@@ -13,11 +13,12 @@ struct MeshData {
 };
 
 struct ImageData {
-    Extent3D                                                     size;
-    uint                                                         channels = 0;
-    bool                                                         isHDR    = false;
-    std::variant<std::vector<unsigned char>, std::vector<float>> pixels;
-    TexturePrecision                                             precision;
+    Extent3D size;
+    uint     channels = 0;
+    bool     isHDR    = false;
+
+    TexturePixels    pixels;
+    TexturePrecision precision;
 };
 
 bool loadOBJ( const std::string& filepath, MeshData& outMesh, MeshImportFlags flags );

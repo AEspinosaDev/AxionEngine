@@ -51,6 +51,8 @@ public:
     std::vector<GPUMesh>& meshes() { return _meshCache.cache; }
     // Persistent cache access (Used to bind SRVs for materials)
     std::vector<GPUMaterial>& materials() { return _materialCache.cache; }
+    // Persistent cache access (Used to bind SRVs for textures)
+    std::vector<GPUTexture>& textures() { return _textureCache.cache; }
 
     // Command Queues consumption
     std::queue<PendingMeshUpload>&     pendingMeshUploads() { return _pendingMeshUploads; }
@@ -104,6 +106,7 @@ private:
                           const MaterialLibrary&                     mtlLib,
                           std::pair<const uchar*, size_t>&           dirtyLUT,
                           const Axion::Core::Assets::MaterialHandle& cpuMtlHandle );
+    uint processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle );
 
     void processLights( const Scene::Scene& cpuScene );
     void processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose );
@@ -138,12 +141,14 @@ private:
     };
     GPUCache<GPUMesh>     _meshCache;
     GPUCache<GPUMaterial> _materialCache;
+    GPUCache<GPUTexture>  _textureCache;
 
     // -- Communication Queues --
     std::queue<PendingMeshUpload>     _pendingMeshUploads;
     std::queue<PendingMeshFree>       _pendingMeshReleases;
     std::queue<PendingMaterialUpload> _pendingMtlUploads;
     std::queue<PendingMaterialFree>   _pendingMtlReleases;
+    std::queue<PendingTextureUpload>  _pendingTextureUploads;
 
     // -- State --
     bool  _forceRaytrace     = false;

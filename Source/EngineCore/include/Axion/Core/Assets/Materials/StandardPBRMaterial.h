@@ -76,26 +76,26 @@ public:
     }
 
     void setAlbedoTexture( TextureHandle handle ) {
-        if ( _albedoMap != handle )
+        if ( _albedoMapHandle != handle )
         {
-            _albedoMap = handle;
+            _albedoMapHandle = handle;
             markDirty();
         }
     }
 
     void setNormalTexture( TextureHandle handle ) {
-        if ( _normalMap != handle )
+        if ( _normalMapHandle!= handle )
         {
-            _normalMap = handle;
+            _normalMapHandle = handle;
             markDirty();
         }
     }
 
     // ARM = Ambient Occlusion (R), Roughness (G), Metallic (B)
     void setARMTexture( TextureHandle handle ) {
-        if ( _armMap != handle )
+        if ( _armMapHandle != handle )
         {
-            _armMap = handle;
+            _armMapHandle = handle;
             markDirty();
         }
     }
@@ -109,7 +109,7 @@ public:
         return sizeof( GPUPayload );
     };
 
-    void writePayload( void* dest ) const override {
+    void writePayload( void* dest, const TextureResolver& resolver ) const override {
         GPUPayload p;
 
         p.albedo    = _albedo;
@@ -120,16 +120,22 @@ public:
         p.normalScale = _normalScale;
         p.aoStrength  = 1.0f;
 
-        p.albedoTexIndex   = 0;
-        p.normalTexIndex   = 0;
-        p.armTexIndex      = 0;
-        p.emissiveTexIndex = 0;
+        if ( resolver )
+        {
+
+            p.albedoTexIndex   = resolver( _albedoMapHandle );
+            p.normalTexIndex   = resolver( _normalMapHandle );
+            p.armTexIndex      = resolver( _armMapHandle );
+            p.emissiveTexIndex = resolver( _emissiveMapHandle );
+        }
 
         p.padding[0] = 0.0f;
         p.padding[1] = 0.0f;
 
         std::memcpy( dest, &p, sizeof( GPUPayload ) );
     }
+
+    std::vector<TextureHandle> getTextureHandles() const override { return { _albedoMapHandle, _normalMapHandle, _armMapHandle, _emissiveMapHandle}; };
 
 private:
     friend class AssetManager;
@@ -143,10 +149,10 @@ private:
     float      _metallic    = 0.0f;
     float      _normalScale = 1.0f;
 
-    TextureHandle _albedoMap;
-    TextureHandle _normalMap;
-    TextureHandle _armMap; // Packed: AO, Roughness, Metal
-    TextureHandle _emissiveMap;
+    TextureHandle _albedoMapHandle;
+    TextureHandle _normalMapHandle;
+    TextureHandle _armMapHandle; // Packed: AO, Roughness, Metal
+    TextureHandle _emissiveMapHandle;
 };
 
 } // namespace Core::Assets

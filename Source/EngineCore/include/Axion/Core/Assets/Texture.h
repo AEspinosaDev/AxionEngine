@@ -10,6 +10,8 @@ namespace Core::Assets {
 
 class AssetManager;
 
+using TexturePixels = std::variant<std::vector<float>, std::vector<uchar>>;
+
 class Texture
 {
 public:
@@ -34,10 +36,19 @@ public:
 
     [[nodiscard]] Graphics::Format getGPUFormat() const { return _gpuFormat; }
 
+    [[nodiscard]] std::shared_ptr<TexturePixels> getPixelsRef() const {
+        return _pixels;
+    }
     [[nodiscard]] const void* getPixels() const {
-        if ( std::holds_alternative<std::vector<float>>( _pixels ) )
-            return std::get<std::vector<float>>( _pixels ).data();
-        return std::get<std::vector<uchar>>( _pixels ).data();
+        if ( !_pixels )
+            return nullptr;
+
+        return std::visit( []( const auto& vec ) -> const void* {
+            if ( vec.empty() )
+                return nullptr;
+            return vec.data();
+        },
+                           *_pixels );
     }
 
     [[nodiscard]] size_t getSizeBytes() const {
@@ -53,20 +64,19 @@ private:
     Texture( std::string name )
         : _name( std::move( name ) ) {}
 
-    AXION_FORCE_INLINE void setData( Extent3D&&                         size,
-                                     uint                               c,
-                                     bool                               hdr,
-                                     std::variant<std::vector<uchar>,
-                                                  std::vector<float>>&& data,
-                                     TextureFormat                      fmt,
-                                     TexturePrecision                   precision,
-                                     TextureType                        type ) {
+    AXION_FORCE_INLINE void setData( Extent3D&&       size,
+                                     uint             c,
+                                     bool             hdr,
+                                     TexturePixels&&  data,
+                                     TextureFormat    fmt,
+                                     TexturePrecision precision,
+                                     TextureType      type ) {
         _size      = std::move( size );
         _type      = type;
         _precision = precision;
         _channels  = c;
         _isHDR     = hdr;
-        _pixels    = std::move( data );
+        _pixels    = std::make_shared<TexturePixels>( std::move( data ) );
         _format    = fmt;
         _sizeBytes = computeSizeInBytes();
         _gpuFormat = getRecommendedGPUFormat( _format, _precision, _channels );
@@ -74,8 +84,8 @@ private:
 
     AXION_FORCE_INLINE size_t computeSizeInBytes() const {
         if ( _isHDR )
-            return std::get<std::vector<float>>( _pixels ).size() * sizeof( float );
-        return std::get<std::vector<unsigned char>>( _pixels ).size() * sizeof( unsigned char );
+            return std::get<std::vector<float>>( *_pixels ).size() * sizeof( float );
+        return std::get<std::vector<unsigned char>>( *_pixels ).size() * sizeof( unsigned char );
     }
 
     std::string      _name;
@@ -90,8 +100,8 @@ private:
 
     SamplerDescription _samplerDesc;
 
-    std::variant<std::vector<uchar>, std::vector<float>> _pixels;
-    size_t                                               _sizeBytes = 0;
+    std::shared_ptr<TexturePixels> _pixels;
+    size_t                         _sizeBytes = 0;
 };
 
 typedef Texture::SamplerDescription SamplerDesc;

@@ -58,15 +58,15 @@ public:
     uint getPayloadSize() const override {
         return sizeof( GPUPayload );
     };
-    void writePayload( void* dest ) const override {
+    void writePayload( void* dest, const TextureResolver& resolver ) const override {
 
         GPUPayload tempPacket;
         tempPacket.color            = _color;
         tempPacket.emissivePower    = _emissivePower;
         tempPacket.overrideStrength = _textureOverrideStrength;
 
-        // if ( _colorTextureHandle.isValid() && resolver )
-        //     tempPacket.textureIndex = resolver( _colorTextureHandle );
+        if ( _colorTextureHandle.isValid() && resolver )
+            tempPacket.textureIndex = resolver( _colorTextureHandle );
         // else
         tempPacket.textureIndex = 0;
 
@@ -75,6 +75,8 @@ public:
 
         std::memcpy( dest, &tempPacket, sizeof( GPUPayload ) );
     }
+
+    std::vector<TextureHandle> getTextureHandles() const override { return { _colorTextureHandle }; };
 
 private:
     friend class AssetManager;

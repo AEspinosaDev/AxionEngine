@@ -19,13 +19,15 @@ public:
     uint getPayloadSize() const override {
         return sizeof( GPUPayload );
     };
-    void writePayload( void* dest ) const override {
+    void writePayload( void* dest, const TextureResolver& resolver ) const override {
 
         GPUPayload tempPacket;
         tempPacket.color = { 1.0, 0.0, 0.5, 1.0 };
 
         std::memcpy( dest, &tempPacket, sizeof( GPUPayload ) );
     }
+
+    std::vector<TextureHandle> getTextureHandles() const override { return {}; };
 
 private:
     friend class AssetManager;
@@ -52,7 +54,6 @@ AXION_REGISTER_MATERIAL( DebugMaterial ) {
     pass.entryPoints = {
         { "vsForward", Axion::Graphics::ShaderType::Vertex },
         { "psForward", Axion::Graphics::ShaderType::Pixel } };
-
 
     desc.passConfigs.push_back( pass );
 }

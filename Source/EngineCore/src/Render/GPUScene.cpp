@@ -221,11 +221,15 @@ uint GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   asset
         gpuMtl.payloadSize = cpuMaterial->getPayloadSize();
         gpuMtl.archetypeID = mtlLib.getArchetypeID( std::string( cpuMaterial->getArchetypeName() ) );
 
+        Assets::Material::TextureResolver resolver = [&]( const Axion::Core::Assets::TextureHandle& h ) -> uint {
+            return processTexture( assets, h );
+        };
+
         PendingMaterialUpload entry;
         entry.GPUMaterialID = gpuCacheIndex;
 
         entry.payload.resize( gpuMtl.payloadSize );
-        cpuMaterial->writePayload( entry.payload.data() );
+        cpuMaterial->writePayload( entry.payload.data(), resolver );
 
         _pendingMtlUploads.push( std::move( entry ) );
 
@@ -233,6 +237,65 @@ uint GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   asset
     }
 
     _materialCache.cache[gpuCacheIndex].lastFrameUsed = _currentFrameIndex;
+
+    return gpuCacheIndex;
+}
+
+uint GPUScene::processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle ) {
+    if ( !cpuHandle.isValid() )
+        return 0;
+
+    uint cpuAssetID    = cpuHandle.id;
+    uint gpuCacheIndex = 0;
+
+    if ( cpuAssetID >= _textureCache.assetToCacheLUT.size() )
+        _textureCache.assetToCacheLUT.resize( cpuAssetID + 1, -1 );
+
+    int cachedIndex = _textureCache.assetToCacheLUT[cpuAssetID];
+
+    if ( cachedIndex != -1 )
+    {
+        // A. ALREADY IN CACHE
+        gpuCacheIndex = (uint)cachedIndex;
+    } else
+    {
+        // B. NEW ALLOCATION NEEDED
+        if ( !_textureCache.freeIndexQueue.empty() )
+        {
+            gpuCacheIndex = _textureCache.freeIndexQueue.front();
+            _textureCache.freeIndexQueue.pop();
+        } else
+        {
+            gpuCacheIndex = (uint)_textureCache.cache.size();
+            _textureCache.cache.emplace_back();
+        }
+
+        _textureCache.assetToCacheLUT[cpuAssetID] = (int)gpuCacheIndex;
+
+        _textureCache.cache[gpuCacheIndex].valid           = false;
+        _textureCache.cache[gpuCacheIndex].originalAssetID = cpuAssetID;
+    }
+
+    auto& gpuTex         = _textureCache.cache[gpuCacheIndex];
+    gpuTex.lastFrameUsed = _currentFrameIndex; 
+
+    if ( !gpuTex.valid )
+    {
+        auto* tex = assets->getTexture( cpuHandle );
+
+        PendingTextureUpload entry;
+
+        entry.slot = gpuCacheIndex;
+
+        entry.pixels = tex->getPixelsRef();
+        entry.format = tex->getGPUFormat();
+        entry.extent = tex->getSize();
+        entry.name   = tex->getName();
+
+        _pendingTextureUploads.push( std::move( entry ) );
+
+        gpuTex.valid = true;
+    }
 
     return gpuCacheIndex;
 }

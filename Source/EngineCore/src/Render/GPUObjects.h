@@ -97,6 +97,14 @@ struct GPUMaterial {
     // Maybe I could aadd here basic ovverides (albedo, uv, etc) that dont need the slow staging route
 };
 
+struct GPUTexture {
+    uint slot;
+
+    uint valid;
+    uint lastFrameUsed;
+    uint originalAssetID;
+};
+
 // -----------------------------------------------------------------------------
 // MESSAGE QUEUES (RHI COMMANDS)
 // -----------------------------------------------------------------------------
@@ -130,6 +138,14 @@ struct PendingMaterialFree {
     uint bufferOffset;
     uint payloadSize;
     uint GPUMaterialID;
+};
+
+struct PendingTextureUpload {
+    uint                                   slot;
+    std::shared_ptr<Assets::TexturePixels> pixels;
+    Graphics::Format                       format;
+    Extent3D                               extent;
+    std::string                            name;
 };
 
 } // namespace Core::Render
