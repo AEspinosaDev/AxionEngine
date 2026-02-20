@@ -79,15 +79,19 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
             else
                 _viewCountPerSet[setIndex] += binding.arraySize;
 
-            D3D12_DESCRIPTOR_RANGE_TYPE rangeType = DX12Translator::get( binding.type );
-            CD3DX12_DESCRIPTOR_RANGE1   range;
+            D3D12_DESCRIPTOR_RANGE_TYPE  rangeType = DX12Translator::get( binding.type );
+            CD3DX12_DESCRIPTOR_RANGE1    range;
+            D3D12_DESCRIPTOR_RANGE_FLAGS flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
+
+            if ( binding.arraySize > 1 )
+                flags = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
 
             range.Init(
                 rangeType,
                 binding.arraySize,
                 binding.binding,
                 setIndex, // Register Space
-                D3D12_DESCRIPTOR_RANGE_FLAG_NONE );
+                flags );
 
             if ( rangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER )
                 samplerRanges.push_back( range );
@@ -249,7 +253,7 @@ DX12GraphicPipeline::DX12GraphicPipeline( const ComPtr<ID3D12Device2>& device, c
             vsModule = &m;
     }
 
-    AXION_LOG_ASSERT( vsModule , Logger::Module::RHI, "DX12 Graphic Pipeline requires at least a VS module." );
+    AXION_LOG_ASSERT( vsModule, Logger::Module::RHI, "DX12 Graphic Pipeline requires at least a VS module." );
 
     createPipelineState( device );
 

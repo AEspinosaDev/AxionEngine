@@ -266,15 +266,15 @@ void Rasterizer::setupMaterialLibrary() {
 
     _mtlLib.init( _settings.common.gfxApi, MaterialPassSupportDepth );
 
-    // Global Layout (BINDLESS)
+    // Global Layout (BINDLESS CONTRACT)
     _globalMtlLayoutHandle = _rnd->pipelines().layout( "Global_Material_Layout" )
                                  // Space 0: Persistent (Geometry, Materials and Textures)
                                  .addSet( {
-                                     { 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Vertex
-                                     { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Index
-                                     { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Materials
-                                                                                                                                      // Textures
-                                                                                                                                      // Samplers
+                                     { 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                   // Vertex
+                                     { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                   // Index
+                                     { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                   // Materials
+                                    //  { 3, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, _settings.memory.maxTextures }, // Textures
+                                    //  { 4, Graphics::RHI::DescriptorType::Sampler, Graphics::RHI::ShaderStage::All, _settings.memory.maxSamplers }       // Samplers
                                  } )
                                  // Space 1: Scene Data
                                  .addSet( {

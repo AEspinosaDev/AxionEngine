@@ -92,6 +92,9 @@ private:
         Graphics::BufferHandle         indirectTemplateBufferHandle;
         Graphics::BufferHandle         indirectBufferHandle;
         Graphics::BufferHandle         culledInstanceBufferHandle;
+
+        // Persistent Descriptor Set
+        Graphics::RHI::IDescriptorSet* persistentDescriptorSetPtr = nullptr;
     };
     struct GPUResources {
         // Resource Handles
@@ -103,6 +106,10 @@ private:
 
         Graphics::BufferHandle           mtlBufferHandle;
         Graphics::RHI::FreeListAllocator mtlAllocator;
+
+        std::vector<Graphics::TextureHandle> textures2D;
+        Graphics::TextureHandle              fallbackTexture2D;
+        std::vector<Graphics::SamplerHandle> samplers;
 
         std::vector<FrameResources> frame;
     };

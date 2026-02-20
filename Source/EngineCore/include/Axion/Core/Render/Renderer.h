@@ -17,6 +17,8 @@ struct MemoryBudget {
     ulong GPUCommandBuffersSize = 1024 * 1024;       ///< Initial memory reservation for per-frame Shader Binding Tables and Indirect Commands data (1MB default).
     ulong RGAllocSize           = 1024 * 1024;       ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
     uint  RGDescriptorsPerFrame = 2048;              ///< Initial memory reservation for per-frame DescriptorSet data.
+    uint  maxTextures           = 8192;              ///< Maximum number of persistent bindless textures.
+    uint  maxSamplers           = 128;               ///< Maximum number of unique bindless samplers.
 };
 
 struct CommonSettings {

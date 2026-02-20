@@ -63,6 +63,15 @@ public:
     void attachDynamic( uint binding, IBuffer* buf, ulong offset, ulong range, uint stride, ResourceState bindingState ) override;
     void attachBufferView( uint binding, const BufferView& bufferView, ResourceState bindingState ) override;
 
+    void attachBindless( uint binding, uint arrayIndex, ITexture* tex, ResourceState bindingState ) override;
+    void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<ITexture*>& textures, ResourceState bindingState ) override;
+    void attachBindless( uint binding, uint arrayIndex, IBuffer* buf, ResourceState bindingState ) override;
+    void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IBuffer*>& buffers, ResourceState bindingState ) override;
+    void attachBindless( uint binding, uint arrayIndex, ISampler* samp, ResourceState bindingState ) override;
+    void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<ISampler*>& samplers, ResourceState bindingState ) override;
+    void attachBindless( uint binding, uint arrayIndex, IAccel* accel, ResourceState bindingState ) override;
+    void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IAccel*>& accels, ResourceState bindingState ) override;
+
     void               setDebugName( const std::string& name ) override;
     const std::string& getDebugName() const override;
     NativeObject       getNativeObject( ObjectType objectType ) override;
@@ -106,6 +115,9 @@ public:
     NativeObject       getNativeObject( ObjectType objectType ) override;
     std::string        toString() const override;
 
+    void lockPersistent() override;
+    void unlockPersistent() override;
+
 private:
     ID3D12Device*           _device;
     DescriptorAllocatorDesc _desc;
@@ -121,6 +133,11 @@ private:
     // Pooling
     std::vector<std::unique_ptr<DX12DescriptorSet>> _setPool;
     uint                                            _poolIndex = 0;
+
+    // Persistent Views
+    uint _persistentViewOffset    = 0;
+    uint _persistentSamplerOffset = 0;
+    uint _persistentPoolIndex     = 0;
 };
 } // namespace Graphics::RHI
 
