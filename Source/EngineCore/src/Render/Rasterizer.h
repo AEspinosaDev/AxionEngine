@@ -107,7 +107,7 @@ private:
         Graphics::BufferHandle           mtlBufferHandle;
         Graphics::RHI::FreeListAllocator mtlAllocator;
 
-        std::vector<Graphics::TextureHandle> texture2DHandles;
+        std::vector<Graphics::TextureHandle> textureHandles;
         Graphics::TextureHandle              fallbackTexture2DHandle;
         std::vector<Graphics::SamplerHandle> samplerHandles;
         Graphics::SamplerHandle              fallbackSamplerHandle;

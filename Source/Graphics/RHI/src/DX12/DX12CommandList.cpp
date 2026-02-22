@@ -191,6 +191,69 @@ void DX12CommandList::uploadBuffer( IBuffer* dst, const void* data, ulong size, 
 }
 
 void DX12CommandList::uploadTexture( ITexture* dst, const void* data, ITransientAllocator* allocator, uint mipSlice, uint arraySlice, BarrierPolicy barrierPolicy ) {
+    if ( !dst || !data || !allocator )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "Invalid arguments for uploadTexture" );
+        return;
+    }
+
+    ID3D12Resource*     d3dRes = dst->getNativeObject( ObjectTypes::DX12_Resource );
+    D3D12_RESOURCE_DESC desc   = d3dRes->GetDesc();
+
+    ComPtr<ID3D12Device> device;
+    d3dRes->GetDevice( IID_PPV_ARGS( &device ) );
+
+    // Query footprint requirements for the specific subresource (mip + array slice)
+    uint subresourceIndex = mipSlice + ( arraySlice * desc.MipLevels );
+
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
+    UINT                               numRows;
+    UINT64                             rowSizeInBytes;
+    UINT64                             totalBytesRequired;
+
+    device->GetCopyableFootprints( &desc,
+                                   subresourceIndex,
+                                   1,
+                                   0,
+                                   &footprint,
+                                   &numRows,
+                                   &rowSizeInBytes,
+                                   &totalBytesRequired );
+
+    auto mem = allocator->allocateUpload( totalBytesRequired, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
+
+    if ( !mem.isValid() )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "OOM in Transient Upload Heap during Texture Upload" );
+        return;
+    }
+
+    // Copy data to the staging buffer row by row to respect the D3D12 Pitch Alignment
+    uchar*       mapped      = static_cast<uchar*>( mem.cpuAddress );
+    size_t       pixelStride = getFormatBytes( dst->getDescription().format );
+    const uchar* src         = static_cast<const uchar*>( data );
+    uint         width       = desc.Width;
+
+  
+    for ( uint row = 0; row < numRows; ++row )
+    {
+        memcpy(
+            mapped + row * footprint.Footprint.RowPitch,
+            src + row * width * pixelStride,
+            width * pixelStride );
+    }
+
+    if ( barrierPolicy == BarrierPolicy::Auto )
+    {
+        barrier( dst, Graphics::RHI::ResourceState::CopyDest );
+        barrier( mem.buffer, Graphics::RHI::ResourceState::CopySource );
+    }
+
+    CD3DX12_TEXTURE_COPY_LOCATION srcLocation( mem.buffer->getNativeObject( ObjectTypes::DX12_Resource ), footprint );
+    CD3DX12_TEXTURE_COPY_LOCATION dstLocation( d3dRes, subresourceIndex );
+    srcLocation.PlacedFootprint.Offset += mem.offset;
+
+    _cmdList->CopyTextureRegion( &dstLocation, 0, 0, 0, &srcLocation, nullptr );
 }
 
 void DX12CommandList::updateAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) {

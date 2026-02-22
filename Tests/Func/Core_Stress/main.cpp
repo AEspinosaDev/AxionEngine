@@ -50,6 +50,7 @@ int main( /*int argc, char* argv[]*/ ) {
         // 1. ASSETS & MATERIALS 
         auto cubeHandle   = assets.mesh( "Cube" ).createCube();
         auto sphereHandle = assets.mesh( "Sphere" ).createSphere();
+        
 
         auto matGoldH = assets.material( "Gold" ).create<Core::Assets::StandardPBRMaterial>();
         auto matGold  = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matGoldH );

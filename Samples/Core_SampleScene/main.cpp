@@ -32,12 +32,15 @@ int main( /*int argc, char* argv[]*/ ) {
         rasterizer->compileShaders();
 
         // =================================================================================
-        // 1. ASSET LOADING (GEOMETRY)
+        // 1. ASSET LOADING (GEOMETRY & Textures)
         // =================================================================================
         auto cubeHandle   = assets.mesh( "Cube" ).createCube();
         auto sphereHandle = assets.mesh( "Sphere" ).createSphere();
         auto dragonHandle = assets.mesh( "Dragon" ).import( AXION_MESH_DIR "/dragon.obj" );
         auto ajaxHandle   = assets.mesh( "Ajax" ).import( AXION_MESH_DIR "/ajax.obj" );
+
+        auto albedoTexHandle  = assets.texture( "AxionTexture" ).import( AXION_TEXTURE_DIR "/Axion.png" );
+        auto albedoTexHandle2 = assets.texture( "PlanetTexture" ).import( AXION_TEXTURE_DIR "/Jupiter.jpg", Core::Assets::TextureImportAsGamma | Core::Assets::TextureImportForce4Channels | Core::Assets::TextureImportFlipVertically );
 
         // =================================================================================
         // 2. PBR MATERIAL CREATION (PHYSICAL VARIETY)
@@ -51,11 +54,11 @@ int main( /*int argc, char* argv[]*/ ) {
         matGold->setRoughness( 0.2f ); // Polished
 
         // Material 2: Shiny Red Plastic (For the Sphere) - Dielectric
-        auto matRedPlasticH = assets.material( "RedPlastic" ).create<Core::Assets::StandardPBRMaterial>();
+        auto matRedPlasticH = assets.material( "Jupiter" ).create<Core::Assets::StandardPBRMaterial>();
         auto matRed         = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matRedPlasticH );
-        matRed->setAlbedo( { 0.8f, 0.05f, 0.05f } ); // Deep Red
-        matRed->setMetallic( 0.0f );                 // Plastic/Dielectric
-        matRed->setRoughness( 0.05f );               // Very glossy (Sharp reflections)
+        matRed->setAlbedoTexture( albedoTexHandle2 );
+        matRed->setMetallic( 0.0f );  // Plastic/Dielectric
+        matRed->setRoughness( 0.8f ); // Very glossy (Sharp reflections)
 
         auto matChromeH = assets.material( "ChromeBlue" ).create<Core::Assets::StandardPBRMaterial>();
         auto matChrome  = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matChromeH );
@@ -66,7 +69,7 @@ int main( /*int argc, char* argv[]*/ ) {
         // Material 4: Grey Rubber/Matte (For the Cube) - Rough
         auto matRubberH = assets.material( "Rubber" ).create<Core::Assets::StandardPBRMaterial>();
         auto matRubber  = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matRubberH );
-        matRubber->setAlbedo( { 0.2f, 0.5f, 0.2f } ); // Dark Grey
+        matRubber->setAlbedoTexture( albedoTexHandle );
         matRubber->setMetallic( 0.0f );
         matRubber->setRoughness( 0.8f ); // Very matte, scatters light
 
@@ -158,12 +161,12 @@ int main( /*int argc, char* argv[]*/ ) {
                 elapsedSeconds = 0.0;
             }
 
-
             float rotSpeed = 0.5f; // Radians per second
             float step     = rotSpeed * dt;
 
             dragonEntity.getComponent<Core::Scene::TransformComponent>().rotate( { 0.0f, step, 0.0f } );
             ajaxEntity.getComponent<Core::Scene::TransformComponent>().rotate( { 0.0f, -step, 0.0f } );
+            sphereEntity.getComponent<Core::Scene::TransformComponent>().rotate( { 0.0f, -step, 0.0f } );
 
             wnd.update();
             rasterizer->render( scene, cameraEntity );

@@ -59,6 +59,8 @@ public:
     std::queue<PendingMeshFree>&       pendingMeshReleases() { return _pendingMeshReleases; }
     std::queue<PendingMaterialUpload>& pendingMaterialUploads() { return _pendingMtlUploads; }
     std::queue<PendingMaterialFree>&   pendingMaterialReleases() { return _pendingMtlReleases; }
+    std::queue<PendingTextureUpload>&  pendingTextureUploads() { return _pendingTextureUploads; }
+    std::queue<uint>&                  pendingTextureReleases() { return _pendingTextureReleases; }
 
     struct SortKey {
         ulong key;
@@ -149,6 +151,7 @@ private:
     std::queue<PendingMaterialUpload> _pendingMtlUploads;
     std::queue<PendingMaterialFree>   _pendingMtlReleases;
     std::queue<PendingTextureUpload>  _pendingTextureUploads;
+    std::queue<uint>                  _pendingTextureReleases;
 
     // -- State --
     bool  _forceRaytrace     = false;

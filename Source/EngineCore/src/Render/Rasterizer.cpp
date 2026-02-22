@@ -114,6 +114,8 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                       deltaTime,
                       updateFlags );
 
+    _res.textureHandles.resize( _gpuScene.textures().size() );
+
     auto& currentFrameRes = _res.frame[_rnd->getCurrentFrameIndex()];
     currentFrameRes.uboAllocator.reset();
     currentFrameRes.ssboAllocator.reset();
@@ -140,6 +142,11 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         upConfig.indexAllocator    = &_res.indexAllocator;
         upConfig.matAllocator      = &_res.mtlAllocator;
         upConfig.maxAllocationSize = _settings.memory.uploadBufferSize;
+
+        upConfig.mtlTextureHandles = &_res.textureHandles;
+
+        for ( uint i = 0; i < _framesInFlight; ++i )
+            upConfig.allPersistentSets.push_back( _res.frame[i].persistentDescriptorSetPtr );
 
         _passes.getPass<UploadPass>()->addToGraph( builder, upConfig );
 

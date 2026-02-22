@@ -274,10 +274,11 @@ uint GPUScene::processTexture( const Axion::Core::Assets::AssetManager* assets, 
 
         _textureCache.cache[gpuCacheIndex].valid           = false;
         _textureCache.cache[gpuCacheIndex].originalAssetID = cpuAssetID;
+        // _textureCache.cache[gpuCacheIndex].slot            = gpuCacheIndex;
     }
 
     auto& gpuTex         = _textureCache.cache[gpuCacheIndex];
-    gpuTex.lastFrameUsed = _currentFrameIndex; 
+    gpuTex.lastFrameUsed = _currentFrameIndex;
 
     if ( !gpuTex.valid )
     {
@@ -495,11 +496,11 @@ void GPUScene::runGC() {
 }
 
 bool GPUScene::hasPendingUploads() const {
-    return !_pendingMeshUploads.empty() || !_pendingMtlUploads.empty();
+    return !_pendingMeshUploads.empty() || !_pendingMtlUploads.empty() || !_pendingTextureUploads.empty();
 }
 
 bool GPUScene::hasPendingReleases() const {
-    return !_pendingMeshReleases.empty() || !_pendingMtlReleases.empty();
+    return !_pendingMeshReleases.empty() || !_pendingMtlReleases.empty() || !_pendingTextureReleases.empty();
 }
 
 } // namespace Core::Render

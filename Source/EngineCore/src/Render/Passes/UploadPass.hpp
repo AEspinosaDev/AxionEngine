@@ -21,8 +21,11 @@ public:
         Graphics::RHI::FreeListAllocator* indexAllocator  = nullptr;
         Graphics::RHI::FreeListAllocator* matAllocator    = nullptr;
 
-        GPUScene* gpuScene          = nullptr;
-        ulong     maxAllocationSize = 0;
+        std::vector<Graphics::RHI::IDescriptorSet*> allPersistentSets;
+
+        std::vector<Graphics::TextureHandle>* mtlTextureHandles = nullptr;
+        GPUScene*                             gpuScene          = nullptr;
+        ulong                                 maxAllocationSize = 0;
     };
 
     void registerShaders( Graphics::IShaderRegistry& shaders ) override { /*NO OP*/ }
@@ -196,9 +199,70 @@ private:
     }
 
     void processTextures( const Config& data, Graphics::RenderPassContext& ctx, uint& totalUsedSpace ) {
-        // TBD: Logic for Texture Copy & GC
+
+        auto* cmd       = ctx.cmd;
+        auto& scene     = *data.gpuScene;
+        auto* allocator = ctx.transAllocator;
+
+        auto& uploadQueue = scene.pendingTextureUploads();
+        while ( !uploadQueue.empty() )
+        {
+            auto& nextUpload = uploadQueue.front();
+
+            size_t pixelSize = 0;
+            if ( nextUpload.pixels )
+            {
+                if ( std::holds_alternative<std::vector<uchar>>( *nextUpload.pixels ) )
+                    pixelSize = std::get<std::vector<uchar>>( *nextUpload.pixels ).size() * sizeof( uchar );
+                else if ( std::holds_alternative<std::vector<float>>( *nextUpload.pixels ) )
+                    pixelSize = std::get<std::vector<float>>( *nextUpload.pixels ).size() * sizeof( float );
+            }
+
+            uint requiredSpace = (uint)pixelSize + D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT;
+
+            if ( totalUsedSpace + requiredSpace > (uint)data.maxAllocationSize )
+                break;
+
+            auto uploadEntry = std::move( uploadQueue.front() );
+            uploadQueue.pop();
+
+            auto& gpuTex = scene.textures()[uploadEntry.slot];
+
+            if ( pixelSize > 0 )
+            {
+                const void* pixelData = nullptr;
+                if ( std::holds_alternative<std::vector<uchar>>( *uploadEntry.pixels ) )
+                    pixelData = std::get<std::vector<uchar>>( *uploadEntry.pixels ).data();
+                else if ( std::holds_alternative<std::vector<float>>( *uploadEntry.pixels ) )
+                    pixelData = std::get<std::vector<float>>( *uploadEntry.pixels ).data();
+
+                if ( pixelData != nullptr )
+                {
+                    // Create texture
+                    ( *data.mtlTextureHandles )[uploadEntry.slot] = ctx.resources.texture( uploadEntry.name )
+                                                                        .extent( uploadEntry.extent )
+                                                                        .format( uploadEntry.format )
+                                                                        .create();
+
+                    auto* tex = ctx.resources.getTexture( ( *data.mtlTextureHandles )[uploadEntry.slot] );
+
+                    // Upload
+                    cmd->barrier( tex, Graphics::RHI::ResourceState::CopyDest );
+                    cmd->uploadTexture( tex, pixelData, allocator, 0, 0, Graphics::RHI::BarrierPolicy::None );
+                    cmd->barrier( tex, Graphics::RHI::ResourceState::ShaderResource );
+
+                    gpuTex.slot = uploadEntry.slot;
+                    totalUsedSpace += requiredSpace;
+
+                    // Update bindless slots
+                    for ( auto* pSet : data.allPersistentSets )
+                    {
+                        pSet->attachBindless( 3, uploadEntry.slot, tex, Graphics::RHI::ResourceState::ShaderResource );
+                    }
+                }
+            }
+        }
     }
 };
-
 } // namespace Core::Render
 AXION_NAMESPACE_END
