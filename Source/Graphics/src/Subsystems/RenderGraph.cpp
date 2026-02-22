@@ -72,6 +72,8 @@ RenderGraph::RenderGraph( RHI::IDevice* device, IGPUResourcePool& pool, IPipelin
         // Create Descriptor Heap
         RHI::DescriptorAllocatorDesc allocDesc;
         allocDesc.numDescriptors = desc.desciptorSetAllocSize;
+        allocDesc.numSamplers    = desc.descriptorMaxSamplers;
+        allocDesc.numViews       = desc.descriptorMaxViews;
         allocDesc.debugName      = "RG_Desc_Allocator_Frame_" + std::to_string( i );
         _descriptorAllocators.push_back( device->createDescriptorAllocator( allocDesc ) );
 
@@ -167,7 +169,7 @@ void RenderGraph::execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) 
                             *this,
                             _pipelines,
                             _pool };
-                            
+
     for ( const auto& pass : _passes )
     {
         // Call barriers
@@ -355,6 +357,11 @@ RHI::ITexture* RenderGraph::getPhysicalTexture( RGResourceHandle handle ) const 
         return _pool.getTexture( *h );
     else
         return nullptr;
+}
+
+RHI::IDescriptorAllocator* RenderGraph::getDescriptorAllocator( uint frameIndex ) {
+    AXION_LOG_ASSERT( frameIndex < _descriptorAllocators.size(), Logger::Module::RHI, "Trying to access null RG DescritporAllocator | Invalid frame number" );
+    return _descriptorAllocators[frameIndex].get();
 }
 
 void RenderGraph::setGarbageCollectionTTL( uint frames ) {

@@ -22,14 +22,16 @@ public:
     virtual IShaderRegistry&   shaders() override;
     virtual IPipelineRegistry& pipelines() override;
 
-    virtual IWindow*              getWindow() override;
-    virtual void                  setWindow( IWindow* wnd ) override;
-    virtual const Settings&       getSettings() const override;
-    virtual const RHI::DevicePtr& getDevice() const override;
-    virtual TextureHandle         getCurrentBackbufferHandle() const override;
-    virtual ulong                 getTotalFrameNumber() const override { return _frameNumber; }
-    virtual const uint            getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
-    virtual ulong                 getCurrentFrameIndex() const override;
+    virtual IWindow*        getWindow() override;
+    virtual void            setWindow( IWindow* wnd ) override;
+    virtual const Settings& getSettings() const override;
+    virtual TextureHandle   getCurrentBackbufferHandle() const override;
+    virtual ulong           getTotalFrameNumber() const override { return _frameNumber; }
+    virtual const uint      getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
+    virtual ulong           getCurrentFrameIndex() const override;
+
+    virtual const RHI::DevicePtr&      getDevice() const override;
+    virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( uint frameIndex ) override;
 
     virtual bool        isHeadless() override;
     virtual void        destroy() override;

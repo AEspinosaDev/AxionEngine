@@ -34,7 +34,8 @@ public:
     virtual IShaderRegistry&   shaders() override;
     virtual IPipelineRegistry& pipelines() override;
 
-    virtual const RHI::DevicePtr& getDevice() const override;
+    virtual const RHI::DevicePtr&      getDevice() const override;
+    virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( uint frameIndex ) override;
 
     virtual std::string toString() const override;
 

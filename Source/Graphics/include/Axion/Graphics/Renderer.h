@@ -28,6 +28,8 @@ public:
         ulong  RGAllocSize           = 1024 * 1024;       ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
         ulong  RGAllocSBTSize        = 1024 * 1024;       ///< Initial memory reservation for per-frame Shader Binding Tables data (1MB default).
         uint   RGDescriptorsPerFrame = 2048;              ///< Initial memory reservation for per-frame DescriptorSet data.
+        uint   RGMaxViewsPerFrame    = 256;               ///< Initial view count reservation for per-frame Descriptor Pools.
+        uint   RGMaxSamplersPerFrame = 128;               ///< Initial sampler count reservation for per-frame Descriptor Pools.
         ulong  RGTransientAllocSize  = 64 * 1024 * 1024;  ///< Initial memory reservation for per-frame transient upload sensible data (Useful for CPU-GPU data streaming) (64MB default).
         GCMode GCMode                = GCMode::AvgMemory; ///< Garbage Collection aggressiveness for transient resources.
         bool   autoSync              = true;              ///< Automatic Barrier Insertion by RenderGraph.
@@ -87,6 +89,10 @@ public:
 
     /// @brief Returns the low-level RHI Device. Use only for advanced/raw access.
     virtual const RHI::DevicePtr& getDevice() const = 0;
+
+    /// @brief Returns the low-level RHI DescriptorAllocator.
+    /// In case persistent descriptor sets have to be created before the render loop.
+    virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( uint frameIndex ) = 0;
 
     // -------------------------------------------------------------------------
     // LIFECYCLE

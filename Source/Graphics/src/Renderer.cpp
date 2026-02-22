@@ -55,6 +55,8 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
         .framesInFlight        = _FRAMES_IN_FLIGHT,
         .passDataAllocSize     = _setts.RGAllocSize,
         .desciptorSetAllocSize = _setts.RGDescriptorsPerFrame,
+        .descriptorMaxViews    = _setts.RGMaxViewsPerFrame,
+        .descriptorMaxSamplers = _setts.RGMaxSamplersPerFrame,
         .sbtAllocSize          = _setts.RGAllocSBTSize,
         .transientAllocSize    = _setts.RGTransientAllocSize,
         .resourceTTL           = (uint)_setts.GCMode,
@@ -128,6 +130,10 @@ IWindow* Renderer::getWindow() {
 
 const RHI::DevicePtr& Renderer::getDevice() const {
     return _device;
+}
+
+RHI::IDescriptorAllocator* Renderer::getFrameDescriptorAllocator( uint frameIndex ) {
+    return _renderGraph->getDescriptorAllocator( frameIndex );
 }
 
 TextureHandle Renderer::getCurrentBackbufferHandle() const {

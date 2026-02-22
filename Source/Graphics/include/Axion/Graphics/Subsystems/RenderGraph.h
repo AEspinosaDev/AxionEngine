@@ -130,8 +130,10 @@ public:
         uint  framesInFlight;
         ulong passDataAllocSize;
         uint  desciptorSetAllocSize;
-        ulong sbtAllocSize       = 0;
-        ulong transientAllocSize = 64 * 1024 * 1024;
+        uint  descriptorMaxViews    = 256;
+        uint  descriptorMaxSamplers = 64;
+        ulong sbtAllocSize          = 0;
+        ulong transientAllocSize    = 64 * 1024 * 1024;
         uint  resourceTTL;
         bool  autoSync = true;
     };
@@ -150,8 +152,9 @@ public:
 
     // -- Internal Access (Virtual) --
 
-    virtual RHI::IBuffer*  getPhysicalBuffer( RGResourceHandle handle ) const  = 0;
-    virtual RHI::ITexture* getPhysicalTexture( RGResourceHandle handle ) const = 0;
+    virtual RHI::IBuffer*              getPhysicalBuffer( RGResourceHandle handle ) const  = 0;
+    virtual RHI::ITexture*             getPhysicalTexture( RGResourceHandle handle ) const = 0;
+    virtual RHI::IDescriptorAllocator* getDescriptorAllocator( uint frameIndex )           = 0;
 
     /// @brief Sets the Time-To-Live for cached transient resources.
     virtual void setGarbageCollectionTTL( uint frames ) = 0;

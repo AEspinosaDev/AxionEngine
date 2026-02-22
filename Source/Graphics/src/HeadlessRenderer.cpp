@@ -92,6 +92,10 @@ const RHI::DevicePtr& HeadlessRenderer::getDevice() const {
     return _device;
 }
 
+RHI::IDescriptorAllocator* HeadlessRenderer::getFrameDescriptorAllocator( uint frameIndex ) {
+    return _renderGraph->getDescriptorAllocator( frameIndex );
+}
+
 std::string HeadlessRenderer::toString() const {
     return fmt::format(
         "Settings:\n"

@@ -10,6 +10,8 @@
 public ByteAddressBuffer gGlobalVertices : register( t0, space0 );
 public ByteAddressBuffer gGlobalIndices : register( t1, space0 );
 public ByteAddressBuffer gGlobalMaterials : register( t2, space0 );
+public Texture2D         gTextures[] : register( t3, space0 );
+public SamplerState      gSamplers[] : register( s0, space0 );
 
 // Space 1: Transient Hot (Per-Frame)
 public ConstantBuffer<FrameData>      gFrame : register( b0, space1 );

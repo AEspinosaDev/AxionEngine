@@ -17,8 +17,8 @@ struct MemoryBudget {
     ulong GPUCommandBuffersSize = 1024 * 1024;       ///< Initial memory reservation for per-frame Shader Binding Tables and Indirect Commands data (1MB default).
     ulong RGAllocSize           = 1024 * 1024;       ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
     uint  RGDescriptorsPerFrame = 2048;              ///< Initial memory reservation for per-frame DescriptorSet data.
-    uint  maxTextures           = 8192;              ///< Maximum number of persistent bindless textures.
-    uint  maxSamplers           = 128;               ///< Maximum number of unique bindless samplers.
+    uint  RGMaxViewsPerFrame    = 8192 + 256;        ///< Initial view count reservation for per-frame Descriptor Pools.
+    uint  RGMaxSamplersPerFrame = 128 + 4;           ///< Initial sampler count reservation for per-frame Descriptor Pools.
 };
 
 struct CommonSettings {
@@ -29,6 +29,9 @@ struct CommonSettings {
     Graphics::Format        backbufferFormat = Graphics::Format::RGBA8_UNORM;
     Graphics::GCMode        GCMode           = Graphics::GCMode::AvgMemory;
     uint                    selectedDeviceID = UINT32_MAX;
+
+    uint maxMtlTextures = 8192;
+    uint maxMtlSamplers = 128;
 };
 
 class IRenderer

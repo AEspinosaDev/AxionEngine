@@ -243,7 +243,7 @@ uint GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   asset
 
 uint GPUScene::processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle ) {
     if ( !cpuHandle.isValid() )
-        return 0;
+        return 0xFFFFFFFF;
 
     uint cpuAssetID    = cpuHandle.id;
     uint gpuCacheIndex = 0;

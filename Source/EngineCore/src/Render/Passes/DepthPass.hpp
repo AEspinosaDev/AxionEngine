@@ -4,7 +4,6 @@
 #include "../PassSystem.h"
 #include "Axion/Graphics/Subsystems/RenderGraph.h"
 
-
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
 
@@ -32,6 +31,8 @@ public:
         Graphics::RGResourceHandle inIndirectBufferHandle;
         Graphics::RGResourceHandle inCulledRedirectBufferHandle;
         bool                       useGPUCulling = false;
+
+        Graphics::RHI::IDescriptorSet* persistentDescriptorSet = nullptr;
 
         MaterialLibrary*               matLib;
         Graphics::PipelineLayoutHandle matLayoutHandle;
@@ -65,7 +66,7 @@ public:
 
 private:
     void execute( const Config& data, Graphics::RenderPassContext& ctx ) {
-        auto* cmd   = ctx.cmd;
+        auto* cmd = ctx.cmd;
 
         // RenderTargets
         auto* dsv = ctx.getTexture( data.outDepthHandle );
@@ -82,16 +83,8 @@ private:
         // -----------------------------------------------------
         // BINDING GLOBAL RESOURCES (Space 0 & 1)
         // -----------------------------------------------------
-        auto* vb   = ctx.getBuffer( data.inGlobalBufferHandles.vertex );
-        auto* ib   = ctx.getBuffer( data.inGlobalBufferHandles.index );
-        auto* mtlb = ctx.getBuffer( data.inGlobalBufferHandles.material );
 
-        // SPACE 0: Persistent Data
-        auto* set0 = ctx.allocateSet( matLayout, 0 );                          // Space 0
-        set0->attach( 0, vb, Graphics::RHI::ResourceState::ShaderResource );   // t0
-        set0->attach( 1, ib, Graphics::RHI::ResourceState::ShaderResource );   // t1
-        set0->attach( 2, mtlb, Graphics::RHI::ResourceState::ShaderResource ); // t2
-
+        auto* set0 = data.persistentDescriptorSet;
         cmd->bindDescriptorSet( 0, set0, matLayout );
 
         // SPACE 1: Volatile Data (Views into the giant UBO)
@@ -125,9 +118,9 @@ private:
         // -----------------------------------------------------
         const auto& matArchetypes = data.matLib->getArchetypesRaw();
 
+        auto* ib = ctx.getBuffer( data.inGlobalBufferHandles.index );
         cmd->bindIndexBuffer( ib );
         auto* indirectBuffer = data.useGPUCulling ? ctx.getBuffer( data.inIndirectBufferHandle ) : data.indirectData.commandBufferView.buffer;
-
 
         Graphics::PipelineHandle currentPsoHandle;
         for ( const auto& batch : data.indirectData.batches )

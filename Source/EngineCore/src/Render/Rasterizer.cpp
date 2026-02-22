@@ -25,10 +25,15 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
         .RGAllocSize           = settings.memory.RGAllocSize,
         .RGAllocSBTSize        = settings.memory.GPUCommandBuffersSize,
         .RGDescriptorsPerFrame = settings.memory.RGDescriptorsPerFrame,
+        .RGMaxViewsPerFrame    = settings.memory.RGMaxViewsPerFrame,
+        .RGMaxSamplersPerFrame = settings.memory.RGMaxSamplersPerFrame,
         .RGTransientAllocSize  = settings.memory.uploadBufferSize,
         .GCMode                = settings.common.GCMode,
         .autoSync              = true,
         .selectedDeviceID      = settings.common.selectedDeviceID };
+
+    const uint remainingVolatileViews = _settings.memory.RGMaxViewsPerFrame - settings.common.maxMtlTextures;
+    AXION_LOG_ASSERT( remainingVolatileViews >= 256, Logger::Module::RHI, "Volatile Views Count is critically low!" );
 
     _rnd = Graphics::createRenderer( wnd->getNativeWindow(), rndStts );
 
@@ -196,6 +201,8 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         dpConfig.inCulledRedirectBufferHandle = cullConfig.outCulledRedirectBufferHandle;
         dpConfig.useGPUCulling                = _settings.useGPUCulling;
 
+        dpConfig.persistentDescriptorSet = currentFrameRes.persistentDescriptorSetPtr;
+
         _passes.getPass<DepthPrePass>()->addToGraph( builder, dpConfig );
 
         //----------------------------
@@ -230,6 +237,8 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         fwConfig.inIndirectBufferHandle       = cullConfig.outIndirectBufferHandle;
         fwConfig.inCulledRedirectBufferHandle = cullConfig.outCulledRedirectBufferHandle;
         fwConfig.useGPUCulling                = _settings.useGPUCulling;
+
+        fwConfig.persistentDescriptorSet = currentFrameRes.persistentDescriptorSetPtr;
 
         _passes.getPass<ForwardPass>()->addToGraph( builder, fwConfig );
 
@@ -270,11 +279,11 @@ void Rasterizer::setupMaterialLibrary() {
     _globalMtlLayoutHandle = _rnd->pipelines().layout( "Global_Material_Layout" )
                                  // Space 0: Persistent (Geometry, Materials and Textures)
                                  .addSet( {
-                                     { 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                   // Vertex
-                                     { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                   // Index
-                                     { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                   // Materials
-                                    //  { 3, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, _settings.memory.maxTextures }, // Textures
-                                    //  { 4, Graphics::RHI::DescriptorType::Sampler, Graphics::RHI::ShaderStage::All, _settings.memory.maxSamplers }       // Samplers
+                                     { 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                      // Vertex
+                                     { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                      // Index
+                                     { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                      // Materials
+                                     { 3, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, _settings.common.maxMtlTextures }, // Textures
+                                     { 0, Graphics::RHI::DescriptorType::Sampler, Graphics::RHI::ShaderStage::All, _settings.common.maxMtlSamplers }       // Samplers
                                  } )
                                  // Space 1: Scene Data
                                  .addSet( {
@@ -367,7 +376,21 @@ void Rasterizer::createResources() {
                                .create();
     _res.mtlAllocator = Graphics::RHI::FreeListAllocator( r.getBuffer( _res.mtlBufferHandle ) );
 
-    // ----------------------- B. PER-FRAME BUFFERS (Volatile) -------------------
+    //------------------------- B. Fallback Resources -------------------
+
+    std::array<uchar, 4> fallbackPixels = { 255, 0, 255, 255 };
+    _res.fallbackTexture2DHandle        = r.texture( "FallbackTexture2D" )
+                                       .format( Graphics::Format::RGBA8_UNORM )
+                                       .extent( { 1, 1, 1 } )
+                                       .withData( fallbackPixels.data() )
+                                       .create();
+
+    _res.fallbackSamplerHandle = r.sampler( "FallbackSampler" ).create();
+
+    std::vector<Graphics::RHI::ITexture*> initialTextures( _settings.common.maxMtlTextures, r.getTexture( _res.fallbackTexture2DHandle ) );
+    std::vector<Graphics::RHI::ISampler*> initialSamplers( _settings.common.maxMtlSamplers, r.getSampler( _res.fallbackSamplerHandle ) );
+
+    // ----------------------- C. PER-FRAME BUFFERS (Volatile) -------------------
     _framesInFlight = _rnd->getTotalFramesInFlight();
     _res.frame.resize( _framesInFlight );
     for ( uint i = 0; i < _framesInFlight; ++i )
@@ -389,7 +412,7 @@ void Rasterizer::createResources() {
         ssboBuffer->map();
         _res.frame[i].ssboAllocator = Graphics::RHI::LinearAllocator( ssboBuffer );
 
-        // ----------------------- C. PER-FRAME INDIRECT RENDERING BUFFERS (Volatile) -------------------
+        // ----------------------- D. PER-FRAME INDIRECT RENDERING BUFFERS (Volatile) -------------------
         _res.frame[i].indirectStagingBufferHandle = r.buffer( "IndirectStagingCommandBuffer_" + std::to_string( i ) )
                                                         .size( _settings.memory.GPUCommandBuffersSize )
                                                         .onCPU()
@@ -415,6 +438,23 @@ void Rasterizer::createResources() {
                                                        .onGPU()
                                                        .asSSBO()
                                                        .create();
+
+        // ----------------------- E. PER-FRAME DESCRIPTOR SET (Persistent) -------------------
+        auto* frameDescriptorAllocator = _rnd->getFrameDescriptorAllocator( i );
+
+        auto* persistentSet = frameDescriptorAllocator->allocate( _rnd->pipelines().getLayout( _globalMtlLayoutHandle ), 0 );
+
+        // Attach core persistent buffers
+        persistentSet->attach( 0, r.getBuffer( _res.vertexBufferHandle ), Graphics::RHI::ResourceState::ShaderResource );
+        persistentSet->attach( 1, r.getBuffer( _res.indexBufferHandle ), Graphics::RHI::ResourceState::ShaderResource );
+        persistentSet->attach( 2, r.getBuffer( _res.mtlBufferHandle ), Graphics::RHI::ResourceState::ShaderResource );
+        persistentSet->attachBindlessArray( 3, 0, initialTextures, Graphics::RHI::ResourceState::ShaderResource );
+        persistentSet->attachBindlessArray( 0, 0, initialSamplers );
+
+        frameDescriptorAllocator->lockPersistent();
+
+        // Store Persistent Descriptor Set Ptr
+        _res.frame[i].persistentDescriptorSetPtr = persistentSet;
     }
 }
 

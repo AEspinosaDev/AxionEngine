@@ -24,6 +24,7 @@ public:
 
     RHI::IBuffer*  getPhysicalBuffer( RGResourceHandle handle ) const override;
     RHI::ITexture* getPhysicalTexture( RGResourceHandle handle ) const override;
+    RHI::IDescriptorAllocator* getDescriptorAllocator( uint frameIndex )  override;
 
     void setGarbageCollectionTTL( uint frames ) override;
     void setAutoSync( bool enable ) override;

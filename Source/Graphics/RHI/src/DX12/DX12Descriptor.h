@@ -67,10 +67,10 @@ public:
     void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<ITexture*>& textures, ResourceState bindingState ) override;
     void attachBindless( uint binding, uint arrayIndex, IBuffer* buf, ResourceState bindingState ) override;
     void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IBuffer*>& buffers, ResourceState bindingState ) override;
-    void attachBindless( uint binding, uint arrayIndex, ISampler* samp, ResourceState bindingState ) override;
-    void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<ISampler*>& samplers, ResourceState bindingState ) override;
-    void attachBindless( uint binding, uint arrayIndex, IAccel* accel, ResourceState bindingState ) override;
-    void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IAccel*>& accels, ResourceState bindingState ) override;
+    void attachBindless( uint binding, uint arrayIndex, ISampler* samp ) override;
+    void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<ISampler*>& samplers ) override;
+    void attachBindless( uint binding, uint arrayIndex, IAccel* accel ) override;
+    void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IAccel*>& accels ) override;
 
     void               setDebugName( const std::string& name ) override;
     const std::string& getDebugName() const override;

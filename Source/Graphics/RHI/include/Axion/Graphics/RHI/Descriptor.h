@@ -40,10 +40,10 @@ public:
     virtual void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<ITexture*>& textures, ResourceState bindingState ) = 0;
     virtual void attachBindless( uint binding, uint arrayIndex, IBuffer* buf, ResourceState bindingState )                                     = 0;
     virtual void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IBuffer*>& buffers, ResourceState bindingState )   = 0;
-    virtual void attachBindless( uint binding, uint arrayIndex, ISampler* samp, ResourceState bindingState )                                   = 0;
-    virtual void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<ISampler*>& samplers, ResourceState bindingState ) = 0;
-    virtual void attachBindless( uint binding, uint arrayIndex, IAccel* accel, ResourceState bindingState )                                    = 0;
-    virtual void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IAccel*>& accels, ResourceState bindingState )     = 0;
+    virtual void attachBindless( uint binding, uint arrayIndex, ISampler* samp )                                                               = 0;
+    virtual void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<ISampler*>& samplers )                             = 0;
+    virtual void attachBindless( uint binding, uint arrayIndex, IAccel* accel )                                                                = 0;
+    virtual void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IAccel*>& accels )                                 = 0;
 };
 
 DEFINE_COM_PTR_FOR_TYPE( IDescriptorAllocator, DescriptorAllocator )

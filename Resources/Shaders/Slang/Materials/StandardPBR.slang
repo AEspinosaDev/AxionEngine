@@ -92,10 +92,18 @@ float4 psForward( VSOutput input )
     MaterialData       materialHeader = getMaterialData( input.materialID );
     StandardPBRPayload mat            = StandardPBRPayload.load( materialHeader.bufferOffset );
 
-    // Textures (TODO)
     float3 albedo    = mat.albedoFactor;
     float  roughness = mat.roughnessFactor;
     float  metallic  = mat.metallicFactor;
+
+    //Texture Fetch
+    SamplerState defaultSampler = gSamplers[0];
+    const uint INVALID_TEX = 0xFFFFFFFF;
+    if ( mat.albedoTexIndex != INVALID_TEX )
+    {
+        float4 albedoSample = gTextures[mat.albedoTexIndex].Sample( defaultSampler, input.uv );
+        albedo = albedoSample.rgb;
+    }
 
     // 3. Initialize BSDF
     float3 viewDir = gFrame.getCameraPos() - input.worldPos;
@@ -116,7 +124,7 @@ float4 psForward( VSOutput input )
         if ( !light.isActive )
             continue;
 
-        float3 L;
+        float3 L        = 0.0f;
         float3 radiance = evalLight( light, input.worldPos, L );
 
         if ( any( radiance > 0.0001 ) )
@@ -131,8 +139,8 @@ float4 psForward( VSOutput input )
     uint envCount = gFrame.getEnvCount();
     for ( uint i = 0; i < envCount; ++i )
     {
-        EnvData env = gEnvs[i];
-        float3 envIrradiance = evalEnviroment( env, N );
+        EnvData env           = gEnvs[i];
+        float3  envIrradiance = evalEnviroment( env, N );
 
         float3 kD_ambient     = ( 1.0 - metallic );
         float3 ambientDiffuse = kD_ambient * albedo * envIrradiance * mat.aoStrength;

@@ -350,7 +350,7 @@ void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex,
         1, &destStart, &destSize, (UINT)buffers.size(), srcHandles.data(), srcSizes.data(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::attachBindless( uint binding, uint arrayIndex, ISampler* samp, ResourceState bindingState ) {
+void DX12DescriptorSet::attachBindless( uint binding, uint arrayIndex, ISampler* samp ) {
     AXION_LOG_ASSERT( samp, Logger::Module::RHI, "Binding null sampler!" );
     auto* dxSamp = static_cast<DX12Sampler*>( samp );
 
@@ -363,7 +363,7 @@ void DX12DescriptorSet::attachBindless( uint binding, uint arrayIndex, ISampler*
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER );
 }
 
-void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<ISampler*>& samplers, ResourceState bindingState ) {
+void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<ISampler*>& samplers ) {
     if ( samplers.empty() )
         return;
 
@@ -386,7 +386,7 @@ void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex,
         1, &destStart, &destSize, (UINT)samplers.size(), srcHandles.data(), srcSizes.data(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER );
 }
 
-void DX12DescriptorSet::attachBindless( uint binding, uint arrayIndex, IAccel* accel, ResourceState bindingState ) {
+void DX12DescriptorSet::attachBindless( uint binding, uint arrayIndex, IAccel* accel) {
     AXION_LOG_ASSERT( accel, Logger::Module::RHI, "Binding null Accel!" );
     auto* dxAccel = static_cast<DX12Accel*>( accel );
 
@@ -399,7 +399,7 @@ void DX12DescriptorSet::attachBindless( uint binding, uint arrayIndex, IAccel* a
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IAccel*>& accels, ResourceState bindingState ) {
+void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IAccel*>& accels ) {
     if ( accels.empty() )
         return;
 
