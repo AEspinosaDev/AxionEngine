@@ -16,7 +16,8 @@
 
 <img width="75%" alt="Screenshot (253)" src="https://github.com/user-attachments/assets/6ae452b5-773d-42bf-a478-3de6bc0cd6f8" />
 <img width="75%" alt="image" src="https://github.com/user-attachments/assets/0abed45a-cfde-492f-afca-3f412a55e80e" />
-<img width="75%" alt="image" src="https://github.com/user-attachments/assets/1d928dbb-e802-4795-bf71-0427cd092708" />
+<img width="75%" alt="image" src="https://github.com/user-attachments/assets/26607d84-45ec-45a6-a8fc-5b3b2ac7817d" />
+
 
 <p><i> Top: Raster / Center: Real-Time Path-Tracing / Bottom: Custom Assets </i></p>
 </div>
@@ -517,6 +518,7 @@ int main() {
 #### Core Rastrerizer
 
 <img width="2947" height="1272" alt="rasterizer drawio" src="https://github.com/user-attachments/assets/a7314a09-e557-4e8f-8182-ddf104ff1a32" />
+
 
 
 
