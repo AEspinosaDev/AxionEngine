@@ -74,6 +74,10 @@ public:
         ComPtr<IDXGIAdapter4> adapter;
         ComPtr<ID3D12Device2> device;
 
+        // VM Allocator
+        ComPtr<D3D12MA::Allocator> allocator;
+
+        // Command Queues
         std::unique_ptr<Queue> primaryQueue;
         std::unique_ptr<Queue> computeQueue;
         std::unique_ptr<Queue> copyQueue;
@@ -86,8 +90,6 @@ public:
         DX12DescriptorHeap heapSamplers;
 
         UploadContext uploadContext = {};
-
-      
     };
 
 private:

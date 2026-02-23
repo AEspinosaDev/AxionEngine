@@ -16,6 +16,7 @@ struct ShaderModule {
     // For DX12 this should be a contiguous DXIL blob (VS/PS)
 };
 
+#pragma region Layout
 DEFINE_COM_PTR_FOR_TYPE( IPipelineLayout, PipelineLayout )
 
 class IPipelineLayout : public IResource
@@ -44,6 +45,8 @@ public:
 
 typedef IPipelineLayout::Description PipelineLayoutDesc;
 
+#pragma endregion
+#pragma region Graphic
 DEFINE_COM_PTR_FOR_TYPE( IGraphicPipeline, GraphicPipeline )
 
 struct VertexAttribute {
@@ -128,6 +131,9 @@ public:
 
 typedef IGraphicPipeline::Description GraphicPipelineDesc;
 
+
+#pragma endregion
+#pragma region Compute
 DEFINE_COM_PTR_FOR_TYPE( IComputePipeline, ComputePipeline )
 
 class IComputePipeline : public IResource
@@ -160,6 +166,8 @@ struct HitGroupDesc {
     bool isProcedural() const { return !intersectionShader.empty(); }
 };
 
+#pragma endregion
+#pragma region RTX
 class IRayTracingPipeline : public IResource
 {
 public:

@@ -17,6 +17,8 @@ using namespace Microsoft::WRL;
 #include <dxgidebug.h>
 #pragma comment( lib, "dxguid.lib" )
 
+#include <D3D12MemAlloc.h> 
+
 // Vulkan
 #include <vulkan/vulkan.h>
 // GLFW

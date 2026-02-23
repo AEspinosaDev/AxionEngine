@@ -62,13 +62,17 @@ DX12Texture::DX12Texture( const TextureDesc& desc, DX12Device::Context& ctx, con
         }
         pClearVal = &clearVal;
     }
+   
 
-    DX_CHECK( ctx.device->CreateCommittedResource(
-        &heapProps,
-        D3D12_HEAP_FLAG_NONE,
+    D3D12MA::ALLOCATION_DESC allocDesc = {};
+    allocDesc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
+
+    DX_CHECK( ctx.allocator->CreateResource(
+        &allocDesc,
         &dx12Desc,
         DX12Translator::get( initialState ),
         pClearVal,
+        &_allocation,
         IID_PPV_ARGS( &_resource ) ) );
 
     _stateTracker.setState( initialState );
@@ -315,14 +319,18 @@ DX12Buffer::DX12Buffer( const BufferDesc&    desc,
 
     auto resourceDesc = CD3DX12_RESOURCE_DESC::Buffer( desc.size, flags );
 
-    D3D12_RESOURCE_STATES dxInitState = DX12Translator::get( initialState );
-    DX_CHECK( ctx.device->CreateCommittedResource(
-        &heapProps,
-        D3D12_HEAP_FLAG_NONE,
+    
+    D3D12MA::ALLOCATION_DESC allocDesc = {};
+    allocDesc.HeapType = heapProps.Type;
+
+    DX_CHECK( ctx.allocator->CreateResource(
+        &allocDesc,
         &resourceDesc,
-        dxInitState,
+        DX12Translator::get( initialState ),
         nullptr,
+        &_allocation,
         IID_PPV_ARGS( &_resource ) ) );
+
 
     setDebugName( desc.debugName );
 

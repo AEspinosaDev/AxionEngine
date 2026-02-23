@@ -34,6 +34,7 @@ d3d12.lib
 d3dcompiler.lib
 user32.lib
 dxguid.lib
+D3D12MA
 # Vulkan
 # All include headers + vulkan.lib only
 Vulkan::Vulkan 

@@ -25,14 +25,15 @@ public:
         PresentMode   presentMode      = PresentMode::Vsync;    ///< Presentation mode (Vsync/Immediate/Mailbox).
         Format        backbufferFormat = Format::RGBA8_UNORM;   ///< Swapchain backbuffer format.
 
-        ulong  RGAllocSize           = 1024 * 1024;       ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
-        ulong  RGAllocSBTSize        = 1024 * 1024;       ///< Initial memory reservation for per-frame Shader Binding Tables data (1MB default).
-        uint   RGDescriptorsPerFrame = 2048;              ///< Initial memory reservation for per-frame DescriptorSet data.
-        uint   RGMaxViewsPerFrame    = 256;               ///< Initial view count reservation for per-frame Descriptor Pools.
-        uint   RGMaxSamplersPerFrame = 128;               ///< Initial sampler count reservation for per-frame Descriptor Pools.
-        ulong  RGTransientAllocSize  = 64 * 1024 * 1024;  ///< Initial memory reservation for per-frame transient upload sensible data (Useful for CPU-GPU data streaming) (64MB default).
-        GCMode GCMode                = GCMode::AvgMemory; ///< Garbage Collection aggressiveness for transient resources.
-        bool   autoSync              = true;              ///< Automatic Barrier Insertion by RenderGraph.
+        ulong  RGAllocSize           = 1024 * 1024;          ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
+        ulong  RGAllocSBTSize        = 1024 * 1024;          ///< Initial memory reservation for per-frame Shader Binding Tables data (1MB default).
+        uint   RGDescriptorsPerFrame = 2048;                 ///< Initial memory reservation for per-frame DescriptorSet data.
+        uint   RGMaxViewsPerFrame    = 256;                  ///< Initial view count reservation for per-frame Descriptor Pools.
+        uint   RGMaxSamplersPerFrame = 128;                  ///< Initial sampler count reservation for per-frame Descriptor Pools.
+        ulong  RGTransientAllocSize  = 64 * 1024 * 1024;     ///< Initial memory reservation for per-frame transient upload sensible data (Useful for CPU-GPU data streaming) (64MB default).
+        ulong  vramBlockSize         = 512ull * 1024 * 1024; ///< Preferred VRAM block size for the global allocator.
+        GCMode GCMode                = GCMode::AvgMemory;    ///< Garbage Collection aggressiveness for transient resources.
+        bool   autoSync              = true;                 ///< Automatic Barrier Insertion by RenderGraph.
 
         uint selectedDeviceID = UINT32_MAX; ///<  Index of the GPU adapter to use. Set to UINT32_MAX for auto-selection (best dedicated GPU).
     };

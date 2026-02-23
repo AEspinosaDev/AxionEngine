@@ -45,6 +45,25 @@ DX12Device::DX12Device( const IDX12Device::Description& desc ) {
         _ctx.heapSamplers.init( _ctx.device.Get(), DX12DescriptorHeap::Type::Sampler, desc.samplerHeapSize );
 
         _ctx.uploadContext.init( _ctx.device );
+
+        D3D12MA::ALLOCATOR_DESC allocatorDesc = {};
+        allocatorDesc.pDevice                 = _ctx.device.Get();
+        allocatorDesc.pAdapter                = _ctx.adapter.Get();
+
+        allocatorDesc.PreferredBlockSize = desc.vramBlockSize;
+
+        allocatorDesc.Flags = static_cast<D3D12MA::ALLOCATOR_FLAGS>(
+            D3D12MA::ALLOCATOR_FLAG_MSAA_TEXTURES_ALWAYS_COMMITTED |
+            D3D12MA::ALLOCATOR_FLAG_DEFAULT_POOLS_NOT_ZEROED );
+
+        D3D12MA::Allocator* rawAllocator = nullptr;
+        HRESULT             hr           = D3D12MA::CreateAllocator( &allocatorDesc, &rawAllocator );
+        if ( FAILED( hr ) )
+        {
+            AXION_LOG_ERROR( Logger::Module::RHI, "Failed to create D3D12MA Global VRAM Allocator for DX12 Device [{}]", desc.debugName );
+            throw AxionException( "Failed to create D3D12MA Global VRAM Allocator for DX12 Device" );
+        }
+        _ctx.allocator.Attach( rawAllocator );
     }
 
     _initialized = true;

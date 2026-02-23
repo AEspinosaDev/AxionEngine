@@ -44,7 +44,8 @@ private:
     TextureDesc          _desc;
     ResourceStateTracker _stateTracker;
 
-    ComPtr<ID3D12Resource> _resource;
+    ComPtr<ID3D12Resource>      _resource;
+    ComPtr<D3D12MA::Allocation> _allocation;
 
     // CPU handles for views
     D3D12_CPU_DESCRIPTOR_HANDLE _srvHandle = {};
@@ -93,7 +94,8 @@ private:
     BufferDesc           _desc {};
     ResourceStateTracker _stateTracker;
 
-    ComPtr<ID3D12Resource> _resource;
+    ComPtr<D3D12MA::Allocation> _allocation;
+    ComPtr<ID3D12Resource>      _resource;
 
     // CPU descriptor handles
     D3D12_CPU_DESCRIPTOR_HANDLE _srvHandle = {};

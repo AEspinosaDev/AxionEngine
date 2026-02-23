@@ -98,6 +98,9 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/stb_image)
 # GEOMETRY LOADERS 
 # ----------------------------------------------------------------------------
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/tiny_obj_loader)
-
+# ----------------------------------------------------------------------------
+# D3D12 VMA 
+# ----------------------------------------------------------------------------
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/D3D12MemoryAllocator)
 
 unset(CMAKE_FOLDER)

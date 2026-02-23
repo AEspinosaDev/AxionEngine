@@ -60,6 +60,7 @@ int main( /*int argc, char* argv[]*/ ) {
         matRed->setMetallic( 0.0f );  // Plastic/Dielectric
         matRed->setRoughness( 0.8f ); // Very glossy (Sharp reflections)
 
+        
         auto matChromeH = assets.material( "ChromeBlue" ).create<Core::Assets::StandardPBRMaterial>();
         auto matChrome  = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matChromeH );
         matChrome->setAlbedo( { 0.3f, 0.5f, 1.0f } ); // Light Blue Tint
