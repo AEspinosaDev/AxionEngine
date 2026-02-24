@@ -113,9 +113,8 @@ struct GPUTexture {
 
 // Order: "Please upload this raw CPU data to VRAM and tell me the offsets"
 struct PendingMeshUpload {
-    uint                        GPUMeshID; // Destination Slot in _meshCache
-    std::vector<Assets::Vertex> vertices;  // Raw data copy (safe against asset unloading)
-    std::vector<uint>           indices;
+    uint                                  GPUMeshID;    // Destination Slot in _meshCache
+    std::shared_ptr<Assets::GeometryData> geometryData; // Optional meshlet data for AS-capable meshes
 };
 
 // Order: "This slot is empty, please mark this VRAM region as free"

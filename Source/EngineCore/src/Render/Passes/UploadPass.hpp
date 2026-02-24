@@ -78,18 +78,18 @@ private:
             auto& gpuMesh = scene.meshes()[uploadEntry.GPUMeshID];
 
             // A. Vertices
-            auto vertexBufferView = data.vertexAllocator->allocate<Assets::Vertex>( uploadEntry.vertices.size() );
+            auto vertexBufferView = data.vertexAllocator->allocate<Assets::Vertex>( uploadEntry.geometryData->vertices.size() );
             if ( vertexBufferView.size > 0 )
             {
-                cmd->uploadBuffer( vb, uploadEntry.vertices.data(), vertexBufferView.size, vertexBufferView.offset, allocator, Graphics::RHI::BarrierPolicy::None );
+                cmd->uploadBuffer( vb,  uploadEntry.geometryData->vertices.data(), vertexBufferView.size, vertexBufferView.offset, allocator, Graphics::RHI::BarrierPolicy::None );
                 gpuMesh.vertexOffset = (uint)vertexBufferView.offset;
             }
 
             // B. Indices
-            auto indexBufferView = data.indexAllocator->allocate<uint>( uploadEntry.indices.size() );
+            auto indexBufferView = data.indexAllocator->allocate<uint>( uploadEntry.geometryData->indices.size() );
             if ( indexBufferView.size > 0 )
             {
-                cmd->uploadBuffer( ib, uploadEntry.indices.data(), indexBufferView.size, indexBufferView.offset, allocator, Graphics::RHI::BarrierPolicy::None );
+                cmd->uploadBuffer( ib, uploadEntry.geometryData->indices.data(), indexBufferView.size, indexBufferView.offset, allocator, Graphics::RHI::BarrierPolicy::None );
                 gpuMesh.indexOffset = (uint)indexBufferView.offset;
             }
 

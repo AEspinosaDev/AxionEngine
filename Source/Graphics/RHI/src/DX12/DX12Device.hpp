@@ -24,6 +24,7 @@ public:
     GraphicPipelinePtr    createGraphicPipeline( const GraphicPipelineDesc& desc ) override;
     ComputePipelinePtr    createComputePipeline( const ComputePipelineDesc& desc ) override;
     RayTracingPipelinePtr createRayTracingPipeline( const RayTracingPipelineDesc& desc ) override;
+    MeshPipelinePtr       createMeshPipeline( const MeshPipelineDesc& desc ) override;
 
     DescriptorAllocatorPtr createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) override;
     SBTAllocatorPtr        createSBTAllocator( const SBTAllocatorDesc& desc ) override;

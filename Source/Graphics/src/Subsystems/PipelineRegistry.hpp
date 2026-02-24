@@ -18,11 +18,13 @@ public:
     GraphicBuilder    graphic( const std::string& name ) override { return GraphicBuilder( *this, name ); }
     ComputeBuilder    compute( const std::string& name ) override { return ComputeBuilder( *this, name ); }
     RayTracingBuilder raytracing( const std::string& name ) override { return RayTracingBuilder( *this, name ); }
+    MeshBuilder       mesh( const std::string& name ) override { return MeshBuilder( *this, name ); }
     LayoutBuilder     layout( const std::string& name ) override { return LayoutBuilder( *this, name ); }
 
     RHI::IGraphicPipeline*    getGraphicPipeline( PipelineHandle handle ) override;
     RHI::IComputePipeline*    getComputePipeline( PipelineHandle handle ) override;
     RHI::IRayTracingPipeline* getRaytracingPipeline( PipelineHandle handle ) override;
+    RHI::IMeshPipeline*       getMeshPipeline( PipelineHandle handle ) override;
     RHI::IPipelineLayout*     getLayout( PipelineLayoutHandle handle ) override;
 
     std::optional<PipelineHandle>       findPipeline( const std::string& name ) const override;
@@ -40,9 +42,11 @@ private:
     PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, ShaderHandle shaderHandle ) override;
     PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, ShaderHandle shaderHandle ) override;
     PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, ShaderHandle shaderHandle ) override;
+    PipelineHandle createMesh( RHI::MeshPipelineDesc& desc, ShaderHandle shaderHandle ) override;
     PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName ) override;
     PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName ) override;
     PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) override;
+    PipelineHandle createMesh( RHI::MeshPipelineDesc& desc, const std::string& shaderName ) override;
 
     PipelineLayoutHandle createLayout( const RHI::PipelineLayoutDesc& desc ) override;
 
@@ -56,7 +60,8 @@ private:
         std::variant<std::monostate,
                      RHI::GraphicPipelinePtr,
                      RHI::ComputePipelinePtr,
-                     RHI::RayTracingPipelinePtr>
+                     RHI::RayTracingPipelinePtr,
+                     RHI::MeshPipelinePtr>
                                pipeline;
         RHI::PipelineLayoutPtr layoutOwner = nullptr;
     };

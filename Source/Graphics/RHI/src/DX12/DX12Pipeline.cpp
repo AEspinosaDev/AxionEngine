@@ -642,6 +642,114 @@ void DX12RayTracingPipeline::createStateObject( const ComPtr<ID3D12Device5>& dev
     DX_CHECK( _so->QueryInterface( IID_PPV_ARGS( &_props ) ) );
 }
 
+DX12MeshPipeline::DX12MeshPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc ) {
+    const ShaderModule* msModule = nullptr;
+    for ( const auto& m : desc.shaderModules )
+    {
+        if ( m.type == ShaderType::Mesh )
+            msModule = &m;
+    }
+
+    AXION_LOG_ASSERT( msModule, Logger::Module::RHI, "DX12 Mesh Pipeline [{}] requires at least a MS module.", _desc.debugName );
+
+    createPipelineState( device );
+    setDebugName( _desc.debugName );
+
+    AXION_LOG_INFO( Logger::Module::RHI, "DX12 Mesh Pipeline [{}] created", _desc.debugName );
+}
+
+DX12MeshPipeline::~DX12MeshPipeline() {
+    AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Mesh Pipeline [{}]", _desc.debugName );
+}
+
+void DX12MeshPipeline::setDebugName( const std::string& name ) {
+    _desc.debugName = name;
+    _pso->SetName( std::wstring( name.begin(), name.end() ).c_str() );
+}
+
+NativeObject DX12MeshPipeline::getNativeObject( ObjectType objectType ) {
+    switch ( objectType )
+    {
+        case ObjectTypes::DX12_PipelineState:
+            return NativeObject( objectType, _pso.Get() );
+        case ObjectTypes::DX12_RootSignature:
+            return NativeObject( objectType, _desc.layout->getNativeObject( ObjectTypes::DX12_RootSignature ) );
+        default:
+            AXION_LOG_ERROR( Logger::Module::RHI, "DX12 Mesh Pipeline | Wrong Object Type" );
+            return nullptr;
+    }
+}
+
+std::string DX12MeshPipeline::toString() const {
+    return fmt::format( "DX12MeshPipeline: {}", _desc.debugName );
+}
+
+void DX12MeshPipeline::createPipelineState( const ComPtr<ID3D12Device2>& device ) {
+    MeshPipelineStateStream stream = {};
+
+    AXION_LOG_ASSERT( _desc.layout, Logger::Module::RHI, "Fatal | No layout defined for Mesh Pipeline [{}]", _desc.debugName );
+    stream.pRootSignature = _desc.layout->getNativeObject( ObjectTypes::DX12_RootSignature );
+
+    for ( const auto& m : _desc.shaderModules )
+    {
+        D3D12_SHADER_BYTECODE bytecode = { m.code, m.codeSize };
+        if ( m.type == ShaderType::Mesh )
+            stream.MS = bytecode;
+        else if ( m.type == ShaderType::Pixel )
+            stream.PS = bytecode;
+        else if ( m.type == ShaderType::Amplification )
+            stream.AS = bytecode;
+    }
+
+    D3D12_RASTERIZER_DESC rast = CD3DX12_RASTERIZER_DESC( D3D12_DEFAULT );
+    rast.FillMode              = DX12Translator::get( _desc.rasterizerState.fillMode );
+    rast.CullMode              = DX12Translator::get( _desc.rasterizerState.cullMode );
+    rast.FrontCounterClockwise = _desc.rasterizerState.frontCounterClockwise;
+    rast.DepthClipEnable       = _desc.rasterizerState.depthClipEnable;
+    rast.MultisampleEnable     = _desc.rasterizerState.multisampleEnable;
+    stream.RasterizerState     = CD3DX12_RASTERIZER_DESC( rast );
+
+    CD3DX12_BLEND_DESC blend( D3D12_DEFAULT );
+    for ( size_t i = 0; i < _desc.blendState.attachments.size() && i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; ++i )
+    {
+        const auto& a             = _desc.blendState.attachments[i];
+        auto&       dst           = blend.RenderTarget[i];
+        dst.BlendEnable           = a.blendEnable;
+        dst.RenderTargetWriteMask = a.writeMask;
+        dst.SrcBlend              = DX12Translator::get( a.srcColor );
+        dst.DestBlend             = DX12Translator::get( a.dstColor );
+        dst.BlendOp               = DX12Translator::get( a.colorOp );
+        dst.SrcBlendAlpha         = DX12Translator::get( a.srcAlpha );
+        dst.DestBlendAlpha        = DX12Translator::get( a.dstAlpha );
+        dst.BlendOpAlpha          = DX12Translator::get( a.alphaOp );
+    }
+    stream.BlendState = blend;
+
+    CD3DX12_DEPTH_STENCIL_DESC ds( D3D12_DEFAULT );
+    ds.DepthEnable           = _desc.depthStencilState.depthEnable;
+    ds.DepthWriteMask        = _desc.depthStencilState.depthWriteMask ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
+    ds.DepthFunc             = DX12Translator::get( _desc.depthStencilState.depthFunc );
+    stream.DepthStencilState = ds;
+
+    D3D12_RT_FORMAT_ARRAY rtvFormats = {};
+    rtvFormats.NumRenderTargets      = (UINT)_desc.renderTargetFormats.size();
+    for ( size_t i = 0; i < _desc.renderTargetFormats.size(); ++i )
+    {
+        rtvFormats.RTFormats[i] = DX12Translator::get( _desc.renderTargetFormats[i] );
+    }
+    stream.RTVFormats = rtvFormats;
+    stream.DSVFormat  = DX12Translator::get( _desc.depthStencilFormat );
+
+    DXGI_SAMPLE_DESC sampleDesc = {};
+    sampleDesc.Count            = _desc.sampleCount;
+    sampleDesc.Quality          = 0;
+    stream.SampleDesc           = sampleDesc;
+
+    D3D12_PIPELINE_STATE_STREAM_DESC streamDesc = { sizeof( MeshPipelineStateStream ), &stream };
+
+    DX_CHECK( device->CreatePipelineState( &streamDesc, IID_PPV_ARGS( &_pso ) ) );
+}
+
 } // namespace Graphics::RHI
 
 AXION_NAMESPACE_END

@@ -106,9 +106,9 @@ private:
                               const std::vector<Vertex>&  vertices,
                               const std::vector<uint>&    indices  = {},
                               Graphics::PrimitiveTopology topology = Graphics::PrimitiveTopology::TriangleList );
-    MeshHandle    createQuad( const std::string& name, uint subdivisions = 0 );
-    MeshHandle    createCube( const std::string& name );
-    MeshHandle    createSphere( const std::string& name, uint segments = 32 );
+    MeshHandle    createQuad( const std::string& name, uint subdivisions = 0, bool asMeshlet = false );
+    MeshHandle    createCube( const std::string& name, bool asMeshlet = false );
+    MeshHandle    createSphere( const std::string& name, uint segments = 32, bool asMeshlet = false );
     TextureHandle importTexture( const std::string& name, const std::string& filepath, TextureImportFlags flags );
     TextureHandle createTexture( const std::string&                                          name,
                                  const Extent3D&                                             size,
@@ -153,6 +153,8 @@ public:
     /// @brief Imports a mesh from a file on disk (OBJ, GLTF, etc).
     MeshHandle import( const std::string& path,
                        MeshImportFlags    flags = MeshImportComputeBounds | MeshImportComputeTangents ) {
+        if ( _asMeshlet )
+            flags |= MeshImportAsMeshlet;
         return _manager.importMesh( _name, path, flags );
     }
 
@@ -176,9 +178,16 @@ public:
         return _manager.createMesh( _name, vertices, indices );
     }
 
+    /// @brief Flags the builder to process the geometry into Meshlets.
+    MeshBuilder& asMeshlet( bool value = true ) {
+        _asMeshlet = value;
+        return *this;
+    }
+
 private:
     AssetManager& _manager;
     std::string   _name;
+    bool          _asMeshlet = false;
 };
 
 /// @brief Fluent builder for configuring and creating Textures.

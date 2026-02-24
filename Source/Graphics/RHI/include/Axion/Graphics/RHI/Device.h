@@ -55,10 +55,11 @@ public:
     // PIPELINE CREATION
     // -------------------------------------------------------------------------
 
-    virtual PipelineLayoutPtr     createPipelineLayout( const PipelineLayoutDesc& desc )     = 0;
-    virtual GraphicPipelinePtr    createGraphicPipeline( const GraphicPipelineDesc& desc )   = 0;
-    virtual ComputePipelinePtr    createComputePipeline( const ComputePipelineDesc& desc )   = 0;
+    virtual PipelineLayoutPtr     createPipelineLayout( const PipelineLayoutDesc& desc )         = 0;
+    virtual GraphicPipelinePtr    createGraphicPipeline( const GraphicPipelineDesc& desc )       = 0;
+    virtual ComputePipelinePtr    createComputePipeline( const ComputePipelineDesc& desc )       = 0;
     virtual RayTracingPipelinePtr createRayTracingPipeline( const RayTracingPipelineDesc& desc ) = 0;
+    virtual MeshPipelinePtr       createMeshPipeline( const MeshPipelineDesc& desc )             = 0;
 
     // -------------------------------------------------------------------------
     // ALLOCATORS

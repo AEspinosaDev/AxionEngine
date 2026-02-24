@@ -25,6 +25,8 @@ DX12CommandList::DX12CommandList( const ComPtr<ID3D12Device2>& device,
 
     if ( FAILED( _cmdList->QueryInterface( IID_PPV_ARGS( &_cmdList4 ) ) ) )
         _cmdList4 = nullptr;
+    if ( FAILED( _cmdList->QueryInterface( IID_PPV_ARGS( &_cmdList6 ) ) ) )
+        _cmdList6 = nullptr;
 
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 Command List [{}] created", _desc.debugName );
 }
@@ -34,6 +36,11 @@ DX12CommandList::~DX12CommandList() {
     {
         _cmdList4->Release();
         _cmdList4 = nullptr;
+    }
+    if ( _cmdList6 )
+    {
+        _cmdList6->Release();
+        _cmdList6 = nullptr;
     }
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Command List [{}]", _desc.debugName );
 }
@@ -234,7 +241,6 @@ void DX12CommandList::uploadTexture( ITexture* dst, const void* data, ITransient
     const uchar* src         = static_cast<const uchar*>( data );
     uint         width       = desc.Width;
 
-  
     for ( uint row = 0; row < numRows; ++row )
     {
         memcpy(
@@ -456,6 +462,26 @@ void DX12CommandList::bindRaytracingPipeline( IRayTracingPipeline* pipeline ) {
     _bindPoint = PipelineBindPoint::RTX;
 }
 
+void DX12CommandList::bindMeshPipeline( IMeshPipeline* pipeline ) {
+    AXION_LOG_ASSERT( pipeline, Logger::Module::RHI, "Binding NULL Mesh Pipeline" );
+
+    auto* dxPipeline = static_cast<DX12MeshPipeline*>( pipeline );
+    _cmdList->SetPipelineState( dxPipeline->getNativeObject( ObjectTypes::DX12_PipelineState ) );
+
+    auto* newLayout = pipeline->getDescription().layout;
+
+    if ( _currentLayout != newLayout || _bindPoint != PipelineBindPoint::Graphic )
+    {
+        _currentLayout = newLayout;
+
+        auto* dxLayout = static_cast<DX12PipelineLayout*>( newLayout );
+        _cmdList->SetGraphicsRootSignature( static_cast<ID3D12RootSignature*>(
+            dxLayout->getNativeObject( ObjectTypes::DX12_RootSignature ) ) );
+    }
+
+    _bindPoint = PipelineBindPoint::Graphic;
+}
+
 void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set ) {
     AXION_LOG_ASSERT( set, Logger::Module::RHI, "Binding NULL Descriptor Set" );
 
@@ -575,6 +601,11 @@ void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set, IPi
 void DX12CommandList::dispatch( const Extent3D& gridSize ) {
     AXION_LOG_ASSERT( _bindPoint == PipelineBindPoint::Compute, Logger::Module::RHI, "Dispatch called without Compute Pipeline" );
     _cmdList->Dispatch( gridSize.width, gridSize.height, gridSize.depth );
+}
+
+void DX12CommandList::dispatchMesh( const Extent3D& gridSize ) {
+    AXION_LOG_ASSERT( _bindPoint == PipelineBindPoint::Graphic, Logger::Module::RHI, "DispatchMesh called without Graphic Pipeline" );
+    _cmdList6->DispatchMesh( gridSize.width, gridSize.height, gridSize.depth );
 }
 
 void DX12CommandList::dispatchRays( const SBT::View& sbtView, const Extent3D& screenSize ) {

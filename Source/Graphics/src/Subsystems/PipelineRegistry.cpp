@@ -255,6 +255,73 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
 
     return PipelineHandle { id };
 }
+PipelineHandle PipelineRegistry::createMesh( RHI::MeshPipelineDesc& desc, ShaderHandle shaderHandle ) {
+    std::scoped_lock lock( _mutex );
+
+    if ( auto it = _nameToHandle.find( desc.debugName ); it != _nameToHandle.end() )
+    {
+        AXION_LOG_WARN( Logger::Module::GFX, "Pipeline [{}] already exists.", desc.debugName );
+        return it->second;
+    }
+
+    const auto& shaderBundle = _shaderReg.getBundle( shaderHandle );
+
+    desc.shaderModules.clear();
+    desc.shaderModules.reserve( shaderBundle.stageBlobs.size() );
+    for ( const auto& blob : shaderBundle.stageBlobs )
+    {
+        desc.shaderModules.push_back( { .type       = blob.type, // Casting de Stage a Type
+                                        .code       = blob.code.data(),
+                                        .codeSize   = blob.code.size(),
+                                        .entryPoint = blob.entryPointName } );
+    }
+
+    RHI::PipelineLayoutPtr implicitLayoutOwner = nullptr;
+    if ( desc.layout != nullptr )
+    {
+        // Explicit
+    } else
+    {
+        implicitLayoutOwner = _device->createPipelineLayout( shaderBundle.layoutDesc );
+        desc.layout         = implicitLayoutOwner.get();
+    }
+
+    auto pipelinePtr = _device->createMeshPipeline( desc );
+    if ( !pipelinePtr )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Failed creation for Pipeline [{}]", desc.debugName );
+        return {};
+    }
+
+    uint id = UINT32_MAX;
+    for ( uint i = 0; i < _pipelines.size(); ++i )
+    {
+        if ( !_pipelines[i].alive )
+        {
+            id = i;
+            break;
+        }
+    }
+
+    if ( id == UINT32_MAX )
+    {
+        id = (uint)_pipelines.size();
+        _pipelines.emplace_back();
+    }
+
+    // Rellenar Record
+    auto& record       = _pipelines[id];
+    record.name        = desc.debugName;
+    record.alive       = true;
+    record.pipeline    = std::move( pipelinePtr );
+    record.layoutOwner = std::move( implicitLayoutOwner );
+
+    _nameToHandle[desc.debugName] = { id };
+
+    AXION_LOG_INFO( Logger::Module::GFX, "Registered Mesh Pipeline [{}]", desc.debugName );
+
+    return PipelineHandle { id };
+}
 PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) {
     auto shaderHandleOpt = _shaderReg.findShader( shaderName );
 
@@ -265,6 +332,18 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
     }
 
     return createRaytracing( desc, shaderHandleOpt.value() );
+}
+
+PipelineHandle PipelineRegistry::createMesh( RHI::MeshPipelineDesc& desc, const std::string& shaderName ) {
+    auto shaderHandleOpt = _shaderReg.findShader( shaderName );
+
+    if ( !shaderHandleOpt.has_value() )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Shader [{}] not found when creating Mesh pipeline [{}].", shaderName, desc.debugName );
+        return {};
+    }
+
+    return createMesh( desc, shaderHandleOpt.value() );
 }
 
 PipelineLayoutHandle PipelineRegistry::createLayout( const RHI::PipelineLayoutDesc& desc ) {
@@ -379,6 +458,31 @@ RHI::IRayTracingPipeline* PipelineRegistry::getRaytracingPipeline( PipelineHandl
     }
 
     auto* pipPtr = std::get_if<RHI::RayTracingPipelinePtr>( &record.pipeline );
+
+    if ( pipPtr )
+    {
+        return pipPtr->get();
+    }
+
+    return nullptr;
+}
+
+RHI::IMeshPipeline* PipelineRegistry::getMeshPipeline( PipelineHandle handle ) {
+    if ( handle.id >= _pipelines.size() )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Accessing invalid PipelineHandle ID: {}", handle.id );
+        return nullptr;
+    }
+
+    auto& record = _pipelines[handle.id];
+
+    if ( !record.alive )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Accessing dead PipelineHandle" );
+        return nullptr;
+    }
+
+    auto* pipPtr = std::get_if<RHI::MeshPipelinePtr>( &record.pipeline );
 
     if ( pipPtr )
     {

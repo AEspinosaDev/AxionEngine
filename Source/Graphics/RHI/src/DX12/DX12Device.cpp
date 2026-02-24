@@ -162,6 +162,13 @@ RayTracingPipelinePtr DX12Device::createRayTracingPipeline( const RayTracingPipe
     return pip;
 }
 
+MeshPipelinePtr DX12Device::createMeshPipeline( const MeshPipelineDesc& desc ) {
+    DX12MeshPipeline* raw = new DX12MeshPipeline( _ctx.device, desc );
+    MeshPipelinePtr   pip;
+    pip.attach( raw );
+    return pip;
+}
+
 DescriptorAllocatorPtr DX12Device::createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) {
     DX12DescriptorAllocator* raw = new DX12DescriptorAllocator( _ctx.device.Get(), desc );
     DescriptorAllocatorPtr   dAlloc;

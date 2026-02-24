@@ -99,6 +99,10 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/stb_image)
 # ----------------------------------------------------------------------------
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/tiny_obj_loader)
 # ----------------------------------------------------------------------------
+# MESH OPTIMIZER
+# ----------------------------------------------------------------------------
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/meshoptimizer)
+# ----------------------------------------------------------------------------
 # D3D12 VMA 
 # ----------------------------------------------------------------------------
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/D3D12MemoryAllocator)

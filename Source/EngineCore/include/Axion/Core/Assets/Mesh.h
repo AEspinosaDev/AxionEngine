@@ -18,6 +18,37 @@ struct Vertex {
     Math::Vec4 color;
 };
 
+// Meshlet metadata matching the GPU structure (Aligned to 48 bytes)
+struct Meshlet {
+    uint vertexOffset;
+    uint vertexCount;
+    uint triangleOffset;
+    uint triangleCount;
+
+    // Culling bounds
+    float center[3];
+    float radius;
+
+    // Cone culling for backface rejection
+    float  coneApex[3];
+    int8_t coneAxis[3];
+    int8_t coneCutoff;
+};
+
+// Meshlet data
+struct MeshletData {
+    std::vector<Meshlet> meshlets;
+    std::vector<uint>    vertexIndices;    // Points to the original Vertex buffer
+    std::vector<uchar>   primitiveIndices; // Local indices (0-63) for triangles
+};
+
+struct GeometryData {
+    std::vector<Vertex> vertices;
+    std::vector<uint>   indices;
+    // Meshlet data is optional and only generated for meshes that meet certain criteria.
+    std::unique_ptr<MeshletData> meshlets = nullptr;
+};
+
 class AssetManager;
 
 class Mesh
@@ -30,12 +61,18 @@ public:
     [[nodiscard]] const std::string&          getName() const { return _name; }
     [[nodiscard]] const Math::AABB&           getAABB() const { return _aabb; }
     [[nodiscard]] const Math::BoundingSphere& getBoundingSphere() const { return _boundingSphere; }
-    [[nodiscard]] const std::vector<Vertex>&  getVertices() const { return _vertices; }
-    [[nodiscard]] const std::vector<uint>&    getIndices() const { return _indices; }
-    [[nodiscard]] uint                        getVertexCount() const { return (uint)_vertices.size(); }
-    [[nodiscard]] uint                        getIndexCount() const { return (uint)_indices.size(); }
+
+    [[nodiscard]] const std::vector<Vertex>& getVertices() const { return _geoData->vertices; }
+    [[nodiscard]] const std::vector<uint>&   getIndices() const { return _geoData->indices; }
+    [[nodiscard]] const MeshletData*         getMeshletData() const { return hasMeshlets() ? _geoData->meshlets.get() : nullptr; }
+
+    [[nodiscard]] uint                        getVertexCount() const { return _geoData ? (uint)_geoData->vertices.size() : 0; }
+    [[nodiscard]] uint                        getIndexCount() const { return _geoData ? (uint)_geoData->indices.size() : 0; }
     [[nodiscard]] Graphics::PrimitiveTopology getTopology() const { return _topology; }
     [[nodiscard]] bool                        needsAS() const { return _needsAS; }
+    [[nodiscard]] bool                        hasMeshlets() const { return _geoData && _geoData->meshlets != nullptr; }
+
+    std::shared_ptr<GeometryData> getGeometryDataRef() const { return _geoData; }
 
 private:
     friend class AssetManager;
@@ -46,20 +83,38 @@ private:
                    Graphics::PrimitiveTopology topology      = Graphics::PrimitiveTopology::TriangleList,
                    bool                        computeBounds = true )
         : _name( std::move( name ) )
-        , _vertices( std::move( verts ) )
-        , _indices( std::move( inds ) ) {
+        , _topology( topology ) {
+
+        _geoData           = std::make_shared<GeometryData>();
+        _geoData->vertices = std::move( verts );
+        _geoData->indices  = std::move( inds );
+
+        if ( computeBounds )
+            calculateBounds();
+    }
+    explicit Mesh( std::string                 name,
+                   std::vector<Vertex>&&       verts,
+                   MeshletData&&               meshletData,
+                   Graphics::PrimitiveTopology topology      = Graphics::PrimitiveTopology::TriangleList,
+                   bool                        computeBounds = true )
+        : _name( std::move( name ) )
+        , _topology( topology ) {
+
+        _geoData           = std::make_shared<GeometryData>();
+        _geoData->vertices = std::move( verts );
+        _geoData->meshlets = std::make_unique<MeshletData>( std::move( meshletData ) );
+
         if ( computeBounds )
             calculateBounds();
     }
     explicit Mesh( std::string name )
-        : _name( std::move( name ) ) {}
+        : _name( std::move( name ) )
+        , _geoData( std::make_shared<GeometryData>() ) {}
 
-    std::string          _name;
-    std::vector<Vertex>  _vertices;
-    std::vector<uint>    _indices;
-    Math::AABB           _aabb {};
-    Math::BoundingSphere _boundingSphere {};
-    // Graphics
+    std::string                   _name;
+    std::shared_ptr<GeometryData> _geoData;
+    Math::AABB                    _aabb {};
+    Math::BoundingSphere          _boundingSphere {};
 
     // Topology
     Graphics::PrimitiveTopology _topology = Graphics::PrimitiveTopology::TriangleList;
@@ -69,7 +124,7 @@ private:
 
     void calculateBounds() {
         _aabb = Math::AABB();
-        for ( const auto& v : _vertices )
+        for ( const auto& v : _geoData->vertices )
             _aabb.merge( v.position );
 
         _boundingSphere.center = _aabb.getCenter();

@@ -131,6 +131,36 @@ public:
 
 typedef IGraphicPipeline::Description GraphicPipelineDesc;
 
+#pragma endregion
+#pragma region Mesh
+DEFINE_COM_PTR_FOR_TYPE( IMeshPipeline, MeshPipeline )
+
+class IMeshPipeline : public IResource
+{
+public:
+    struct Description {
+
+        std::vector<ShaderModule> shaderModules;
+        IPipelineLayout*          layout = nullptr;
+
+        PrimitiveTopology topology    = PrimitiveTopology::TriangleList;
+        uint              sampleCount = 1;
+
+        std::vector<Format> renderTargetFormats;
+        Format              depthStencilFormat = Format::UNKNOWN;
+
+        BlendState        blendState;
+        RasterizerState   rasterizerState;
+        DepthStencilState depthStencilState;
+
+        uint        sampleMask = 0xFFFFFFFF;
+        std::string debugName  = "";
+    };
+    virtual ~IMeshPipeline()                          = default;
+    virtual const Description& getDescription() const = 0;
+};
+
+typedef IMeshPipeline::Description MeshPipelineDesc;
 
 #pragma endregion
 #pragma region Compute

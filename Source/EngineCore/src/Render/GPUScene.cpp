@@ -150,9 +150,7 @@ uint GPUScene::processMesh( const Axion::Core::Assets::AssetManager* assets, con
             gpuMesh.bsphere          = Math::Vec4( cpuMesh->getBoundingSphere().center, cpuMesh->getBoundingSphere().radius );
             gpuMesh.needsAS          = 1;
 
-            _pendingMeshUploads.push( { gpuCacheIndex, // Slot Index
-                                        cpuMesh->getVertices(),
-                                        cpuMesh->getIndices() } );
+            _pendingMeshUploads.push( { gpuCacheIndex, cpuMesh->getGeometryDataRef() } );
 
             gpuMesh.valid = true;
         }

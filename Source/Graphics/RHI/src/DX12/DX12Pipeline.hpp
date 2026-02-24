@@ -73,6 +73,40 @@ private:
     ComPtr<ID3D12PipelineState> _pso;
 };
 
+DEFINE_COM_PTR_FOR_TYPE( DX12MeshPipeline, DX12MeshPipeline )
+
+class DX12MeshPipeline final : public RefCounter<IMeshPipeline>
+{
+public:
+    DX12MeshPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc );
+    ~DX12MeshPipeline() override;
+
+    const MeshPipelineDesc& getDescription() const override { return _desc; }
+    void                    setDebugName( const std::string& name ) override;
+    const std::string&      getDebugName() const override { return _desc.debugName; }
+    NativeObject            getNativeObject( ObjectType objectType ) override;
+    std::string             toString() const override;
+
+private:
+    void createPipelineState( const ComPtr<ID3D12Device2>& device );
+
+    struct alignas( void* ) MeshPipelineStateStream {
+        CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE        pRootSignature;
+        CD3DX12_PIPELINE_STATE_STREAM_MS                    MS;
+        CD3DX12_PIPELINE_STATE_STREAM_AS                    AS;
+        CD3DX12_PIPELINE_STATE_STREAM_PS                    PS;
+        CD3DX12_PIPELINE_STATE_STREAM_BLEND_DESC            BlendState;
+        CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER            RasterizerState;
+        CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL         DepthStencilState;
+        CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
+        CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT  DSVFormat;
+        CD3DX12_PIPELINE_STATE_STREAM_SAMPLE_DESC           SampleDesc;
+    };
+
+    Description                 _desc;
+    ComPtr<ID3D12PipelineState> _pso;
+};
+
 DEFINE_COM_PTR_FOR_TYPE( DX12ComputePipeline, DX12ComputePipeline )
 
 class DX12ComputePipeline : public RefCounter<IComputePipeline>

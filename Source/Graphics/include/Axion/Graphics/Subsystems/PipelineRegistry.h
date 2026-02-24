@@ -23,6 +23,7 @@ public:
     class GraphicBuilder;
     class ComputeBuilder;
     class RayTracingBuilder;
+    class MeshBuilder;
     class LayoutBuilder;
 
     // -------------------------------------------------------------------------
@@ -40,6 +41,10 @@ public:
     /// @brief Starts the fluent construction of a Raytracing Pipeline.
     /// @param name Unique debug name for the pipeline.
     virtual RayTracingBuilder raytracing( const std::string& name ) = 0;
+
+    /// @brief Starts the fluent construction of a Mesh Pipeline (for mesh shading).
+    /// @param name Unique debug name for the pipeline.
+    virtual MeshBuilder mesh( const std::string& name ) = 0;
 
     /// @brief Starts the fluent construction of a Pipeline Layout.
     /// @param name Unique debug name for the layout.
@@ -60,6 +65,10 @@ public:
     /// @brief Retrieves the raw Raytracing PSO pointer associated with a handle.
     /// @return Raw pointer or nullptr if handle is invalid or type mismatch.
     virtual RHI::IRayTracingPipeline* getRaytracingPipeline( PipelineHandle handle ) = 0;
+
+    /// @brief Retrieves the raw Mesh PSO pointer associated with a handle.
+    /// @return Raw pointer or nullptr if handle is invalid or type mismatch.
+    virtual RHI::IMeshPipeline* getMeshPipeline( PipelineHandle handle ) = 0;
 
     /// @brief Retrieves the raw layout pointer. Used internally by Builders.
     virtual RHI::IPipelineLayout* getLayout( PipelineLayoutHandle handle ) = 0;
@@ -90,9 +99,11 @@ protected:
     virtual PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, ShaderHandle shaderHandle )           = 0;
     virtual PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, ShaderHandle shaderHandle )           = 0;
     virtual PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, ShaderHandle shaderHandle )     = 0;
+    virtual PipelineHandle createMesh( RHI::MeshPipelineDesc& desc, ShaderHandle shaderHandle )                 = 0;
     virtual PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName )       = 0;
     virtual PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName )       = 0;
     virtual PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) = 0;
+    virtual PipelineHandle createMesh( RHI::MeshPipelineDesc& desc, const std::string& shaderName )             = 0;
 
     virtual PipelineLayoutHandle createLayout( const RHI::PipelineLayoutDesc& desc ) = 0;
 
@@ -101,6 +112,8 @@ protected:
     friend class RaytracingBuilder;
     friend class LayoutBuilder;
 };
+
+#pragma region BUILDERS
 
 // -----------------------------------------------------------------------------
 // GRAPHIC BUILDER
@@ -353,6 +366,105 @@ public:
 private:
     IPipelineRegistry&      _registry;
     RHI::PipelineLayoutDesc _desc;
+};
+
+// -----------------------------------------------------------------------------
+// MESH PIPELINE BUILDER
+// -----------------------------------------------------------------------------
+
+class IPipelineRegistry::MeshBuilder
+{
+public:
+    MeshBuilder( IPipelineRegistry& reg, std::string name )
+        : _registry( reg ) {
+        _desc.debugName = std::move( name );
+        // Default sane state
+        _desc.rasterizerState   = { FillMode::Solid, CullMode::Back };
+        _desc.depthStencilState = { true, true, CompareOp::Less };
+        // Note: No topology here!
+    }
+
+    /// @brief Sets the Shader Bundle to use (MS + PS + optional AS).
+    /// Looks up the shader in ShaderRegistry by name.
+    MeshBuilder& shader( const std::string& shaderName ) {
+        _shaderName = shaderName;
+        return *this;
+    }
+
+    /// @brief Sets the Shader Bundle to use (MS + PS + optional AS).
+    /// Looks up the shader in ShaderRegistry by handle.
+    MeshBuilder& shader( ShaderHandle shaderHandle ) {
+        _shaderHandle = shaderHandle;
+        return *this;
+    }
+
+    /// @brief Appends a Render Target output description.
+    MeshBuilder& addRenderTarget( Format fmt, RHI::BlendAttachment blend = {} ) {
+        _desc.renderTargetFormats.push_back( fmt );
+        _desc.blendState.attachments.push_back( blend );
+        return *this;
+    }
+
+    /// @brief Sets the Depth/Stencil buffer format.
+    MeshBuilder& setDepthFormat( Format fmt ) {
+        _desc.depthStencilFormat = fmt;
+        return *this;
+    }
+
+    // --- State Shortcuts ---
+
+    /// @brief Sets FillMode to Wireframe.
+    MeshBuilder& wireframe() {
+        _desc.rasterizerState.fillMode = FillMode::Wireframe;
+        return *this;
+    }
+
+    /// @brief Disables face culling.
+    MeshBuilder& cullNone() {
+        _desc.rasterizerState.cullMode = CullMode::None;
+        return *this;
+    }
+
+    /// @brief Sets specific cull mode.
+    MeshBuilder& cullMode( CullMode mode ) {
+        _desc.rasterizerState.cullMode = mode;
+        return *this;
+    }
+
+    /// @brief Disables depth testing.
+    MeshBuilder& disableDepth() {
+        _desc.depthStencilState.depthEnable = false;
+        return *this;
+    }
+
+    /// @brief Manually sets the full depth stencil state.
+    MeshBuilder& setDepthStencilState( const RHI::DepthStencilState& depthState ) {
+        _desc.depthStencilState = depthState;
+        return *this;
+    }
+
+    /// @brief Manually sets the full rasterizer state.
+    MeshBuilder& setRasterizer( const RHI::RasterizerState& state ) {
+        _desc.rasterizerState = state;
+        return *this;
+    }
+
+    /// @brief Binds the Pipeline Layout.
+    MeshBuilder& setLayout( PipelineLayoutHandle handle ) {
+        _desc.layout = _registry.getLayout( handle );
+        return *this;
+    }
+
+    /// @brief Finalizes configuration and creates the Mesh PSO.
+    PipelineHandle create() {
+        return !_shaderName.empty() ? _registry.createMesh( _desc, _shaderName ) : _registry.createMesh( _desc, _shaderHandle );
+    }
+
+private:
+    IPipelineRegistry&    _registry;
+    RHI::MeshPipelineDesc _desc;
+    std::string           _shaderName;
+    ShaderHandle          _shaderHandle;
 };
 
 } // namespace Graphics

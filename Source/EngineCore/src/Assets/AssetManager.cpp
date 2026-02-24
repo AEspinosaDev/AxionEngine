@@ -306,6 +306,12 @@ MeshHandle AssetManager::importMesh( const std::string& name, const std::string&
         return MeshHandle();
     }
 
+    if ( !success )
+    {
+        AXION_LOG_ERROR( Logger::Module::Core, "Failed to import mesh [{}] from [{}]", meshName, filepath );
+        return MeshHandle();
+    }
+
     Graphics::PrimitiveTopology topology = Graphics::PrimitiveTopology::TriangleList;
     if ( flags & MeshImportAsLines )
     {
@@ -315,17 +321,19 @@ MeshHandle AssetManager::importMesh( const std::string& name, const std::string&
         topology = Graphics::PrimitiveTopology::PointList;
     }
 
-    Mesh mesh( meshName,
-               std::move( meshData.vertices ),
-               std::move( meshData.indices ),
-               topology,
-               flags & MeshImportComputeBounds );
+    bool needsMeshlets = ( flags & MeshImportAsMeshlet ) && ( topology == Graphics::PrimitiveTopology::TriangleList );
 
-    if ( !success )
-    {
-        AXION_LOG_ERROR( Logger::Module::Core, "Failed to import mesh [{}] from [{}]", meshName, filepath );
-        return MeshHandle();
-    }
+    auto mesh = needsMeshlets
+                    ? Mesh( meshName,
+                            std::move( meshData.vertices ),
+                            Loaders::cookMeshlets( meshData.vertices, meshData.indices ),
+                            topology,
+                            flags & MeshImportComputeBounds )
+                    : Mesh( meshName,
+                            std::move( meshData.vertices ),
+                            std::move( meshData.indices ),
+                            topology,
+                            flags & MeshImportComputeBounds );
 
     auto handle = _impl->addMesh( std::move( mesh ), meshName );
 
@@ -354,9 +362,9 @@ MeshHandle AssetManager::createMesh( const std::string&          name,
     }
 
     Mesh mesh( meshName );
-    mesh._vertices = vertices;
-    mesh._indices  = indices;
-    mesh._topology = topology;
+    mesh._geoData->vertices = vertices;
+    mesh._geoData->indices  = indices;
+    mesh._topology          = topology;
 
     mesh.calculateBounds();
 
@@ -367,21 +375,20 @@ MeshHandle AssetManager::createMesh( const std::string&          name,
     return handle;
 }
 
-MeshHandle AssetManager::createQuad( const std::string& name, uint subdivisions ) {
+MeshHandle AssetManager::createQuad( const std::string& name, uint subdivisions, bool asMeshlet ) {
     std::scoped_lock lock( _impl->mutex );
-    std::string      meshName = name;
+
+    std::string meshName = name;
     if ( meshName.empty() )
     {
         meshName = "__internal_quad_subdiv_" + std::to_string( subdivisions );
     }
 
-    if ( !name.empty() && _impl->meshHandles.count( name ) )
+    if ( _impl->meshHandles.count( meshName ) )
     {
-        AXION_LOG_WARN( Logger::Module::Core, "Mesh name collision [{}]. Returning existing handle.", name );
-        return _impl->meshHandles[name];
+        AXION_LOG_WARN( Logger::Module::Core, "Mesh name collision [{}]. Returning existing handle.", meshName );
+        return _impl->meshHandles[meshName];
     }
-
-    Mesh mesh( meshName );
 
     const uint  cellsPerSide    = subdivisions + 1;
     const uint  verticesPerSide = cellsPerSide + 1;
@@ -389,9 +396,14 @@ MeshHandle AssetManager::createQuad( const std::string& name, uint subdivisions 
 
     const Math::Vec3 origin = { -0.5f, -0.5f, 0.0f };
 
-    mesh._vertices.reserve( verticesPerSide * verticesPerSide );
-    mesh._indices.reserve( cellsPerSide * cellsPerSide * 6 );
+    // 1. Use local vectors
+    std::vector<Vertex> vertices;
+    std::vector<uint>   indices;
 
+    vertices.reserve( verticesPerSide * verticesPerSide );
+    indices.reserve( cellsPerSide * cellsPerSide * 6 );
+
+    // 2. Generate Vertices
     for ( uint y = 0; y < verticesPerSide; ++y )
     {
         for ( uint x = 0; x < verticesPerSide; ++x )
@@ -400,24 +412,17 @@ MeshHandle AssetManager::createQuad( const std::string& name, uint subdivisions 
             float v = y * step;
 
             Vertex vert;
+            vert.position = { origin.x + u, origin.y + v, 0.0f };
+            vert.normal   = { 0.0f, 0.0f, 1.0f };
+            vert.uv       = { u, v };
+            vert.tangent  = { 1.0f, 0.0f, 0.0f, 1.0f };
+            vert.color    = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-            vert.position = {
-                origin.x + u,
-                origin.y + v,
-                0.0f };
-
-            vert.normal = { 0.0f, 0.0f, 1.0f };
-
-            vert.uv = { u, v };
-
-            vert.tangent = { 1.0f, 0.0f, 0.0f, 1.0f };
-
-            vert.color = { 1.0f, 1.0f, 1.0f, 1.0f };
-
-            mesh._vertices.push_back( vert );
+            vertices.push_back( vert );
         }
     }
 
+    // 3. Generate Indices
     for ( uint y = 0; y < cellsPerSide; ++y )
     {
         for ( uint x = 0; x < cellsPerSide; ++x )
@@ -427,39 +432,52 @@ MeshHandle AssetManager::createQuad( const std::string& name, uint subdivisions 
             uint topLeft     = ( y + 1 ) * verticesPerSide + x;
             uint topRight    = topLeft + 1;
 
-            mesh._indices.push_back( bottomLeft );
-            mesh._indices.push_back( bottomRight );
-            mesh._indices.push_back( topRight );
+            indices.push_back( bottomLeft );
+            indices.push_back( bottomRight );
+            indices.push_back( topRight );
 
-            mesh._indices.push_back( bottomLeft );
-            mesh._indices.push_back( topRight );
-            mesh._indices.push_back( topLeft );
+            indices.push_back( bottomLeft );
+            indices.push_back( topRight );
+            indices.push_back( topLeft );
         }
     }
+
+    std::vector<Vertex> vertsCopy = vertices; // Copy for the meshlets function if needed
+
+    Mesh mesh = asMeshlet
+                    ? Mesh( meshName, std::move( vertices ), Assets::Loaders::cookMeshlets( vertsCopy, indices ), Graphics::PrimitiveTopology::TriangleList, false )
+                    : Mesh( meshName, std::move( vertices ), std::move( indices ), Graphics::PrimitiveTopology::TriangleList, false );
 
     mesh._aabb.min              = { -0.5f, -0.5f, 0.0f };
     mesh._aabb.max              = { 0.5f, 0.5f, 0.0f };
     mesh._boundingSphere.center = { 0.0f, 0.0f, 0.0f };
     mesh._boundingSphere.radius = Math::distance( mesh._aabb.min, mesh._aabb.max ) * 0.5f;
 
-    auto handle = _impl->addMesh( std::move( mesh ), name );
+    auto handle = _impl->addMesh( std::move( mesh ), meshName );
 
-    AXION_LOG_INFO( Logger::Module::Core, "Created Quad ID: {} [{}] with {} subdivisions", handle.id, name, subdivisions );
+    AXION_LOG_INFO( Logger::Module::Core, "Created Quad ID: {} [{}] with {} subdivisions", handle.id, meshName, subdivisions );
 
     return handle;
 }
 
-MeshHandle AssetManager::createCube( const std::string& name ) {
+MeshHandle AssetManager::createCube( const std::string& name, bool asMeshlet ) {
+
     std::scoped_lock lock( _impl->mutex );
 
-    if ( !name.empty() && _impl->meshHandles.count( name ) )
+    std::string meshName = name;
+    if ( meshName.empty() )
     {
-        AXION_LOG_WARN( Logger::Module::Core, "Mesh name collision [{}]. Returning existing handle.", name );
-        return _impl->meshHandles[name];
+        meshName = "__internal_cube";
     }
 
-    Mesh mesh( name );
-    mesh._vertices = {
+    if ( _impl->meshHandles.count( meshName ) )
+    {
+        AXION_LOG_WARN( Logger::Module::Core, "Mesh name collision [{}]. Returning existing handle.", meshName );
+        return _impl->meshHandles[meshName];
+    }
+
+    // 1. Use local vectors instead of directly accessing uninitialized _geoData
+    std::vector<Vertex> vertices = {
         // ------------------------------------------------------------------
         // FRONT FACE (Z+) -> Normal (0, 0, 1) | Tangent (1, 0, 0)
         // ------------------------------------------------------------------
@@ -471,7 +489,7 @@ MeshHandle AssetManager::createCube( const std::string& name ) {
         // ------------------------------------------------------------------
         // BACK FACE (Z-) -> Normal (0, 0, -1) | Tangent (-1, 0, 0)
         // ------------------------------------------------------------------
-        { { 0.5f, -0.5f, -0.5f }, { 0, 0, -1 }, { 0, 1 }, { -1, 0, 0, 1 }, { 1, 1, 1, 1 } },  // 4: BL (desde atrás)
+        { { 0.5f, -0.5f, -0.5f }, { 0, 0, -1 }, { 0, 1 }, { -1, 0, 0, 1 }, { 1, 1, 1, 1 } },  // 4: BL (from back)
         { { -0.5f, -0.5f, -0.5f }, { 0, 0, -1 }, { 1, 1 }, { -1, 0, 0, 1 }, { 1, 1, 1, 1 } }, // 5: BR
         { { -0.5f, 0.5f, -0.5f }, { 0, 0, -1 }, { 1, 0 }, { -1, 0, 0, 1 }, { 1, 1, 1, 1 } },  // 6: TR
         { { 0.5f, 0.5f, -0.5f }, { 0, 0, -1 }, { 0, 0 }, { -1, 0, 0, 1 }, { 1, 1, 1, 1 } },   // 7: TL
@@ -509,8 +527,7 @@ MeshHandle AssetManager::createCube( const std::string& name ) {
         { { -0.5f, -0.5f, 0.5f }, { 0, -1, 0 }, { 0, 0 }, { 1, 0, 0, 1 }, { 1, 1, 1, 1 } }   // 23
     };
 
-    // Indices (Counter-Clockwise - CCW)
-    mesh._indices = {
+    std::vector<uint> indices = {
         0, 1, 2, 2, 3, 0, // Front
         4,
         5,
@@ -544,19 +561,26 @@ MeshHandle AssetManager::createCube( const std::string& name ) {
         20 // Bottom
     };
 
+    // 2. Safely construct the Mesh
+    std::vector<Vertex> vertsCopy = vertices;
+
+    Mesh mesh = asMeshlet
+                    ? Mesh( meshName, std::move( vertices ), Assets::Loaders::cookMeshlets( vertsCopy, indices ), Graphics::PrimitiveTopology::TriangleList, false )
+                    : Mesh( meshName, std::move( vertices ), std::move( indices ), Graphics::PrimitiveTopology::TriangleList, false );
+
+    // 3. Set exact bounds
     mesh._aabb.min              = { -0.5f, -0.5f, -0.5f };
     mesh._aabb.max              = { 0.5f, 0.5f, 0.5f };
-    mesh._boundingSphere.center = { 0, 0, 0 };
+    mesh._boundingSphere.center = { 0.0f, 0.0f, 0.0f };
     mesh._boundingSphere.radius = Math::distance( mesh._aabb.min, mesh._aabb.max ) * 0.5f; // approx 0.866
 
-    auto handle = _impl->addMesh( std::move( mesh ), name );
+    auto handle = _impl->addMesh( std::move( mesh ), meshName );
 
-    AXION_LOG_INFO( Logger::Module::Core, "Created Cube ID: {} [{}]", handle.id, name );
+    AXION_LOG_INFO( Logger::Module::Core, "Created Cube ID: {} [{}]", handle.id, meshName );
 
     return handle;
 }
-
-MeshHandle AssetManager::createSphere( const std::string& name, uint segments ) {
+MeshHandle AssetManager::createSphere( const std::string& name, uint segments, bool asMeshlet ) {
     std::scoped_lock lock( _impl->mutex );
 
     std::string meshName = name;
@@ -571,14 +595,16 @@ MeshHandle AssetManager::createSphere( const std::string& name, uint segments ) 
         return _impl->meshHandles[meshName];
     }
 
-    Mesh mesh( meshName );
-
     const uint  rings   = segments;
     const uint  sectors = segments;
     const float radius  = 0.5f; // Diameter = 1.0
 
-    mesh._vertices.reserve( rings * sectors );
-    mesh._indices.reserve( rings * sectors * 6 );
+    // 1. Use local vectors
+    std::vector<Vertex> vertices;
+    std::vector<uint>   indices;
+
+    vertices.reserve( rings * sectors );
+    indices.reserve( rings * sectors * 6 );
 
     const float R = 1.0f / (float)( rings - 1 );
     const float S = 1.0f / (float)( sectors - 1 );
@@ -596,13 +622,9 @@ MeshHandle AssetManager::createSphere( const std::string& name, uint segments ) 
 
             // For a unit sphere at origin, normal is just the normalized position
             v.normal = Math::normalize( v.position );
-
-            v.uv = { s * S, r * R };
+            v.uv     = { s * S, r * R };
 
             // Calculate Tangent
-            // Tangent is perpendicular to Normal and Up(0,1,0), pointing roughly East
-            // Or simpler: derivative with respect to texture coordinate U (longitude)
-            // T = (-sin(theta)sin(phi), 0, cos(theta)sin(phi))
             v.tangent.x = -Math::sin( 2 * Math::PI * s * S );
             v.tangent.y = 0.0f;
             v.tangent.z = Math::cos( 2 * Math::PI * s * S );
@@ -614,34 +636,37 @@ MeshHandle AssetManager::createSphere( const std::string& name, uint segments ) 
 
             v.color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-            mesh._vertices.push_back( v );
+            vertices.push_back( v );
         }
     }
 
-    // Indices
     for ( uint r = 0; r < rings - 1; ++r )
     {
         for ( uint s = 0; s < sectors - 1; ++s )
         {
             uint curRow  = r * sectors;
             uint nextRow = ( r + 1 ) * sectors;
+            uint nextS   = ( s + 1 );
 
-            uint nextS = ( s + 1 );
+            indices.push_back( curRow + s );
+            indices.push_back( nextRow + s );
+            indices.push_back( nextRow + nextS );
 
-            mesh._indices.push_back( curRow + s );
-            mesh._indices.push_back( nextRow + s );
-            mesh._indices.push_back( nextRow + nextS );
-
-            mesh._indices.push_back( curRow + s );
-            mesh._indices.push_back( nextRow + nextS );
-            mesh._indices.push_back( curRow + nextS );
+            indices.push_back( curRow + s );
+            indices.push_back( nextRow + nextS );
+            indices.push_back( curRow + nextS );
         }
     }
 
-    // Bounds
+    std::vector<Vertex> vertsCopy = vertices;
+    
+    Mesh mesh = asMeshlet 
+        ? Mesh( meshName, std::move( vertices ), Assets::Loaders::cookMeshlets( vertsCopy, indices ), Graphics::PrimitiveTopology::TriangleList, false )
+        : Mesh( meshName, std::move( vertices ), std::move( indices ), Graphics::PrimitiveTopology::TriangleList, false );
+
     mesh._aabb.min              = { -radius, -radius, -radius };
-    mesh._aabb.max              = { radius, radius, radius };
-    mesh._boundingSphere.center = { 0, 0, 0 };
+    mesh._aabb.max              = {  radius,  radius,  radius };
+    mesh._boundingSphere.center = {  0.0f,  0.0f,  0.0f };
     mesh._boundingSphere.radius = radius;
 
     auto handle = _impl->addMesh( std::move( mesh ), meshName );

@@ -103,6 +103,7 @@ public:
     virtual void bindComputePipeline( IComputePipeline* pipeline )       = 0;
     virtual void bindGraphicPipeline( IGraphicPipeline* pipeline )       = 0;
     virtual void bindRaytracingPipeline( IRayTracingPipeline* pipeline ) = 0;
+    virtual void bindMeshPipeline( IMeshPipeline* pipeline )             = 0;
 
     /// @brief Binds a Descriptor Set (Resource Group) to a specific slot. Command buffer will automatically
     // use the last bound pipeline's layout
@@ -121,6 +122,9 @@ public:
 
     /// @brief Dispatches a Ray Tracing grid.
     virtual void dispatchRays( const SBT::View& sbtView, const Extent3D& screenSize ) = 0;
+
+    /// @brief Dispatches a Mesh grid (for mesh shading).
+    virtual void dispatchMesh( const Extent3D& gridSize ) = 0;
 
     /// @brief Starts a dynamic rendering pass (No RenderPass object needed).
     virtual void beginRendering( const RenderingDesc& info ) = 0;
