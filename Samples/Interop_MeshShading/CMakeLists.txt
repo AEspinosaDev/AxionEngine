@@ -1,0 +1,3 @@
+add_executable(InteropMeshShadingSample  main.cpp)
+target_link_libraries(InteropMeshShadingSample PRIVATE SamplesConfig AxionGFX AxionCore)
+axion_setup_executable(InteropMeshShadingSample "Samples")

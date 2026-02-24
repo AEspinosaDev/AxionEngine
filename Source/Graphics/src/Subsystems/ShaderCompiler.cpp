@@ -27,7 +27,7 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
     {
         case Shader::NativeFormat::DXIL:
             targetDesc.format  = SLANG_DXIL;
-            targetDesc.profile = _globalSession->findProfile( "sm_6_0" );
+            targetDesc.profile = _globalSession->findProfile( "sm_6_5" );
             break;
         case Shader::NativeFormat::SPIR_V:
             targetDesc.format  = SLANG_SPIRV;

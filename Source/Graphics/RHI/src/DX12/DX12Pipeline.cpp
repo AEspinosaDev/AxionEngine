@@ -642,7 +642,7 @@ void DX12RayTracingPipeline::createStateObject( const ComPtr<ID3D12Device5>& dev
     DX_CHECK( _so->QueryInterface( IID_PPV_ARGS( &_props ) ) );
 }
 
-DX12MeshPipeline::DX12MeshPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc ) {
+DX12MeshPipeline::DX12MeshPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc ) : _desc( desc ) {
     const ShaderModule* msModule = nullptr;
     for ( const auto& m : desc.shaderModules )
     {

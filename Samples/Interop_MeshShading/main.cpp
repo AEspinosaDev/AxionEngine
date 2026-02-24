@@ -1,23 +1,17 @@
 /*
  * ==========================================================================================
- * AXION ENGINE - INTEROP TEXTURE SAMPLERS SAMPLE (TEXTURED CUBE)
+ * AXION ENGINE - MESH SHADING CUBE SAMPLE
  * ==========================================================================================
  * * Author:    Antonio J. Espinosa
  * Date:        2026
  *
  * Description:
- * Entry point for the Texture usage demonstration. This sample implements a render of a
- * textured mesh. For that, in order to load images and meshes from disk we make use of the
- * Core::Asets submodule. Then, once loaded, we take the data onto the actual RHI::ITexture
- * and we create the resource RHI::ISampler to enable sampling on the shaders.
+ * Entry point for the Mesh Shading demonstration. This sample implements a render of a
+ * textured mesh bypassing the traditional Input Assembler.
  *
- * This workflow of texture + sampler resource is the modern way of working with texture in
- * graphic APIs.
- *
- *
- * Key Features Demonstrated:
- * - Working with samplers and textures in GFX module
- * - Using Core::Assets module for quickly loading images
+ * It uses the Core::Assets module to procedurally generate a Meshlet-ready cube,
+ * uploads the geometry as standard Byte Address Buffers (SSBOs/SRVs), and launches
+ * a Mesh Pipeline via DispatchMesh.
  *
  * ==========================================================================================
  */
@@ -28,6 +22,7 @@
 #include "Axion/Graphics/Passes/Utilitary.hpp"
 #include "Axion/Graphics/Platforms/Win32.h"
 #include "Axion/Graphics/Renderer.h"
+
 USING_AXION_NAMESPACE
 
 struct Camera {
@@ -39,20 +34,23 @@ struct Camera {
     };
 };
 
-struct MeshData {
-    Graphics::BufferHandle vbo;
-    Graphics::BufferHandle ibo;
+struct MeshletModel {
+    // We no longer use VBO/IBO. These are raw data buffers.
+    Graphics::BufferHandle vertexBuffer;
+    Graphics::BufferHandle meshletBuffer;
+    Graphics::BufferHandle vertexIndexBuffer;
+    Graphics::BufferHandle primitiveIndexBuffer;
+
+    uint meshletCount = 0;
 
     Graphics::TextureHandle texture;
     Graphics::SamplerHandle sampler;
-
-    uint indicesCount = 0;
 };
 
 struct ForwardPass {
     Graphics::PipelineHandle pipeline;
 
-    MeshData meshData = {};
+    MeshletModel modelData = {};
 
     Graphics::RGResourceHandle output;      // ColorBuffer
     Graphics::RGResourceHandle depthOutput; // DepthBuffer
@@ -70,39 +68,47 @@ struct ForwardPass {
     }
 
     void execute( const Data& data, Graphics::RenderPassContext& ctx ) {
-        // PSO
-        auto* pso = ctx.pipelines.getGraphicPipeline( pipeline );
+        auto* pso = ctx.pipelines.getMeshPipeline( pipeline );
 
-        // RTs
         auto* targetTex = ctx.getTexture( data.target );
         auto* depthTex  = ctx.getTexture( data.depthTarget );
 
-        // Cube Related
-        auto* vb      = ctx.resources.getBuffer( meshData.vbo );
-        auto* ib      = ctx.resources.getBuffer( meshData.ibo );
+        // Fetch resources
         auto* ubo     = ctx.resources.getBuffer( cameraBuffer );
-        auto* sampler = ctx.resources.getSampler( meshData.sampler );
-        auto* texture = ctx.resources.getTexture( meshData.texture );
+        auto* sampler = ctx.resources.getSampler( modelData.sampler );
+        auto* texture = ctx.resources.getTexture( modelData.texture );
+
+        auto* vb  = ctx.resources.getBuffer( modelData.vertexBuffer );
+        auto* mb  = ctx.resources.getBuffer( modelData.meshletBuffer );
+        auto* vib = ctx.resources.getBuffer( modelData.vertexIndexBuffer );
+        auto* pib = ctx.resources.getBuffer( modelData.primitiveIndexBuffer );
 
         Graphics::RHI::RenderingDesc info;
-
         info.renderArea = targetTex->getDescription().size.to2D();
         info.colorAttachments.push_back( { .texture = targetTex } );
         info.depthStencilAttachment = { .texture = depthTex };
 
         ctx.cmd->beginRendering( info );
-        ctx.cmd->bindGraphicPipeline( pso );
+
+        ctx.cmd->bindMeshPipeline( pso );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
+
+        // Bind Standard Resources
         set0->attach( 0, ubo, Graphics::RHI::ResourceState::ConstantBuffer );
         set0->attach( 1, texture, Graphics::RHI::ResourceState::ShaderResource );
+
+        // Bind Geometry Data as Shader Resources (SRVs / ByteAddressBuffers)
+        set0->attach( 2, vb, Graphics::RHI::ResourceState::ShaderResource );
+        set0->attach( 3, mb, Graphics::RHI::ResourceState::ShaderResource );
+        set0->attach( 4, vib, Graphics::RHI::ResourceState::ShaderResource );
+        set0->attach( 5, pib, Graphics::RHI::ResourceState::ShaderResource );
+
         set0->attach( 0, sampler );
 
         ctx.cmd->bindDescriptorSet( 0, set0 );
 
-        ctx.cmd->bindVertexBuffer( 0, vb );
-        ctx.cmd->bindIndexBuffer( ib );
-        ctx.cmd->drawIndexed( meshData.indicesCount );
+        ctx.cmd->dispatchMesh( { modelData.meshletCount, 1, 1 } );
 
         ctx.cmd->endRendering();
     }
@@ -113,10 +119,10 @@ int main( /*int argc, char* argv[]*/ ) {
     try
     {
 #ifdef AXION_DEBUG
-        Axion::Logger::init( Logger::Level::Info, "InteropTextureSamplerSample.log" );
+        Axion::Logger::init( Logger::Level::Info, "MeshShadingSample.log" );
 #endif
 
-        auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "INTEROP TEXTURE SAMPLERS" } );
+        auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "MESH SHADING SAMPLE" } );
 
         auto       bufferingType    = Graphics::BufferingType::Double;
         const uint FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
@@ -133,11 +139,11 @@ int main( /*int argc, char* argv[]*/ ) {
         //-------------------------------------
 
         rnd->shaders()
-            .shader( "DrawShader" )
+            .shader( "MeshDrawShader" )
             .asDXIL()
-            .path( AXION_SAMPLES_RESOURCE_DIR "/Shaders/Samplers.slang" )
-            .vs( "vsMain" )
-            .ps( "psMain" )
+            .path( AXION_SAMPLES_RESOURCE_DIR "/Shaders/MeshShading.slang" )
+            .ms( "msMain" ) // Mesh Shader entry point
+            .ps( "psMain" ) // Pixel Shader entry point
             .load();
 
         rnd->shaders().compileAllShaders();
@@ -147,60 +153,74 @@ int main( /*int argc, char* argv[]*/ ) {
         tmPass.init( *rnd.get() );
 
         ForwardPass fwPass {};
+
+        // Use the new MeshBuilder from the registry
         fwPass.pipeline = rnd->pipelines()
-                              .graphic( "FwPipeline" )
-                              .shader( "DrawShader" )
-                              .addRenderTarget( Axion::Graphics::Format::RGBA16_FLOAT ) // HDR Format
-                              .setDepthFormat( Graphics::Format::D32 )                  // Depth Format
-                              .cullNone()                                               // Enable culling later if needed
+                              .mesh( "FwPipeline" )
+                              .shader( "MeshDrawShader" )
+                              .addRenderTarget( Axion::Graphics::Format::RGBA16_FLOAT )
+                              .setDepthFormat( Graphics::Format::D32 )
+                              .cullNone()
                               .create();
 
         //-------------------------------------
-        // Dedclaring Static Resources
+        // Declaring Static Resources
         //-------------------------------------
 
-        // TEXTURE
-        // Load texture using the Core module
-        auto  cpuTexHandle = assets.texture( "AxionTexture" ).import( AXION_MESH_DIR "/erato/erato-101.jpg" );
+        auto  cpuTexHandle = assets.texture( "DebugTexture" ).import( AXION_MESH_DIR "/erato/erato-101.jpg" );
         auto* cpuTexture   = assets.getTexture( cpuTexHandle );
 
         if ( !cpuTexture )
             return EXIT_FAILURE;
 
-        fwPass.meshData.texture = rnd->resources()
-                                      .texture( "CubeTexture" )
-                                      .format( cpuTexture->getGPUFormat() ) // Texture was loaded with the Gamma Flag on,
-                                                                            // so no need of gamma correct on shader
-                                      .extent( cpuTexture->getSize() )
-                                      .withData( cpuTexture->getPixels() )
-                                      .create();
+        fwPass.modelData.texture = rnd->resources()
+                                       .texture( "DebugTexture" )
+                                       .format( cpuTexture->getGPUFormat() )
+                                       .extent( cpuTexture->getSize() )
+                                       .withData( cpuTexture->getPixels() )
+                                       .create();
 
-        // You could also make use of cpuTexture->getSampleDesc()
-        // to define the sampler ...
-        fwPass.meshData.sampler = rnd->resources().sampler( "LinearSampler" ).create();
+        fwPass.modelData.sampler = rnd->resources().sampler( "LinearSampler" ).create();
 
-        auto  cubeHandle = assets.mesh( "Erato" ).import( AXION_MESH_DIR "/erato/erato.obj" );
+        // GEOMETRY (Procedural Meshlets)
+        auto  cubeHandle = assets.mesh( "MeshletErato" ).asMeshlet( true ).import( AXION_MESH_DIR "/erato/erato.obj" );
         auto* cubeMesh   = assets.getMesh( cubeHandle );
         auto  geoData    = cubeMesh->getGeometryDataRef();
 
-        fwPass.meshData.indicesCount = geoData->indices.size();
+        fwPass.modelData.meshletCount = geoData->meshlets->meshlets.size();
 
-        // GEOMETRY
-        fwPass.meshData.vbo = rnd->resources()
-                                  .buffer( "VertexBuffer" )
-                                  .asVBO()
-                                  .withData(  geoData->vertices.data() )
-                                  .stride( sizeof(  Core::Assets::Vertex  ) )
-                                  .size(  geoData->vertices.size() * sizeof( Core::Assets::Vertex ) )
-                                  .create();
+        // Allocate Geometry Buffers as Storage Buffers (SRVs)
+        fwPass.modelData.vertexBuffer = rnd->resources()
+                                            .buffer( "VertexBuffer" )
+                                            .asReadOnlySSBO() // Storage Buffer / SRV
+                                            .withData( geoData->vertices.data() )
+                                            .size( geoData->vertices.size() * sizeof( Core::Assets::Vertex ) )
+                                            .stride( sizeof( Core::Assets::Vertex ) )
+                                            .create();
 
-        fwPass.meshData.ibo = rnd->resources()
-                                  .buffer( "IndexBuffer" )
-                                  .asIBO()
-                                  .withData( geoData->indices.data() )
-                                  .size( geoData->indices.size() * sizeof( uint ) )
-                                  .stride( sizeof( uint ) )
-                                  .create();
+        fwPass.modelData.meshletBuffer = rnd->resources()
+                                             .buffer( "MeshletBuffer" )
+                                             .asReadOnlySSBO()
+                                             .withData( geoData->meshlets->meshlets.data() )
+                                             .size( geoData->meshlets->meshlets.size() * sizeof( Core::Assets::Meshlet ) )
+                                             .stride( sizeof( Core::Assets::Meshlet ) )
+                                             .create();
+
+        fwPass.modelData.vertexIndexBuffer = rnd->resources()
+                                                 .buffer( "VertexIndexBuffer" )
+                                                 .asReadOnlySSBO()
+                                                 .withData( geoData->meshlets->vertexIndices.data() )
+                                                 .size( geoData->meshlets->vertexIndices.size() * sizeof( uint ) )
+                                                 .stride( sizeof( uint ) )
+                                                 .create();
+
+        fwPass.modelData.primitiveIndexBuffer = rnd->resources()
+                                                    .buffer( "PrimitiveIndexBuffer" )
+                                                    .asReadOnlySSBO()
+                                                    .asRaw()
+                                                    .withData( geoData->meshlets->primitiveIndices.data() )
+                                                    .size( geoData->meshlets->primitiveIndices.size() * sizeof( uchar ) )
+                                                    .create();
 
         // UNIFORM CONSTANT BUFFER
         std::vector<Graphics::BufferHandle> camBuffers( FRAMES_IN_FLIGHT );
@@ -208,8 +228,6 @@ int main( /*int argc, char* argv[]*/ ) {
         {
             camBuffers[i] = rnd->resources().buffer( "CamUniformBuffer_" + std::to_string( i ) ).size( sizeof( Camera::Payload ) ).asCBO().onCPU().create();
         }
-
-        // CAMERA
 
         Camera cam {};
 
@@ -245,12 +263,12 @@ int main( /*int argc, char* argv[]*/ ) {
 
             wnd->processMessages();
 
+            // Camera Math
             float aspect = (float)wnd->getSettings().size.width / (float)wnd->getSettings().size.height;
             auto  proj   = Axion::Math::MTX::perspective( Math::radians( cam.fov ), aspect, 0.01f, 10.0f );
+            auto  view   = Axion::Math::MTX::lookAt( cam.camPos, { 0, 0, 0 }, { 0, 1, 0 } );
 
-            auto view = Axion::Math::MTX::lookAt( cam.camPos, { 0, 0, 0 }, { 0, 1, 0 } );
-
-              float time  = std::chrono::duration<float>( std::chrono::high_resolution_clock::now() - startTime ).count();
+            float time  = std::chrono::duration<float>( std::chrono::high_resolution_clock::now() - startTime ).count();
             auto  model = Axion::Math::MTX::identity();
             model       = Axion::Math::MTX::rotate( model, time * 0.5f, Math::Vec3( 0.0f, 1.0f, 0.0f ) );
             model       = Axion::Math::MTX::translate( model, Math::Vec3( 0.0f, -0.8f, 0.0f ) );
@@ -269,21 +287,20 @@ int main( /*int argc, char* argv[]*/ ) {
 
                 auto rtExtent = wnd->getSettings().size.to3D();
 
-                // 1. HDR Color Buffer (Transient)
                 fwPass.output = builder.texture( "ColorBuffer" )
                                     .asRenderTarget()
-                                    .asStorage()                    // Allow reading as SRV in next pass
-                                    .format( Format::RGBA16_FLOAT ) // HDR
+                                    .asStorage()
+                                    .format( Format::RGBA16_FLOAT )
                                     .extent( rtExtent )
                                     .clearValue( { .color = { 0.2f, 0.2f, 0.2f, 1.0f } } )
                                     .create();
 
-                // 2. Depth Buffer (Transient)
                 fwPass.depthOutput = builder.texture( "DepthBuffer" )
                                          .asDepthStencil()
-                                         .format( Format::D32 ) // Explicit Depth Format
+                                         .format( Format::D32 )
                                          .extent( rtExtent )
                                          .create();
+
                 fwPass.cameraBuffer = camBuffers[frameIndex];
 
                 builder.addPass<ForwardPass>( "ForwardPass", fwPass );

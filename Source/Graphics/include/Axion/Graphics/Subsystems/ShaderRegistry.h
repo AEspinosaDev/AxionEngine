@@ -158,6 +158,16 @@ public:
         _desc.entryPoints.push_back( { entryName, ShaderType::Callable } );
         return *this;
     }
+    /// @brief Adds a Mesh Shader entry point.
+    Builder& ms( const std::string& entryName ) {
+        _desc.entryPoints.push_back( { entryName, ShaderType::Mesh } );
+        return *this;
+    }
+    /// @brief Adds an Amplification Shader entry point.
+    Builder& as( const std::string& entryName ) {
+        _desc.entryPoints.push_back( { entryName, ShaderType::Amplification } );
+        return *this;
+    }
 
     // --- MANUAL CONFIGURATION ---
 

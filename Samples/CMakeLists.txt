@@ -19,6 +19,7 @@ add_subdirectory(Core_SampleScene)
 
 # Interop (Core + GFX)
 add_subdirectory(Interop_TextureSamplers)
+add_subdirectory(Interop_MeshShading)
 
 # Demos (Entire Apps)
 

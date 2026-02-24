@@ -160,17 +160,17 @@ public:
 
     /// @brief Generates a procedural Unit Cube.
     MeshHandle createCube() {
-        return _manager.createCube( _name );
+        return _manager.createCube( _name, _asMeshlet );
     }
 
     /// @brief Generates a procedural Sphere (UV Sphere).
     MeshHandle createSphere( uint segments = 32 ) {
-        return _manager.createSphere( _name, segments );
+        return _manager.createSphere( _name, segments, _asMeshlet );
     }
 
     /// @brief Generates a procedural Quad (Square).
     MeshHandle createQuad( uint subdivisions = 0 ) {
-        return _manager.createQuad( _name, subdivisions );
+        return _manager.createQuad( _name, subdivisions, _asMeshlet );
     }
 
     /// @brief Creates a mesh from raw vertex and index data.

@@ -69,7 +69,12 @@ private:
         auto& uploadQueue = scene.pendingMeshUploads();
         while ( !uploadQueue.empty() )
         {
-            if ( totalUsedSpace >= (uint)data.maxAllocationSize )
+            const auto& nextUpload           = uploadQueue.front();
+            uint        requiredVerticesSize = (uint)( nextUpload.geometryData->vertices.size() * sizeof( Assets::Vertex ) );
+            uint        requiredIndicesSize  = (uint)( nextUpload.geometryData->indices.size() * sizeof( uint ) );
+            uint        totalRequiredSpace   = requiredVerticesSize + requiredIndicesSize;
+
+            if ( totalUsedSpace + totalRequiredSpace > (uint)data.maxAllocationSize )
                 break;
 
             auto uploadEntry = std::move( uploadQueue.front() );
@@ -81,7 +86,7 @@ private:
             auto vertexBufferView = data.vertexAllocator->allocate<Assets::Vertex>( uploadEntry.geometryData->vertices.size() );
             if ( vertexBufferView.size > 0 )
             {
-                cmd->uploadBuffer( vb,  uploadEntry.geometryData->vertices.data(), vertexBufferView.size, vertexBufferView.offset, allocator, Graphics::RHI::BarrierPolicy::None );
+                cmd->uploadBuffer( vb, uploadEntry.geometryData->vertices.data(), vertexBufferView.size, vertexBufferView.offset, allocator, Graphics::RHI::BarrierPolicy::None );
                 gpuMesh.vertexOffset = (uint)vertexBufferView.offset;
             }
 
@@ -94,7 +99,7 @@ private:
             }
 
             gpuMesh.valid = true;
-            totalUsedSpace += indexBufferView.size + vertexBufferView.size;
+            totalUsedSpace += totalRequiredSpace;
         }
 
         // 2. DELETION QUEUE
