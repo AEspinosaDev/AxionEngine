@@ -16,6 +16,7 @@
 
 <img width="75%" alt="Screenshot (253)" src="https://github.com/user-attachments/assets/6ae452b5-773d-42bf-a478-3de6bc0cd6f8" />
 <img width="75%" alt="image" src="https://github.com/user-attachments/assets/0abed45a-cfde-492f-afca-3f412a55e80e" />
+<img width="75%" alt="image" src="https://github.com/user-attachments/assets/288db67b-0e75-4d13-8195-c854f1783ee1" />
 <img width="75%" alt="image" src="https://github.com/user-attachments/assets/26607d84-45ec-45a6-a8fc-5b3b2ac7817d" />
 
 
@@ -39,14 +40,14 @@ Axion is designed with strict modularity in mind. You are not forced to use the 
 
 ## Key Features ✨
 
-- **Advanced RenderGraph:** Automatic barrier insertion, transient resource management, and memory aliasing.
+- **Advanced RenderGraph:** Automatic barrier insertion and transient resource management.
 - **Declarative API:** Fluent Builder pattern for defining pipelines and resources easily.
-- **Multi-Pipeline Support:** Robust support for Compute, Graphics, and Ray Tracing (WIP).
+- **Multi-Pipeline Support:** Robust support for Compute, Graphics, Ray Tracing and Mesh Pipelines.
 - **Shader System:**
     - Hot-Reloading support.
     - **Automatic Reflection** using SLANG.
     - Agnostic compilation to DXIL and SPIR-V.
-- **GPU-Driven Rendering:** Indirect Rendering, true instancing and GPU Culling.
+- **GPU-Driven Rendering:** Indirect Rendering, Mesh Shading, true instancing and GPU Culling.
 - **Modern Architecture:** PIMPL idioms, ECS integration, and strict RAII resource management.
 - **Tooling:** Integrated Logger, Windowing, and Event systems.
 
@@ -518,6 +519,7 @@ int main() {
 #### Core Rastrerizer
 
 <img width="2947" height="1272" alt="rasterizer drawio" src="https://github.com/user-attachments/assets/a7314a09-e557-4e8f-8182-ddf104ff1a32" />
+
 
 
 
