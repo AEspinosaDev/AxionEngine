@@ -25,7 +25,7 @@ Samples that demonstrate the **Low-Level Rendering Framework**. These examples d
 
 Samples focused on OS interaction, file systems, and engine subsystems without rendering complex graphics.
 
-* **(WIP) Core_Scene**: Creation and managing of a Scene.
+* **`Core_SampleScene`**: Creation and managing of sample Scene.
 
 
 ---
@@ -37,7 +37,7 @@ Samples focused on OS interaction, file systems, and engine subsystems without r
 **✨ The Sweet Spot for Prototyping.** These samples demonstrate how to make the modules talk to each other. Specifically, how to use `AxionCore` as a Resource Loader to feed data into the `AxionGFX` renderer, bypassing the high-level Scene Graph.
 
 * **`Interop_TextureSamplers`**: Loads a texture (Axion.png) using the Core AssetManager and renders a cube with the texture sampled. Shows manual data bridging between CPU (Core) and GPU (GFX).
-* **`Interop_RaytracingAjax`**: Loads a complex OBJ mesh (Ajax) using the Core AssetManager and renders it using a Path Tracing pipeline in GFX. Shows manual data bridging between CPU (Core) and GPU (GFX).
+* **`Interop_MeshShading`**: Loads a complex OBJ mesh (Erato) using the Core AssetManager and renders it using a Mesh pipeline in GFX. Shows manual data bridging between CPU (Core) and GPU (GFX).
 
 ---
 
