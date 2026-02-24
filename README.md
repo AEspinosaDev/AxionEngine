@@ -10,7 +10,7 @@
 
 <br>
 
-> 🚀 **Latest Update:** Core Module's Rasterizer is now `Production Ready`.
+> 🚀 **Latest Update:** Mesh Shading support added to `AxionGFX`.
 
 <br>
 
@@ -519,6 +519,7 @@ int main() {
 #### Core Rastrerizer
 
 <img width="2947" height="1272" alt="rasterizer drawio" src="https://github.com/user-attachments/assets/a7314a09-e557-4e8f-8182-ddf104ff1a32" />
+
 
 
 
