@@ -1,6 +1,7 @@
 #pragma once
 #include "Axion/Graphics/Platforms/Window.h"
 #include "Axion/Graphics/RHI/Device.h"
+#include "Axion/Graphics/RHI/GUIBackend.h"
 #include "Axion/Graphics/Subsystems/GPUResourcePool.h"
 #include "Axion/Graphics/Subsystems/PipelineRegistry.h"
 #include "Axion/Graphics/Subsystems/RenderGraph.h"
@@ -36,6 +37,8 @@ public:
         bool   autoSync              = true;                 ///< Automatic Barrier Insertion by RenderGraph.
 
         uint selectedDeviceID = UINT32_MAX; ///<  Index of the GPU adapter to use. Set to UINT32_MAX for auto-selection (best dedicated GPU).
+
+        bool enableGui = true; ///< Enable ImGui integration (Requires additional setup in the render loop).
     };
 
     virtual ~IRenderer() = default;
@@ -94,6 +97,9 @@ public:
     /// @brief Returns the low-level RHI DescriptorAllocator.
     /// In case persistent descriptor sets have to be created before the render loop.
     virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( uint frameIndex ) = 0;
+
+    /// @brief Returns the GUI Backend interface (e.g. ImGui). Returns nullptr if GUI integration is disabled or headless.
+    virtual const RHI::IGUIBackend* getGUIBackend() const = 0;
 
     // -------------------------------------------------------------------------
     // LIFECYCLE

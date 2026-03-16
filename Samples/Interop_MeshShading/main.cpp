@@ -130,7 +130,8 @@ int main( /*int argc, char* argv[]*/ ) {
                                                                        { .gfxApi        = Graphics::API::DirectX12,
                                                                          .bufferingType = bufferingType,
                                                                          .presentMode   = Graphics::PresentMode::Immediate,
-                                                                         .autoSync      = true } );
+                                                                         .autoSync      = true,
+                                                                         .enableGui     = true } );
 
         Axion::Core::Assets::AssetManager assets;
 

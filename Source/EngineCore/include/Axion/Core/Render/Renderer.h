@@ -32,6 +32,8 @@ struct CommonSettings {
 
     uint maxMtlTextures = 8192;
     uint maxMtlSamplers = 128;
+
+    bool enableGui = true; ///< Enable ImGui integration.
 };
 
 class IRenderer

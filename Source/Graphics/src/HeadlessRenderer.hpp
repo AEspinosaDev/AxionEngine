@@ -1,7 +1,6 @@
 
 #pragma once
 #include "Axion/Graphics/Renderer.h"
-#include "GPUFrame.hpp"
 #include "Subsystems/GPUResourcePool.hpp"
 #include "Subsystems/PipelineRegistry.hpp"
 #include "Subsystems/RenderGraph.hpp"
@@ -23,7 +22,7 @@ public:
     virtual bool isHeadless() override;
 
     virtual IWindow*        getWindow() override;
-    virtual void            setWindow( IWindow* wnd ) override;
+    virtual void            setWindow( IWindow* /*wnd*/ ) override;
     virtual const Settings& getSettings() const override;
     virtual TextureHandle   getCurrentBackbufferHandle() const override { return TextureHandle { UINT32_MAX }; };
     virtual ulong           getTotalFrameNumber() const override { return _frameNumber; };
@@ -36,6 +35,7 @@ public:
 
     virtual const RHI::DevicePtr&      getDevice() const override;
     virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( uint frameIndex ) override;
+    virtual const RHI::IGUIBackend*    getGUIBackend() const override;
 
     virtual std::string toString() const override;
 
@@ -51,7 +51,6 @@ private:
     std::vector<RHI::Fence> _frameFences;
     // GPU Resources
     GPUResourcePoolPtr    _resourcePool = nullptr;
-    std::vector<GPUFrame> _frames;
     // Pipelines & shaders
     ShaderRegistryPtr   _shaderRegistry   = nullptr;
     PipelineRegistryPtr _pipelineRegistry = nullptr;

@@ -18,6 +18,7 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
     , _setts( settings )
     , _FRAMES_IN_FLIGHT( static_cast<uint>( settings.bufferingType ) + 1 ) {
 
+    AXION_LOG_ASSERT( _wnd, Logger::Module::GFX, "Window is NULL | Renderer needs Window. If no window needed, use Headless Renderer" );
     _frameFences.resize( _FRAMES_IN_FLIGHT );
 
     // Per Graphics API Device Creation
@@ -38,7 +39,6 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
             //     break;
     }
 
-    AXION_LOG_ASSERT( _wnd, Logger::Module::GFX, "Window is NULL | Renderer needs Window. If no window needed, use Headless Renderer" );
     _swapchain      = _device->createSwapchain( wnd->getNativeObject(), { .size = wnd->getSettings().size, .imageCount = _FRAMES_IN_FLIGHT, .presentMode = settings.presentMode } );
     _resizeCbHandle = _wnd->onResize().subscribe( [this]( const Event::WindowResizeEvent& e ) { this->windowCallback( { e.width, e.height } ); } );
     // Init Command List
@@ -62,6 +62,28 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
         .resourceTTL           = (uint)_setts.GCMode,
         .autoSync              = _setts.autoSync };
     _renderGraph = NEW_U( RenderGraph )( _device.get(), *_resourcePool.get(), *_pipelineRegistry.get(), RGDesc );
+
+    // Init GUI Backend
+    if ( _setts.enableGui )
+    {
+        RHI::GUIBackendDesc guiDesc = {
+            .platform           = _wnd->getPlatformType(),
+            .backbufferFormat   = _setts.backbufferFormat,
+            .theme              = RHI::GUITheme::Dark,
+            .framesInFlight     = _FRAMES_IN_FLIGHT,
+            .nativeWindowHandle = _wnd->getNativeObject(),
+        };
+        switch ( _setts.gfxApi )
+        {
+            case API::DirectX12:
+                _guiBackend = RHI::createGUIBackendForDX12( _device.get(), guiDesc );
+                break;
+                // case GraphicsAPI::Vulkan:
+                //     break;
+                // default:
+                //     break;
+        }
+    }
 }
 
 Renderer::~Renderer() {
@@ -136,6 +158,10 @@ RHI::IDescriptorAllocator* Renderer::getFrameDescriptorAllocator( uint frameInde
     return _renderGraph->getDescriptorAllocator( frameIndex );
 }
 
+const RHI::IGUIBackend* Renderer::getGUIBackend() const {
+    return _guiBackend.get();
+}
+
 TextureHandle Renderer::getCurrentBackbufferHandle() const {
     return _swapchainHandles[_currentFrame];
 }
@@ -208,6 +234,7 @@ void Renderer::generateSwapchainHandles() {
         _swapchainHandles.push_back( handle );
     }
 }
+
 } // namespace Graphics
 
 AXION_NAMESPACE_END

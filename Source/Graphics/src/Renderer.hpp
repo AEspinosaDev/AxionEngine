@@ -1,6 +1,5 @@
 #pragma once
 #include "Axion/Graphics/Renderer.h"
-#include "GPUFrame.hpp"
 #include "Subsystems/GPUResourcePool.hpp"
 #include "Subsystems/PipelineRegistry.hpp"
 #include "Subsystems/RenderGraph.hpp"
@@ -32,6 +31,7 @@ public:
 
     virtual const RHI::DevicePtr&      getDevice() const override;
     virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( uint frameIndex ) override;
+    virtual const RHI::IGUIBackend*    getGUIBackend() const override;
 
     virtual bool        isHeadless() override;
     virtual void        destroy() override;
@@ -51,8 +51,7 @@ private:
     RHI::CommandListPtr     _commandList = nullptr;
     std::vector<RHI::Fence> _frameFences;
     // GPU Resources
-    GPUResourcePoolPtr    _resourcePool = nullptr;
-    std::vector<GPUFrame> _frames;
+    GPUResourcePoolPtr _resourcePool = nullptr;
     // Pipelines & shaders
     ShaderRegistryPtr   _shaderRegistry   = nullptr;
     PipelineRegistryPtr _pipelineRegistry = nullptr;
@@ -64,6 +63,8 @@ private:
     bool                                                                            _pendingResize  = false;
     RHI::SwapchainPtr                                                               _swapchain      = nullptr;
     std::vector<TextureHandle>                                                      _swapchainHandles;
+    // GUI Backend (IMGUI)
+    RHI::GUIBackendPtr _guiBackend = nullptr;
     // Query
     uint       _currentFrame = 0;
     const uint _FRAMES_IN_FLIGHT;

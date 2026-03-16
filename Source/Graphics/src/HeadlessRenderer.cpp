@@ -85,6 +85,7 @@ bool HeadlessRenderer::isHeadless() {
 }
 
 IWindow* HeadlessRenderer::getWindow() {
+    // AXION_LOG_WARN(Logger::Module::GFX, "Renderer [{}] is headless, it does not have a window.", _setts.name);
     return nullptr;
 }
 
@@ -94,6 +95,11 @@ const RHI::DevicePtr& HeadlessRenderer::getDevice() const {
 
 RHI::IDescriptorAllocator* HeadlessRenderer::getFrameDescriptorAllocator( uint frameIndex ) {
     return _renderGraph->getDescriptorAllocator( frameIndex );
+}
+
+const RHI::IGUIBackend* HeadlessRenderer::getGUIBackend() const {
+    // AXION_LOG_WARN( Logger::Module::GFX, "Renderer [{}] is headless, it does not have a GUI backend.", _setts. );
+    return nullptr;
 }
 
 std::string HeadlessRenderer::toString() const {
@@ -110,8 +116,8 @@ bool HeadlessRenderer::instantExecution( std::function<void( RHI::ICommandList* 
     return true;
 }
 
-void HeadlessRenderer::setWindow( IWindow* wnd ) {
-    // AXION_LOG_WARN(Logger::Module::GFX, "Renderer [{}] is headless, it does not need a window.")
+void HeadlessRenderer::setWindow( IWindow* /*wnd*/ ) {
+    // AXION_LOG_WARN(Logger::Module::GFX, "Renderer [{}] is headless, it does not need a window.", _setts.name);
 }
 
 const RendererSettings& HeadlessRenderer::getSettings() const {

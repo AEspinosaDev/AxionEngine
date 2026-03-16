@@ -30,7 +30,8 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
         .RGTransientAllocSize  = settings.memory.uploadBufferSize,
         .GCMode                = settings.common.GCMode,
         .autoSync              = true,
-        .selectedDeviceID      = settings.common.selectedDeviceID };
+        .selectedDeviceID      = settings.common.selectedDeviceID,
+        .enableGui             = settings.common.enableGui};
 
     const uint remainingVolatileViews = _settings.memory.RGMaxViewsPerFrame - settings.common.maxMtlTextures;
     AXION_LOG_ASSERT( remainingVolatileViews >= 256, Logger::Module::RHI, "Volatile Views Count is critically low!" );

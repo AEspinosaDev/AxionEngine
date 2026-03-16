@@ -15,6 +15,7 @@ if(NOT Vulkan_FOUND)
 message(FATAL_ERROR "Vulkan SDK not found! Install Vulkan SDK 1.3.296+")
 endif()
 message(STATUS "Using Vulkan SDK at: ${Vulkan_INCLUDE_DIRS}")
+
 # ----------------------------------------------------------------------------
 # Slang (Custom Prebuilt)
 # ----------------------------------------------------------------------------
@@ -67,10 +68,12 @@ endif()
 # Shaderc (prebuilt from VulkanSDK)
 # ----------------------------------------------------------------------------
 # *****
+
 # ----------------------------------------------------------------------------
 # GLM (header-only)
 # ----------------------------------------------------------------------------
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/glm-1.0.2)
+
 # ----------------------------------------------------------------------------
 # GLFW (optional, compiled)
 # ----------------------------------------------------------------------------
@@ -82,6 +85,7 @@ if(BUILD_GLFW)
     set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/glfw)
 endif()
+
 # ----------------------------------------------------------------------------
 # Fmt (header only)
 # ----------------------------------------------------------------------------
@@ -90,21 +94,30 @@ set(FMT_TEST OFF CACHE BOOL "" FORCE)
 set(FMT_DOC OFF CACHE BOOL "" FORCE)           
 set(FMT_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/fmt)
+
 # ----------------------------------------------------------------------------
 # STB - IMAGE 
 # ----------------------------------------------------------------------------
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/stb_image)
+
 # ----------------------------------------------------------------------------
 # GEOMETRY LOADERS 
 # ----------------------------------------------------------------------------
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/tiny_obj_loader)
+
 # ----------------------------------------------------------------------------
 # MESH OPTIMIZER
 # ----------------------------------------------------------------------------
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/meshoptimizer)
+
 # ----------------------------------------------------------------------------
 # D3D12 VMA 
 # ----------------------------------------------------------------------------
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/D3D12MemoryAllocator)
+
+# ----------------------------------------------------------------------------
+# IMGUI
+# ----------------------------------------------------------------------------
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/imgui)
 
 unset(CMAKE_FOLDER)

@@ -24,14 +24,15 @@ public:
      * @brief Holds configuration and state for a window.
      */
     struct Settings {
-        std::string name       = "Raiko Window"; //!< Window title
-        Extent2D    size       = { 1280, 720 };  //!< Initial window size
-        bool        fullscreen = false;          //!< Fullscreen mode flag
-        bool        centered   = true;           //!< Whether to center the window
-        Position2D  position   = { 100, 100 };   //!< Position on the screen (if not centered)
-        std::string iconPath   = "";             //!< Path to window icon
-        std::string cursorPath = "";             //!< Path to cursor icon
-        int         style      = 0;              //!< Platform-specific style flags
+        std::string name              = "Axion Window"; //!< Window title
+        Extent2D    size              = { 1280, 720 };  //!< Initial window size
+        bool        fullscreen        = false;          //!< Fullscreen mode flag
+        bool        centered          = true;           //!< Whether to center the window
+        Position2D  position          = { 100, 100 };   //!< Position on the screen (if not centered)
+        std::string iconPath          = "";             //!< Path to window icon
+        std::string cursorPath        = "";             //!< Path to cursor icon
+        int         style             = 0;              //!< Platform-specific style flags
+        bool        enableGuiInputCBs = true;           //!< Enable ImGui Input
     };
 
     /** @brief Virtual destructor for safe polymorphic deletion. */

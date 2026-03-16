@@ -40,6 +40,8 @@ D3D12MA
 Vulkan::Vulkan 
 #Internal Modules
 AxionCommon
+#imgui
+imgui
 )
 
 # Si quieres flags específicos por backend
