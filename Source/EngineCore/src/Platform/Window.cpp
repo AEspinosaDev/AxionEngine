@@ -15,17 +15,18 @@ struct Window::Impl {
 
     Impl( const Settings& startupSettings )
         : platformType( startupSettings.platformType )
-        , useVsync( startupSettings.vsync ) {
+        , useVsync( startupSettings.flags & WindowVSync ) {
 
         Graphics::IWindow::Settings s;
-        s.name       = startupSettings.name;
-        s.size       = startupSettings.size;
-        s.fullscreen = startupSettings.fullscreen;
-        s.centered   = startupSettings.centered;
-        s.position   = startupSettings.position;
-        s.iconPath   = startupSettings.iconPath;
-        s.cursorPath = startupSettings.cursorPath;
-        s.style      = startupSettings.style;
+        s.name              = startupSettings.name;
+        s.size              = startupSettings.size;
+        s.fullscreen        = startupSettings.flags & WindowFullscreen;
+        s.centered          = startupSettings.flags & WindowCentered;
+        s.position          = startupSettings.position;
+        s.iconPath          = startupSettings.iconPath;
+        s.cursorPath        = startupSettings.cursorPath;
+        s.style             = startupSettings.style;
+        s.enableGuiInputCBs = startupSettings.flags & WindowEnableGUICallbacks;
 
         if ( platformType == Graphics::PlatformType::Win32 )
             nativeWindow = Graphics::createWindowForWin32( GetModuleHandle( nullptr ), s );
@@ -62,7 +63,7 @@ Extent2D Window::getSize() const {
     return _impl->nativeWindow->getSettings().size;
 }
 
-void Window::setTitle( const std::string& title ){
+void Window::setTitle( const std::string& title ) {
     _impl->nativeWindow->setTitle( title );
 }
 
@@ -81,15 +82,22 @@ const Window::Settings& Window::getSettings() const {
 
     _impl->internalSettingsBuffer.name       = nativeSetts.name;
     _impl->internalSettingsBuffer.size       = nativeSetts.size;
-    _impl->internalSettingsBuffer.fullscreen = nativeSetts.fullscreen;
-    _impl->internalSettingsBuffer.centered   = nativeSetts.centered;
     _impl->internalSettingsBuffer.position   = nativeSetts.position;
     _impl->internalSettingsBuffer.iconPath   = nativeSetts.iconPath;
     _impl->internalSettingsBuffer.cursorPath = nativeSetts.cursorPath;
     _impl->internalSettingsBuffer.style      = nativeSetts.style;
 
     _impl->internalSettingsBuffer.platformType = _impl->platformType;
-    _impl->internalSettingsBuffer.vsync        = _impl->useVsync;
+
+    _impl->internalSettingsBuffer.flags = WindowNone;
+    if ( nativeSetts.centered )
+        _impl->internalSettingsBuffer.flags |= WindowCentered;
+    if ( nativeSetts.fullscreen )
+        _impl->internalSettingsBuffer.flags |= WindowFullscreen;
+    if ( _impl->useVsync )
+        _impl->internalSettingsBuffer.flags |= WindowVSync;
+    if ( nativeSetts.enableGuiInputCBs )
+        _impl->internalSettingsBuffer.flags |= WindowEnableGUICallbacks;
 
     return _impl->internalSettingsBuffer;
 }
@@ -152,13 +160,13 @@ std::string Window::toString() const {
         "  Cursor Path: {}\n",
         currentSettings.name,
         pltName,
-        currentSettings.vsync,
-        currentSettings.fullscreen,
+        currentSettings.flags & WindowEnableGUICallbacks ? "Yes" : "No",
+        currentSettings.flags & WindowFullscreen ? "Yes" : "No",
         currentSettings.position.x,
         currentSettings.position.y,
         currentSettings.size.width,
         currentSettings.size.height,
-        currentSettings.centered,
+        currentSettings.flags & WindowCentered ? "Yes" : "No",
         currentSettings.iconPath,
         currentSettings.cursorPath );
 }

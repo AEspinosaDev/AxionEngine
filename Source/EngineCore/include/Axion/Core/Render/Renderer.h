@@ -9,6 +9,25 @@ namespace Core::Render {
 
 DEFINE_UNIQUE_PTR_FOR_TYPE( IRenderer, Renderer )
 
+struct CommonSettings {
+    std::string             name             = "";
+    Graphics::API           gfxApi           = Graphics::API::DirectX12;
+    Graphics::BufferingType bufferingType    = Graphics::BufferingType::Double;
+    Graphics::Format        backbufferFormat = Graphics::Format::RGBA8_UNORM;
+    Graphics::GCMode        GCMode           = Graphics::GCMode::AvgMemory;
+    uint                    selectedDeviceID = UINT32_MAX;
+
+    uint maxMtlTextures = 8192;
+    uint maxMtlSamplers = 128;
+
+    RendererFlags flags = RendererEnableDebug;
+// #ifdef AXION_DEBUG
+//     RendererFlags flags = RendererEnableDebug;
+// #else
+//     RendererFlags flags = RendererNone;
+// #endif
+};
+
 struct MemoryBudget {
     ulong geometryBufferSize    = 512 * 1024 * 1024; ///< Initial memory reservation persistent static geometry buffer -Vertex/Index- (512MB default)
     ulong materialBufferSize    = 16 * 1024 * 1024;  ///< Initial memory reservation persistent static material buffer (16MB default)
@@ -21,21 +40,6 @@ struct MemoryBudget {
     uint  RGMaxSamplersPerFrame = 128 + 4;           ///< Initial sampler count reservation for per-frame Descriptor Pools.
 };
 
-struct CommonSettings {
-    std::string             name             = "";
-    Graphics::API           gfxApi           = Graphics::API::DirectX12;
-    Graphics::BufferingType bufferingType    = Graphics::BufferingType::Double;
-    bool                    debugMode        = true;
-    Graphics::Format        backbufferFormat = Graphics::Format::RGBA8_UNORM;
-    Graphics::GCMode        GCMode           = Graphics::GCMode::AvgMemory;
-    uint                    selectedDeviceID = UINT32_MAX;
-
-    uint maxMtlTextures = 8192;
-    uint maxMtlSamplers = 128;
-
-    bool enableGui = true; ///< Enable ImGui integration.
-};
-
 class IRenderer
 {
 public:
@@ -44,6 +48,8 @@ public:
     virtual void compileShaders( uint threadCount = 1 )                                                   = 0;
     virtual void render( const Scene::Scene& scene, Scene::Entity& cameraEntity, float deltaTime = 0.0f ) = 0;
     virtual void shutdown()                                                                               = 0;
+
+    virtual void newGuiFrame() const = 0;
 
     virtual CommonSettings getCommonSettings() const = 0;
     virtual MemoryBudget   getMemoryBudget() const   = 0;

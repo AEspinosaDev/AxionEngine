@@ -8,7 +8,7 @@ namespace Graphics::RHI {
 class DX12GUIBackend final : public IGUIBackend
 {
 public:
-    DX12GUIBackend( ID3D12Device2* device, const GUIBackendDesc& desc );
+    DX12GUIBackend( ID3D12Device2* device, ID3D12CommandQueue* queue, const GUIBackendDesc& desc );
     ~DX12GUIBackend() override;
 
     const GUIBackendDesc& getDescription() const { return _desc; }

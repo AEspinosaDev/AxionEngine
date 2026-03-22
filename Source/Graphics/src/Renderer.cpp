@@ -69,7 +69,6 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
         RHI::GUIBackendDesc guiDesc = {
             .platform           = _wnd->getPlatformType(),
             .backbufferFormat   = _setts.backbufferFormat,
-            .theme              = RHI::GUITheme::Dark,
             .framesInFlight     = _FRAMES_IN_FLIGHT,
             .nativeWindowHandle = _wnd->getNativeObject(),
         };
@@ -83,6 +82,7 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
                 // default:
                 //     break;
         }
+        AXION_LOG_ASSERT( _guiBackend, Logger::Module::Core, "GUI Backend is not initialized in Renderer" );
     }
 }
 

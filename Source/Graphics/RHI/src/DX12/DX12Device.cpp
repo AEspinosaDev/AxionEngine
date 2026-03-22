@@ -199,7 +199,7 @@ void DX12Device::executeCommandLists( const std::vector<ICommandList*>& lists, Q
         nativeLists.push_back( nativeList );
     }
 
-    auto queue = getQueue( workingQueue );
+    auto queue = getQueueRW( workingQueue );
     queue->queue->ExecuteCommandLists( static_cast<UINT>( nativeLists.size() ), nativeLists.data() );
 
     // Signal fence for this frame
@@ -226,7 +226,7 @@ void DX12Device::waitForQueue( QueueType workingQueue, QueueType dstQueue ) {
 }
 
 void DX12Device::queueWaitIdle( QueueType workingQueue, Fence& frameFence ) {
-    auto q = getQueue( workingQueue );
+    auto q = getQueueRW( workingQueue );
     // ulong fenceValueForSignal = ++frameFence.value;
     q->fenceValue++;
     DX_CHECK( q->queue->Signal( q->fence.Get(), q->fenceValue ) );
@@ -244,7 +244,7 @@ bool DX12Device::waitIdle() {
     // Wait for each queue individually
     for ( QueueType type : { QueueType::Graphics, QueueType::Compute, QueueType::Transfer } )
     {
-        auto q = getQueue( type );
+        auto q = getQueueRW( type );
         if ( !q )
             continue;
 
@@ -510,7 +510,7 @@ std::unique_ptr<DX12Device::Queue> DX12Device::createCommandQueue( const QueueTy
     return q;
 }
 
-DX12Device::Queue* RHI::DX12Device::getQueue( const QueueType& type ) {
+const DX12Device::Queue* RHI::DX12Device::getQueue( const QueueType& type ) const {
     switch ( type )
     {
         case QueueType::Graphics:
@@ -592,6 +592,11 @@ std::string RHI::DX12Device::toString() const {
     ss << fmt::format( "    Coop Vec Training: {}\n", _ext.coopVecTrainingSupported );
 
     return fmt::format( "{}\n\n{}", deviceInfo, ss.str() );
+}
+
+DX12Device::Queue* DX12Device::getQueueRW( const QueueType& type ) {
+    const DX12Device* constThis = static_cast<const DX12Device*>( this );
+    return const_cast<DX12Device::Queue*>( constThis->getQueue( type ) );
 }
 
 void DX12Device::UploadContext::init( const ComPtr<ID3D12Device2>& device ) {

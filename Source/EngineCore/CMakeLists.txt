@@ -26,6 +26,7 @@ ${CMAKE_CURRENT_SOURCE_DIR}/src
 target_link_libraries(AxionCore
 PUBLIC
 AxionCommon
+imgui
 PRIVATE
 # Internal Modules
 AxionGFX

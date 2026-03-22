@@ -12,8 +12,7 @@ set(CMAKE_FOLDER "Tests")
 add_subdirectory(Func/GFX_ClearBackbuffer)
 add_subdirectory(Func/GFX_UpdateAccels)
 add_subdirectory(Func/Core_Stress)
-
-
+add_subdirectory(Func/Core_GUI)
 
 # UNIT TESTS
 

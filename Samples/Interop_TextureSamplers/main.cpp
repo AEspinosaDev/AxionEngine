@@ -145,6 +145,7 @@ int main( /*int argc, char* argv[]*/ ) {
         Axion::Graphics::Passes::BlitToBackBuffer cpypass {};
         Axion::Graphics::Passes::ToneMapping      tmPass {};
         tmPass.init( *rnd.get() );
+        Axion::Graphics::Passes::PresentPass presentpass {};
 
         ForwardPass fwPass {};
         fwPass.pipeline = rnd->pipelines()
@@ -189,9 +190,9 @@ int main( /*int argc, char* argv[]*/ ) {
         fwPass.meshData.vbo = rnd->resources()
                                   .buffer( "VertexBuffer" )
                                   .asVBO()
-                                  .withData(  geoData->vertices.data() )
-                                  .stride( sizeof(  Core::Assets::Vertex  ) )
-                                  .size(  geoData->vertices.size() * sizeof( Core::Assets::Vertex ) )
+                                  .withData( geoData->vertices.data() )
+                                  .stride( sizeof( Core::Assets::Vertex ) )
+                                  .size( geoData->vertices.size() * sizeof( Core::Assets::Vertex ) )
                                   .create();
 
         fwPass.meshData.ibo = rnd->resources()
@@ -250,7 +251,7 @@ int main( /*int argc, char* argv[]*/ ) {
 
             auto view = Axion::Math::MTX::lookAt( cam.camPos, { 0, 0, 0 }, { 0, 1, 0 } );
 
-              float time  = std::chrono::duration<float>( std::chrono::high_resolution_clock::now() - startTime ).count();
+            float time  = std::chrono::duration<float>( std::chrono::high_resolution_clock::now() - startTime ).count();
             auto  model = Axion::Math::MTX::identity();
             model       = Axion::Math::MTX::rotate( model, time * 0.5f, Math::Vec3( 0.0f, 1.0f, 0.0f ) );
             model       = Axion::Math::MTX::translate( model, Math::Vec3( 0.0f, -0.8f, 0.0f ) );
@@ -293,9 +294,14 @@ int main( /*int argc, char* argv[]*/ ) {
 
                 builder.addPass( "TonemappingPass", tmPass );
 
+                auto backbufferHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
+
                 cpypass.inputHandle  = tmPass.outputHandle;
-                cpypass.outputHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
+                cpypass.outputHandle = backbufferHandle;
                 builder.addPass( "CopyPass", cpypass );
+
+                presentpass.inoutHandle = backbufferHandle;
+                builder.addPass( "PresentPass", presentpass );
             } );
         };
 

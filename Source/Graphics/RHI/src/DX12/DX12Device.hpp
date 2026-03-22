@@ -54,6 +54,9 @@ public:
         HANDLE                     fenceEvent = nullptr;
         ulong                      fenceValue = 0;
     };
+
+    const Queue* getQueue( const QueueType& type ) const;
+
     // Upload context for one time submits
     class UploadContext
     {
@@ -132,7 +135,8 @@ private:
     void                  checkExtensions() override;
 
     std::unique_ptr<Queue> createCommandQueue( const QueueType& type, const std::string& name );
-    Queue*                 getQueue( const QueueType& type );
+
+    Queue* getQueueRW( const QueueType& type );
 
     IDX12Device::Description _desc;
     Context                  _ctx;

@@ -68,7 +68,7 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
 
     std::vector<slang::PreprocessorMacroDesc> macros;
 
-    if (desc.format == Shader::NativeFormat::DXIL)
+    if ( desc.format == Shader::NativeFormat::DXIL )
     {
         macros.push_back( { "__D3D12__", "1" } );
     } else
@@ -77,6 +77,11 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
         macros.push_back( { "__SPIRV__", "1" } );
     }
 
+    auto preprocessorDefines = desc.preprocessorDefines.value_or( std::vector<Shader::PreprocessorDefine>() );
+    for ( auto& macro : preprocessorDefines )
+    {
+        macros.push_back( { macro.name.c_str(), macro.value.c_str() } );
+    }
 
     sessionDesc.preprocessorMacros     = macros.data();
     sessionDesc.preprocessorMacroCount = (SlangInt)macros.size();

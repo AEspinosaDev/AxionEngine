@@ -18,10 +18,9 @@ enum NativeFormat : uchar
     GLSL    ///< OpenGL Shading Language.
 };
 
-
 struct ProgramBundle {
     struct StageBlob {
-        ShaderType    type;
+        ShaderType         type;
         std::vector<uchar> code;
         std::string        entryPointName;
     };
@@ -34,10 +33,11 @@ struct ProgramBundle {
 
 /// @brief Configuration descriptor for a shader source.
 struct Description {
-    std::string                                      path;          ///< Path to the .slang source file.
-    std::vector<std::string>                         includePaths;  ///< Additional directories for import resolution.
-    NativeFormat                                     format = DXIL; ///< Target binary format.
-    std::vector<EntryPoint>                          entryPoints;   ///< Name of the entry point functions (e.g., "vsMain").
+    std::string                                      path;                ///< Path to the .slang source file.
+    std::vector<std::string>                         includePaths;        ///< Additional directories for import resolution.
+    NativeFormat                                     format = DXIL;       ///< Target binary format.
+    std::vector<EntryPoint>                          entryPoints;         ///< Name of the entry point functions (e.g., "vsMain").
+    std::optional<std::vector<PreprocessorDefine>>   preprocessorDefines; ///< Optional preprocessor definitions.
     std::optional<RHI::PipelineLayoutDesc>           layoutDesc;
     std::optional<std::vector<RHI::VertexAttribute>> vertexAttributes;
     bool                                             autoReflect = true; ///< Whether to generate reflection data.

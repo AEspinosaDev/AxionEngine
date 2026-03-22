@@ -106,6 +106,16 @@ public:
         return *this;
     }
 
+    /// @brief Adds a preprocessor define.
+    Builder& addDefine( Shader::PreprocessorDefine define ) {
+        if ( !_desc.preprocessorDefines.has_value() )
+            _desc.preprocessorDefines.emplace();
+
+        _desc.preprocessorDefines->push_back( std::move( define ) );
+
+        return *this;
+    }
+
     // --- STAGE ENTRY POINTS ---
 
     /// @brief Adds a Vertex Shader entry point.

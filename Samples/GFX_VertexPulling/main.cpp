@@ -222,6 +222,8 @@ int main( /*int argc, char* argv[]*/ ) {
                               .create();
 
         Axion::Graphics::Passes::BlitToBackBuffer cpypass {};
+        Axion::Graphics::Passes::PresentPass      presentpass {};
+
 
         //-------------------------------------
         // Dedclaring Global Persistent Resources
@@ -363,9 +365,15 @@ int main( /*int argc, char* argv[]*/ ) {
 
                 builder.addPass<ForwardPass>( "ForwardPass", fwPass );
 
+              
+                 auto backbufferHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
+
                 cpypass.inputHandle  = fwPass.output;
-                cpypass.outputHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
+                cpypass.outputHandle = backbufferHandle;
                 builder.addPass( "CopyPass", cpypass );
+
+                presentpass.inoutHandle = backbufferHandle;
+                builder.addPass( "PresentPass", presentpass );
             } );
         };
 

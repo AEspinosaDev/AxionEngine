@@ -16,6 +16,7 @@
 #include "Passes/IndirectUploadPass.hpp"
 #include "Passes/TonemappingPass.hpp"
 #include "Passes/UploadPass.hpp"
+#include "Passes/FXAAPass.hpp"
 
 AXION_NAMESPACE_BEGIN
 
@@ -30,6 +31,8 @@ public:
     void compileShaders( uint threadCount = 1 ) override;
     void render( const Scene::Scene& scene, Scene::Entity& cameraEntity, float deltaTime = 0.0f ) override;
     void shutdown() override;
+
+    void newGuiFrame() const override;
 
     Settings getSettings() const override { return _settings; };
     void     setSettings( const Settings& settings ) override { _settings = settings; };
@@ -69,8 +72,11 @@ private:
     RasterizerSettings _settings;
 
     // Passes
-    PassManager                               _passes;
-    Axion::Graphics::Passes::BlitToBackBuffer cpypass {};
+    PassManager _passes;
+    // Backend Passes
+    Axion::Graphics::Passes::BlitToBackBuffer _cpypass {};
+    Axion::Graphics::Passes::GUIPass          _guipass {};
+    Axion::Graphics::Passes::PresentPass      _presentpass {};
 
     // Material Library & Global Shader Contract
     MaterialLibrary                _mtlLib;

@@ -32,7 +32,7 @@ public:
         std::string iconPath          = "";             //!< Path to window icon
         std::string cursorPath        = "";             //!< Path to cursor icon
         int         style             = 0;              //!< Platform-specific style flags
-        bool        enableGuiInputCBs = true;           //!< Enable ImGui Input
+        bool        enableGuiInputCBs = true;           //!< Enable Gui Input
     };
 
     /** @brief Virtual destructor for safe polymorphic deletion. */

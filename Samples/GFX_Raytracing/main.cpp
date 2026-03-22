@@ -167,6 +167,7 @@ int main( /*int argc, char* argv[]*/ ) {
         Axion::Graphics::Passes::ToneMapping tnPass {};
         tnPass.init( *rnd );
         Axion::Graphics::Passes::BlitToBackBuffer cpypass {};
+        Axion::Graphics::Passes::PresentPass      presentpass {};
 
         //-------------------------------------
         // Dedclaring Cube Data and Accels
@@ -371,9 +372,14 @@ int main( /*int argc, char* argv[]*/ ) {
                 //                           .create();
                 // builder.addPass( "Tonemapping", tnPass );
 
+                auto backbufferHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
+
                 cpypass.inputHandle  = rtPass.output;
-                cpypass.outputHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
+                cpypass.outputHandle = backbufferHandle;
                 builder.addPass( "CopyPass", cpypass );
+
+                presentpass.inoutHandle = backbufferHandle;
+                builder.addPass( "PresentPass", presentpass );
             } );
         };
 

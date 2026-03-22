@@ -150,7 +150,9 @@ int main( /*int argc, char* argv[]*/ ) {
         rnd->shaders().compileAllShaders();
 
         Axion::Graphics::Passes::BlitToBackBuffer cpypass {};
+        Axion::Graphics::Passes::PresentPass      presentpass {};
         Axion::Graphics::Passes::ToneMapping      tmPass {};
+
         tmPass.init( *rnd.get() );
 
         ForwardPass fwPass {};
@@ -311,9 +313,14 @@ int main( /*int argc, char* argv[]*/ ) {
 
                 builder.addPass( "TonemappingPass", tmPass );
 
+                auto backbufferHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
+
                 cpypass.inputHandle  = tmPass.outputHandle;
-                cpypass.outputHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
+                cpypass.outputHandle = backbufferHandle;
                 builder.addPass( "CopyPass", cpypass );
+
+                presentpass.inoutHandle = backbufferHandle;
+                builder.addPass( "PresentPass", presentpass );
             } );
         };
 

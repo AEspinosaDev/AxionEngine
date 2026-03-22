@@ -6,6 +6,23 @@ AXION_NAMESPACE_BEGIN
 
 namespace Core::Render {
 
+// Renderer feature flags
+enum RendererFlags : uint
+{
+    RendererNone         = 0,
+    RendererEnableGUI    = 1 << 0,
+    RendererEnableDebug  = 1 << 1,
+    RendererEnableFXAA   = 1 << 2,
+    RendererEnableMSAAx2 = 1 << 3,
+    RendererEnableMSAAx4 = 1 << 4,
+    RendererEnableMSAAx8 = 1 << 5,
+    RendererEnableTAA    = 1 << 6,
+    RendererEnableHDR    = 1 << 7,
+    RendererEnableDLSS   = 1 << 8,
+};
+
+AXION_ENUM_CLASS_FLAG_OPERATORS( RendererFlags )
+
 enum class TopologyType : uchar
 {
     Triangles = 0,

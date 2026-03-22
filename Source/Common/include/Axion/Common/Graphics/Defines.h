@@ -436,6 +436,11 @@ struct EntryPoint {
     ShaderType  type;
 };
 
+struct PreprocessorDefine {
+    std::string name;
+    std::string value;
+};
+
 } // namespace Shader
 } // namespace Graphics
 AXION_NAMESPACE_END

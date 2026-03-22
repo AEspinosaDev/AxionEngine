@@ -13,6 +13,19 @@ class IWindow;
 
 namespace Core::Platform {
 
+enum WindowFlags : ushort
+{
+    WindowNone               = 0,
+    WindowResizable          = 1 << 0,
+    WindowBorderless         = 1 << 1,
+    WindowCentered           = 1 << 2,
+    WindowFullscreen         = 1 << 3,
+    WindowVSync              = 1 << 4,
+    WindowEnableGUICallbacks = 1 << 5,
+};
+
+AXION_ENUM_CLASS_FLAG_OPERATORS( WindowFlags )
+
 /**
  * @brief High-level abstraction for an Operating System Window.
  *
@@ -31,16 +44,13 @@ public:
     struct Settings {
 
         Graphics::PlatformType platformType = Graphics::PlatformType::Win32;
-        bool                   vsync        = false;
         std::string            name         = "Axion Window";
         Extent2D               size         = { 1280, 720 };
-        bool                   fullscreen   = false;
-        bool                   centered     = true;
         Position2D             position     = { 100, 100 };
         std::string            iconPath     = "";
         std::string            cursorPath   = "";
         int                    style        = 0;
-
+        WindowFlags            flags        = WindowResizable | WindowCentered | WindowEnableGUICallbacks;
     };
 
     /**
@@ -77,7 +87,6 @@ public:
     void setFullscreen( bool fullscreen );
 
     void setTitle( const std::string& title );
-
 
     /**
      * @brief Checks if the window has received a request to close (e.g., user pressed 'X').
@@ -155,9 +164,7 @@ public:
     /** @brief Dispatcher for mouse wheel scrolling. */
     Event::EventDispatcher<Event::MouseScrollEvent>& onMouseScroll();
 
-
     std::string toString() const;
-
 
 private:
     struct Impl;

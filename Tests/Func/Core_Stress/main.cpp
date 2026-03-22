@@ -32,7 +32,6 @@ int main( /*int argc, char* argv[]*/ ) {
 
         Core::Platform::Window wnd( {
             .platformType = Graphics::PlatformType::Win32,
-            .vsync        = true,
             .name         = "100K Instances - Free Camera Test",
         } );
         Core::Assets::AssetManager assets;
@@ -42,6 +41,7 @@ int main( /*int argc, char* argv[]*/ ) {
         rastDesc.useGPUCulling             = true;
         rastDesc.common.name               = "TestRasterizer";
         rastDesc.common.selectedDeviceID   = 0;
+        rastDesc.common.flags |= Core::Render::RendererEnableFXAA;
         rastDesc.memory.volatileBufferSize = 1024 * 1024 * 64;
 
         auto rasterizer = Core::Render::createRasterizer( &wnd, rastDesc );

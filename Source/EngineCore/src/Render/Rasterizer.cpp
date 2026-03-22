@@ -19,8 +19,8 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
     Graphics::RendererSettings rndStts = {
         .gfxApi                = settings.common.gfxApi,
         .bufferingType         = settings.common.bufferingType,
-        .debugMode             = settings.common.debugMode,
-        .presentMode           = wnd->getSettings().vsync ? Graphics::PresentMode::Vsync : Graphics::PresentMode::Immediate,
+        .debugMode             = ( settings.common.flags & RendererEnableDebug ) != RendererNone,
+        .presentMode           = wnd->getSettings().flags & Platform::WindowVSync ? Graphics::PresentMode::Vsync : Graphics::PresentMode::Immediate,
         .backbufferFormat      = settings.common.backbufferFormat,
         .RGAllocSize           = settings.memory.RGAllocSize,
         .RGAllocSBTSize        = settings.memory.GPUCommandBuffersSize,
@@ -31,7 +31,7 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
         .GCMode                = settings.common.GCMode,
         .autoSync              = true,
         .selectedDeviceID      = settings.common.selectedDeviceID,
-        .enableGui             = settings.common.enableGui};
+        .enableGui             = ( settings.common.flags & RendererEnableGUI ) != RendererNone };
 
     const uint remainingVolatileViews = _settings.memory.RGMaxViewsPerFrame - settings.common.maxMtlTextures;
     AXION_LOG_ASSERT( remainingVolatileViews >= 256, Logger::Module::RHI, "Volatile Views Count is critically low!" );
@@ -57,6 +57,11 @@ Rasterizer::~Rasterizer() {
 }
 
 void Rasterizer::shutdown() {}
+
+void Rasterizer::newGuiFrame() const {
+    if ( _settings.common.flags & RendererEnableGUI )
+        _rnd->getGUIBackend()->newFrame();
+}
 
 ulong Rasterizer::getCurrentFrameIndex() const {
     return _rnd->getCurrentFrameIndex();
@@ -184,7 +189,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         //----------------------------
 
         DepthPrePass::Config dpConfig;
-        dpConfig.outDepthHandle = builder.texture( "DepthBuffer" )
+        dpConfig.outDepthHandle = builder.texture( "DepthRT" )
                                       .asDepthStencil()
                                       .format( Graphics::Format::D32 )
                                       .extent( rtExtent )
@@ -217,7 +222,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         // D. Forward
         //----------------------------
         ForwardPass::Config fwConfig;
-        fwConfig.outColorHandle = builder.texture( "ColorBuffer" )
+        fwConfig.outColorHandle = builder.texture( "ColorRT" )
                                       .asRenderTarget()
                                       .asStorage()
                                       .format( Graphics::Format::RGBA16_FLOAT )
@@ -258,7 +263,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         float                   exposureFactor = 1.0f / ( 1.2f * std::pow( 2.0f, ev100 ) );
         tmConfig.exposure                      = exposureFactor;
         tmConfig.inputHandle                   = fwConfig.outColorHandle;
-        tmConfig.outputHandle                  = builder.texture( "ToneMappedBuffer" )
+        tmConfig.outputHandle                  = builder.texture( "ToneMappedRT" )
                                     .format( _settings.common.backbufferFormat )
                                     .extent( rtExtent )
                                     .asStorage()
@@ -266,13 +271,52 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
         _passes.getPass<ToneMappingPass>()->addToGraph( builder, tmConfig );
 
+        Graphics::RGResourceHandle currentBlitInput = tmConfig.outputHandle;
+
         //----------------------------
-        // F. Final Blit/Present
+        // F. FXAA (Optional)
         //----------------------------
 
-        cpypass.inputHandle  = tmConfig.outputHandle;
-        cpypass.outputHandle = builder.import( "Backbuffer", _rnd->getCurrentBackbufferHandle() );
-        builder.addPass( "FinalBlitPass", cpypass );
+        if ( _settings.common.flags & RendererEnableFXAA )
+        {
+            FXAAPass::Config fxaaConfig;
+            fxaaConfig.inputHandle  = tmConfig.outputHandle;
+            fxaaConfig.outputHandle = builder.texture( "FxaaRT" )
+                                          .format( _settings.common.backbufferFormat )
+                                          .extent( rtExtent )
+                                          .asStorage()
+                                          .create();
+            fxaaConfig.linearSamplerHandle = _res.fallbackSamplerHandle;
+
+            _passes.getPass<FXAAPass>()->addToGraph( builder, fxaaConfig );
+            currentBlitInput = fxaaConfig.outputHandle;
+        }
+
+        //----------------------------
+        // F. Blit
+        //----------------------------
+
+        Graphics::RGResourceHandle backbufferHandle = builder.import( "BackbufferRT", _rnd->getCurrentBackbufferHandle() );
+
+        _cpypass.inputHandle  = currentBlitInput;
+        _cpypass.outputHandle = backbufferHandle;
+        builder.addPass( "FinalBlitPass", _cpypass );
+
+        //----------------------------
+        // F. GUI Pass (Optional)
+        //----------------------------
+        if ( _settings.common.flags & RendererEnableGUI )
+        {
+            _guipass.guiBackend   = _rnd->getGUIBackend();
+            _guipass.outputHandle = backbufferHandle;
+            builder.addPass( "GUIPass", _guipass );
+        }
+
+        //----------------------------
+        // F. Present Pass
+        //----------------------------
+        _presentpass.inoutHandle = backbufferHandle;
+        builder.addPass( "PresentPass", _presentpass );
     } );
 }
 
@@ -349,6 +393,7 @@ void Rasterizer::registerPasses() {
     _passes.registerPass<DepthPrePass>();
     _passes.registerPass<ForwardPass>();
     _passes.registerPass<ToneMappingPass>();
+    _passes.registerPass<FXAAPass>();
 }
 
 void Rasterizer::createResources() {

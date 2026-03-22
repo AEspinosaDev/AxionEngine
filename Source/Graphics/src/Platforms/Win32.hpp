@@ -22,7 +22,6 @@ public:
     void            setSettings( const Settings& settings ) override { _settings = settings; }
     void            setTitle( const std::string& title ) override;
 
-
     bool              shouldClose() const override { return _shouldClose; }
     PlatformType      getPlatformType() const override { return PlatformType::Win32; }
     RHI::NativeObject getNativeObject() override;
@@ -35,29 +34,46 @@ public:
     Event::EventDispatcher<Event::MouseScrollEvent>&  onMouseScroll() override { return _onMouseScroll; }
 
 private:
+    // Methods exclusie to Win API
     static LRESULT CALLBACK wndProcSetup( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
     static LRESULT CALLBACK wndProcThunk( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
     LRESULT CALLBACK        wndProcMsg( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam );
+    void                    wndProcGUI( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, bool& guiWantsKb, bool& guiWantsMouse );
 
     constexpr static Event::KeyCode mapWin32Key( WPARAM wParam ) {
-        switch ( wParam ) {
-            case 'W':       return Event::KeyCode::W;
-            case 'A':       return Event::KeyCode::A;
-            case 'S':       return Event::KeyCode::S;
-            case 'D':       return Event::KeyCode::D;
-            case 'Q':       return Event::KeyCode::Q;
-            case 'E':       return Event::KeyCode::E;
+        switch ( wParam )
+        {
+            case 'W':
+                return Event::KeyCode::W;
+            case 'A':
+                return Event::KeyCode::A;
+            case 'S':
+                return Event::KeyCode::S;
+            case 'D':
+                return Event::KeyCode::D;
+            case 'Q':
+                return Event::KeyCode::Q;
+            case 'E':
+                return Event::KeyCode::E;
 
-            case VK_UP:     return Event::KeyCode::Up;
-            case VK_DOWN:   return Event::KeyCode::Down;
-            case VK_LEFT:   return Event::KeyCode::Left;
-            case VK_RIGHT:  return Event::KeyCode::Right;
+            case VK_UP:
+                return Event::KeyCode::Up;
+            case VK_DOWN:
+                return Event::KeyCode::Down;
+            case VK_LEFT:
+                return Event::KeyCode::Left;
+            case VK_RIGHT:
+                return Event::KeyCode::Right;
 
-            case VK_SPACE:  return Event::KeyCode::Space;
-            case VK_ESCAPE: return Event::KeyCode::Escape;
-            case VK_SHIFT:  return Event::KeyCode::Shift;
+            case VK_SPACE:
+                return Event::KeyCode::Space;
+            case VK_ESCAPE:
+                return Event::KeyCode::Escape;
+            case VK_SHIFT:
+                return Event::KeyCode::Shift;
 
-            default:        return Event::KeyCode::Unknown;
+            default:
+                return Event::KeyCode::Unknown;
         }
     }
 

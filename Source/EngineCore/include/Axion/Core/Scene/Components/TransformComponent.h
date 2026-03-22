@@ -45,6 +45,14 @@ struct TransformComponent {
     void position( const Math::Vec3& pos ) {
         translation = pos;
     }
+    void scaleBy( const Math::Vec3& scaleFactor ) {
+        scale *= scaleFactor;
+    }
+    
+    void scaleUniform( float factor ) {
+        scale *= factor;
+    }
+
     // Rotates the entity by multiplying the current rotation by a delta quaternion.
     // Order: rotation * delta applies the rotation in Local Space.
     void rotate( const Math::Quat& deltaRotation ) {

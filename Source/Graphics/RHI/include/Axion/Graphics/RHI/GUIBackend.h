@@ -8,20 +8,12 @@ namespace Graphics::RHI {
 
 DEFINE_UNIQUE_PTR_FOR_TYPE( IGUIBackend, GUIBackend )
 
-enum class GUITheme
-{
-    Dark,
-    Light,
-    Classic
-};
-
 class IGUIBackend
 {
 public:
     struct Description {
         PlatformType platform           = PlatformType::Win32;
         Format       backbufferFormat   = Format::RGBA8_UNORM;
-        GUITheme     theme              = GUITheme::Dark;
         uint         framesInFlight     = 2;
         int          configFlags        = 0;
         void*        nativeWindowHandle = nullptr;

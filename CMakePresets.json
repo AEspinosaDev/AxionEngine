@@ -6,7 +6,7 @@
         "patch": 0
     },
     "configurePresets": [
-         {
+        {
             "name": "ninja-debug-msvc",
             "displayName": "MSVC + Ninja (Debug)",
             "generator": "Ninja",
@@ -27,6 +27,18 @@
                 "CMAKE_C_COMPILER": "cl",
                 "CMAKE_CXX_COMPILER": "cl",
                 "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_SYSTEM_VERSION": "10.0.22621.0"
+            }
+        },
+        {
+            "name": "ninja-reldeb-msvc",
+            "displayName": "MSVC + Ninja (RelWithDebInfo)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/Build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cl",
+                "CMAKE_CXX_COMPILER": "cl",
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
                 "CMAKE_SYSTEM_VERSION": "10.0.22621.0"
             }
         },
@@ -58,7 +70,6 @@
                 "CMAKE_BUILD_TYPE": "Release"
             }
         },
-       
         {
             "name": "vs2022-x64-debug",
             "displayName": "Visual Studio 2022 (x64) (Debug)",
@@ -131,6 +142,10 @@
         {
             "name": "ninja-release-clang",
             "configurePreset": "ninja-release-clang"
+        },
+        {
+            "name": "ninja-reldeb-msvc",
+            "configurePreset": "ninja-reldeb-msvc"
         },
         {
             "name": "ninja-debug-msvc",

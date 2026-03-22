@@ -2,6 +2,7 @@
 #include "Axion/Common/Logging.h"
 #include "Axion/Core/Assets/AssetManager.h"
 #include "Axion/Core/Assets/Materials/StandardPBRMaterial.h"
+#include "Axion/Core/GUI/GUI.h"
 #include "Axion/Core/Platform/Window.h"
 #include "Axion/Core/Render/Rasterizer.h"
 #include "Axion/Core/Scene/Entity.h"
@@ -15,11 +16,11 @@ int main( /*int argc, char* argv[]*/ ) {
     try
     {
 #ifdef AXION_DEBUG
-        Logger::init( Logger::Level::Info, "CoreInitializationTest.log" );
+        Logger::init( Logger::Level::Info, "CoreGUITest.log" );
 #endif
 
         Core::Platform::Window     wnd( { .platformType = Graphics::PlatformType::Win32,
-                                          .name         = "Axion PBR Showcase" } );
+                                          .name         = "Core GUI Test" } );
         Core::Assets::AssetManager assets;
         Core::Scene::Scene         scene( "TestScene", &assets );
 
@@ -27,7 +28,7 @@ int main( /*int argc, char* argv[]*/ ) {
         rastDesc.common.name             = "MyRasterizer";
         rastDesc.useGPUCulling           = true;
         rastDesc.common.selectedDeviceID = 0;
-        rastDesc.common.flags |= Core::Render::RendererEnableFXAA;
+        rastDesc.common.flags |= Core::Render::RendererEnableGUI | Core::Render::RendererEnableFXAA;
 
         auto rasterizer = Core::Render::createRasterizer( &wnd, rastDesc );
         rasterizer->compileShaders();
@@ -35,45 +36,18 @@ int main( /*int argc, char* argv[]*/ ) {
         // =================================================================================
         // 1. ASSET LOADING (GEOMETRY & Textures)
         // =================================================================================
-        auto cubeHandle   = assets.mesh( "Cube" ).createCube();
-        auto sphereHandle = assets.mesh( "Sphere" ).createSphere();
-        auto dragonHandle = assets.mesh( "Dragon" ).import( AXION_MESH_DIR "/dragon.obj" );
-        auto ajaxHandle   = assets.mesh( "Ajax" ).import( AXION_MESH_DIR "/ajax.obj" );
-
-        auto albedoTexHandle  = assets.texture( "AxionTexture" ).import( AXION_TEXTURE_DIR "/Axion.png" );
+        auto sphereHandle     = assets.mesh( "Sphere" ).createSphere();
         auto albedoTexHandle2 = assets.texture( "PlanetTexture" ).import( AXION_TEXTURE_DIR "/Jupiter.jpg", Core::Assets::TextureImportAsGamma | Core::Assets::TextureImportForce4Channels | Core::Assets::TextureImportFlipVertically );
 
         // =================================================================================
         // 2. PBR MATERIAL CREATION (PHYSICAL VARIETY)
         // =================================================================================
 
-        // Material 1: Gold (For the Dragon) - Metallic and smooth
-        auto matGoldH = assets.material( "Gold" ).create<Core::Assets::StandardPBRMaterial>();
-        auto matGold  = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matGoldH );
-        matGold->setAlbedo( { 1.0f, 0.76f, 0.33f } ); // Characteristic Gold Color
-        matGold->setMetallic( 1.0f );
-        matGold->setRoughness( 0.2f ); // Polished
-
-        // Material 2: Shiny Red Plastic (For the Sphere) - Dielectric
         auto matRedPlasticH = assets.material( "Jupiter" ).create<Core::Assets::StandardPBRMaterial>();
         auto matRed         = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matRedPlasticH );
         matRed->setAlbedoTexture( albedoTexHandle2 );
-        matRed->setMetallic( 0.0f );  // Plastic/Dielectric
-        matRed->setRoughness( 0.8f ); // Very glossy (Sharp reflections)
-
-        
-        auto matChromeH = assets.material( "ChromeBlue" ).create<Core::Assets::StandardPBRMaterial>();
-        auto matChrome  = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matChromeH );
-        matChrome->setAlbedo( { 0.3f, 0.5f, 1.0f } ); // Light Blue Tint
-        matChrome->setMetallic( 0.0f );
-        matChrome->setRoughness( 0.3f ); // Almost mirror
-
-        // Material 4: Grey Rubber/Matte (For the Cube) - Rough
-        auto matRubberH = assets.material( "Rubber" ).create<Core::Assets::StandardPBRMaterial>();
-        auto matRubber  = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matRubberH );
-        matRubber->setAlbedoTexture( albedoTexHandle );
-        matRubber->setMetallic( 0.0f );
-        matRubber->setRoughness( 0.8f ); // Very matte, scatters light
+        matRed->setMetallic( 0.0f );
+        matRed->setRoughness( 0.8f );
 
         // =================================================================================
         // 3. SCENE SETUP (OBJECTS)
@@ -85,29 +59,9 @@ int main( /*int argc, char* argv[]*/ ) {
         cameraEntity.getComponent<Core::Scene::TransformComponent>().lookAt( { 0.0f, 0.0f, 0.0f } );
         cameraEntity.getComponent<Core::Scene::CameraComponent>().exposureCompensation = 5.0f;
 
-        // Dragon (Top Left) -> GOLD
-        auto dragonEntity = scene.createEntity( "Dragon" );
-        dragonEntity.addComponent<Core::Scene::MeshComponent>( dragonHandle, matGoldH );
-        dragonEntity.getComponent<Core::Scene::TransformComponent>().translation = { -1.5f, 1.5f, 0.0f };
-        dragonEntity.getComponent<Core::Scene::TransformComponent>().scale       = { 2.0f, 2.0f, 2.0f };
-
-        // Sphere (Top Right) -> RED PLASTIC
         auto sphereEntity = scene.createEntity( "Sphere" );
         sphereEntity.addComponent<Core::Scene::MeshComponent>( sphereHandle, matRedPlasticH );
-        sphereEntity.getComponent<Core::Scene::TransformComponent>().translation = { 1.5f, 1.5f, 0.0f };
-        sphereEntity.getComponent<Core::Scene::TransformComponent>().scale       = { 0.8f, 0.8f, 0.8f };
-
-        // Ajax (Bottom Right) -> BLUE CHROME
-        auto ajaxEntity = scene.createEntity( "Ajax" );
-        ajaxEntity.addComponent<Core::Scene::MeshComponent>( ajaxHandle, matChromeH );
-        ajaxEntity.getComponent<Core::Scene::TransformComponent>().translation = { 1.5f, -1.5f, 0.0f };
-        ajaxEntity.getComponent<Core::Scene::TransformComponent>().scale       = { 2.0f, 2.0f, 2.0f };
-
-        // Cube (Bottom Left) -> GREY RUBBER
-        auto cubeEntity = scene.createEntity( "Cube" );
-        cubeEntity.addComponent<Core::Scene::MeshComponent>( cubeHandle, matRubberH );
-        cubeEntity.getComponent<Core::Scene::TransformComponent>().translation = { -1.5f, -1.5f, 0.0f };
-        cubeEntity.getComponent<Core::Scene::TransformComponent>().scale       = { 1.25f, 1.25f, 1.25f };
+        sphereEntity.getComponent<Core::Scene::TransformComponent>().scaleUniform( 2.0f );
 
         // =================================================================================
         // 4. LIGHTING SETUP (ATMOSPHERE + LIGHTS)
@@ -163,14 +117,20 @@ int main( /*int argc, char* argv[]*/ ) {
                 elapsedSeconds = 0.0;
             }
 
-            float rotSpeed = 0.5f; // Radians per second
+            float rotSpeed = 0.1f; // Radians per second
             float step     = rotSpeed * dt;
 
-            dragonEntity.getComponent<Core::Scene::TransformComponent>().rotate( { 0.0f, step, 0.0f } );
-            ajaxEntity.getComponent<Core::Scene::TransformComponent>().rotate( { 0.0f, -step, 0.0f } );
             sphereEntity.getComponent<Core::Scene::TransformComponent>().rotate( { 0.0f, -step, 0.0f } );
 
             wnd.update();
+
+            rasterizer->newGuiFrame();
+
+            // GUI LOGIC HERE
+            {
+                ImGui::ShowDemoWindow();
+            }
+
             rasterizer->render( scene, cameraEntity );
         }
     } catch ( const std::exception& e )

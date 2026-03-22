@@ -1,4 +1,6 @@
 #include "Win32.hpp"
+#include "Win32ImGuiSetup.h"
+
 
 AXION_NAMESPACE_BEGIN
 
@@ -167,11 +169,18 @@ LRESULT Win32Window::wndProcThunk( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
 }
 LRESULT Win32Window::wndProcMsg( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam ) {
 
+    bool guiWantsKb    = false;
+    bool guiWantsMouse = false;
+    if ( _settings.enableGuiInputCBs )
+        wndProcGUI( hwnd, msg, wParam, lParam, guiWantsKb, guiWantsMouse );
+
     switch ( msg )
     {
         // --- Keyboard ---
         case WM_KEYDOWN:
         case WM_SYSKEYDOWN: {
+            if ( guiWantsKb )
+                return 0;
             Event::KeyEvent evt( hwnd, mapWin32Key( wParam ), true );
             if ( wParam == VK_F11 )
                 setFullscreen( !_settings.fullscreen );
@@ -181,6 +190,8 @@ LRESULT Win32Window::wndProcMsg( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 
         case WM_KEYUP:
         case WM_SYSKEYUP: {
+            if ( guiWantsKb )
+                return 0;
             Event::KeyEvent evt( hwnd, mapWin32Key( wParam ), false );
             _onKey.dispatch( evt );
             return 0;
@@ -190,6 +201,8 @@ LRESULT Win32Window::wndProcMsg( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         case WM_LBUTTONDOWN:
         case WM_RBUTTONDOWN:
         case WM_MBUTTONDOWN: {
+            if ( guiWantsMouse )
+                return 0;
             uint                    btn = ( msg == WM_LBUTTONDOWN ? 0 : msg == WM_RBUTTONDOWN ? 1
                                                                                               : 2 );
             Event::MouseButtonEvent evt( hwnd, btn, true );
@@ -200,6 +213,8 @@ LRESULT Win32Window::wndProcMsg( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         case WM_LBUTTONUP:
         case WM_RBUTTONUP:
         case WM_MBUTTONUP: {
+            if ( guiWantsMouse )
+                return 0;
             uint                    btn = ( msg == WM_LBUTTONUP ? 0 : msg == WM_RBUTTONUP ? 1
                                                                                           : 2 );
             Event::MouseButtonEvent evt( hwnd, btn, false );
@@ -209,6 +224,8 @@ LRESULT Win32Window::wndProcMsg( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 
         // --- Mouse movement ---
         case WM_MOUSEMOVE: {
+            if ( guiWantsMouse )
+                return 0;
             // int32_t               x = GET_X_LPARAM( lParam );
             // int32_t               y = GET_Y_LPARAM( lParam );
             int32_t               x = GET_XBUTTON_WPARAM( lParam );
@@ -220,6 +237,8 @@ LRESULT Win32Window::wndProcMsg( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 
         // --- Mouse wheel ---
         case WM_MOUSEWHEEL: {
+            if ( guiWantsMouse )
+                return 0;
             float                   delta = GET_WHEEL_DELTA_WPARAM( wParam ) / (float)WHEEL_DELTA;
             Event::MouseScrollEvent evt( hwnd, delta );
             _onMouseScroll.dispatch( evt );
@@ -263,6 +282,25 @@ LRESULT Win32Window::wndProcMsg( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             // }
 
             // (other window events as before...)
+    }
+}
+
+void Win32Window::wndProcGUI( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, bool& guiWantsKb, bool& guiWantsMouse ) {
+
+    // 1. Let ImGui handle the message first
+    if ( ImGui::GetCurrentContext() != nullptr )
+    {
+        if ( ImGui_ImplWin32_WndProcHandler( hwnd, msg, wParam, lParam ) )
+        {
+            return;
+        }
+    }
+
+    if ( ImGui::GetCurrentContext() != nullptr )
+    {
+        ImGuiIO& io   = ImGui::GetIO();
+        guiWantsKb    = io.WantCaptureKeyboard;
+        guiWantsMouse = io.WantCaptureMouse;
     }
 }
 
