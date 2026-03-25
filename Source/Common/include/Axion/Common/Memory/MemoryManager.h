@@ -1,5 +1,5 @@
 #pragma once
-#include "Axion/Common/Defines.h"
+#include "Defines.h"
 
 AXION_NAMESPACE_BEGIN
 namespace Memory {

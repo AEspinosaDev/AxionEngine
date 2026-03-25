@@ -1,6 +1,6 @@
 #pragma once
 #include <Axion/Common/Logging.h>
-#include <Axion/Common/Memory/Allocator.h>
+#include <Axion/Common/Memory/IAllocator.h>
 #include <Axion/Common/Memory/MemoryManager.h>
 
 AXION_NAMESPACE_BEGIN
@@ -11,31 +11,31 @@ class LinearAllocator : public IAllocator, public LockPolicy
 {
 public:
     LinearAllocator( uint capacity ) {
-        _backing = VMemManager::virtualReserve( capacity );
-        if ( !VMemManager::virtualCommit( _backing ) )
-        {
-            throw AxionException();
-        };
+        _pool = VMemManager::virtualReserve( capacity );
+        if ( !VMemManager::virtualCommit( _pool ) )
+            throw AxionException( "Failed to commit virtual memory for LinearAllocator" );
 
         _currentOffset = 0;
     }
 
     ~LinearAllocator() override {
-        VMemManager::virtualDecommit( _backing );
-        VMemManager::virtualRelease( _backing );
+        VMemManager::virtualDecommit( _pool );
+        VMemManager::virtualRelease( _pool );
     }
 
     void* allocate( uint size, uint alignment = 16 ) override {
         this->lock();
 
-        if ( !_backing.isValid() )
+        if ( !_pool.isValid() )
         {
             this->unlock();
             return nullptr;
         }
 
-        void* currentPtr = static_cast<char*>( _backing.ptr ) + _currentOffset;
-        uint  space      = _backing.size - _currentOffset;
+        MemoryAddress poolStart = reinterpret_cast<MemoryAddress>( _pool.ptr );
+
+        void* currentPtr = static_cast<void*>( poolStart + _currentOffset );
+        uint  space      = _pool.size - _currentOffset;
 
         void* alignedPtr = std::align( alignment, size, currentPtr, space );
 
@@ -45,7 +45,8 @@ public:
             return nullptr;
         }
 
-        _currentOffset = static_cast<char*>( alignedPtr ) - static_cast<char*>( _backing.ptr ) + size;
+        MemoryAddress alignedAddress = reinterpret_cast<MemoryAddress>( alignedPtr );
+        _currentOffset               = static_cast<uint>( alignedAddress - poolStart ) + size;
 
         this->unlock();
         return alignedPtr;
@@ -69,15 +70,14 @@ public:
         return used;
     }
 
-    uint getTotalSize() const override { return _backing.size; }
+    uint getTotalSize() const override { return _pool.size; }
 
 private:
-    VMemView _backing;
-    uint       _currentOffset;
+    VMemView _pool;
+    uint     _currentOffset;
 };
 
 using LockedLinearAllocator = LinearAllocator<MutexLockPolicy>;
-
 
 } // namespace Memory
 AXION_NAMESPACE_END

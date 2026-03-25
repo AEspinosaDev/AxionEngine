@@ -1,7 +1,5 @@
 #pragma once
-#include "Axion/Common/Defines.h"
-#include <memory>
-#include <mutex>
+#include "Defines.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -18,13 +16,6 @@ struct MutexLockPolicy {
     mutable std::mutex _mtx;
     void               lock() { _mtx.lock(); }
     void               unlock() { _mtx.unlock(); }
-};
-
-// Logic Policies
-// ----------------------------
-struct LinearPolicy {
-};
-struct FreelistPolicy {
 };
 
 class IAllocator

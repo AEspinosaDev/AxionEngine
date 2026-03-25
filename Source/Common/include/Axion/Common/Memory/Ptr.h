@@ -1,207 +1,245 @@
 #pragma once
-#include "Axion/Common/Defines.h"
-#include "Axion/Memory/MemoryCore.h"
+#include "IAllocator.h"
 #include <atomic>
 #include <utility>
 
 AXION_NAMESPACE_BEGIN
 namespace Memory {
 
-// -----------------------------------------------------------------------------
-// OwnerPtr (Equivalent to std::unique_ptr)
-// Move-only semantics. Strictly owns the memory and the lifecycle of the object.
-// -----------------------------------------------------------------------------
+/**
+ * OwnerPtr (Equivalent to std::unique_ptr)
+ * Move-only semantics. Strictly owns the memory and the lifecycle of the object.
+ */
 template <typename T>
-class OwnerPtr {
+class OwnerPtr
+{
 public:
-    OwnerPtr() : _ptr(nullptr), _allocator(nullptr) {}
-    
-    OwnerPtr(T* ptr, IAllocator* allocator) : _ptr(ptr), _allocator(allocator) {}
+    AXION_DISABLE_COPY( OwnerPtr )
+
+    OwnerPtr()
+        : _ptr( nullptr )
+        , _allocator( nullptr ) {}
+
+    OwnerPtr( T* ptr, IAllocator* allocator = nullptr )
+        : _ptr( ptr )
+        , _allocator( allocator ) {}
 
     ~OwnerPtr() { reset(); }
 
-    // Move constructor
-    OwnerPtr(OwnerPtr&& other) noexcept : _ptr(other._ptr), _allocator(other._allocator) {
-        other._ptr = nullptr;
+    OwnerPtr( OwnerPtr&& other ) noexcept
+        : _ptr( other._ptr )
+        , _allocator( other._allocator ) {
+        other._ptr       = nullptr;
         other._allocator = nullptr;
     }
 
-    // Move assignment
-    OwnerPtr& operator=(OwnerPtr&& other) noexcept {
-        if (this != &other) {
+    OwnerPtr& operator=( OwnerPtr&& other ) noexcept {
+        if ( this != &other )
+        {
             reset();
-            _ptr = other._ptr;
-            _allocator = other._allocator;
-            other._ptr = nullptr;
+            _ptr             = other._ptr;
+            _allocator       = other._allocator;
+            other._ptr       = nullptr;
             other._allocator = nullptr;
         }
         return *this;
     }
 
-    // Disable copy
-    OwnerPtr(const OwnerPtr&) = delete;
-    OwnerPtr& operator=(const OwnerPtr&) = delete;
-
-    T* operator->() const { return _ptr; }
-    T& operator*() const { return *_ptr; }
-    T* get() const { return _ptr; }
+    T*       operator->() const { return _ptr; }
+    T&       operator*() const { return *_ptr; }
+    T*       get() const { return _ptr; }
     explicit operator bool() const { return _ptr != nullptr; }
 
     void reset() {
-        if (_ptr && _allocator) {
-            _ptr->~T(); 
-            _allocator->free(_ptr);
+        if ( _ptr )
+        {
+            if ( _allocator )
+            {
+                _ptr->~T();
+                _allocator->free( _ptr );
+            } else
+            {
+                delete _ptr;
+            }
         }
-        _ptr = nullptr;
+
+        _ptr       = nullptr;
         _allocator = nullptr;
     }
 
     T* release() {
-        T* temp = _ptr;
-        _ptr = nullptr;
+        T* temp    = _ptr;
+        _ptr       = nullptr;
         _allocator = nullptr;
         return temp;
     }
 
 private:
-    T* _ptr;
+    T*          _ptr;
     IAllocator* _allocator;
 };
 
-// -----------------------------------------------------------------------------
-// SharedPtr Control Block
-// -----------------------------------------------------------------------------
-template <typename T>
-struct SharedControlBlock {
-    std::atomic<uint32_t> refCount;
-    IAllocator* allocator;
-    
-    // We allocate raw bytes for the payload to avoid default construction
-    // and manually construct the object here using placement new.
-    alignas(T) unsigned char payload[sizeof(T)];
+// SharedPtr Control Policy
 
-    T* getPayload() {
-        return reinterpret_cast<T*>(payload);
-    }
+template <typename T>
+struct AtomicControlPolicy {
+    std::atomic<uint> refCount;
+    IAllocator*       allocator = nullptr;
+    alignas( T ) unsigned char payload[sizeof( T )];
+
+    uint increment() { return refCount.fetch_add( 1, std::memory_order_relaxed ) + 1; }
+    void store( uint value = 0 ) { refCount.store( value, std::memory_order_relaxed ); }
+    uint decrement() { return refCount.fetch_sub( 1, std::memory_order_relaxed ) - 1; }
+    uint getCount() { return refCount.load( std::memory_order_relaxed ); }
+
+    T* getPayload() { return reinterpret_cast<T*>( payload ); }
 };
 
-// -----------------------------------------------------------------------------
-// SharedPtr (Equivalent to std::shared_ptr)
-// Reference counted ownership.
-// -----------------------------------------------------------------------------
 template <typename T>
-class SharedPtr {
-public:
-    SharedPtr() : _ptr(nullptr), _controlBlock(nullptr) {}
+struct ControlPolicy {
+    uint        refCount  = 0;
+    IAllocator* allocator = nullptr;
+    alignas( T ) unsigned char payload[sizeof( T )];
 
-    // Constructor used by MakeShared
-    SharedPtr(T* ptr, SharedControlBlock<T>* block) : _ptr(ptr), _controlBlock(block) {
-        if (_controlBlock) {
-            _controlBlock->refCount.fetch_add(1, std::memory_order_relaxed);
-        }
+    void store( uint value = 0 ) { refCount = value; }
+    uint increment() { return ++refCount; }
+    uint decrement() { return --refCount; }
+    uint getCount() { return refCount; }
+
+    T* getPayload() { return reinterpret_cast<T*>( payload ); }
+};
+
+/**
+ * SharedPtr (Equivalent to std::shared_ptr)
+ * Reference counted ownership.
+ */
+template <typename T, typename TControlPolicy = AtomicControlPolicy<T>>
+class SharedPtr
+{
+public:
+    SharedPtr()
+        : _ptr( nullptr )
+        , _controlPolicy( nullptr ) {}
+
+    SharedPtr( T* ptr, TControlPolicy* policy )
+        : _ptr( ptr )
+        , _controlPolicy( policy ) {
+        if ( _controlPolicy )
+            _controlPolicy->increment();
     }
 
     ~SharedPtr() { release(); }
 
-    // Copy constructor
-    SharedPtr(const SharedPtr& other) : _ptr(other._ptr), _controlBlock(other._controlBlock) {
-        if (_controlBlock) {
-            _controlBlock->refCount.fetch_add(1, std::memory_order_relaxed);
-        }
+    SharedPtr( const SharedPtr& other )
+        : _ptr( other._ptr )
+        , _controlPolicy( other._controlPolicy ) {
+        if ( _controlPolicy )
+            _controlPolicy->increment();
     }
 
-    // Copy assignment
-    SharedPtr& operator=(const SharedPtr& other) {
-        if (this != &other) {
+    SharedPtr& operator=( const SharedPtr& other ) {
+        if ( this != &other )
+        {
             release();
-            _ptr = other._ptr;
-            _controlBlock = other._controlBlock;
-            if (_controlBlock) {
-                _controlBlock->refCount.fetch_add(1, std::memory_order_relaxed);
-            }
+            _ptr           = other._ptr;
+            _controlPolicy = other._controlPolicy;
+            if ( _controlPolicy )
+                _controlPolicy->increment();
         }
         return *this;
     }
 
-    // Move constructor
-    SharedPtr(SharedPtr&& other) noexcept : _ptr(other._ptr), _controlBlock(other._controlBlock) {
-        other._ptr = nullptr;
-        other._controlBlock = nullptr;
+    SharedPtr( SharedPtr&& other ) noexcept
+        : _ptr( other._ptr )
+        , _controlPolicy( other._controlPolicy ) {
+        other._ptr           = nullptr;
+        other._controlPolicy = nullptr;
     }
 
-    // Move assignment
-    SharedPtr& operator=(SharedPtr&& other) noexcept {
-        if (this != &other) {
+    SharedPtr& operator=( SharedPtr&& other ) noexcept {
+        if ( this != &other )
+        {
             release();
-            _ptr = other._ptr;
-            _controlBlock = other._controlBlock;
-            other._ptr = nullptr;
-            other._controlBlock = nullptr;
+            _ptr                 = other._ptr;
+            _controlPolicy       = other._controlPolicy;
+            other._ptr           = nullptr;
+            other._controlPolicy = nullptr;
         }
         return *this;
     }
 
-    T* operator->() const { return _ptr; }
-    T& operator*() const { return *_ptr; }
-    T* get() const { return _ptr; }
+    T*       operator->() const { return _ptr; }
+    T&       operator*() const { return *_ptr; }
+    T*       get() const { return _ptr; }
     explicit operator bool() const { return _ptr != nullptr; }
-    
-    uint32_t use_count() const {
-        return _controlBlock ? _controlBlock->refCount.load(std::memory_order_relaxed) : 0;
+
+    uint useCount() const {
+        return _controlPolicy ? _controlPolicy->getCount() : 0;
     }
 
 private:
     void release() {
-        if (_controlBlock) {
-            // Decrement the reference count. If it reaches 1 (meaning it's about to be 0),
-            // we are the last owner and must destroy the object.
-            if (_controlBlock->refCount.fetch_sub(1, std::memory_order_acq_rel) == 1) {
-                _ptr->~T();
-                
-                IAllocator* alloc = _controlBlock->allocator;
-                // Destroy the control block itself
-                _controlBlock->~SharedControlBlock<T>();
-                // Free the entire memory chunk using the stored allocator
-                alloc->free(_controlBlock);
+        if ( _controlPolicy )
+        {
+            if ( _controlPolicy->decrement() == 0 )
+            {
+                if ( _ptr )
+                    _ptr->~T();
+
+                IAllocator* alloc = _controlPolicy->allocator;
+                _controlPolicy->~TControlPolicy();
+                if ( alloc )
+                    alloc->free( _controlPolicy );
+                else
+                    delete ( _controlPolicy );
             }
         }
-        _ptr = nullptr;
-        _controlBlock = nullptr;
+        _ptr           = nullptr;
+        _controlPolicy = nullptr;
     }
 
-    T* _ptr;
-    SharedControlBlock<T>* _controlBlock;
+    T*              _ptr;
+    TControlPolicy* _controlPolicy;
 };
 
-// -----------------------------------------------------------------------------
 // Factory Functions
 // -----------------------------------------------------------------------------
 
-template<typename T, typename... Args>
-OwnerPtr<T> MakeOwned(IAllocator* allocator, Args&&... args) {
-    if (!allocator) return OwnerPtr<T>();
-    
-    void* mem = allocator->allocate(sizeof(T), alignof(T));
-    T* obj = new(mem) T(std::forward<Args>(args)...);
-    return OwnerPtr<T>(obj, allocator);
+template <typename T, typename... Args>
+OwnerPtr<T> MakeOwned( IAllocator* allocator, Args&&... args ) {
+    if ( allocator )
+    {
+        void* mem = allocator->allocate( sizeof( T ), alignof( T ) );
+        T*    obj = new ( mem ) T( std::forward<Args>( args )... );
+        return OwnerPtr<T>( obj, allocator );
+    } else
+    {
+        T* obj = new T( std::forward<Args>( args )... );
+        return OwnerPtr<T>( obj );
+    }
 }
 
-template<typename T, typename... Args>
-SharedPtr<T> MakeShared(IAllocator* allocator, Args&&... args) {
-    if (!allocator) return SharedPtr<T>();
+template <typename T, typename TControlPolicy = AtomicControlPolicy<T>, typename... Args>
+SharedPtr<T> MakeShared( IAllocator* allocator, Args&&... args ) {
+    if ( allocator )
+    {
+        void* mem = allocator->allocate( sizeof( TControlPolicy ), alignof( TControlPolicy ) );
 
-    // Allocate memory for both the control block and the object in one go
-    void* mem = allocator->allocate(sizeof(SharedControlBlock<T>), alignof(SharedControlBlock<T>));
-    
-    // Construct the control block
-    auto* block = new(mem) SharedControlBlock<T>();
-    block->refCount.store(0, std::memory_order_relaxed);
-    block->allocator = allocator;
+        auto* block = new ( mem ) TControlPolicy();
+        block->refCount.store( 0 );
+        block->allocator = allocator;
 
-    // Construct the actual object inside the control block's payload array
-    T* obj = new(block->getPayload()) T(std::forward<Args>(args)...);
+        T* obj = new ( block->getPayload() ) T( std::forward<Args>( args )... );
+        return SharedPtr<T>( obj, block );
 
-    return SharedPtr<T>(obj, block);
+    } else
+    {
+        auto* block = new TControlPolicy();
+        block->refCount.store( 0 );
+
+        T* obj = new ( block->getPayload() ) T( std::forward<Args>( args )... );
+        return SharedPtr<T>( obj, block );
+    }
 }
 
 } // namespace Memory

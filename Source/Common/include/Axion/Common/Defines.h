@@ -79,6 +79,25 @@
 #endif
 
 // ---------------------------------------------------------------------------
+// Handle Move and Copy Semantics
+// ---------------------------------------------------------------------------
+
+
+#define AXION_DISABLE_COPY( TypeName ) \
+    TypeName( const TypeName& ) = delete; \
+    TypeName& operator=( const TypeName& ) = delete;
+
+// Disables the move constructor and move assignment operator
+#define AXION_DISABLE_MOVE( TypeName ) \
+    TypeName( TypeName&& ) = delete; \
+    TypeName& operator=( TypeName&& ) = delete;
+
+// Disables both copy and move semantics
+#define AXION_DISABLE_COPY_AND_MOVE( TypeName ) \
+    AXION_DISABLE_COPY( TypeName ) \
+    AXION_DISABLE_MOVE( TypeName )
+
+// ---------------------------------------------------------------------------
 // Handle Data Definitions
 // ---------------------------------------------------------------------------
 
