@@ -43,6 +43,7 @@ public:
         GFX,    /**< Graphics system */
         RHI,    /**< Rendering Hardware Interface Subsystem*/
         Shader, /**< Shader Compiling*/
+        Common, /**< Common*/
         All
     };
 

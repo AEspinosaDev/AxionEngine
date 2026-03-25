@@ -298,3 +298,78 @@ typedef ITransientAllocator::Description TransientAllocatorDesc;
 } // namespace Graphics::RHI
 
 AXION_NAMESPACE_END
+
+// #pragma once
+// #include "Axion/Memory/MemorySubAlloc.h"
+// #include "Axion/RHI/Buffer.h" // Assuming this is your DX12 buffer wrapper
+
+// AXION_NAMESPACE_BEGIN
+// namespace RHI {
+
+// template <
+//     typename LockPolicy = Memory::NoLock, 
+//     typename VisibilityPolicy = Memory::DeviceLocal
+// >
+// class LinearBufferAllocator : public Memory::ISubAllocator<Buffer>, public LockPolicy {
+// public:
+//     LinearBufferAllocator(Buffer* targetBuffer) 
+//         : _target(targetBuffer) {
+//         _capacity = _target ? _target->getSize() : 0;
+//     }
+
+//     Memory::SubAllocation<Buffer> allocate(size_t size, size_t alignment = 256) override {
+//         this->lock();
+
+//         if (!_target) {
+//             this->unlock();
+//             return {};
+//         }
+
+//         // Align the current offset
+//         size_t remainder = _currentOffset % alignment;
+//         size_t padding = (remainder == 0) ? 0 : (alignment - remainder);
+//         size_t alignedOffset = _currentOffset + padding;
+
+//         if (alignedOffset + size > _capacity) {
+//             this->unlock();
+//             return {}; 
+//         }
+
+//         // Optional: Assert if user is trying to map memory that is DeviceLocal
+//         if constexpr (!VisibilityPolicy::isCPUReadable) {
+//             // Add custom debug logic here if needed
+//         }
+
+//         Memory::SubAllocation<Buffer> alloc;
+//         alloc.container = _target;
+//         alloc.offset = alignedOffset;
+//         alloc.size = size;
+
+//         _currentOffset = alignedOffset + size;
+
+//         this->unlock();
+//         return alloc;
+//     }
+
+//     void free(Memory::SubAllocation<Buffer>& allocation) override {
+//         // Linear allocators cannot free individual blocks
+//         (void)allocation;
+//     }
+
+//     void reset() override {
+//         this->lock();
+//         _currentOffset = 0;
+//         this->unlock();
+//     }
+
+//     size_t getCapacity() const override { return _capacity; }
+//     size_t getUsed() const override { return _currentOffset; }
+
+// private:
+//     Buffer* _target = nullptr;
+//     size_t _capacity = 0;
+//     size_t _currentOffset = 0;
+// };
+
+// } // namespace RHI
+// AXION_NAMESPACE_END
