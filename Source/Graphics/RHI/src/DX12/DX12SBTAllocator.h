@@ -1,7 +1,8 @@
 #pragma once
-#include "Axion/Graphics/RHI/Memory.hpp"
+#include "Axion/Graphics/RHI/Memory.h"
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
-#include "DX12Resource.hpp"
+#include "DX12Resource.h"
+
 
 AXION_NAMESPACE_BEGIN
 

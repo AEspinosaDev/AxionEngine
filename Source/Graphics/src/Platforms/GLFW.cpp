@@ -1,12 +1,12 @@
-#include "GLFW.hpp"
+#include "GLFW.h"
 #include <backends/imgui_impl_glfw.h>
 
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
 
-WindowPtr createWindowForGLFW( const WindowSettings& settings ) {
-    return NEW_U( GLFWWindow )( settings );
+WindowOwnerPtr createWindowForGLFW( const WindowSettings& settings ) {
+    return Memory::makeOwned<GLFWWindow>( settings );
 }
 
 GLFWWindow::GLFWWindow( const Settings& settings )

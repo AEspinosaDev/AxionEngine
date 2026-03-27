@@ -1,5 +1,5 @@
 #pragma once
-#include <Axion/Core/Assets/Defines.h>
+#include <Axion/Core/Assets/Common.h>
 #include <Axion/Core/Assets/Handle.h>
 #include <Axion/Core/Assets/Material.h>
 #include <Axion/Core/Assets/Mesh.h>

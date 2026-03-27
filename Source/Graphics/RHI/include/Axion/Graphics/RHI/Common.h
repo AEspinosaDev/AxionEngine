@@ -1,33 +1,12 @@
 #pragma once
 // Axion Common Module
-#include "Axion/Common/Defines.h"
-#include "Axion/Common/Graphics/Defines.h"
+#include "Axion/Common/Common.h"
+#include "Axion/Common/Graphics/Common.h"
 #include "Axion/Common/Logging.h"
 #include "Axion/Common/Math.h"
 
-// DirectX 12
-using namespace Microsoft::WRL;
-
-#include <directx/d3dx12.h> // D3D12 extension library.
-
-#include <DirectXMath.h>
-#include <d3d12.h>
-#include <d3dcompiler.h>
-#include <dxgi1_6.h>
-#include <dxgidebug.h>
-#pragma comment( lib, "dxguid.lib" )
-
-#include <D3D12MemAlloc.h> 
-
-// Vulkan
-#include <vulkan/vulkan.h>
-// GLFW
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3native.h>
-
 #define ALIGN( _size, _alignment ) ( ( ( _size ) + ( _alignment ) - 1 ) & ~( ( _alignment ) - 1 ) )
+#define TEXTURE_DATA_PLACEMENT_ALIGNMENT	( 512 )
 
 AXION_NAMESPACE_BEGIN
 
@@ -388,11 +367,11 @@ struct NativeObject {
     operator T*() const { return static_cast<T*>( pointer ); }
 };
 
-class IResource
+class IObject
 {
 protected:
-    IResource()          = default;
-    virtual ~IResource() = default;
+    IObject()          = default;
+    virtual ~IObject() = default;
 
 public:
     // Intrusive ref count API
@@ -412,11 +391,8 @@ public:
         return nullptr;
     }
 
-    // Non-copyable, non-movable
-    IResource( const IResource& )            = delete;
-    IResource& operator=( const IResource& ) = delete;
-    IResource( IResource&& )                 = delete;
-    IResource& operator=( IResource&& )      = delete;
+    AXION_DISABLE_MOVE( IObject );
+    AXION_DISABLE_COPY( IObject )
 };
 
 // Template to add reference counting to any base

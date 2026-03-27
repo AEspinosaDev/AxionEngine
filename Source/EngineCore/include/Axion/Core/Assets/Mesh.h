@@ -1,7 +1,7 @@
 #pragma once
-#include <Axion/Common/Graphics/Defines.h>
+#include <Axion/Common/Graphics/Common.h>
 #include <Axion/Common/Math.h>
-#include <Axion/Core/Render/Defines.h>
+#include <Axion/Core/Render/Common.h>
 
 AXION_NAMESPACE_BEGIN
 

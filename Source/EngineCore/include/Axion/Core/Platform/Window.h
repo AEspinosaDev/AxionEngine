@@ -1,8 +1,8 @@
 #pragma once
-#include <Axion/Common/Defines.h>
+#include <Axion/Common/Common.h>
 #include <Axion/Common/Events/InputEvent.h>
 #include <Axion/Common/Events/WindowEvent.h>
-#include <Axion/Common/Graphics/Defines.h>
+#include <Axion/Common/Graphics/Common.h>
 
 AXION_NAMESPACE_BEGIN
 

@@ -1,6 +1,6 @@
 #pragma once
-#include "DX12Resource.hpp"
-#include "DX12Debug.hpp"
+#include "DX12Resource.h"
+#include "DX12Debug.h"
 #include "DX12TranslatorUnit.h"
 
 AXION_NAMESPACE_BEGIN
@@ -636,7 +636,7 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx, bool imme
 
     // 3. ALLOCATE BUFFERS
     // A. Result Buffer: This is the persistent AS resource
-    _buffer = NEW_U( DX12Buffer )( BufferDesc {
+    _buffer = std::make_unique<DX12Buffer>( BufferDesc {
                                        .size       = ALIGN( prebuildInfo.ResultDataMaxSizeInBytes, 256 ),
                                        .memoryType = MemoryUsage::GPUOnly,
                                        .usageFlags = BufferUsage::AccelerationStructure,
@@ -679,7 +679,7 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx, bool imme
         // Upload this data to GPU.
         // Assuming CreateBufferFromData creates a buffer on Default Heap and handles upload internally
         // or creates an Upload Heap buffer directly. State must be generic read.
-        instancesBuffer = NEW_U( DX12Buffer )( BufferDesc {
+        instancesBuffer =  std::make_unique<DX12Buffer>( BufferDesc {
                                                    .size       = rawInstances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ),
                                                    .memoryType = MemoryUsage::GPUOnly,
                                                    .usageFlags = BufferUsage::None,

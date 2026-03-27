@@ -1,5 +1,5 @@
-#include "DX12Swapchain.hpp"
-#include "DX12Debug.hpp"
+#include "DX12Swapchain.h"
+#include "DX12Debug.h"
 
 AXION_NAMESPACE_BEGIN
 

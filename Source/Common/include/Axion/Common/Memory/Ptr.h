@@ -33,6 +33,21 @@ public:
         other._allocator = nullptr;
     }
 
+    template <typename U>
+    OwnerPtr( OwnerPtr<U>&& other ) noexcept {
+        static_assert( std::is_convertible_v<U*, T*>, "Incompatible types in OwnerPtr move constructor." );
+        _ptr = other.release();
+    }
+
+    template <typename U>
+    OwnerPtr& operator=( OwnerPtr<U>&& other ) noexcept {
+        if ( (void*)this != (void*)&other )
+        {
+            reset( other.release() );
+        }
+        return *this;
+    }
+
     OwnerPtr& operator=( OwnerPtr&& other ) noexcept {
         if ( this != &other )
         {
@@ -76,7 +91,7 @@ public:
 
 private:
     T*          _ptr;
-    IAllocator* _allocator;
+    IAllocator* _allocator = nullptr;
 };
 
 // SharedPtr Control Policy
@@ -110,7 +125,7 @@ struct ControlPolicy {
 };
 
 /**
- * SharedPtr (Equivalent to std::shared_ptr)
+ * SharedPtr
  * Reference counted ownership.
  */
 template <typename T, typename TControlPolicy = AtomicControlPolicy<T>>
@@ -206,7 +221,7 @@ private:
 // -----------------------------------------------------------------------------
 
 template <typename T, typename... Args>
-OwnerPtr<T> MakeOwned( IAllocator* allocator, Args&&... args ) {
+OwnerPtr<T> makeOwnedWith( IAllocator* allocator, Args&&... args ) {
     if ( allocator )
     {
         void* mem = allocator->allocate( sizeof( T ), alignof( T ) );
@@ -219,8 +234,14 @@ OwnerPtr<T> MakeOwned( IAllocator* allocator, Args&&... args ) {
     }
 }
 
+template <typename T, typename... Args>
+OwnerPtr<T> makeOwned( Args&&... args ) {
+    T* obj = new T( std::forward<Args>( args )... );
+    return OwnerPtr<T>( obj );
+}
+
 template <typename T, typename TControlPolicy = AtomicControlPolicy<T>, typename... Args>
-SharedPtr<T> MakeShared( IAllocator* allocator, Args&&... args ) {
+SharedPtr<T> makeSharedWith( IAllocator* allocator, Args&&... args ) {
     if ( allocator )
     {
         void* mem = allocator->allocate( sizeof( TControlPolicy ), alignof( TControlPolicy ) );
@@ -242,5 +263,19 @@ SharedPtr<T> MakeShared( IAllocator* allocator, Args&&... args ) {
     }
 }
 
+template <typename T, typename TControlPolicy = AtomicControlPolicy<T>, typename... Args>
+SharedPtr<T> makeShared( Args&&... args ) {
+
+    auto* block = new TControlPolicy();
+    block->refCount.store( 0 );
+
+    T* obj = new ( block->getPayload() ) T( std::forward<Args>( args )... );
+    return SharedPtr<T>( obj, block );
+}
+
 } // namespace Memory
 AXION_NAMESPACE_END
+
+#define DEFINE_OWNER_PTR_FOR_TYPE( type, clean ) \
+    class type;                                  \
+    using clean##OwnerPtr = Axion::Memory::OwnerPtr<type>;

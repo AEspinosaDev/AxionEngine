@@ -1,6 +1,7 @@
 #pragma once
 #include "Axion/Graphics/RHI/Common.h"
-#include "Axion/Graphics/RHI/Descriptor.h"
+#include "Axion/Graphics/RHI/IDescriptor.h"
+#include "DX12Common.h"
 
 AXION_NAMESPACE_BEGIN
 

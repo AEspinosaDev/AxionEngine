@@ -1,6 +1,6 @@
 #pragma once
 #include <Axion/Graphics/RHI/Common.h>
-#include <Axion/Graphics/Subsystems/ShaderRegistry.h>
+#include <Axion/Graphics/Subsystems/IShaderRegistry.h>
 #include <slang/slang-com-ptr.h>
 #include <slang/slang.h>
 

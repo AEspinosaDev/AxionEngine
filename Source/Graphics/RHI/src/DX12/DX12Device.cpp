@@ -1,12 +1,17 @@
-#include "DX12Device.hpp"
-#include "../TransientAllocator.h"
-#include "DX12CommandList.hpp"
-#include "DX12Debug.hpp"
-#include "DX12Pipeline.hpp"
-#include "DX12Resource.hpp"
+#include "DX12Device.h"
+#include "DX12CommandList.h"
+#include "DX12Debug.h"
+#include "DX12Pipeline.h"
+#include "DX12Resource.h"
 #include "DX12SBTAllocator.h"
-#include "DX12Swapchain.hpp"
+#include "DX12Swapchain.h"
 #include "DX12TranslatorUnit.h"
+
+#include <GLFW/glfw3.h>
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+
+#include "../TransientAllocator.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -260,7 +265,7 @@ void DX12Device::oneTimeSubmit( std::function<void( ICommandList* cmd )>& comman
     _ctx.uploadContext.oneTimeSubmit( _ctx.primaryQueue, commands );
 }
 
-bool DX12Device::queryFeatureSupport( Feature feature, void* pInfo, size_t infoSize ) const {
+bool DX12Device::queryFeatureSupport( Feature feature, void* /*pInfo*/, size_t /*infoSize*/ ) const {
     switch ( feature ) // NOLINT(clang-diagnostic-switch-enum)
     {
         case Feature::DeferredCommandLists:
@@ -483,7 +488,7 @@ API DX12Device::getGraphicsAPI() {
 }
 
 std::unique_ptr<DX12Device::Queue> DX12Device::createCommandQueue( const QueueType& type, const std::string& name ) {
-    auto q = NEW_U( DX12Device::Queue )();
+    auto q = std::make_unique<DX12Device::Queue>();
 
     D3D12_COMMAND_QUEUE_DESC desc = {};
     desc.Type                     = DX12Translator::get( type );

@@ -1,5 +1,5 @@
-#include "Axion/Graphics/RHI/Device.h"
-#include "Axion/Graphics/RHI/Memory.hpp"
+#include "Axion/Graphics/RHI/IDevice.h"
+#include "Axion/Graphics/RHI/Memory.h"
 
 AXION_NAMESPACE_BEGIN
 namespace Graphics::RHI {
@@ -16,7 +16,7 @@ public:
 
     const Description& getDescription() const override { return _desc; }
 
-    NativeObject       getNativeObject( ObjectType type ) override { return nullptr; }
+    NativeObject       getNativeObject( ObjectType /*type*/ ) override { return nullptr; }
     void               setDebugName( const std::string& name ) override { _desc.debugName = name; }
     const std::string& getDebugName() const override { return _desc.debugName; };
     std::string        toString() const override { return _desc.debugName; }

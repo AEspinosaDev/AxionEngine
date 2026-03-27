@@ -1,4 +1,4 @@
-#include "Win32.hpp"
+#include "Win32.h"
 #include "Win32ImGuiSetup.h"
 
 
@@ -6,8 +6,8 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
 
-WindowPtr createWindowForWin32( HINSTANCE hInstance, const WindowSettings& settings ) {
-    return NEW_U( Win32Window )( hInstance, settings );
+WindowOwnerPtr createWindowForWin32( HINSTANCE hInstance, const WindowSettings& settings ) {
+    return Memory::makeOwned<Win32Window>( hInstance, settings );
 }
 
 Win32Window::Win32Window( HINSTANCE hInstance, const Settings& settings )

@@ -1,13 +1,13 @@
 #pragma once
 #include "Axion/Graphics/Passes/Utilitary.hpp"
-#include "Axion/Graphics/RHI/Memory.hpp"
+#include "Axion/Graphics/RHI/Memory.h"
 #include "DrawIndirect.h"
 #include "GPUScene.h"
 #include "MaterialSystem.h"
 #include "PassSystem.h"
 #include <Axion/Core/Assets/Material.h>
-#include <Axion/Core/Render/Rasterizer.h>
-#include <Axion/Graphics/Renderer.h>
+#include <Axion/Core/Render/IRasterizer.h>
+#include <Axion/Graphics/IRenderer.h>
 
 // High Level Passes
 #include "Passes/CullingPass.hpp"
@@ -122,7 +122,7 @@ private:
     };
     GPUResources _res;
 
-    Graphics::RendererPtr _rnd = nullptr;
+    Graphics::RendererOwnerPtr _rnd = nullptr;
 
     IndirectCommandData::Cache _indirectCommandDataCache;
 

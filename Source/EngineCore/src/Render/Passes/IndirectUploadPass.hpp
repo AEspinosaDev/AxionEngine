@@ -1,7 +1,7 @@
 #pragma once
 #include "../DrawIndirect.h"
 #include "../PassSystem.h"
-#include "Axion/Graphics/Subsystems/RenderGraph.h"
+#include "Axion/Graphics/Subsystems/IRenderGraph.h"
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {

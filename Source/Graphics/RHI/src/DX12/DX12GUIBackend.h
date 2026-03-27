@@ -1,5 +1,6 @@
 #pragma once
-#include "Axion/Graphics/RHI/GUIBackend.h"
+#include "Axion/Graphics/RHI/IGUIBackend.h"
+#include "DX12Common.h"
 
 AXION_NAMESPACE_BEGIN
 

@@ -1,4 +1,4 @@
-#include "ShaderRegistry.hpp"
+#include "ShaderRegistry.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -6,14 +6,17 @@ namespace Graphics {
 
 static const ShaderBundle INVALID_BUNDLE = {};
 
-ShaderRegistry::ShaderRegistry() {
-    AXION_LOG_INFO( Logger::Module::GFX, "Shader Registry Subsystem Initialized Succesfully" );
-    _compiler.begin();
+ShaderRegistry::ShaderRegistry() : RendererSubsystem() {
 }
 
 ShaderRegistry::~ShaderRegistry() {
     AXION_LOG_INFO( Logger::Module::GFX, "Destroying Renderer's Shader Registry" );
     _compiler.end();
+}
+
+void ShaderRegistry::initialize( const SubsystemInitContext& ctx ) {
+    AXION_LOG_INFO( Logger::Module::GFX, "Shader Registry Subsystem Initialized Succesfully" );
+    _compiler.begin();
 }
 
 ShaderHandle ShaderRegistry::registerShader( const ShaderDesc& desc ) {

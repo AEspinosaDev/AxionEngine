@@ -1,7 +1,7 @@
 #pragma once
-#include "Axion/Core/Render/Defines.h"
-#include "Axion/Graphics/Subsystems/PipelineRegistry.h"
-#include "Axion/Graphics/Subsystems/ShaderRegistry.h"
+#include "Axion/Core/Render/Common.h"
+#include "Axion/Graphics/Subsystems/IPipelineRegistry.h"
+#include "Axion/Graphics/Subsystems/IShaderRegistry.h"
 #include <array>
 #include <string>
 #include <unordered_map>

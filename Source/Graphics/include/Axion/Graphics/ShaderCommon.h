@@ -1,6 +1,6 @@
 #pragma once
-#include "Axion/Common/Defines.h"
-#include "Axion/Graphics/RHI/Pipeline.h"
+#include "Axion/Common/Common.h"
+#include "Axion/Graphics/RHI/IPipeline.h"
 #include <map>
 #include <vector>
 

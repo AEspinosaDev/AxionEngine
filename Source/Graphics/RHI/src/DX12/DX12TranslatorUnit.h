@@ -1,5 +1,6 @@
 #pragma once
 #include "Axion/Graphics/RHI/Common.h"
+#include "DX12Common.h"
 #include <array>
 
 AXION_NAMESPACE_BEGIN

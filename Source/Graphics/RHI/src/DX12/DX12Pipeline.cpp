@@ -1,5 +1,5 @@
-#include "DX12Pipeline.hpp"
-#include "DX12Debug.hpp"
+#include "DX12Pipeline.h"
+#include "DX12Debug.h"
 #include "DX12TranslatorUnit.h"
 
 AXION_NAMESPACE_BEGIN

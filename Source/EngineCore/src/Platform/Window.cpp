@@ -1,12 +1,12 @@
 #include <Axion/Core/Platform/Window.h>
-#include <Axion/Graphics/Platforms/GLFW.h>
-#include <Axion/Graphics/Platforms/Win32.h>
+#include <Axion/Graphics/Platforms/IGLFW.h>
+#include <Axion/Graphics/Platforms/IWin32.h>
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Platform {
 
 struct Window::Impl {
-    std::unique_ptr<Graphics::IWindow> nativeWindow;
+    Memory::OwnerPtr<Graphics::IWindow> nativeWindow;
 
     Graphics::PlatformType platformType;
     bool                   useVsync = false;

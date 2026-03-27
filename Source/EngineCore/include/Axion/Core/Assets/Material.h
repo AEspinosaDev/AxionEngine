@@ -1,9 +1,9 @@
 #pragma once
-#include <Axion/Common/Defines.h>
-#include <Axion/Common/Graphics/Defines.h>
+#include <Axion/Common/Common.h>
+#include <Axion/Common/Graphics/Common.h>
 #include <Axion/Common/Math.h>
 #include <Axion/Core/Assets/Handle.h>
-#include <Axion/Core/Render/Defines.h>
+#include <Axion/Core/Render/Common.h>
 #include <functional>
 #include <string_view>
 

@@ -1,13 +1,15 @@
 
-#include "HeadlessRenderer.hpp"
-#include "Axion/Graphics/RHI/DX12.h"
+#include "HeadlessRenderer.h"
+#include "Axion/Graphics/RHI/DX12/IDX12Device.h"
 
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
 
-RendererPtr Graphics::createHeadlessRenderer( const RendererSettings& settings ) {
-    auto rnd = NEW_U( HeadlessRenderer )( settings );
+RendererOwnerPtr Graphics::createHeadlessRenderer( const RendererSettings& settings ) {
+
+    auto rnd = Memory::makeOwned<HeadlessRenderer>( settings );
+
     AXION_LOG_INFO( Logger::Module::GFX, "Headless Renderer Created Succesfully" );
     AXION_LOG_INFO( Logger::Module::GFX, "{}", rnd->toString() );
 
@@ -38,19 +40,30 @@ HeadlessRenderer::HeadlessRenderer( const RendererSettings& settings )
     // Init Command List
     _commandList = _device->createCommandList( { .queueType = RHI::QueueType::Graphics, .numFrames = _FRAMES_IN_FLIGHT, .debugName = "Graphics Command List" } );
 
-    // Init Resource Pool
-    _resourcePool = NEW_U( GPUResourcePool )( _device.get() );
-    // Init Registries
-    _shaderRegistry   = NEW_U( ShaderRegistry )();
-    _pipelineRegistry = NEW_U( PipelineRegistry )( _device.get(), *_shaderRegistry.get() );
-    // Init Render Graph
+    // -------------------------------
+    // SUBSYSTEMS Initialization
+    // -------------------------------
+    SubsystemInitContext ctx;
+    ctx.device    = _device.get();
+    ctx.pool      = &_resourcePool;
+    ctx.shaderReg = &_shaderRegistry;
+    ctx.pipelines = &_pipelineRegistry;
+
+    _resourcePool.initialize( ctx );
+    _shaderRegistry.initialize( ctx );
+    _pipelineRegistry.initialize( ctx );
+
     RenderGraphDesc RGDesc = {
         .framesInFlight        = _FRAMES_IN_FLIGHT,
         .passDataAllocSize     = _setts.RGAllocSize,
         .desciptorSetAllocSize = _setts.RGDescriptorsPerFrame,
+        .descriptorMaxViews    = _setts.RGMaxViewsPerFrame,
+        .descriptorMaxSamplers = _setts.RGMaxSamplersPerFrame,
+        .sbtAllocSize          = _setts.RGAllocSBTSize,
+        .transientAllocSize    = _setts.RGTransientAllocSize,
         .resourceTTL           = (uint)_setts.GCMode,
-    };
-    _renderGraph = NEW_U( RenderGraph )( _device.get(), *_resourcePool.get(), *_pipelineRegistry.get(), RGDesc );
+        .autoSync              = _setts.autoSync };
+    _renderGraph.initialize( ctx, RGDesc );
 }
 
 HeadlessRenderer::~HeadlessRenderer() {
@@ -61,7 +74,7 @@ void HeadlessRenderer::render( RenderGraphSetupFunc setup ) {
     _commandList->setCurrentFrame( _currentFrame );
     _commandList->begin();
 
-    _renderGraph->execute( setup, _commandList.get() );
+    _renderGraph.execute( setup, _commandList.get() );
 
     _commandList->end();
 
@@ -94,7 +107,7 @@ const RHI::DevicePtr& HeadlessRenderer::getDevice() const {
 }
 
 RHI::IDescriptorAllocator* HeadlessRenderer::getFrameDescriptorAllocator( uint frameIndex ) {
-    return _renderGraph->getDescriptorAllocator( frameIndex );
+    return _renderGraph.getDescriptorAllocator( frameIndex );
 }
 
 const RHI::IGUIBackend* HeadlessRenderer::getGUIBackend() const {
@@ -125,15 +138,15 @@ const RendererSettings& HeadlessRenderer::getSettings() const {
 }
 
 IGPUResourcePool& HeadlessRenderer::resources() {
-    return *_resourcePool.get();
+    return _resourcePool;
 }
 
 IShaderRegistry& HeadlessRenderer::shaders() {
-    return *_shaderRegistry.get();
+    return _shaderRegistry;
 }
 
 IPipelineRegistry& HeadlessRenderer::pipelines() {
-    return *_pipelineRegistry.get();
+    return _pipelineRegistry;
 }
 
 ulong HeadlessRenderer::getCurrentFrameIndex() const {

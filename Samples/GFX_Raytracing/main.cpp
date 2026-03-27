@@ -23,11 +23,11 @@
  * ==========================================================================================
  */
 #pragma once
-#include "Axion/Common/Defines.h"
+#include "Axion/Common/Common.h"
 #include "Axion/Graphics/Passes/PostProcess.hpp"
 #include "Axion/Graphics/Passes/Utilitary.hpp"
 #include "Axion/Graphics/Platforms/GLFW.h"
-#include "Axion/Graphics/Platforms/Win32.h"
+#include "Axion/Graphics/Platforms/IWin32.h"
 #include "Axion/Graphics/Renderer.h"
 #include "cube.h"
 USING_AXION_NAMESPACE

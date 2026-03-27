@@ -1,6 +1,6 @@
 #include "DX12SBTAllocator.h"
-#include "DX12Debug.hpp"
-#include "DX12Pipeline.hpp"
+#include "DX12Debug.h"
+#include "DX12Pipeline.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -16,11 +16,11 @@ DX12SBTAllocator::DX12SBTAllocator( const SBTAllocatorDesc& desc, DX12Device::Co
     bufDesc.viewFlags  = BufferViewNone;
     bufDesc.debugName  = desc.debugName + "_Buffer";
 
-    _buffer = NEW_U( DX12Buffer )( bufDesc, ctx );
+    _buffer =  std::make_unique<DX12Buffer>( bufDesc, ctx );
 
     _buffer->map();
 
-    _allocator = NEW_U( LinearAllocator )( _buffer.get() );
+    _allocator = std::make_unique<LinearAllocator>( _buffer.get() );
 
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 SBT Allocator created [{}]", _desc.debugName );
 }

@@ -1,13 +1,13 @@
-#include "Renderer.hpp"
-#include "Axion/Graphics/Platforms/Win32.h"
-#include "Axion/Graphics/RHI/DX12.h"
+#include "Renderer.h"
+#include "Axion/Graphics/Platforms/IWin32.h"
+#include "Axion/Graphics/RHI/DX12/IDX12Device.h"
 
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
 
-RendererPtr Graphics::createRenderer( IWindow* wnd, const RendererSettings& settings ) {
-    auto rnd = NEW_U( Renderer )( wnd, settings );
+RendererOwnerPtr Graphics::createRenderer( IWindow* wnd, const RendererSettings& settings ) {
+    auto rnd = Memory::makeOwned<Renderer>( wnd, settings );
     AXION_LOG_INFO( Logger::Module::GFX, "Renderer Created Succesfully" );
     AXION_LOG_INFO( Logger::Module::GFX, "{}", rnd->toString() );
     return rnd;
@@ -44,13 +44,19 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
     // Init Command List
     _commandList = _device->createCommandList( { .queueType = RHI::QueueType::Graphics, .numFrames = _FRAMES_IN_FLIGHT, .debugName = "Graphics Command List" } );
 
-    // Init Resource Pool
-    _resourcePool = NEW_U( GPUResourcePool )( _device.get() );
-    generateSwapchainHandles();
-    // Init Registries
-    _shaderRegistry   = NEW_U( ShaderRegistry )();
-    _pipelineRegistry = NEW_U( PipelineRegistry )( _device.get(), *_shaderRegistry.get() );
-    // Init Render Graph
+    // -------------------------------
+    // SUBSYSTEMS Initialization
+    // -------------------------------
+    SubsystemInitContext ctx;
+    ctx.device    = _device.get();
+    ctx.pool      = &_resourcePool;
+    ctx.shaderReg = &_shaderRegistry;
+    ctx.pipelines = &_pipelineRegistry;
+
+    _resourcePool.initialize( ctx );
+    _shaderRegistry.initialize( ctx );
+    _pipelineRegistry.initialize( ctx );
+
     RenderGraphDesc RGDesc = {
         .framesInFlight        = _FRAMES_IN_FLIGHT,
         .passDataAllocSize     = _setts.RGAllocSize,
@@ -61,7 +67,9 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
         .transientAllocSize    = _setts.RGTransientAllocSize,
         .resourceTTL           = (uint)_setts.GCMode,
         .autoSync              = _setts.autoSync };
-    _renderGraph = NEW_U( RenderGraph )( _device.get(), *_resourcePool.get(), *_pipelineRegistry.get(), RGDesc );
+    _renderGraph.initialize( ctx, RGDesc );
+
+    generateSwapchainHandles();
 
     // Init GUI Backend
     if ( _setts.enableGui )
@@ -102,7 +110,7 @@ void Renderer::render( RenderGraphSetupFunc setup ) {
         for ( auto& handle : _swapchainHandles )
         {
             if ( handle.isValid() )
-                _resourcePool->destroyTexture( handle );
+                _resourcePool.destroyTexture( handle );
         }
 
         auto desc = _swapchain->getDescription();
@@ -119,7 +127,7 @@ void Renderer::render( RenderGraphSetupFunc setup ) {
     _commandList->setCurrentFrame( _currentFrame );
     _commandList->begin();
 
-    _renderGraph->execute( setup, _commandList.get() );
+    _renderGraph.execute( setup, _commandList.get() );
 
     _commandList->end();
 
@@ -155,7 +163,7 @@ const RHI::DevicePtr& Renderer::getDevice() const {
 }
 
 RHI::IDescriptorAllocator* Renderer::getFrameDescriptorAllocator( uint frameIndex ) {
-    return _renderGraph->getDescriptorAllocator( frameIndex );
+    return _renderGraph.getDescriptorAllocator( frameIndex );
 }
 
 const RHI::IGUIBackend* Renderer::getGUIBackend() const {
@@ -207,15 +215,15 @@ const RendererSettings& Renderer::getSettings() const {
 }
 
 IGPUResourcePool& Renderer::resources() {
-    return *_resourcePool.get();
+    return _resourcePool;
 }
 
 IShaderRegistry& Renderer::shaders() {
-    return *_shaderRegistry.get();
+    return _shaderRegistry;
 }
 
 IPipelineRegistry& Renderer::pipelines() {
-    return *_pipelineRegistry.get();
+    return _pipelineRegistry;
 }
 
 void Renderer::windowCallback( const Extent2D& newSize ) {
@@ -230,7 +238,7 @@ void Renderer::generateSwapchainHandles() {
 
     for ( size_t i = 0; i < images.size(); ++i )
     {
-        auto handle = _resourcePool->registerExternalTexture( images[i], "Backbuffer_" + std::to_string( i ) );
+        auto handle = _resourcePool.registerExternalTexture( images[i], "Backbuffer_" + std::to_string( i ) );
         _swapchainHandles.push_back( handle );
     }
 }

@@ -1,18 +1,22 @@
-#include "GPUResourcePool.hpp"
+#include "GPUResourcePool.h"
 
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
 
-GPUResourcePool::GPUResourcePool( RHI::IDevice* device )
-    : _device( device ) {
-    AXION_LOG_INFO( Logger::Module::GFX, "GPU Resource Pool Initialized" );
+GPUResourcePool::GPUResourcePool()
+    : RendererSubsystem() {
 }
 
 GPUResourcePool::~GPUResourcePool() {
     clear();
     AXION_LOG_INFO( Logger::Module::GFX, "GPU Resource Pool Destroyed" );
 }
+void GPUResourcePool::initialize( const SubsystemInitContext& ctx ) {
+    RendererSubsystem::initialize( ctx );
+    AXION_LOG_INFO( Logger::Module::GFX, "GPU Resource Pool Initialized" );
+}
+
 BufferHandle GPUResourcePool::createBuffer( const RHI::BufferDesc& desc, const void* initialData, bool allowLookup ) {
     std::scoped_lock lock( _mutex );
 
@@ -435,15 +439,15 @@ TextureHandle GPUResourcePool::registerExternalTexture( RHI::ITexture* ptr, cons
     return TextureHandle { id };
 }
 
-BufferHandle GPUResourcePool::registerExternalBuffer( RHI::IBuffer* ptr, const std::string& name ) {
+BufferHandle GPUResourcePool::registerExternalBuffer( RHI::IBuffer* /*ptr*/, const std::string& /*name*/ ) {
     return BufferHandle();
 }
 
-SamplerHandle GPUResourcePool::registerExternalSampler( RHI::ISampler* ptr, const std::string& name ) {
+SamplerHandle GPUResourcePool::registerExternalSampler( RHI::ISampler* /*ptr*/, const std::string& /*name*/ ) {
     return SamplerHandle();
 }
 
-AccelHandle GPUResourcePool::registerExternalAccel( RHI::IAccel* ptr, const std::string& name ) {
+AccelHandle GPUResourcePool::registerExternalAccel( RHI::IAccel* /*ptr*/, const std::string& /*name*/ ) {
     return AccelHandle();
 }
 

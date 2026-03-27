@@ -1,7 +1,7 @@
 #pragma once
 #include "../GPUScene.h"
 #include "../PassSystem.h"
-#include "Axion/Graphics/Subsystems/RenderGraph.h"
+#include "Axion/Graphics/Subsystems/IRenderGraph.h"
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
@@ -223,7 +223,7 @@ private:
                     pixelSize = std::get<std::vector<float>>( *nextUpload.pixels ).size() * sizeof( float );
             }
 
-            uint requiredSpace = (uint)pixelSize + D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT;
+            uint requiredSpace = (uint)pixelSize + TEXTURE_DATA_PLACEMENT_ALIGNMENT;
 
             if ( totalUsedSpace + requiredSpace > (uint)data.maxAllocationSize )
                 break;

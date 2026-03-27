@@ -1,6 +1,6 @@
 #pragma once
 #include "DX12GUIBackend.h"
-#include "DX12Device.hpp"
+#include "DX12Device.h"
 #include "DX12TranslatorUnit.h"
 #include <backends/imgui_impl_dx12.h>
 #include <backends/imgui_impl_glfw.h>
@@ -10,9 +10,9 @@
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
-GUIBackendPtr RHI::createGUIBackendForDX12( IDevice* device, const GUIBackendDesc& desc ) {
+GUIBackendOwnerPtr RHI::createGUIBackendForDX12( IDevice* device, const GUIBackendDesc& desc ) {
     ID3D12Device2* dx12Device = device->getNativeObject( ObjectTypes::DX12_Device );
-    return NEW_U( DX12GUIBackend )( dx12Device,
+    return Memory::makeOwned<DX12GUIBackend>( dx12Device,
                                     static_cast<DX12Device*>( device )->getQueue( QueueType::Graphics )->queue.Get(),
                                     desc );
 }

@@ -1,8 +1,8 @@
 #pragma once
 #include "Axion/Common/Helpers.h"
 #include "Axion/Graphics/RHI/Common.h"
-#include "Axion/Graphics/RHI/Pipeline.h"
-#include "Axion/Graphics/RHI/Resource.h"
+#include "Axion/Graphics/RHI/IPipeline.h"
+#include "Axion/Graphics/RHI/IResource.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -62,7 +62,7 @@ DEFINE_COM_PTR_FOR_TYPE( ISBTAllocator, SBTAllocator )
  * @brief Interface for a linear allocator specialized in managing Shader Binding Table memory.
  * Handles alignment and uploading of SBT records to the GPU.
  */
-class ISBTAllocator : public IResource
+class ISBTAllocator : public IObject
 {
 public:
     struct Description {

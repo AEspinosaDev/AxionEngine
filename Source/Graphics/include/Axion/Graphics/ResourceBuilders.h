@@ -1,6 +1,6 @@
 #pragma once
 #include "Axion/Common/Helpers.h"
-#include "Axion/Graphics/RHI/Resource.h"
+#include "Axion/Graphics/RHI/IResource.h"
 #include <string>
 
 AXION_NAMESPACE_BEGIN

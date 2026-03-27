@@ -6,8 +6,8 @@ AXION_NAMESPACE_BEGIN
 namespace Core::Render {
 
 // Factory
-RendererPtr createRasterizer( Platform::Window* wnd, const RasterizerSettings& settings ) {
-    return NEW_U( Rasterizer )( wnd, settings );
+RendererOwnerPtr createRasterizer( Platform::Window* wnd, const RasterizerSettings& settings ) {
+    return Memory::makeOwned<Rasterizer>( wnd, settings );
 }
 
 Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& settings )

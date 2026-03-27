@@ -1,5 +1,5 @@
 #pragma once
-#include "Defines.h"
+#include "Common.h"
 
 AXION_NAMESPACE_BEGIN
 

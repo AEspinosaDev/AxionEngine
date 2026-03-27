@@ -14,7 +14,7 @@ target_sources(imgui PRIVATE
 "${CMAKE_CURRENT_SOURCE_DIR}/backends/imgui_impl_win32.cpp"
 )
 
-target_include_directories(imgui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/")
+target_include_directories(imgui SYSTEM PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/")
 
 
 target_link_libraries(imgui PUBLIC glfw Vulkan::Vulkan)

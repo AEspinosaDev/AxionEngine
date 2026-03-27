@@ -1,5 +1,5 @@
 #pragma once
-#include "Axion/Common/Defines.h"
+#include "Axion/Common/Common.h"
 #include <variant>
 #include <vector>
 

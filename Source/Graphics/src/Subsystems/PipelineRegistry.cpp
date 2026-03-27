@@ -1,17 +1,21 @@
-#include "PipelineRegistry.hpp"
-#include "ShaderRegistry.hpp"
+#include "PipelineRegistry.h"
+#include "ShaderRegistry.h"
 
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
-PipelineRegistry::PipelineRegistry( RHI::IDevice* device, IShaderRegistry& shaderReg )
-    : _device( device )
-    , _shaderReg( shaderReg ) {
-    AXION_LOG_INFO( Logger::Module::GFX, "Pipeline Registry Subsystem Initialized Succesfully" );
+PipelineRegistry::PipelineRegistry()
+    : RendererSubsystem() {
 }
 
 PipelineRegistry::~PipelineRegistry() {
     AXION_LOG_INFO( Logger::Module::GFX, "Destroying Pipeline Registry" );
+}
+
+void PipelineRegistry::initialize( const SubsystemInitContext& ctx ) {
+    RendererSubsystem::initialize( ctx );
+    _shaderReg = ctx.shaderReg;
+    AXION_LOG_INFO( Logger::Module::GFX, "Pipeline Registry Subsystem Initialized Succesfully" );
 }
 
 PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, ShaderHandle shaderHandle ) {
@@ -23,7 +27,7 @@ PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, 
         return it->second;
     }
 
-    const auto& shaderBundle = _shaderReg.getBundle( shaderHandle );
+    const auto& shaderBundle = _shaderReg->getBundle( shaderHandle );
 
     desc.shaderModules.clear();
     desc.shaderModules.reserve( shaderBundle.stageBlobs.size() );
@@ -86,7 +90,7 @@ PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, 
 }
 
 PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName ) {
-    auto shaderHandleOpt = _shaderReg.findShader( shaderName );
+    auto shaderHandleOpt = _shaderReg->findShader( shaderName );
 
     if ( !shaderHandleOpt.has_value() )
     {
@@ -106,7 +110,7 @@ PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, 
         return it->second;
     }
 
-    const auto& shaderBundle = _shaderReg.getBundle( shaderHandle );
+    const auto& shaderBundle = _shaderReg->getBundle( shaderHandle );
 
     auto itStage = std::find_if(
         shaderBundle.stageBlobs.begin(),
@@ -177,7 +181,7 @@ PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, 
 }
 
 PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName ) {
-    auto shaderHandleOpt = _shaderReg.findShader( shaderName );
+    auto shaderHandleOpt = _shaderReg->findShader( shaderName );
 
     if ( !shaderHandleOpt.has_value() )
     {
@@ -197,7 +201,7 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
         return it->second;
     }
 
-    const auto& shaderBundle = _shaderReg.getBundle( shaderHandle );
+    const auto& shaderBundle = _shaderReg->getBundle( shaderHandle );
 
     desc.shaderModules.clear();
     desc.shaderModules.reserve( shaderBundle.stageBlobs.size() );
@@ -264,7 +268,7 @@ PipelineHandle PipelineRegistry::createMesh( RHI::MeshPipelineDesc& desc, Shader
         return it->second;
     }
 
-    const auto& shaderBundle = _shaderReg.getBundle( shaderHandle );
+    const auto& shaderBundle = _shaderReg->getBundle( shaderHandle );
 
     desc.shaderModules.clear();
     desc.shaderModules.reserve( shaderBundle.stageBlobs.size() );
@@ -323,7 +327,7 @@ PipelineHandle PipelineRegistry::createMesh( RHI::MeshPipelineDesc& desc, Shader
     return PipelineHandle { id };
 }
 PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) {
-    auto shaderHandleOpt = _shaderReg.findShader( shaderName );
+    auto shaderHandleOpt = _shaderReg->findShader( shaderName );
 
     if ( !shaderHandleOpt.has_value() )
     {
@@ -335,7 +339,7 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
 }
 
 PipelineHandle PipelineRegistry::createMesh( RHI::MeshPipelineDesc& desc, const std::string& shaderName ) {
-    auto shaderHandleOpt = _shaderReg.findShader( shaderName );
+    auto shaderHandleOpt = _shaderReg->findShader( shaderName );
 
     if ( !shaderHandleOpt.has_value() )
     {

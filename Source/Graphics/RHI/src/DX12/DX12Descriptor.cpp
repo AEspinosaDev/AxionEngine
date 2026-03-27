@@ -1,7 +1,7 @@
 #pragma once
 #include "DX12Descriptor.h"
-#include "DX12Debug.hpp"
-#include "DX12Resource.hpp"
+#include "DX12Debug.h"
+#include "DX12Resource.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -422,14 +422,14 @@ void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex,
         1, &destStart, &destSize, (UINT)accels.size(), srcHandles.data(), srcSizes.data(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::setDebugName( const std::string& name ) {
+void DX12DescriptorSet::setDebugName( const std::string& /*name*/ ) {
 }
 
 const std::string& DX12DescriptorSet::getDebugName() const {
     return std::string();
 }
 
-NativeObject DX12DescriptorSet::getNativeObject( ObjectType objectType ) {
+NativeObject DX12DescriptorSet::getNativeObject( ObjectType /*objectType*/ ) {
     AXION_LOG_WARN( Logger::Module::RHI, "DX12 Descriptor Set | No Native Object" );
     return nullptr;
 }

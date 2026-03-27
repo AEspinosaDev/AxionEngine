@@ -13,7 +13,7 @@ TransientAllocator::TransientAllocator( IDevice* device, const Description& desc
         bDesc.viewFlags   = BufferViewUnorderedAccess;
         bDesc.debugName   = desc.debugName + "_ScratchBuffer";
         _scratchBuffer    = device->createBuffer( bDesc );
-        _scratchAllocator = NEW_U( LinearAllocator )( _scratchBuffer.get() );
+        _scratchAllocator = std::make_unique<LinearAllocator>( _scratchBuffer.get() );
     }
 
     // 2. UPLOAD (CPU Visible)
@@ -25,7 +25,7 @@ TransientAllocator::TransientAllocator( IDevice* device, const Description& desc
         bDesc.debugName  = desc.debugName + "_UploadBuffer";
         _uploadBuffer    = device->createBuffer( bDesc );
         _uploadBuffer->map();
-        _uploadAllocator = NEW_U( LinearAllocator )( _uploadBuffer.get() );
+        _uploadAllocator = std::make_unique<LinearAllocator>( _uploadBuffer.get() );
     }
 }
 

@@ -3,7 +3,7 @@
 #include "Axion/Core/Assets/AssetManager.h"
 #include "Axion/Core/Assets/Materials/StandardPBRMaterial.h"
 #include "Axion/Core/Platform/Window.h"
-#include "Axion/Core/Render/Rasterizer.h"
+#include "Axion/Core/Render/IRasterizer.h"
 #include "Axion/Core/Scene/Entity.h"
 #include "Axion/Core/Scene/Scene.h"
 #include <vector>
