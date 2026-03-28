@@ -33,7 +33,7 @@ public:
     virtual IShaderRegistry&   shaders() override;
     virtual IPipelineRegistry& pipelines() override;
 
-    virtual const RHI::DevicePtr&      getDevice() const override;
+    virtual const RHI::DeviceOwnerPtr&      getDevice() const override;
     virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( uint frameIndex ) override;
     virtual const RHI::IGUIBackend*    getGUIBackend() const override;
 
@@ -46,8 +46,8 @@ public:
 private:
     RendererSettings _setts;
     // RHI -- GPU
-    RHI::DevicePtr          _device      = nullptr;
-    RHI::CommandListPtr     _commandList = nullptr;
+    RHI::DeviceOwnerPtr          _device      = nullptr;
+    RHI::CommandListOwnerPtr     _commandList = nullptr;
     std::vector<RHI::Fence> _frameFences;
     // SUBSYSTEMS
     GPUResourcePool  _resourcePool;   // GPU Resources

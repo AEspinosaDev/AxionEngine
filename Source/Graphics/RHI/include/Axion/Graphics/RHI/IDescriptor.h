@@ -21,7 +21,7 @@ struct DescriptorLayoutDesc {
     std::vector<DescriptorBinding> bindings;
 };
 
-DEFINE_COM_PTR_FOR_TYPE( IDescriptorSet, DescriptorSet )
+DEFINE_OWNER_PTR_FOR_TYPE( IDescriptorSet, DescriptorSet )
 
 class IDescriptorSet : public IObject
 {
@@ -46,7 +46,7 @@ public:
     virtual void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IAccel*>& accels )                                 = 0;
 };
 
-DEFINE_COM_PTR_FOR_TYPE( IDescriptorAllocator, DescriptorAllocator )
+DEFINE_OWNER_PTR_FOR_TYPE( IDescriptorAllocator, DescriptorAllocator )
 class IPipelineLayout;
 
 class IDescriptorAllocator : public IObject

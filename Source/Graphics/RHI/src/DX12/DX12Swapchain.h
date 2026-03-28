@@ -10,21 +10,21 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
-DEFINE_COM_PTR_FOR_TYPE( DX12Swapchain, DX12Swapchain )
+DEFINE_OWNER_PTR_FOR_TYPE( DX12Swapchain, DX12Swapchain )
 
-class DX12Swapchain final : public RefCounter<ISwapchain>
+class DX12Swapchain final : public ISwapchain
 {
 public:
     DX12Swapchain( const HWND hwnd, DX12Device::Context& ctx, const ISwapchain::Description& desc );
     ~DX12Swapchain() override;
 
-    void                           updateImages() override;
-    void                           present() override;
-    uint                           acquireNextImage() override;
-    uint                           getCurrentImageIndex() override;
-    const Description&             getDescription() override;
-    const std::vector<TexturePtr>& getSwapImages() override;
-    void                           update( const Description& newDesc ) override;
+    void                         updateImages() override;
+    void                         present() override;
+    uint                         acquireNextImage() override;
+    uint                         getCurrentImageIndex() override;
+    const Description&           getDescription() override;
+    std::vector<TextureOwnerPtr> releaseImages() override;
+    void                         update( const Description& newDesc ) override;
 
     NativeObject       getNativeObject( ObjectType objectType ) override;
     void               setDebugName( const std::string& name ) override;
@@ -40,8 +40,8 @@ private:
     ComPtr<IDXGISwapChain4> _swapchain;
     uint                    _currentImage;
 
-    DX12DescriptorHeap      _heapRTV;
-    std::vector<TexturePtr> _swapImages;
+    DX12DescriptorHeap           _heapRTV;
+    std::vector<TextureOwnerPtr> _swapImages;
 
     bool _initialized = false;
 };

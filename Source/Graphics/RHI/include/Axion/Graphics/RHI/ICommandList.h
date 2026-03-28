@@ -10,7 +10,7 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
-DEFINE_COM_PTR_FOR_TYPE( ICommandList, CommandList )
+DEFINE_OWNER_PTR_FOR_TYPE( ICommandList, CommandList )
 
 /// @brief Interface for recording GPU commands.
 /// Represents a hardware command buffer.

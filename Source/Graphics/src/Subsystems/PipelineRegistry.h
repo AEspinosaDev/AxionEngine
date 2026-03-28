@@ -55,17 +55,17 @@ private:
         std::string name;
         bool        alive = false;
         std::variant<std::monostate,
-                     RHI::GraphicPipelinePtr,
-                     RHI::ComputePipelinePtr,
-                     RHI::RayTracingPipelinePtr,
-                     RHI::MeshPipelinePtr>
+                     RHI::GraphicPipelineOwnerPtr,
+                     RHI::ComputePipelineOwnerPtr,
+                     RHI::RayTracingPipelineOwnerPtr,
+                     RHI::MeshPipelineOwnerPtr>
                                pipeline;
-        RHI::PipelineLayoutPtr layoutOwner = nullptr;
+        RHI::PipelineLayoutOwnerPtr layoutOwner = nullptr;
     };
     struct LayoutRecord {
         std::string            name;
         bool                   alive = true;
-        RHI::PipelineLayoutPtr layout;
+        RHI::PipelineLayoutOwnerPtr layout;
     };
 
     std::vector<PipelineRecord>                     _pipelines;

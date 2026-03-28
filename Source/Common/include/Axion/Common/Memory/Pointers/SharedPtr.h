@@ -1,101 +1,12 @@
 #pragma once
-#include "IAllocator.h"
+#include <Axion/Common/Memory/Allocators/IAllocator.h>
 #include <atomic>
 #include <utility>
 
 AXION_NAMESPACE_BEGIN
 namespace Memory {
 
-/**
- * OwnerPtr (Equivalent to std::unique_ptr)
- * Move-only semantics. Strictly owns the memory and the lifecycle of the object.
- */
-template <typename T>
-class OwnerPtr
-{
-public:
-    AXION_DISABLE_COPY( OwnerPtr )
-
-    OwnerPtr()
-        : _ptr( nullptr )
-        , _allocator( nullptr ) {}
-
-    OwnerPtr( T* ptr, IAllocator* allocator = nullptr )
-        : _ptr( ptr )
-        , _allocator( allocator ) {}
-
-    ~OwnerPtr() { reset(); }
-
-    OwnerPtr( OwnerPtr&& other ) noexcept
-        : _ptr( other._ptr )
-        , _allocator( other._allocator ) {
-        other._ptr       = nullptr;
-        other._allocator = nullptr;
-    }
-
-    template <typename U>
-    OwnerPtr( OwnerPtr<U>&& other ) noexcept {
-        static_assert( std::is_convertible_v<U*, T*>, "Incompatible types in OwnerPtr move constructor." );
-        _ptr = other.release();
-    }
-
-    template <typename U>
-    OwnerPtr& operator=( OwnerPtr<U>&& other ) noexcept {
-        if ( (void*)this != (void*)&other )
-        {
-            reset( other.release() );
-        }
-        return *this;
-    }
-
-    OwnerPtr& operator=( OwnerPtr&& other ) noexcept {
-        if ( this != &other )
-        {
-            reset();
-            _ptr             = other._ptr;
-            _allocator       = other._allocator;
-            other._ptr       = nullptr;
-            other._allocator = nullptr;
-        }
-        return *this;
-    }
-
-    T*       operator->() const { return _ptr; }
-    T&       operator*() const { return *_ptr; }
-    T*       get() const { return _ptr; }
-    explicit operator bool() const { return _ptr != nullptr; }
-
-    void reset() {
-        if ( _ptr )
-        {
-            if ( _allocator )
-            {
-                _ptr->~T();
-                _allocator->free( _ptr );
-            } else
-            {
-                delete _ptr;
-            }
-        }
-
-        _ptr       = nullptr;
-        _allocator = nullptr;
-    }
-
-    T* release() {
-        T* temp    = _ptr;
-        _ptr       = nullptr;
-        _allocator = nullptr;
-        return temp;
-    }
-
-private:
-    T*          _ptr;
-    IAllocator* _allocator = nullptr;
-};
-
 // SharedPtr Control Policy
-
 template <typename T>
 struct AtomicControlPolicy {
     std::atomic<uint> refCount;
@@ -171,6 +82,60 @@ public:
         other._controlPolicy = nullptr;
     }
 
+    template <typename U, typename UControlPolicy>
+    SharedPtr( const SharedPtr<U, UControlPolicy>& other )
+        : _ptr( other._ptr )
+        , _controlPolicy( reinterpret_cast<TControlPolicy*>( other._controlPolicy ) ) {
+        static_assert( std::is_convertible_v<U*, T*>, "Incompatible pointer types." );
+        if ( _controlPolicy )
+            _controlPolicy->increment();
+    }
+
+    template <typename U, typename UControlPolicy>
+    SharedPtr( SharedPtr<U, UControlPolicy>&& other ) noexcept
+        : _ptr( other._ptr )
+        , _controlPolicy( reinterpret_cast<TControlPolicy*>( other._controlPolicy ) ) {
+        static_assert( std::is_convertible_v<U*, T*>, "Incompatible pointer types." );
+        other._ptr           = nullptr;
+        other._controlPolicy = nullptr;
+    }
+
+    template <typename U, typename UControlPolicy>
+    SharedPtr& operator=( const SharedPtr<U, UControlPolicy>& other ) {
+        static_assert( std::is_convertible_v<U*, T*>, "Incompatible pointer types." );
+        if ( (void*)this != (void*)&other )
+        {
+            release();
+            _ptr           = other._ptr;
+            _controlPolicy = reinterpret_cast<TControlPolicy*>( other._controlPolicy );
+            if ( _controlPolicy )
+                _controlPolicy->increment();
+        }
+        return *this;
+    }
+
+    template <typename U, typename UControlPolicy>
+    SharedPtr( T* ptr, const SharedPtr<U, UControlPolicy>& other ) noexcept
+        : _ptr( ptr )
+        , _controlPolicy( reinterpret_cast<TControlPolicy*>( other._controlPolicy ) ) {
+        if ( _controlPolicy )
+            _controlPolicy->increment();
+    }
+
+    template <typename U, typename UControlPolicy>
+    SharedPtr& operator=( SharedPtr<U, UControlPolicy>&& other ) noexcept {
+        static_assert( std::is_convertible_v<U*, T*>, "Incompatible pointer types." );
+        if ( (void*)this != (void*)&other )
+        {
+            release();
+            _ptr                 = other._ptr;
+            _controlPolicy       = reinterpret_cast<TControlPolicy*>( other._controlPolicy );
+            other._ptr           = nullptr;
+            other._controlPolicy = nullptr;
+        }
+        return *this;
+    }
+
     SharedPtr& operator=( SharedPtr&& other ) noexcept {
         if ( this != &other )
         {
@@ -217,29 +182,6 @@ private:
     TControlPolicy* _controlPolicy;
 };
 
-// Factory Functions
-// -----------------------------------------------------------------------------
-
-template <typename T, typename... Args>
-OwnerPtr<T> makeOwnedWith( IAllocator* allocator, Args&&... args ) {
-    if ( allocator )
-    {
-        void* mem = allocator->allocate( sizeof( T ), alignof( T ) );
-        T*    obj = new ( mem ) T( std::forward<Args>( args )... );
-        return OwnerPtr<T>( obj, allocator );
-    } else
-    {
-        T* obj = new T( std::forward<Args>( args )... );
-        return OwnerPtr<T>( obj );
-    }
-}
-
-template <typename T, typename... Args>
-OwnerPtr<T> makeOwned( Args&&... args ) {
-    T* obj = new T( std::forward<Args>( args )... );
-    return OwnerPtr<T>( obj );
-}
-
 template <typename T, typename TControlPolicy = AtomicControlPolicy<T>, typename... Args>
 SharedPtr<T> makeSharedWith( IAllocator* allocator, Args&&... args ) {
     if ( allocator )
@@ -276,6 +218,6 @@ SharedPtr<T> makeShared( Args&&... args ) {
 } // namespace Memory
 AXION_NAMESPACE_END
 
-#define DEFINE_OWNER_PTR_FOR_TYPE( type, clean ) \
-    class type;                                  \
-    using clean##OwnerPtr = Axion::Memory::OwnerPtr<type>;
+#define DEFINE_SHARED_PTR_FOR_TYPE( type, clean ) \
+    class type;                                   \
+    using clean##SharedPtr = Axion::Memory::SharedPtr<type>;

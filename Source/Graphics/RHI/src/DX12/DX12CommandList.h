@@ -7,9 +7,9 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
-DEFINE_COM_PTR_FOR_TYPE( DX12CommandList, DX12CommandList )
+DEFINE_OWNER_PTR_FOR_TYPE( DX12CommandList, DX12CommandList )
 
-class DX12CommandList : public RefCounter<ICommandList>
+class DX12CommandList : public ICommandList
 {
 public:
     DX12CommandList( const ComPtr<ID3D12Device2>& device,
@@ -62,10 +62,10 @@ public:
                               IBuffer* countBuffer       = nullptr,
                               ulong    countBufferOffset = 0 ) override;
 
-    NativeObject       getNativeObject( ObjectType objectType ) override;
-    void               setDebugName( const std::string& name ) override;
-    const std::string& getDebugName() const override;
-    std::string        toString() const override;
+    NativeObject     getNativeObject( ObjectType objectType ) override;
+    void             setDebugName( std::string_view name ) override;
+    std::string_view getDebugName() const override;
+    std::string      toString() const override;
 
 private:
     void pushConstants( uint setIndex, const void* data, uint numValues32Bit, uint offset32Bit = 0 ) override;

@@ -4,7 +4,7 @@
 AXION_NAMESPACE_BEGIN
 namespace Graphics::RHI {
 
-class TransientAllocator : public RefCounter<ITransientAllocator>
+class TransientAllocator : public ITransientAllocator
 {
 public:
     TransientAllocator( IDevice* device, const Description& desc );
@@ -24,11 +24,11 @@ public:
 private:
     Description _desc;
 
-    BufferPtr                        _scratchBuffer;
-    std::unique_ptr<LinearAllocator> _scratchAllocator;
+    BufferOwnerPtr  _scratchBuffer;
+    LinearAllocator _scratchAllocator;
 
-    BufferPtr                        _uploadBuffer;
-    std::unique_ptr<LinearAllocator> _uploadAllocator;
+    BufferOwnerPtr  _uploadBuffer;
+    LinearAllocator _uploadAllocator;
 };
 
 } // namespace Graphics::RHI

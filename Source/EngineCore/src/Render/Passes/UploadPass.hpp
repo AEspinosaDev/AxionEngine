@@ -28,8 +28,8 @@ public:
         ulong                                 maxAllocationSize = 0;
     };
 
-    void registerShaders( Graphics::IShaderRegistry& shaders ) override { /*NO OP*/ }
-    void createPipelines( Graphics::IPipelineRegistry& pipelines ) override { /*NO OP*/ }
+    void registerShaders( Graphics::IShaderRegistry& /*shaders*/ ) override { /*NO OP*/ }
+    void createPipelines( Graphics::IPipelineRegistry& /*pipelines*/ ) override { /*NO OP*/ }
 
     void addToGraph( Graphics::RenderGraphBuilder& builder, const Config& seedData ) {
         // Early Exit

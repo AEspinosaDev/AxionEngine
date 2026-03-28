@@ -40,13 +40,8 @@ public:
         Graphics::RGResourceHandle outDepthHandle;
     };
 
-    void registerShaders( Graphics::IShaderRegistry& shaders ) override {
-        /* NO OP */
-    }
-
-    void createPipelines( Graphics::IPipelineRegistry& pipelines ) override {
-        /* NO OP */
-    }
+    void registerShaders( Graphics::IShaderRegistry& /*shaders*/ ) override { /*NO OP*/ }
+    void createPipelines( Graphics::IPipelineRegistry& /*pipelines*/ ) override { /*NO OP*/ }
 
     void addToGraph( Graphics::RenderGraphBuilder& builder, Config& seedData ) {
         builder.addPass<Config>( "DepthPrePass", seedData, []( Graphics::RenderPassBuilder& pb, Config& data ) {

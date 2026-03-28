@@ -118,7 +118,6 @@ void DX12DescriptorSet::attach( uint binding, IBuffer* buf, ResourceState bindin
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-
 void DX12DescriptorSet::attach( uint binding, ISampler* samp ) {
     AXION_LOG_ASSERT( samp, Logger::Module::RHI, "Binding null sampler!" );
     auto* dxSamp = static_cast<DX12Sampler*>( samp );
@@ -142,7 +141,6 @@ void DX12DescriptorSet::attach( uint binding, IAccel* accel ) {
 
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
-
 
 void DX12DescriptorSet::attachDynamic( uint binding, IBuffer* buf, ulong offset, ulong range, uint stride, ResourceState bindingState ) {
     AXION_LOG_ASSERT( buf, Logger::Module::RHI, "Binding null buffer!" );
@@ -386,7 +384,7 @@ void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex,
         1, &destStart, &destSize, (UINT)samplers.size(), srcHandles.data(), srcSizes.data(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER );
 }
 
-void DX12DescriptorSet::attachBindless( uint binding, uint arrayIndex, IAccel* accel) {
+void DX12DescriptorSet::attachBindless( uint binding, uint arrayIndex, IAccel* accel ) {
     AXION_LOG_ASSERT( accel, Logger::Module::RHI, "Binding null Accel!" );
     auto* dxAccel = static_cast<DX12Accel*>( accel );
 
@@ -511,7 +509,7 @@ IDescriptorSet* DX12DescriptorAllocator::allocate( IPipelineLayout* layout, uint
     } else
     {
         // New
-        auto newSet = std::make_unique<DX12DescriptorSet>(
+        auto newSet = Memory::makeOwned<DX12DescriptorSet>(
             _device, viewInfo, samplerInfo );
         IDescriptorSet* ret = newSet.get();
         _setPool.push_back( std::move( newSet ) );

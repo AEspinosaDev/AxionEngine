@@ -49,7 +49,7 @@ struct DescriptorHandleInfo {
     ID3D12DescriptorHeap*       ownerHeap = nullptr;
 };
 
-class DX12DescriptorSet : public RefCounter<IDescriptorSet>
+class DX12DescriptorSet : public IDescriptorSet
 {
 public:
     DX12DescriptorSet( ID3D12Device*        device,
@@ -101,7 +101,7 @@ private:
     DescriptorHandleInfo _samplers = {};
 };
 
-class DX12DescriptorAllocator : public RefCounter<IDescriptorAllocator>
+class DX12DescriptorAllocator : public IDescriptorAllocator
 {
 public:
     DX12DescriptorAllocator( ID3D12Device* device, const DescriptorAllocatorDesc& desc );
@@ -111,8 +111,8 @@ public:
     void                           reset() override;
     const DescriptorAllocatorDesc& getDescription() const override { return _desc; }
 
-    void               setDebugName( const std::string& name ) override;
-    const std::string& getDebugName() const override;
+    void             setDebugName( std::string_view name ) override;
+    std::string_view getDebugName() const override;
     NativeObject       getNativeObject( ObjectType objectType ) override;
     std::string        toString() const override;
 
@@ -132,8 +132,8 @@ private:
     uint               _samplerHandleSize    = 0;
 
     // Pooling
-    std::vector<std::unique_ptr<DX12DescriptorSet>> _setPool;
-    uint                                            _poolIndex = 0;
+    std::vector<Memory::OwnerPtr<DX12DescriptorSet>> _setPool;
+    uint                                             _poolIndex = 0;
 
     // Persistent Views
     uint _persistentViewOffset    = 0;

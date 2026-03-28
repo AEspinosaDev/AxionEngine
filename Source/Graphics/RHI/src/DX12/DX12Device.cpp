@@ -17,11 +17,8 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
-DX12DevicePtr RHI::createDX12Device( const DX12DeviceDesc& desc ) {
-    DX12Device*   raw = new DX12Device( desc );
-    DX12DevicePtr dev;
-    dev.attach( raw );
-    return dev;
+DX12DeviceOwnerPtr RHI::createDX12Device( const DX12DeviceDesc& desc ) {
+    return Memory::makeOwned<DX12Device>( desc );
 }
 
 DX12Device::DX12Device( const IDX12Device::Description& desc ) {
@@ -37,7 +34,12 @@ DX12Device::DX12Device( const IDX12Device::Description& desc ) {
         _ctx.adapter = getGPUAdapter( desc.preferredDeviceID );
 
         _ctx.device = createDevice( _ctx.adapter );
-        _ctx.device->SetName( std::wstring( desc.debugName.begin(), desc.debugName.end() ).c_str() );
+
+        wchar_t wname[128];
+        int     result = MultiByteToWideChar( CP_UTF8, 0, desc.debugName.c_str(), (int)desc.debugName.size(), wname, 127 );
+        wname[result]  = L'\0';
+
+        _ctx.device->SetName( wname );
         checkExtensions();
 
         _ctx.primaryQueue = createCommandQueue( QueueType::Graphics, "Graphics Queue" );
@@ -80,121 +82,77 @@ DX12Device::DX12Device( const IDX12Device::Description& desc ) {
 DX12Device::~DX12Device() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Device [{}]", _desc.debugName );
 }
-
-SwapchainPtr DX12Device::createSwapchain( const NativeObject& Ptr, const SwapchainDesc& desc ) {
+SwapchainOwnerPtr DX12Device::createSwapchain( const NativeObject& Ptr, const SwapchainDesc& desc ) {
     HWND hwnd = nullptr;
     switch ( Ptr.integer )
     {
         case ObjectTypes::WIN32_WINDOW:
 #ifdef _WIN32
-            hwnd = Ptr;
+            hwnd = (HWND)Ptr.pointer; // O como tengas el cast de NativeObject
 #endif
             break;
         case ObjectTypes::GLFW_Window:
-            hwnd = glfwGetWin32Window( Ptr );
+            hwnd = glfwGetWin32Window( (GLFWwindow*)Ptr.pointer );
             break;
         default:
             AXION_LOG_ERROR( Logger::Module::RHI, "Unsupported platform for swapchain" );
             throw AxionException( "Unsupported platform for swapchain" );
     }
-    DX12Swapchain* raw = new DX12Swapchain( hwnd, _ctx, desc );
-    SwapchainPtr   swp;
-    swp.attach( raw );
-    return swp;
+
+    return Memory::makeOwned<DX12Swapchain>( hwnd, _ctx, desc );
 }
 
-CommandListPtr DX12Device::createCommandList( const CommandListDesc& desc ) {
-    DX12CommandList* raw = new DX12CommandList( _ctx.device,
-                                                desc );
-    CommandListPtr   cmd;
-    cmd.attach( raw );
-    return cmd;
+CommandListOwnerPtr DX12Device::createCommandList( const CommandListDesc& desc ) {
+    return Memory::makeOwned<DX12CommandList>( _ctx.device, desc );
 }
 
-TexturePtr DX12Device::createTexture( const TextureDesc& desc, const void* initialData ) {
-    DX12Texture* raw = new DX12Texture( desc, _ctx, initialData );
-    TexturePtr   tex;
-    tex.attach( raw );
-    return tex;
+TextureOwnerPtr DX12Device::createTexture( const TextureDesc& desc, const void* initialData ) {
+    return Memory::makeOwned<DX12Texture>( desc, _ctx, initialData );
 }
 
-BufferPtr RHI::DX12Device::createBuffer( const BufferDesc& desc, const void* initialData ) {
-    DX12Buffer* raw = new DX12Buffer( desc, _ctx, initialData );
-    BufferPtr   buff;
-    buff.attach( raw );
-    return buff;
+BufferOwnerPtr DX12Device::createBuffer( const BufferDesc& desc, const void* initialData ) {
+    return Memory::makeOwned<DX12Buffer>( desc, _ctx, initialData );
 }
 
-SamplerPtr DX12Device::createSampler( const SamplerDesc& desc ) {
-    DX12Sampler* raw = new DX12Sampler( desc, _ctx );
-    SamplerPtr   sampler;
-    sampler.attach( raw );
-    return sampler;
+SamplerOwnerPtr DX12Device::createSampler( const SamplerDesc& desc ) {
+    return Memory::makeOwned<DX12Sampler>( desc, _ctx );
 }
 
-AccelPtr DX12Device::createAccel( const AccelDesc& desc, bool immediateBuild ) {
-    DX12Accel* raw = new DX12Accel( desc, _ctx, immediateBuild );
-    AccelPtr   acc;
-    acc.attach( raw );
-    return acc;
+AccelOwnerPtr DX12Device::createAccel( const AccelDesc& desc, bool immediateBuild ) {
+    return Memory::makeOwned<DX12Accel>( desc, _ctx, immediateBuild );
 }
 
-PipelineLayoutPtr DX12Device::createPipelineLayout( const PipelineLayoutDesc& desc ) {
-    DX12PipelineLayout* raw = new DX12PipelineLayout( _ctx.device, desc );
-    PipelineLayoutPtr   layout;
-    layout.attach( raw );
-    return layout;
+PipelineLayoutOwnerPtr DX12Device::createPipelineLayout( const PipelineLayoutDesc& desc ) {
+    return Memory::makeOwned<DX12PipelineLayout>( _ctx.device, desc );
 }
 
-GraphicPipelinePtr DX12Device::createGraphicPipeline( const GraphicPipelineDesc& desc ) {
-    DX12GraphicPipeline* raw = new DX12GraphicPipeline( _ctx.device, desc );
-    GraphicPipelinePtr   pip;
-    pip.attach( raw );
-    return pip;
+GraphicPipelineOwnerPtr DX12Device::createGraphicPipeline( const GraphicPipelineDesc& desc ) {
+    return Memory::makeOwned<DX12GraphicPipeline>( _ctx.device, desc );
 }
 
-ComputePipelinePtr DX12Device::createComputePipeline( const ComputePipelineDesc& desc ) {
-    DX12ComputePipeline* raw = new DX12ComputePipeline( _ctx.device, desc );
-    ComputePipelinePtr   pip;
-    pip.attach( raw );
-    return pip;
+ComputePipelineOwnerPtr DX12Device::createComputePipeline( const ComputePipelineDesc& desc ) {
+    return Memory::makeOwned<DX12ComputePipeline>( _ctx.device, desc );
 }
 
-RayTracingPipelinePtr DX12Device::createRayTracingPipeline( const RayTracingPipelineDesc& desc ) {
-    DX12RayTracingPipeline* raw = new DX12RayTracingPipeline( _ctx.device, desc );
-    RayTracingPipelinePtr   pip;
-    pip.attach( raw );
-    return pip;
+RayTracingPipelineOwnerPtr DX12Device::createRayTracingPipeline( const RayTracingPipelineDesc& desc ) {
+    return Memory::makeOwned<DX12RayTracingPipeline>( _ctx.device, desc );
 }
 
-MeshPipelinePtr DX12Device::createMeshPipeline( const MeshPipelineDesc& desc ) {
-    DX12MeshPipeline* raw = new DX12MeshPipeline( _ctx.device, desc );
-    MeshPipelinePtr   pip;
-    pip.attach( raw );
-    return pip;
+MeshPipelineOwnerPtr DX12Device::createMeshPipeline( const MeshPipelineDesc& desc ) {
+    return Memory::makeOwned<DX12MeshPipeline>( _ctx.device, desc );
 }
 
-DescriptorAllocatorPtr DX12Device::createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) {
-    DX12DescriptorAllocator* raw = new DX12DescriptorAllocator( _ctx.device.Get(), desc );
-    DescriptorAllocatorPtr   dAlloc;
-    dAlloc.attach( raw );
-    return dAlloc;
+DescriptorAllocatorOwnerPtr DX12Device::createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) {
+    return Memory::makeOwned<DX12DescriptorAllocator>( _ctx.device.Get(), desc );
 }
 
-SBTAllocatorPtr DX12Device::createSBTAllocator( const SBTAllocatorDesc& desc ) {
-    DX12SBTAllocator* raw = new DX12SBTAllocator( desc, _ctx );
-    SBTAllocatorPtr   sbtAlloc;
-    sbtAlloc.attach( raw );
-    return sbtAlloc;
+SBTAllocatorOwnerPtr DX12Device::createSBTAllocator( const SBTAllocatorDesc& desc ) {
+    return Memory::makeOwned<DX12SBTAllocator>( desc, _ctx );
 }
 
-TransientAllocatorPtr DX12Device::createTransientAllocator( const TransientAllocatorDesc& desc ) {
-    TransientAllocator*   raw = new TransientAllocator( this, desc );
-    TransientAllocatorPtr transAlloc;
-    transAlloc.attach( raw );
-    return transAlloc;
+TransientAllocatorOwnerPtr DX12Device::createTransientAllocator( const TransientAllocatorDesc& desc ) {
+    return Memory::makeOwned<TransientAllocator>( this, desc );
 }
-
 void DX12Device::executeCommandLists( const std::vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) {
     std::vector<ID3D12CommandList*> nativeLists;
     nativeLists.reserve( lists.size() );
@@ -265,32 +223,32 @@ void DX12Device::oneTimeSubmit( std::function<void( ICommandList* cmd )>& comman
     _ctx.uploadContext.oneTimeSubmit( _ctx.primaryQueue, commands );
 }
 
-bool DX12Device::queryFeatureSupport( Feature feature, void* /*pInfo*/, size_t /*infoSize*/ ) const {
+bool DX12Device::queryFeatureSupport( FeatureType feature, void* /*pInfo*/, size_t /*infoSize*/ ) const {
     switch ( feature ) // NOLINT(clang-diagnostic-switch-enum)
     {
-        case Feature::DeferredCommandLists:
+        case FeatureType::DeferredCommandLists:
             return true;
-        case Feature::SinglePassStereo:
+        case FeatureType::SinglePassStereo:
             return _ext.singlePassStereoSupported;
-        case Feature::RayTracingAccelStruct:
+        case FeatureType::RayTracingAccelStruct:
             return _ext.rayTracingSupported;
-        case Feature::RayTracingPipeline:
+        case FeatureType::RayTracingPipeline:
             return _ext.rayTracingSupported;
-        case Feature::RayTracingOpacityMicromap:
+        case FeatureType::RayTracingOpacityMicromap:
             return _ext.opacityMicromapSupported;
-        case Feature::RayTracingClusters:
+        case FeatureType::RayTracingClusters:
             return _ext.rayTracingClustersSupported;
-        case Feature::RayQuery:
+        case FeatureType::RayQuery:
             return _ext.traceRayInlineSupported;
-        case Feature::FastGeometryShader:
+        case FeatureType::FastGeometryShader:
             return _ext.fastGeometryShaderSupported;
-        case Feature::ShaderExecutionReordering:
+        case FeatureType::ShaderExecutionReordering:
             return _ext.shaderExecutionReorderingSupported;
-        case Feature::Spheres:
+        case FeatureType::Spheres:
             return _ext.spheresSupported;
-        case Feature::LinearSweptSpheres:
+        case FeatureType::LinearSweptSpheres:
             return _ext.linearSweptSpheresSupported;
-        case Feature::Meshlets:
+        case FeatureType::Meshlets:
             return _ext.meshletsSupported;
             //    *******************************MORE
         default:
@@ -487,8 +445,8 @@ API DX12Device::getGraphicsAPI() {
     return API::DirectX12;
 }
 
-std::unique_ptr<DX12Device::Queue> DX12Device::createCommandQueue( const QueueType& type, const std::string& name ) {
-    auto q = std::make_unique<DX12Device::Queue>();
+Memory::OwnerPtr<DX12Device::Queue> DX12Device::createCommandQueue( const QueueType& type, const std::string& name ) {
+    auto q = Memory::makeOwned<DX12Device::Queue>();
 
     D3D12_COMMAND_QUEUE_DESC desc = {};
     desc.Type                     = DX12Translator::get( type );
@@ -542,16 +500,25 @@ NativeObject DX12Device::getNativeObject( ObjectType objectType ) {
     }
 }
 
-void DX12Device::setDebugName( const std::string& name ) {
+void DX12Device::setDebugName( std::string_view name ) {
     _desc.debugName = name;
-    _ctx.device->SetName( std::wstring( name.begin(), name.end() ).c_str() );
+    if ( !name.empty() && _ctx.device )
+    {
+        wchar_t wname[128];
+        int result = MultiByteToWideChar( CP_UTF8, 0, name.data(), (int)name.length(), wname, 127 );
+        if ( result > 0 )
+        {
+            wname[result] = L'\0';
+            _ctx.device->SetName( wname );
+        }
+    }
 }
 
-const std::string& DX12Device::getDebugName() const {
+std::string_view DX12Device::getDebugName() const {
     return _desc.debugName;
 }
 
-std::string RHI::DX12Device::toString() const {
+STLW::String  RHI::DX12Device::toString() const {
     std::string deviceInfo = fmt::format(
         "DX12 Device Description:\n"
         "  Debug Name: {}\n"
@@ -606,12 +573,12 @@ DX12Device::Queue* DX12Device::getQueueRW( const QueueType& type ) {
 
 void DX12Device::UploadContext::init( const ComPtr<ID3D12Device2>& device ) {
 
-    DX12CommandList* raw = new DX12CommandList( device,
-                                                { .queueType = QueueType::Graphics, .numFrames = 1, .debugName = "Internal Device Command List" }
-
-    );
-    _cmdList.attach( raw );
-
+    _cmdList = Memory::makeOwned<DX12CommandList>(
+        device,
+        CommandListDesc {
+            .queueType = QueueType::Graphics,
+            .numFrames = 1,
+            .debugName = "Internal Device Command List" } );
     // Create fence
     DX_CHECK( device->CreateFence(
         0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &_fence ) ) );
@@ -621,7 +588,7 @@ void DX12Device::UploadContext::init( const ComPtr<ID3D12Device2>& device ) {
     _fenceEvent = ::CreateEvent( nullptr, FALSE, FALSE, nullptr );
 }
 
-void DX12Device::UploadContext::oneTimeSubmitRaw( const std::unique_ptr<Queue>& uploadQueue, const std::function<void( const ComPtr<ID3D12GraphicsCommandList>& )>& commands ) {
+void DX12Device::UploadContext::oneTimeSubmitRaw( const Memory::OwnerPtr<Queue>& uploadQueue, const std::function<void( const ComPtr<ID3D12GraphicsCommandList>& )>& commands ) {
     std::scoped_lock lock( _mutex );
 
     ID3D12GraphicsCommandList* rawcmdList = _cmdList->getNativeObject( ObjectTypes::DX12_CommandList );
@@ -644,7 +611,7 @@ void DX12Device::UploadContext::oneTimeSubmitRaw( const std::unique_ptr<Queue>& 
         WaitForSingleObject( _fenceEvent, INFINITE );
     }
 }
-void DX12Device::UploadContext::oneTimeSubmit( const std::unique_ptr<Queue>& uploadQueue, const std::function<void( ICommandList* )>& commands ) {
+void DX12Device::UploadContext::oneTimeSubmit( const Memory::OwnerPtr<Queue>& uploadQueue, const std::function<void( ICommandList* )>& commands ) {
     std::scoped_lock lock( _mutex );
 
     ID3D12GraphicsCommandList* rawcmdList = _cmdList->getNativeObject( ObjectTypes::DX12_CommandList );

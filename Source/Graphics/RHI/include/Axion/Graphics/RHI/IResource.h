@@ -7,7 +7,7 @@ namespace Graphics::RHI {
 
 #pragma region Texture
 
-DEFINE_COM_PTR_FOR_TYPE( ITexture, Texture )
+DEFINE_OWNER_PTR_FOR_TYPE( ITexture, Texture )
 
 // Texture are always GPU. If you waNT TO wark with CPU ones, use a buffer.
 class ITexture : public IObject
@@ -49,7 +49,7 @@ typedef ITexture::Description TextureDesc;
 #pragma endregion
 #pragma region Buffer
 
-DEFINE_COM_PTR_FOR_TYPE( IBuffer, Buffer )
+DEFINE_OWNER_PTR_FOR_TYPE( IBuffer, Buffer )
 
 class IBuffer : public IObject
 {
@@ -105,7 +105,7 @@ using BufferDesc = IBuffer::Description;
 #pragma endregion
 #pragma region Accel
 
-DEFINE_COM_PTR_FOR_TYPE( IAccel, Accel )
+DEFINE_OWNER_PTR_FOR_TYPE( IAccel, Accel )
 
 class IAccel : public IObject
 {
@@ -144,7 +144,7 @@ using AccelDesc = IAccel::Description;
 #pragma endregion
 #pragma region Sampler
 
-DEFINE_COM_PTR_FOR_TYPE( ISampler, Sampler )
+DEFINE_OWNER_PTR_FOR_TYPE( ISampler, Sampler )
 
 class ISampler : public IObject
 {

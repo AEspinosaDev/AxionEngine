@@ -76,6 +76,7 @@ const char* Logger::moduleToString( Module module ) {
         case Module::Shader: return "GFX::Shader";
         case Module::RHI:    return "GFX::RHI";
         case Module::Editor: return "Editor";
+        case Module::Common: return "Common";
         default:             return "Unknown";
     }
 }
@@ -99,6 +100,7 @@ const char* Logger::moduleColor( Module module ) {
         case Module::Shader: return "\033[35m"; // Bright Green
         case Module::RHI:    return "\033[35m"; // Bright Blue
         case Module::Editor: return "\033[97m"; // Bright White
+        case Module::Common: return "\033[37m"; // Gray
         default:             return "\033[37m"; // Gray
     }
 }

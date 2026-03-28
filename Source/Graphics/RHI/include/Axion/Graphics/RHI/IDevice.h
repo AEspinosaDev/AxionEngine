@@ -11,7 +11,7 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
-DEFINE_COM_PTR_FOR_TYPE( IDevice, Device )
+DEFINE_OWNER_PTR_FOR_TYPE( IDevice, Device )
 
 /// @brief Simple synchronization primitive holding a fence value.
 struct Fence {
@@ -31,48 +31,48 @@ public:
 
     /// @brief Creates a swapchain associated with a native window handle.
     /// @param Ptr Native window handle (HWND on Windows).
-    virtual SwapchainPtr createSwapchain( const NativeObject& Ptr, const SwapchainDesc& desc = {} ) = 0;
+    virtual SwapchainOwnerPtr createSwapchain( const NativeObject& Ptr, const SwapchainDesc& desc = {} ) = 0;
 
     /// @brief Creates a command list for recording GPU commands.
-    virtual CommandListPtr createCommandList( const CommandListDesc& desc ) = 0;
+    virtual CommandListOwnerPtr createCommandList( const CommandListDesc& desc ) = 0;
 
     /// @brief Creates a texture resource.
     /// @param initialData Optional pointer to raw pixel data. If provided, performs a synchronous upload.
-    virtual TexturePtr createTexture( const TextureDesc& desc, const void* initialData = nullptr ) = 0;
+    virtual TextureOwnerPtr createTexture( const TextureDesc& desc, const void* initialData = nullptr ) = 0;
 
     /// @brief Creates a buffer resource.
     /// @param initialData Optional pointer to raw data. If provided, performs a synchronous upload.
-    virtual BufferPtr createBuffer( const BufferDesc& desc, const void* initialData = nullptr ) = 0;
+    virtual BufferOwnerPtr createBuffer( const BufferDesc& desc, const void* initialData = nullptr ) = 0;
 
-    virtual SamplerPtr createSampler( const SamplerDesc& desc ) = 0;
+    virtual SamplerOwnerPtr createSampler( const SamplerDesc& desc ) = 0;
 
     /// @brief Allocates a Raytracing Acceleration Structure.
     /// @param immediateBuild If true, blocks CPU to perform an immediate build/upload (useful for static scenes or tests).
     /// If false, allocates memory but leaves the AS empty (must be built via CommandList::buildAccel).
-    virtual AccelPtr createAccel( const AccelDesc& desc, bool immediateBuild = false ) = 0;
+    virtual AccelOwnerPtr createAccel( const AccelDesc& desc, bool immediateBuild = false ) = 0;
 
     // -------------------------------------------------------------------------
     // PIPELINE CREATION
     // -------------------------------------------------------------------------
 
-    virtual PipelineLayoutPtr     createPipelineLayout( const PipelineLayoutDesc& desc )         = 0;
-    virtual GraphicPipelinePtr    createGraphicPipeline( const GraphicPipelineDesc& desc )       = 0;
-    virtual ComputePipelinePtr    createComputePipeline( const ComputePipelineDesc& desc )       = 0;
-    virtual RayTracingPipelinePtr createRayTracingPipeline( const RayTracingPipelineDesc& desc ) = 0;
-    virtual MeshPipelinePtr       createMeshPipeline( const MeshPipelineDesc& desc )             = 0;
+    virtual PipelineLayoutOwnerPtr     createPipelineLayout( const PipelineLayoutDesc& desc )         = 0;
+    virtual GraphicPipelineOwnerPtr    createGraphicPipeline( const GraphicPipelineDesc& desc )       = 0;
+    virtual ComputePipelineOwnerPtr    createComputePipeline( const ComputePipelineDesc& desc )       = 0;
+    virtual RayTracingPipelineOwnerPtr createRayTracingPipeline( const RayTracingPipelineDesc& desc ) = 0;
+    virtual MeshPipelineOwnerPtr       createMeshPipeline( const MeshPipelineDesc& desc )             = 0;
 
     // -------------------------------------------------------------------------
     // ALLOCATORS
     // -------------------------------------------------------------------------
 
     /// @brief Creates a pool for managing resource descriptors (SRV/UAV/CBV).
-    virtual DescriptorAllocatorPtr createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) = 0;
+    virtual DescriptorAllocatorOwnerPtr createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) = 0;
 
     /// @brief Creates an allocator for Shader Binding Tables (Raytracing).
-    virtual SBTAllocatorPtr createSBTAllocator( const SBTAllocatorDesc& desc ) = 0;
+    virtual SBTAllocatorOwnerPtr createSBTAllocator( const SBTAllocatorDesc& desc ) = 0;
 
     /// @brief Creates a transient linear allocator for per-frame dynamic uploads.
-    virtual TransientAllocatorPtr createTransientAllocator( const TransientAllocatorDesc& desc ) = 0;
+    virtual TransientAllocatorOwnerPtr createTransientAllocator( const TransientAllocatorDesc& desc ) = 0;
 
     // -------------------------------------------------------------------------
     // SUBMISSION & SYNCHRONIZATION
@@ -104,7 +104,7 @@ public:
     // -------------------------------------------------------------------------
 
     /// @brief Queries if a specific hardware feature is supported.
-    virtual bool queryFeatureSupport( Feature feature, void* pInfo = nullptr, size_t infoSize = 0 ) const = 0;
+    virtual bool queryFeatureSupport( FeatureType feature, void* pInfo = nullptr, size_t infoSize = 0 ) const = 0;
 
     /// @brief Checks support for a specific texture/buffer format.
     virtual FormatSupport queryFormatSupport( Format format ) const = 0;

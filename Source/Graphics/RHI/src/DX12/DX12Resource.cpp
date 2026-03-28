@@ -62,10 +62,9 @@ DX12Texture::DX12Texture( const TextureDesc& desc, DX12Device::Context& ctx, con
         }
         pClearVal = &clearVal;
     }
-   
 
     D3D12MA::ALLOCATION_DESC allocDesc = {};
-    allocDesc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
+    allocDesc.HeapType                 = D3D12_HEAP_TYPE_DEFAULT;
 
     DX_CHECK( ctx.allocator->CreateResource(
         &allocDesc,
@@ -319,9 +318,8 @@ DX12Buffer::DX12Buffer( const BufferDesc&    desc,
 
     auto resourceDesc = CD3DX12_RESOURCE_DESC::Buffer( desc.size, flags );
 
-    
     D3D12MA::ALLOCATION_DESC allocDesc = {};
-    allocDesc.HeapType = heapProps.Type;
+    allocDesc.HeapType                 = heapProps.Type;
 
     DX_CHECK( ctx.allocator->CreateResource(
         &allocDesc,
@@ -330,7 +328,6 @@ DX12Buffer::DX12Buffer( const BufferDesc&    desc,
         nullptr,
         &_allocation,
         IID_PPV_ARGS( &_resource ) ) );
-
 
     setDebugName( desc.debugName );
 
@@ -404,11 +401,11 @@ std::string DX12Buffer::toString() const {
     return fmt::format( "" );
 }
 D3D12_VERTEX_BUFFER_VIEW DX12Buffer::getVBV() const {
-    AXION_LOG_ASSERT((_desc.usageFlags & BufferUsage::Vertex) != BufferUsage::None, Logger::Module::RHI, "Buffer Usage is not Vertex" );
+    AXION_LOG_ASSERT( ( _desc.usageFlags & BufferUsage::Vertex ) != BufferUsage::None, Logger::Module::RHI, "Buffer Usage is not Vertex" );
     return _vbv;
 }
 D3D12_INDEX_BUFFER_VIEW DX12Buffer::getIBV() const {
-    AXION_LOG_ASSERT( (_desc.usageFlags & BufferUsage::Index) != BufferUsage::None, Logger::Module::RHI, "Buffer Usage is not Index" );
+    AXION_LOG_ASSERT( ( _desc.usageFlags & BufferUsage::Index ) != BufferUsage::None, Logger::Module::RHI, "Buffer Usage is not Index" );
     return _ibv;
 }
 void DX12Buffer::createViews( DX12Device::Context& ctx ) {
@@ -473,13 +470,13 @@ void DX12Buffer::createViews( DX12Device::Context& ctx ) {
         ctx.device->CreateUnorderedAccessView( _resource.Get(), nullptr, &desc, _uavHandle );
     }
     // Special case for VBO/(IBO)
-    if ( (_desc.usageFlags & BufferUsage::Index) != BufferUsage::None )
+    if ( ( _desc.usageFlags & BufferUsage::Index ) != BufferUsage::None )
     {
         _ibv.BufferLocation = _resource->GetGPUVirtualAddress();
         _ibv.SizeInBytes    = (UINT)_desc.size;
         _ibv.Format         = DXGI_FORMAT_R32_UINT;
     }
-    if ( (_desc.usageFlags & BufferUsage::Vertex) != BufferUsage::None )
+    if ( ( _desc.usageFlags & BufferUsage::Vertex ) != BufferUsage::None )
     {
         _vbv.BufferLocation = _resource->GetGPUVirtualAddress();
         _vbv.SizeInBytes    = (UINT)_desc.size;
@@ -636,13 +633,13 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx, bool imme
 
     // 3. ALLOCATE BUFFERS
     // A. Result Buffer: This is the persistent AS resource
-    _buffer = std::make_unique<DX12Buffer>( BufferDesc {
-                                       .size       = ALIGN( prebuildInfo.ResultDataMaxSizeInBytes, 256 ),
-                                       .memoryType = MemoryUsage::GPUOnly,
-                                       .usageFlags = BufferUsage::AccelerationStructure,
-                                       .viewFlags  = BufferViewUnorderedAccess,
-                                       .debugName  = _desc.debugName + " Buffer" },
-                                   ctx );
+    _buffer = Memory::makeOwned<DX12Buffer>( BufferDesc {
+                                                 .size       = ALIGN( prebuildInfo.ResultDataMaxSizeInBytes, 256 ),
+                                                 .memoryType = MemoryUsage::GPUOnly,
+                                                 .usageFlags = BufferUsage::AccelerationStructure,
+                                                 .viewFlags  = BufferViewUnorderedAccess,
+                                                 .debugName  = _desc.debugName + " Buffer" },
+                                             ctx );
 
     if ( desc.type == AccelType::TopLevel )
         createView( ctx );
@@ -666,7 +663,7 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx, bool imme
 
     // 4. PREPARE INSTANCE DATA (TLAS ONLY)
     // TLAS build requires instances to be in a GPU buffer.
-    std::unique_ptr<DX12Buffer> instancesBuffer;
+    Memory::OwnerPtr<DX12Buffer> instancesBuffer;
 
     if ( desc.type == AccelType::TopLevel && !desc.instances.empty() )
     {
@@ -679,14 +676,14 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx, bool imme
         // Upload this data to GPU.
         // Assuming CreateBufferFromData creates a buffer on Default Heap and handles upload internally
         // or creates an Upload Heap buffer directly. State must be generic read.
-        instancesBuffer =  std::make_unique<DX12Buffer>( BufferDesc {
-                                                   .size       = rawInstances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ),
-                                                   .memoryType = MemoryUsage::GPUOnly,
-                                                   .usageFlags = BufferUsage::None,
-                                                   .viewFlags  = BufferViewNone,
-                                                   .debugName  = _desc.debugName + " TLAS Instances Buffer" },
-                                               ctx,
-                                               rawInstances.data() );
+        instancesBuffer = Memory::makeOwned<DX12Buffer>( BufferDesc {
+                                                             .size       = rawInstances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ),
+                                                             .memoryType = MemoryUsage::GPUOnly,
+                                                             .usageFlags = BufferUsage::None,
+                                                             .viewFlags  = BufferViewNone,
+                                                             .debugName  = _desc.debugName + " TLAS Instances Buffer" },
+                                                         ctx,
+                                                         rawInstances.data() );
 
         // Point the input struct to the GPU address of the instances
         inputs.InstanceDescs = instancesBuffer->getDeviceAddress();

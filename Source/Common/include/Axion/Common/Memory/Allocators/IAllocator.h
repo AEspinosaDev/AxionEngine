@@ -1,5 +1,5 @@
 #pragma once
-#include "Common.h"
+#include <Axion/Common/Memory/Common.h>
 
 AXION_NAMESPACE_BEGIN
 

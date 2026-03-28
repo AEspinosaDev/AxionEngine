@@ -1,5 +1,5 @@
 #pragma once
-#include <Axion/Common/Memory/Ptr.h>
+#include <Axion/Common/Memory/Pointers/OwnerPtr.h>
 
 #include <Axion/Graphics/Platforms/IWindow.h>
 
@@ -98,7 +98,7 @@ public:
     virtual ulong getTotalFrameNumber() const = 0;
 
     /// @brief Returns the low-level RHI Device. Use only for advanced/raw access.
-    virtual const RHI::DevicePtr& getDevice() const = 0;
+    virtual const RHI::DeviceOwnerPtr& getDevice() const = 0;
 
     /// @brief Returns the low-level RHI DescriptorAllocator.
     /// In case persistent descriptor sets have to be created before the render loop.

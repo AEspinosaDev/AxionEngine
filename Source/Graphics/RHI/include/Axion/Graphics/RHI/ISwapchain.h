@@ -6,7 +6,7 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
-DEFINE_COM_PTR_FOR_TYPE( ISwapchain, Swapchain )
+DEFINE_OWNER_PTR_FOR_TYPE( ISwapchain, Swapchain )
 
 /**
  * @brief Interface representing a generic rendering swapchain.
@@ -69,11 +69,11 @@ public:
     // virtual void change_format( Image_Format format ) = 0; ///< Optional: change the swapchain image format.
 
     /**
-     * @brief Retrieve the swapchain images used for swaping.
+     * @brief Retrieve the swapchain images used for swaping. Swapchain loses the ownership
      *
-     * @return Const reference to the vector that contains them. Careful ! References of the images can be modified.
+     * @return Copy of the vector of swapchain images.
      */
-    virtual const std::vector<TexturePtr>& getSwapImages() = 0;
+    virtual  std::vector<TextureOwnerPtr> releaseImages() = 0;
 
     /**
      * @brief Reconfigures the swapchain with new description.

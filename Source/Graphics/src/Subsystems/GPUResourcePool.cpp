@@ -405,7 +405,7 @@ void GPUResourcePool::destroyAccel( AccelHandle handle ) {
     record.name.clear();
 }
 
-TextureHandle GPUResourcePool::registerExternalTexture( RHI::ITexture* ptr, const std::string& name ) {
+TextureHandle GPUResourcePool::registerExternalTexture( RHI::TextureOwnerPtr&& ptr, const std::string& name ) {
     std::scoped_lock lock( _mutex );
 
     uint id = UINT32_MAX;
@@ -428,7 +428,7 @@ TextureHandle GPUResourcePool::registerExternalTexture( RHI::ITexture* ptr, cons
     }
 
     auto& record = _textures[id];
-    record.ptr   = RHI::TexturePtr( ptr );
+    record.ptr   = std::move( ptr );
     record.name  = name;
     record.alive = true;
     record.generation++;
@@ -439,15 +439,15 @@ TextureHandle GPUResourcePool::registerExternalTexture( RHI::ITexture* ptr, cons
     return TextureHandle { id };
 }
 
-BufferHandle GPUResourcePool::registerExternalBuffer( RHI::IBuffer* /*ptr*/, const std::string& /*name*/ ) {
+BufferHandle GPUResourcePool::registerExternalBuffer( RHI::BufferOwnerPtr&& /*ptr*/, const std::string& /*name*/ ) {
     return BufferHandle();
 }
 
-SamplerHandle GPUResourcePool::registerExternalSampler( RHI::ISampler* /*ptr*/, const std::string& /*name*/ ) {
+SamplerHandle GPUResourcePool::registerExternalSampler( RHI::SamplerOwnerPtr&& /*ptr*/, const std::string& /*name*/ ) {
     return SamplerHandle();
 }
 
-AccelHandle GPUResourcePool::registerExternalAccel( RHI::IAccel* /*ptr*/, const std::string& /*name*/ ) {
+AccelHandle GPUResourcePool::registerExternalAccel( RHI::AccelOwnerPtr&& /*ptr*/, const std::string& /*name*/ ) {
     return AccelHandle();
 }
 

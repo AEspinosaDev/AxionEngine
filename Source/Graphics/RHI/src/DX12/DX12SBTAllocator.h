@@ -3,12 +3,11 @@
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
 #include "DX12Resource.h"
 
-
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
-class DX12SBTAllocator : public RefCounter<ISBTAllocator>
+class DX12SBTAllocator : public ISBTAllocator
 {
 public:
     DX12SBTAllocator( const SBTAllocatorDesc& desc, DX12Device::Context& ctx );
@@ -26,8 +25,8 @@ public:
 private:
     SBTAllocatorDesc _desc;
 
-    std::unique_ptr<DX12Buffer>      _buffer    = nullptr;
-    std::unique_ptr<LinearAllocator> _allocator = nullptr;
+    Memory::OwnerPtr<DX12Buffer>      _buffer    = nullptr;
+    Memory::OwnerPtr<LinearAllocator> _allocator = nullptr;
 };
 
 } // namespace Graphics::RHI

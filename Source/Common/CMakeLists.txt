@@ -4,6 +4,7 @@
 
 file(GLOB COMMON_SOURCES
     "src/*.cpp"
+    "src/Memory/*.cpp"
 )
 
 

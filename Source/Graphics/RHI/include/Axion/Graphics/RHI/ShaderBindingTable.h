@@ -56,7 +56,7 @@ struct ShaderBindingTable {
 
 typedef ShaderBindingTable SBT;
 
-DEFINE_COM_PTR_FOR_TYPE( ISBTAllocator, SBTAllocator )
+DEFINE_OWNER_PTR_FOR_TYPE( ISBTAllocator, SBTAllocator )
 
 /**
  * @brief Interface for a linear allocator specialized in managing Shader Binding Table memory.

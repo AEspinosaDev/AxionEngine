@@ -7,9 +7,9 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
-DEFINE_COM_PTR_FOR_TYPE( DX12PipelineLayout, DX12PipelineLayout )
+DEFINE_OWNER_PTR_FOR_TYPE( DX12PipelineLayout, DX12PipelineLayout )
 
-class DX12PipelineLayout final : public RefCounter<IPipelineLayout>
+class DX12PipelineLayout final : public IPipelineLayout
 {
 public:
     DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc );
@@ -52,9 +52,9 @@ private:
     std::vector<std::pair<int, int>> _rootIndexMap;
 };
 
-DEFINE_COM_PTR_FOR_TYPE( DX12GraphicPipeline, DX12GraphicPipeline )
+DEFINE_OWNER_PTR_FOR_TYPE( DX12GraphicPipeline, DX12GraphicPipeline )
 
-class DX12GraphicPipeline : public RefCounter<IGraphicPipeline>
+class DX12GraphicPipeline : public IGraphicPipeline
 {
 public:
     DX12GraphicPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc );
@@ -74,9 +74,9 @@ private:
     ComPtr<ID3D12PipelineState> _pso;
 };
 
-DEFINE_COM_PTR_FOR_TYPE( DX12MeshPipeline, DX12MeshPipeline )
+DEFINE_OWNER_PTR_FOR_TYPE( DX12MeshPipeline, DX12MeshPipeline )
 
-class DX12MeshPipeline final : public RefCounter<IMeshPipeline>
+class DX12MeshPipeline final : public IMeshPipeline
 {
 public:
     DX12MeshPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc );
@@ -108,9 +108,9 @@ private:
     ComPtr<ID3D12PipelineState> _pso;
 };
 
-DEFINE_COM_PTR_FOR_TYPE( DX12ComputePipeline, DX12ComputePipeline )
+DEFINE_OWNER_PTR_FOR_TYPE( DX12ComputePipeline, DX12ComputePipeline )
 
-class DX12ComputePipeline : public RefCounter<IComputePipeline>
+class DX12ComputePipeline : public IComputePipeline
 {
 public:
     DX12ComputePipeline( const ComPtr<ID3D12Device2>& device, const Description& desc );
@@ -129,9 +129,9 @@ private:
     ComPtr<ID3D12PipelineState> _pso;
 };
 
-DEFINE_COM_PTR_FOR_TYPE( DX12RayTracingPipeline, DX12RayTracingPipeline )
+DEFINE_OWNER_PTR_FOR_TYPE( DX12RayTracingPipeline, DX12RayTracingPipeline )
 
-class DX12RayTracingPipeline : public RefCounter<IRayTracingPipeline>
+class DX12RayTracingPipeline : public IRayTracingPipeline
 {
 public:
     DX12RayTracingPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc );

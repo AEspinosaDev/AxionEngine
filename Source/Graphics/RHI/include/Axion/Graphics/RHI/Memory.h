@@ -27,8 +27,11 @@ class BufferLinearAllocator
 {
 public:
     BufferLinearAllocator() {};
-    BufferLinearAllocator( IBuffer* buffer )
-        : _buffer( buffer ) {
+    BufferLinearAllocator( IBuffer* buffer ) {
+        initialize( buffer );
+    }
+    void initialize( IBuffer* buffer ) {
+        _buffer = buffer;
 
         AXION_LOG_ASSERT( buffer, Logger::Module::RHI, "LinearAllocator initialized with null buffer" );
 
@@ -94,10 +97,10 @@ public:
     AXION_FORCE_INLINE ulong getTotalSize() const { return _capacity; }
 
 private:
-    IBuffer* _buffer;
+    IBuffer* _buffer = nullptr;
 
-    ulong       _gpuBase = 0;
-    uchar*      _cpuBase = nullptr;
+    ulong  _gpuBase = 0;
+    uchar* _cpuBase = nullptr;
 
     ulong _capacity      = 0;
     ulong _currentOffset = 0;
@@ -109,20 +112,21 @@ typedef BufferLinearAllocator LinearAllocator;
 
 #pragma region FreeListAllocator
 
-
 class BufferFreeListAllocator
 {
-    struct FreeBlock
-    {
+    struct FreeBlock {
         ulong offset;
         ulong size;
     };
 
 public:
     BufferFreeListAllocator() {};
-    
-    BufferFreeListAllocator( IBuffer* buffer )
-        : _buffer( buffer ) {
+
+    BufferFreeListAllocator( IBuffer* buffer ) {
+        initialize( buffer );
+    }
+    void initialize( IBuffer* buffer ) {
+        _buffer = buffer;
 
         AXION_LOG_ASSERT( buffer, Logger::Module::RHI, "FreeListAllocator initialized with null buffer" );
 
@@ -134,6 +138,7 @@ public:
             _cpuBase = static_cast<uchar*>( buffer->getData() );
         }
 
+        _freeBlocks.clear();
         _freeBlocks.push_back( { 0, _capacity } );
     }
 
@@ -143,7 +148,7 @@ public:
     }
 
     BufferView allocate( ulong size, ulong alignment = 256 ) {
-        
+
         for ( auto it = _freeBlocks.begin(); it != _freeBlocks.end(); ++it )
         {
             ulong alignedOffset = Helpers::safeAlign( it->offset, alignment );
@@ -158,16 +163,19 @@ public:
                 alloc.offset     = alignedOffset;
                 alloc.size       = size;
                 alloc.gpuAddress = _gpuBase + alignedOffset;
-                
-                if ( alignment > 0 ) {
+
+                if ( alignment > 0 )
+                {
                     alloc.stride = alignment;
                     alloc.count  = size / alignment;
-                } else {
+                } else
+                {
                     alloc.stride = size;
                     alloc.count  = 1;
                 }
 
-                if ( _cpuBase ) alloc.cpuAddress = _cpuBase + alignedOffset;
+                if ( _cpuBase )
+                    alloc.cpuAddress = _cpuBase + alignedOffset;
 
                 // Update Free Slot
                 ulong totalConsumed = requiredSize;
@@ -176,9 +184,8 @@ public:
                 if ( remainingSize > 0 )
                 {
                     it->offset += totalConsumed;
-                    it->size   = remainingSize;
-                }
-                else
+                    it->size = remainingSize;
+                } else
                 {
                     _freeBlocks.erase( it );
                 }
@@ -188,10 +195,11 @@ public:
             }
         }
 
-       
         AXION_LOG_ERROR( Logger::Module::RHI,
-             "FreeListAllocator [{}] OOM! Request: {}, Max Free Block available: {}",
-             _buffer->getDebugName(), size, getMaxFreeBlockSize() );
+                         "FreeListAllocator [{}] OOM! Request: {}, Max Free Block available: {}",
+                         _buffer->getDebugName(),
+                         size,
+                         getMaxFreeBlockSize() );
 
         return {};
     }
@@ -204,7 +212,7 @@ public:
         }
 
         FreeBlock newBlock = { view.offset, view.size };
-        
+
         // Fusion(Coalescing)
         insertAndCoalesce( newBlock );
 
@@ -216,61 +224,62 @@ public:
         _freeBlocks.push_back( { 0, _capacity } );
         _usedSize = 0;
     }
-    
+
     ulong getUsedSize() const { return _usedSize; }
     ulong getTotalSize() const { return _capacity; }
 
 private:
-    
     void insertAndCoalesce( FreeBlock block ) {
-        
-        auto it = std::upper_bound( _freeBlocks.begin(), _freeBlocks.end(), block.offset,
-            []( ulong val, const FreeBlock& b ) { return val < b.offset; } 
-        );
+
+        auto it = std::upper_bound( _freeBlocks.begin(), _freeBlocks.end(), block.offset, []( ulong val, const FreeBlock& b ) { return val < b.offset; } );
 
         it = _freeBlocks.insert( it, block );
 
-        
         auto next = it;
         ++next;
-        
-        //Eats next one if possible
-        if ( next != _freeBlocks.end() && (it->offset + it->size == next->offset) ) {
-            it->size += next->size; 
-            _freeBlocks.erase( next ); 
+
+        // Eats next one if possible
+        if ( next != _freeBlocks.end() && ( it->offset + it->size == next->offset ) )
+        {
+            it->size += next->size;
+            _freeBlocks.erase( next );
         }
 
-        //Prev eats current
-        if ( it != _freeBlocks.begin() ) {
+        // Prev eats current
+        if ( it != _freeBlocks.begin() )
+        {
             auto prev = it;
             --prev;
-            if ( prev->offset + prev->size == it->offset ) {
-                prev->size += it->size; 
-                _freeBlocks.erase( it ); 
+            if ( prev->offset + prev->size == it->offset )
+            {
+                prev->size += it->size;
+                _freeBlocks.erase( it );
             }
         }
     }
 
     ulong getMaxFreeBlockSize() const {
         ulong maxS = 0;
-        for(const auto& b : _freeBlocks) if(b.size > maxS) maxS = b.size;
+        for ( const auto& b : _freeBlocks )
+            if ( b.size > maxS )
+                maxS = b.size;
         return maxS;
     }
 
-    IBuffer* _buffer = nullptr;
-    ulong       _gpuBase = 0;
-    uchar* _cpuBase = nullptr;
+    IBuffer* _buffer  = nullptr;
+    ulong    _gpuBase = 0;
+    uchar*   _cpuBase = nullptr;
 
     ulong _capacity = 0;
     ulong _usedSize = 0;
 
-    std::vector<FreeBlock> _freeBlocks; 
+    std::vector<FreeBlock> _freeBlocks;
 };
 typedef BufferFreeListAllocator FreeListAllocator;
 
 #pragma endregion
 
-DEFINE_COM_PTR_FOR_TYPE( ITransientAllocator, TransientAllocator )
+DEFINE_OWNER_PTR_FOR_TYPE( ITransientAllocator, TransientAllocator )
 /**
  * @brief Manages transient memory for a single frame (Scratch & Upload heaps).
  * Automatically resets at the start of the frame. Useful for data streaming
@@ -307,12 +316,12 @@ AXION_NAMESPACE_END
 // namespace RHI {
 
 // template <
-//     typename LockPolicy = Memory::NoLock, 
+//     typename LockPolicy = Memory::NoLock,
 //     typename VisibilityPolicy = Memory::DeviceLocal
 // >
 // class LinearBufferAllocator : public Memory::ISubAllocator<Buffer>, public LockPolicy {
 // public:
-//     LinearBufferAllocator(Buffer* targetBuffer) 
+//     LinearBufferAllocator(Buffer* targetBuffer)
 //         : _target(targetBuffer) {
 //         _capacity = _target ? _target->getSize() : 0;
 //     }
@@ -332,7 +341,7 @@ AXION_NAMESPACE_END
 
 //         if (alignedOffset + size > _capacity) {
 //             this->unlock();
-//             return {}; 
+//             return {};
 //         }
 
 //         // Optional: Assert if user is trying to map memory that is DeviceLocal

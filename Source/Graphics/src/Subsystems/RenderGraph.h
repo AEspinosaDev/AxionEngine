@@ -46,9 +46,9 @@ private:
 
     IGPUResourcePool*                        _pool = nullptr;
     IPipelineRegistry*                       _pipelines = nullptr;
-    std::vector<RHI::DescriptorAllocatorPtr> _descriptorAllocators;
-    std::vector<RHI::SBTAllocatorPtr>        _sbtAllocators;
-    std::vector<RHI::TransientAllocatorPtr>  _transientAllocators;
+    std::vector<RHI::DescriptorAllocatorOwnerPtr> _descriptorAllocators;
+    std::vector<RHI::SBTAllocatorOwnerPtr>        _sbtAllocators;
+    std::vector<RHI::TransientAllocatorOwnerPtr>  _transientAllocators;
 
     RenderGraphDesc _desc;
 

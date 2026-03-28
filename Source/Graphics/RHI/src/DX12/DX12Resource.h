@@ -8,9 +8,9 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
-DEFINE_COM_PTR_FOR_TYPE( DX12Texture, DX12Texture )
+DEFINE_OWNER_PTR_FOR_TYPE( DX12Texture, DX12Texture )
 
-class DX12Texture : public RefCounter<ITexture>
+class DX12Texture : public ITexture
 {
 public:
     DX12Texture( const TextureDesc&   desc,
@@ -54,9 +54,9 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE _uavHandle = {};
 };
 
-DEFINE_COM_PTR_FOR_TYPE( DX12Buffer, DX12Buffer )
+DEFINE_OWNER_PTR_FOR_TYPE( DX12Buffer, DX12Buffer )
 
-class DX12Buffer : public RefCounter<IBuffer>
+class DX12Buffer : public IBuffer
 {
 public:
     DX12Buffer(
@@ -108,7 +108,7 @@ private:
     void* _mappedPtr = nullptr;
 };
 
-class DX12Sampler : public RefCounter<ISampler>
+class DX12Sampler : public ISampler
 {
 public:
     DX12Sampler( const SamplerDesc& desc, DX12Device::Context& ctx );
@@ -128,9 +128,9 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE _samplerHandle = {};
 };
 
-DEFINE_COM_PTR_FOR_TYPE( DX12Accel, DX12Accel )
+DEFINE_OWNER_PTR_FOR_TYPE( DX12Accel, DX12Accel )
 
-class DX12Accel : public RefCounter<IAccel>
+class DX12Accel : public IAccel
 {
 public:
     DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx, bool immediateBuild );
@@ -158,7 +158,7 @@ private:
     void      createView( DX12Device::Context& ctx );
     AccelDesc _desc;
 
-    std::unique_ptr<DX12Buffer> _buffer = nullptr;
+    Memory::OwnerPtr<DX12Buffer> _buffer = nullptr;
 
     ulong _deviceAddress = 0;
 

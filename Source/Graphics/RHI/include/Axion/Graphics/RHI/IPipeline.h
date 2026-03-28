@@ -17,7 +17,7 @@ struct ShaderModule {
 };
 
 #pragma region Layout
-DEFINE_COM_PTR_FOR_TYPE( IPipelineLayout, PipelineLayout )
+DEFINE_OWNER_PTR_FOR_TYPE( IPipelineLayout, PipelineLayout )
 
 class IPipelineLayout : public IObject
 {
@@ -47,7 +47,7 @@ typedef IPipelineLayout::Description PipelineLayoutDesc;
 
 #pragma endregion
 #pragma region Graphic
-DEFINE_COM_PTR_FOR_TYPE( IGraphicPipeline, GraphicPipeline )
+DEFINE_OWNER_PTR_FOR_TYPE( IGraphicPipeline, GraphicPipeline )
 
 struct VertexAttribute {
     std::string semanticName; // "POSITION", "TEXCOORD", etc.
@@ -133,7 +133,7 @@ typedef IGraphicPipeline::Description GraphicPipelineDesc;
 
 #pragma endregion
 #pragma region Mesh
-DEFINE_COM_PTR_FOR_TYPE( IMeshPipeline, MeshPipeline )
+DEFINE_OWNER_PTR_FOR_TYPE( IMeshPipeline, MeshPipeline )
 
 class IMeshPipeline : public IObject
 {
@@ -164,7 +164,7 @@ typedef IMeshPipeline::Description MeshPipelineDesc;
 
 #pragma endregion
 #pragma region Compute
-DEFINE_COM_PTR_FOR_TYPE( IComputePipeline, ComputePipeline )
+DEFINE_OWNER_PTR_FOR_TYPE( IComputePipeline, ComputePipeline )
 
 class IComputePipeline : public IObject
 {
@@ -184,7 +184,7 @@ public:
 
 typedef IComputePipeline::Description ComputePipelineDesc;
 
-DEFINE_COM_PTR_FOR_TYPE( IRayTracingPipeline, RayTracingPipeline )
+DEFINE_OWNER_PTR_FOR_TYPE( IRayTracingPipeline, RayTracingPipeline )
 
 struct HitGroupDesc {
     std::string name;               // The name to use in the Shader Binding Table

@@ -29,7 +29,7 @@ public:
     virtual const uint      getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
     virtual ulong           getCurrentFrameIndex() const override;
 
-    virtual const RHI::DevicePtr&      getDevice() const override;
+    virtual const RHI::DeviceOwnerPtr& getDevice() const override;
     virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( uint frameIndex ) override;
     virtual const RHI::IGUIBackend*    getGUIBackend() const override;
 
@@ -47,9 +47,9 @@ private:
 
     RendererSettings _setts;
     // RHI -- GPU
-    RHI::DevicePtr          _device      = nullptr;
-    RHI::CommandListPtr     _commandList = nullptr;
-    std::vector<RHI::Fence> _frameFences;
+    RHI::DeviceOwnerPtr      _device      = nullptr;
+    RHI::CommandListOwnerPtr _commandList = nullptr;
+    std::vector<RHI::Fence>  _frameFences;
 
     // SUBSYSTEMS
     GPUResourcePool  _resourcePool;   // GPU Resources
@@ -61,7 +61,7 @@ private:
     IWindow*                                                                        _wnd            = nullptr;
     std::unique_ptr<Event::EventDispatcher<Event::WindowResizeEvent>::Subscription> _resizeCbHandle = nullptr;
     bool                                                                            _pendingResize  = false;
-    RHI::SwapchainPtr                                                               _swapchain      = nullptr;
+    RHI::SwapchainOwnerPtr                                                          _swapchain      = nullptr;
     std::vector<TextureHandle>                                                      _swapchainHandles;
     // GUI Backend (IMGUI)
     RHI::GUIBackendOwnerPtr _guiBackend = nullptr;

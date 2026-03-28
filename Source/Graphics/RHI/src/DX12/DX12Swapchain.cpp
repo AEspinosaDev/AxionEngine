@@ -63,8 +63,8 @@ const ISwapchain::Description& DX12Swapchain::getDescription() {
     return _desc;
 }
 
-const std::vector<TexturePtr>& DX12Swapchain::getSwapImages() {
-    return _swapImages;
+std::vector<TextureOwnerPtr> DX12Swapchain::releaseImages() {
+    return std::move( _swapImages );
 }
 
 void DX12Swapchain::update( const Description& newDesc ) {
@@ -79,7 +79,6 @@ void DX12Swapchain::update( const Description& newDesc ) {
 
     DX_CHECK( _device->GetDeviceRemovedReason() );
 
-    // Release references to old back buffers before resizing
     _swapImages.clear();
     _heapRTV.reset();
 
@@ -114,7 +113,7 @@ DX12Swapchain::~DX12Swapchain() {
 }
 void DX12Swapchain::updateImages() {
 
-    _swapImages.resize( _desc.imageCount, nullptr );
+    _swapImages.resize( _desc.imageCount );
     TextureDesc desc = {
         .size   = _desc.size.to3D(),
         .format = _desc.format,
@@ -127,13 +126,9 @@ void DX12Swapchain::updateImages() {
         ComPtr<ID3D12Resource> backBuffer;
         DX_CHECK( _swapchain->GetBuffer( i, IID_PPV_ARGS( &backBuffer ) ) );
 
-        DX12Texture* rawBackBufferTexture = new DX12Texture( backBuffer, desc, ctx, false );
-        rawBackBufferTexture->stateTracker().setState( ResourceState::Present );
-        TexturePtr backBufferTexture;
-        backBufferTexture.attach( rawBackBufferTexture );
-        // Assign to vector (old element will be released automatically)
-        // _swapImages[i] = std::move( backBufferTexture );
-        _swapImages[i] = backBufferTexture;
+        auto backBufferTexture = Memory::makeOwned<DX12Texture>( backBuffer, desc, ctx, false );
+        backBufferTexture->stateTracker().setState( ResourceState::Present );
+        _swapImages[i] = std::move( backBufferTexture );
     }
 } // namespace RHI
 void DX12Swapchain::present() {

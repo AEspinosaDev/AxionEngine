@@ -31,10 +31,10 @@ public:
     void                         destroyAccel( AccelHandle handle ) override;
 
     // Special functions for renderer interop
-    TextureHandle registerExternalTexture( RHI::ITexture* ptr, const std::string& name );
-    BufferHandle  registerExternalBuffer( RHI::IBuffer* ptr, const std::string& name );
-    SamplerHandle registerExternalSampler( RHI::ISampler* ptr, const std::string& name );
-    AccelHandle   registerExternalAccel( RHI::IAccel* ptr, const std::string& name );
+    TextureHandle registerExternalTexture( RHI::TextureOwnerPtr&& ptr, const std::string& name );
+    BufferHandle  registerExternalBuffer( RHI::BufferOwnerPtr&& ptr, const std::string& name );
+    SamplerHandle registerExternalSampler( RHI::SamplerOwnerPtr&& ptr, const std::string& name );
+    AccelHandle   registerExternalAccel( RHI::AccelOwnerPtr&& ptr, const std::string& name );
 
     void clear() override;
     uint bufferCount() const override { return (uint)_buffers.size(); };
@@ -58,16 +58,16 @@ private:
     };
 
     // Buffers
-    std::vector<ResourceRecord<RHI::BufferPtr>>   _buffers;
+    std::vector<ResourceRecord<RHI::BufferOwnerPtr>>   _buffers;
     std::unordered_map<std::string, BufferHandle> _buffNameToHandle;
     // Textures
-    std::vector<ResourceRecord<RHI::TexturePtr>>   _textures;
+    std::vector<ResourceRecord<RHI::TextureOwnerPtr>>   _textures;
     std::unordered_map<std::string, TextureHandle> _texNameToHandle;
     // Samplers
-    std::vector<ResourceRecord<RHI::SamplerPtr>>   _samplers;
+    std::vector<ResourceRecord<RHI::SamplerOwnerPtr>>   _samplers;
     std::unordered_map<std::string, SamplerHandle> _samplerNameToHandle;
     // Acceleration Structures
-    std::vector<ResourceRecord<RHI::AccelPtr>>   _accels;
+    std::vector<ResourceRecord<RHI::AccelOwnerPtr>>   _accels;
     std::unordered_map<std::string, AccelHandle> _accelNameToHandle;
 };
 

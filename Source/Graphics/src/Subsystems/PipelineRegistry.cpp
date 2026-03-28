@@ -42,7 +42,7 @@ PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, 
     if ( desc.attributes.empty() )
         desc.attributes = shaderBundle.vertexAttributes;
 
-    RHI::PipelineLayoutPtr implicitLayoutOwner = nullptr;
+    RHI::PipelineLayoutOwnerPtr implicitLayoutOwner = nullptr;
     if ( desc.layout != nullptr )
     {
         // Explicit
@@ -134,7 +134,7 @@ PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, 
         .codeSize   = blob.code.size(),
         .entryPoint = blob.entryPointName };
 
-    RHI::PipelineLayoutPtr implicitLayoutOwner = nullptr;
+    RHI::PipelineLayoutOwnerPtr implicitLayoutOwner = nullptr;
     if ( desc.layout != nullptr )
     {
         // Explicit
@@ -213,7 +213,7 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
                                         .entryPoint = blob.entryPointName } );
     }
 
-    RHI::PipelineLayoutPtr implicitLayoutOwner = nullptr;
+    RHI::PipelineLayoutOwnerPtr implicitLayoutOwner = nullptr;
     if ( desc.layout != nullptr )
     {
         // Explicit
@@ -280,7 +280,7 @@ PipelineHandle PipelineRegistry::createMesh( RHI::MeshPipelineDesc& desc, Shader
                                         .entryPoint = blob.entryPointName } );
     }
 
-    RHI::PipelineLayoutPtr implicitLayoutOwner = nullptr;
+    RHI::PipelineLayoutOwnerPtr implicitLayoutOwner = nullptr;
     if ( desc.layout != nullptr )
     {
         // Explicit
@@ -411,7 +411,7 @@ RHI::IGraphicPipeline* PipelineRegistry::getGraphicPipeline( PipelineHandle hand
         return nullptr;
     }
 
-    auto* pipPtr = std::get_if<RHI::GraphicPipelinePtr>( &record.pipeline );
+    auto* pipPtr = std::get_if<RHI::GraphicPipelineOwnerPtr>( &record.pipeline );
 
     if ( pipPtr )
     {
@@ -436,7 +436,7 @@ RHI::IComputePipeline* PipelineRegistry::getComputePipeline( PipelineHandle hand
         return nullptr;
     }
 
-    auto* pipPtr = std::get_if<RHI::ComputePipelinePtr>( &record.pipeline );
+    auto* pipPtr = std::get_if<RHI::ComputePipelineOwnerPtr>( &record.pipeline );
 
     if ( pipPtr )
     {
@@ -461,7 +461,7 @@ RHI::IRayTracingPipeline* PipelineRegistry::getRaytracingPipeline( PipelineHandl
         return nullptr;
     }
 
-    auto* pipPtr = std::get_if<RHI::RayTracingPipelinePtr>( &record.pipeline );
+    auto* pipPtr = std::get_if<RHI::RayTracingPipelineOwnerPtr>( &record.pipeline );
 
     if ( pipPtr )
     {
@@ -486,7 +486,7 @@ RHI::IMeshPipeline* PipelineRegistry::getMeshPipeline( PipelineHandle handle ) {
         return nullptr;
     }
 
-    auto* pipPtr = std::get_if<RHI::MeshPipelinePtr>( &record.pipeline );
+    auto* pipPtr = std::get_if<RHI::MeshPipelineOwnerPtr>( &record.pipeline );
 
     if ( pipPtr )
     {

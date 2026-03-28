@@ -1,6 +1,7 @@
 #pragma once
 #include <Axion/Graphics/Platforms/IWindow.h>
-#include <Axion/Common/Memory/Ptr.h>
+#include <Axion/Common/Memory/Pointers/OwnerPtr.h>
+
 
 AXION_NAMESPACE_BEGIN
 

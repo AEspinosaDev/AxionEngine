@@ -79,7 +79,7 @@ void HeadlessRenderer::render( RenderGraphSetupFunc setup ) {
     _commandList->end();
 
     // Submit + signal
-    _device->executeCommandLists( { _commandList },
+    _device->executeCommandLists( { _commandList.get() },
                                   RHI::QueueType::Graphics,
                                   _frameFences[_currentFrame] );
 
@@ -102,7 +102,7 @@ IWindow* HeadlessRenderer::getWindow() {
     return nullptr;
 }
 
-const RHI::DevicePtr& HeadlessRenderer::getDevice() const {
+const RHI::DeviceOwnerPtr& HeadlessRenderer::getDevice() const {
     return _device;
 }
 

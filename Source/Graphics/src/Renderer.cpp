@@ -158,7 +158,7 @@ IWindow* Renderer::getWindow() {
     return _wnd;
 }
 
-const RHI::DevicePtr& Renderer::getDevice() const {
+const RHI::DeviceOwnerPtr& Renderer::getDevice() const {
     return _device;
 }
 
@@ -234,11 +234,11 @@ void Renderer::windowCallback( const Extent2D& newSize ) {
 }
 void Renderer::generateSwapchainHandles() {
     _swapchainHandles.clear();
-    auto images = _swapchain->getSwapImages();
+    auto images = _swapchain->releaseImages();
 
     for ( size_t i = 0; i < images.size(); ++i )
     {
-        auto handle = _resourcePool.registerExternalTexture( images[i], "Backbuffer_" + std::to_string( i ) );
+        auto handle = _resourcePool.registerExternalTexture( std::move( images[i] ), "Backbuffer_" + std::to_string( i ) );
         _swapchainHandles.push_back( handle );
     }
 }

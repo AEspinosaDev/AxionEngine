@@ -1,4 +1,7 @@
 #pragma once
+
+#if defined( _WIN32 )
+
 // Windows headers
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -12,13 +15,15 @@
 #undef max
 #endif
 
-// Windows Runtime Library. Needed for Microsoft::WRL::ComPtr<> template class.
-#include <wrl.h>
+#elif defined( __linux__ )
+
+#else
+#error "Platform not supported!"
+#endif
 
 // STL Headers
 #include <chrono>
 #include <iostream>
-#include <memory>
 
 // FMT
 #include <fmt/core.h>
@@ -51,8 +56,6 @@
     inline bool operator==( T a, uint32_t b ) { return uint32_t( a ) == b; }                                                \
     inline bool operator!=( T a, uint32_t b ) { return uint32_t( a ) != b; }
 
-  
-
 #define AUTO_VAL 0xffffffff
 
 #if defined( _MSC_VER )
@@ -66,23 +69,24 @@
 #define AXION_FORCE_INLINE inline
 #endif
 
+#define AXION_UNUSED_PARAMETER( param ) ( (void)( param ) )
+
 // ---------------------------------------------------------------------------
 // Handle Move and Copy Semantics
 // ---------------------------------------------------------------------------
 
-
-#define AXION_DISABLE_COPY( TypeName ) \
-    TypeName( const TypeName& ) = delete; \
+#define AXION_DISABLE_COPY( TypeName )               \
+    TypeName( const TypeName& )            = delete; \
     TypeName& operator=( const TypeName& ) = delete;
 
 // Disables the move constructor and move assignment operator
-#define AXION_DISABLE_MOVE( TypeName ) \
-    TypeName( TypeName&& ) = delete; \
+#define AXION_DISABLE_MOVE( TypeName )          \
+    TypeName( TypeName&& )            = delete; \
     TypeName& operator=( TypeName&& ) = delete;
 
 // Disables both copy and move semantics
 #define AXION_DISABLE_COPY_AND_MOVE( TypeName ) \
-    AXION_DISABLE_COPY( TypeName ) \
+    AXION_DISABLE_COPY( TypeName )              \
     AXION_DISABLE_MOVE( TypeName )
 
 // ---------------------------------------------------------------------------

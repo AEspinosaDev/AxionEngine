@@ -1,5 +1,5 @@
 #pragma once
-#include <Axion/Common/Memory/Ptr.h>
+#include <Axion/Common/Memory/Pointers/OwnerPtr.h>
 #include "Axion/Graphics/RHI/ICommandList.h"
 #include "Axion/Graphics/RHI/IDevice.h"
 

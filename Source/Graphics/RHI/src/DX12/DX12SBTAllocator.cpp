@@ -16,11 +16,11 @@ DX12SBTAllocator::DX12SBTAllocator( const SBTAllocatorDesc& desc, DX12Device::Co
     bufDesc.viewFlags  = BufferViewNone;
     bufDesc.debugName  = desc.debugName + "_Buffer";
 
-    _buffer =  std::make_unique<DX12Buffer>( bufDesc, ctx );
+    _buffer = Memory::makeOwned<DX12Buffer>( bufDesc, ctx );
 
     _buffer->map();
 
-    _allocator = std::make_unique<LinearAllocator>( _buffer.get() );
+    _allocator = Memory::makeOwned<LinearAllocator>( _buffer.get() );
 
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 SBT Allocator created [{}]", _desc.debugName );
 }

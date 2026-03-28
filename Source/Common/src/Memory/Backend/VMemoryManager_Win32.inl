@@ -1,10 +1,10 @@
 #pragma once
-#include "Common.h"
+#include <Axion/Common/Memory/Common.h>
 
 AXION_NAMESPACE_BEGIN
 namespace Memory {
 
-inline VMemView VMemManager::virtualReserve( uint size ) {
+inline VMemoryView VMemoryManager::virtualReserve( uint size ) {
     if ( size == 0 )
         return {};
     uint  alignedSize = alignToPageSize( size );
@@ -12,21 +12,21 @@ inline VMemView VMemManager::virtualReserve( uint size ) {
     return { ptr, ptr ? alignedSize : 0 };
 }
 
-inline bool VMemManager::virtualCommit( VMemView view ) {
+inline bool VMemoryManager::virtualCommit( VMemoryView view ) {
     if ( !view.isValid() )
         return false;
     void* ptr = VirtualAlloc( view.ptr, view.size, MEM_COMMIT, PAGE_READWRITE );
     return ptr != nullptr;
 }
 
-inline void VMemManager::virtualDecommit( VMemView view ) {
+inline void VMemoryManager::virtualDecommit( VMemoryView view ) {
     if ( view.isValid() )
     {
         VirtualFree( view.ptr, view.size, MEM_DECOMMIT );
     }
 }
 
-inline void VMemManager::virtualRelease( VMemView view ) {
+inline void VMemoryManager::virtualRelease( VMemoryView view ) {
     if ( view.isValid() )
     {
         VirtualFree( view.ptr, 0, MEM_RELEASE );

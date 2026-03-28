@@ -1,7 +1,7 @@
 #pragma once
-#include "Axion/Common/Logging.h"
-#include "Axion/Common/Memory/IAllocator.h"
-#include "Axion/Common/Memory/MemoryManager.h"
+#include <Axion/Common/Helpers.h>
+#include <Axion/Common/Memory/Allocators/IAllocator.h>
+#include <Axion/Common/Memory/VMemoryArena.h>
 
 AXION_NAMESPACE_BEGIN
 namespace Memory {
@@ -23,43 +23,29 @@ private:
     };
 
 public:
-    FreeListAllocator( uint capacity ) {
-        _pool = VMemManager::virtualReserve( capacity );
-        if ( !VMemManager::virtualCommit( _pool ) )
-            throw AxionException( "Failed to commit virtual memory for FreeListAllocator" );
-
-        _usedSize = 0;
-
-        _head       = static_cast<FreeNode*>( _pool.ptr );
-        _head->size = _pool.size;
-        _head->next = nullptr;
+    FreeListAllocator( VMemoryArena* arena, uint arenaOffset, uint maxCapacity )
+        : _arena( arena )
+        , _ARENA_OFFSET( arenaOffset )
+        , _MAX_CAPACITY( maxCapacity )
+        , _allocatedSize( 0 )
+        , _freeList( nullptr ) {
     }
 
     ~FreeListAllocator() override {
-        VMemManager::virtualDecommit( _pool );
-        VMemManager::virtualRelease( _pool );
+        reset();
     }
 
     void* allocate( uint size, uint alignment = 16 ) override {
         this->lock();
 
-        if ( !_pool.isValid() || size == 0 )
-        {
-            this->unlock();
-            return nullptr;
-        }
-
         FreeNode* prevNode = nullptr;
-        FreeNode* currNode = _head;
+        FreeNode* currNode = _freeList;
 
         while ( currNode != nullptr )
         {
-            MemoryAddress currAddress = reinterpret_cast<MemoryAddress>( currNode );
-
-            uint requiredPadding = calculatePaddingWithHeader(
-                currAddress, alignment, sizeof( AllocationHeader ) );
-
-            uint requiredSpace = size + requiredPadding;
+            VMemoryAddress currAddress     = reinterpret_cast<VMemoryAddress>( currNode );
+            uint          requiredPadding = calculatePaddingWithHeader( currAddress, alignment, sizeof( AllocationHeader ) );
+            uint          requiredSpace   = size + requiredPadding;
 
             if ( currNode->size >= requiredSpace )
             {
@@ -67,6 +53,7 @@ public:
 
                 if ( remainingSize > sizeof( FreeNode ) )
                 {
+                    // Split the block
                     FreeNode* newNode = reinterpret_cast<FreeNode*>( currAddress + requiredSpace );
                     newNode->size     = remainingSize;
                     newNode->next     = currNode->next;
@@ -74,26 +61,24 @@ public:
                     if ( prevNode != nullptr )
                         prevNode->next = newNode;
                     else
-                        _head = newNode;
+                        _freeList = newNode;
                 } else
                 {
-                    // Block is too small to split, just eat the whole thing
-                    requiredSpace = currNode->size; // Adjust padding/size internally
+                    // Block is too small to split, absorb the whole thing
+                    requiredSpace = currNode->size;
                     if ( prevNode != nullptr )
                         prevNode->next = currNode->next;
                     else
-                        _head = currNode->next;
+                        _freeList = currNode->next;
                 }
 
-                // Setup the allocation header and return the aligned pointer
-                MemoryAddress     alignedAddress = currAddress + requiredPadding;
+                VMemoryAddress     alignedAddress = currAddress + requiredPadding;
                 AllocationHeader* header         = reinterpret_cast<AllocationHeader*>( alignedAddress - sizeof( AllocationHeader ) );
 
                 header->size    = requiredSpace;
                 header->padding = requiredPadding;
 
-                _usedSize += requiredSpace;
-
+                _activeAllocations++;
                 this->unlock();
                 return reinterpret_cast<void*>( alignedAddress );
             }
@@ -102,9 +87,38 @@ public:
             currNode = currNode->next;
         }
 
-        AXION_LOG_ERROR( Logger::Module::Common, "FreeListAllocator OOM! Request: {}", size );
+        // 2. Fallback: Allocate from the uncommitted bump pointer
+        uint          currentAbsoluteOffset = _ARENA_OFFSET + _allocatedSize;
+        VMemoryAddress bumpAddress           = reinterpret_cast<VMemoryAddress>( _arena->getBasePtr() ) + currentAbsoluteOffset;
+
+        uint requiredPadding = calculatePaddingWithHeader( bumpAddress, alignment, sizeof( AllocationHeader ) );
+        uint requiredSpace   = size + requiredPadding;
+
+        if ( _allocatedSize + requiredSpace > _MAX_CAPACITY )
+        {
+            this->unlock();
+            AXION_LOG_ERROR( Logger::Module::Common, "FreeListAllocator OOM! Offset: {}, Space Needed: {}, Capacity: {}", currentAbsoluteOffset, requiredSpace, _MAX_CAPACITY );
+            return nullptr;
+        }
+
+        // Commit the required range
+        if ( !_arena->commitRange( currentAbsoluteOffset, requiredSpace ) )
+        {
+            this->unlock();
+            return nullptr;
+        }
+
+        VMemoryAddress     alignedAddress = bumpAddress + requiredPadding;
+        AllocationHeader* header         = reinterpret_cast<AllocationHeader*>( alignedAddress - sizeof( AllocationHeader ) );
+
+        header->size    = requiredSpace;
+        header->padding = requiredPadding;
+
+        _allocatedSize += requiredSpace;
+        _activeAllocations++;
+
         this->unlock();
-        return nullptr;
+        return reinterpret_cast<void*>( alignedAddress );
     }
 
     void free( void* ptr ) override {
@@ -113,48 +127,48 @@ public:
 
         this->lock();
 
-        MemoryAddress ptrAddress = reinterpret_cast<MemoryAddress>( ptr );
+        VMemoryAddress ptrAddress = reinterpret_cast<VMemoryAddress>( ptr );
 
         // Retrieve the hidden header
         AllocationHeader* header = reinterpret_cast<AllocationHeader*>( ptrAddress - sizeof( AllocationHeader ) );
 
         // Find the absolute start of the block
-        MemoryAddress blockStart = ptrAddress - header->padding;
+        VMemoryAddress blockStart = ptrAddress - header->padding;
         uint          blockSize  = header->size;
-
-        _usedSize -= blockSize;
 
         FreeNode* freeNode = reinterpret_cast<FreeNode*>( blockStart );
         freeNode->size     = blockSize;
 
         insertAndCoalesce( freeNode );
 
+        _activeAllocations--;
         this->unlock();
     }
 
     void reset() override {
         this->lock();
-        _head       = static_cast<FreeNode*>( _pool.ptr );
-        _head->size = _pool.size;
-        _head->next = nullptr;
-        _usedSize   = 0;
+        if ( _allocatedSize > 0 )
+            _arena->decommitRange( _ARENA_OFFSET, _allocatedSize );
+        _freeList          = nullptr;
+        _allocatedSize     = 0;
+        _activeAllocations = 0;
         this->unlock();
     }
 
     uint getUsedSize() const override {
         this->lock();
-        uint used = _usedSize;
+        uint used = _allocatedSize;
         this->unlock();
         return used;
     }
 
-    uint getTotalSize() const override { return _pool.size; }
+    uint getTotalSize() const override { return _MAX_CAPACITY; }
 
 private:
     // Inserts a node back into the linked list maintaining address order, then merges neighbors
     void insertAndCoalesce( FreeNode* newNode ) {
         FreeNode* prevNode = nullptr;
-        FreeNode* currNode = _head;
+        FreeNode* currNode = _freeList;
 
         // Find the right spot based on memory address
         while ( currNode != nullptr && currNode < newNode )
@@ -169,16 +183,16 @@ private:
             prevNode->next = newNode;
         } else
         {
-            _head = newNode;
+            _freeList = newNode;
         }
         newNode->next = currNode;
 
-        MemoryAddress newAddress = reinterpret_cast<MemoryAddress>( newNode );
+        VMemoryAddress newAddress = reinterpret_cast<VMemoryAddress>( newNode );
 
         // Coalesce with next
         if ( newNode->next != nullptr )
         {
-            MemoryAddress nextAddress = reinterpret_cast<MemoryAddress>( newNode->next );
+            VMemoryAddress nextAddress = reinterpret_cast<VMemoryAddress>( newNode->next );
             if ( newAddress + newNode->size == nextAddress )
             {
                 newNode->size += newNode->next->size;
@@ -189,7 +203,7 @@ private:
         // Coalesce with previous
         if ( prevNode != nullptr )
         {
-            MemoryAddress prevAddress = reinterpret_cast<MemoryAddress>( prevNode );
+            VMemoryAddress prevAddress = reinterpret_cast<VMemoryAddress>( prevNode );
             if ( prevAddress + prevNode->size == newAddress )
             {
                 prevNode->size += newNode->size;
@@ -198,7 +212,7 @@ private:
         }
     }
 
-    uint calculatePaddingWithHeader( MemoryAddress ptr, uint alignment, uint headerSize ) const {
+    uint calculatePaddingWithHeader( VMemoryAddress ptr, uint alignment, uint headerSize ) const {
         uint padding = alignment - ( ptr % alignment );
         if ( padding == alignment )
             padding = 0;
@@ -215,9 +229,13 @@ private:
         return padding;
     }
 
-    VMemView  _pool;
-    FreeNode* _head;
-    uint      _usedSize;
+    VMemoryArena* _arena;
+    const uint _ARENA_OFFSET;
+    const uint _MAX_CAPACITY;
+
+    FreeNode* _freeList;
+    uint      _allocatedSize     = 0;
+    uint      _activeAllocations = 0; // Tracks actual blocks in use
 };
 
 using LockedFreeListAllocator = FreeListAllocator<MutexLockPolicy>;
