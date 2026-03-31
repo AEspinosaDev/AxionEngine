@@ -284,13 +284,13 @@ DEFINE_OWNER_PTR_FOR_TYPE( ITransientAllocator, TransientAllocator )
  * @brief Manages transient memory for a single frame (Scratch & Upload heaps).
  * Automatically resets at the start of the frame. Useful for data streaming
  */
-class ITransientAllocator : public IObject
+class ITransientAllocator : public IDeviceObject
 {
 public:
     struct Description {
-        ulong       scratchSize = 64 * 1024 * 1024;
-        ulong       uploadSize  = 64 * 1024 * 1024;
-        std::string debugName;
+        ulong    scratchSize = 64 * 1024 * 1024;
+        ulong    uploadSize  = 64 * 1024 * 1024;
+        String64 debugName;
     };
 
     virtual ~ITransientAllocator() = default;

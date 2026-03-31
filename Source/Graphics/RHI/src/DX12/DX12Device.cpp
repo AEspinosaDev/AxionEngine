@@ -505,7 +505,7 @@ void DX12Device::setDebugName( std::string_view name ) {
     if ( !name.empty() && _ctx.device )
     {
         wchar_t wname[128];
-        int result = MultiByteToWideChar( CP_UTF8, 0, name.data(), (int)name.length(), wname, 127 );
+        int     result = MultiByteToWideChar( CP_UTF8, 0, name.data(), (int)name.length(), wname, 127 );
         if ( result > 0 )
         {
             wname[result] = L'\0';
@@ -518,52 +518,58 @@ std::string_view DX12Device::getDebugName() const {
     return _desc.debugName;
 }
 
-STLW::String  RHI::DX12Device::toString() const {
-    std::string deviceInfo = fmt::format(
-        "DX12 Device Description:\n"
-        "  Debug Name: {}\n"
-        "  Chosen GPU: {}\n"
-        "  Feature Level: 0x{:X}\n"
-        "  Enable Debug Layer: {}\n"
-        "  Use WARP: {}\n"
-        "  RTV Heap Size: {}\n"
-        "  DSV Heap Size: {}\n"
-        "  SRV Heap Size: {}\n"
-        "  Sampler Heap Size: {}\n"
-        "  Heap Directly Indexed: {}",
-        _desc.debugName,
-        _gpuAdapterName,
-        static_cast<int>( _desc.featureLevel ),
-        _desc.enableDebugLayer,
-        _desc.useWarp,
-        _desc.renderTargetViewHeapSize,
-        _desc.depthStencilViewHeapSize,
-        _desc.shaderResourceViewHeapSize,
-        _desc.samplerHeapSize,
-        _desc.enableHeapDirectlyIndexed );
+STLW::String RHI::DX12Device::toString() const {
+    fmt::memory_buffer out;
 
-    std::ostringstream ss;
-    ss << "  Extensions:\n";
-    ss << fmt::format( "    NVAPI Initialized: {}\n", _ext.nvapiIsInitialized );
-    ss << fmt::format( "    Single Pass Stereo: {}\n", _ext.singlePassStereoSupported );
-    ss << fmt::format( "    HLSL Extensions: {}\n", _ext.hlslExtensionsSupported );
-    ss << fmt::format( "    Fast Geometry Shader: {}\n", _ext.fastGeometryShaderSupported );
-    ss << fmt::format( "    Ray Tracing: {}\n", _ext.rayTracingSupported );
-    ss << fmt::format( "    Trace Ray Inline: {}\n", _ext.traceRayInlineSupported );
-    ss << fmt::format( "    Meshlets: {}\n", _ext.meshletsSupported );
-    ss << fmt::format( "    Variable Rate Shading: {}\n", _ext.variableRateShadingSupported );
-    ss << fmt::format( "    Opacity Micromap: {}\n", _ext.opacityMicromapSupported );
-    ss << fmt::format( "    Ray Tracing Clusters: {}\n", _ext.rayTracingClustersSupported );
-    ss << fmt::format( "    Linear Swept Spheres: {}\n", _ext.linearSweptSpheresSupported );
-    ss << fmt::format( "    Spheres: {}\n", _ext.spheresSupported );
-    ss << fmt::format( "    Shader Execution Reordering: {}\n", _ext.shaderExecutionReorderingSupported );
-    ss << fmt::format( "    Sampler Feedback: {}\n", _ext.samplerFeedbackSupported );
-    ss << fmt::format( "    Aftermath Enabled: {}\n", _ext.aftermathEnabled );
-    ss << fmt::format( "    Heap Directly Indexed: {}\n", _ext.heapDirectlyIndexedEnabled );
-    ss << fmt::format( "    Coop Vec Inferencing: {}\n", _ext.coopVecInferencingSupported );
-    ss << fmt::format( "    Coop Vec Training: {}\n", _ext.coopVecTrainingSupported );
+    fmt::format_to( std::back_inserter( out ),
+                    "DX12 Device Description:\n"
+                    "  Debug Name: {}\n"
+                    "  Chosen GPU: {}\n"
+                    "  Feature Level: 0x{:X}\n"
+                    "  Enable Debug Layer: {}\n"
+                    "  Use WARP: {}\n"
+                    "  RTV Heap Size: {}\n"
+                    "  DSV Heap Size: {}\n"
+                    "  SRV Heap Size: {}\n"
+                    "  Sampler Heap Size: {}\n"
+                    "  Heap Directly Indexed: {}\n",
+                    _desc.debugName.c_str(),
+                    _gpuAdapterName.c_str(),
+                    static_cast<int>( _desc.featureLevel ),
+                    _desc.enableDebugLayer,
+                    _desc.useWarp,
+                    _desc.renderTargetViewHeapSize,
+                    _desc.depthStencilViewHeapSize,
+                    _desc.shaderResourceViewHeapSize,
+                    _desc.samplerHeapSize,
+                    _desc.enableHeapDirectlyIndexed );
 
-    return fmt::format( "{}\n\n{}", deviceInfo, ss.str() );
+    fmt::format_to( std::back_inserter( out ), "  Extensions:\n" );
+
+    auto appendExt = [&]( std::string_view name, bool supported ) {
+        fmt::format_to( std::back_inserter( out ), "    {}: {}\n", name, supported );
+    };
+
+    appendExt( "NVAPI Initialized", _ext.nvapiIsInitialized );
+    appendExt( "Single Pass Stereo", _ext.singlePassStereoSupported );
+    appendExt( "HLSL Extensions", _ext.hlslExtensionsSupported );
+    appendExt( "Fast Geometry Shader", _ext.fastGeometryShaderSupported );
+    appendExt( "Ray Tracing", _ext.rayTracingSupported );
+    appendExt( "Trace Ray Inline", _ext.traceRayInlineSupported );
+    appendExt( "Meshlets", _ext.meshletsSupported );
+    appendExt( "Variable Rate Shading", _ext.variableRateShadingSupported );
+    appendExt( "Opacity Micromap", _ext.opacityMicromapSupported );
+    appendExt( "Ray Tracing Clusters", _ext.rayTracingClustersSupported );
+    appendExt( "Linear Swept Spheres", _ext.linearSweptSpheresSupported );
+    appendExt( "Spheres", _ext.spheresSupported );
+    appendExt( "Shader Execution Reordering", _ext.shaderExecutionReorderingSupported );
+    appendExt( "Sampler Feedback", _ext.samplerFeedbackSupported );
+    appendExt( "Aftermath Enabled", _ext.aftermathEnabled );
+    appendExt( "Heap Directly Indexed", _ext.heapDirectlyIndexedEnabled );
+    appendExt( "Coop Vec Inferencing", _ext.coopVecInferencingSupported );
+    appendExt( "Coop Vec Training", _ext.coopVecTrainingSupported );
+
+    return STLW::String( out.data(), out.size() );
 }
 
 DX12Device::Queue* DX12Device::getQueueRW( const QueueType& type ) {

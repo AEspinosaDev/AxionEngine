@@ -65,14 +65,14 @@ public:
     NativeObject     getNativeObject( ObjectType objectType ) override;
     void             setDebugName( std::string_view name ) override;
     std::string_view getDebugName() const override;
-    std::string      toString() const override;
+    STLW::String     toString() const override;
 
 private:
     void pushConstants( uint setIndex, const void* data, uint numValues32Bit, uint offset32Bit = 0 ) override;
     bool validateUpdateCompatibility( const IAccel* accel, const AccelDesc& newDesc );
 
-    ComPtr<ID3D12GraphicsCommandList>           _cmdList;
-    std::vector<ComPtr<ID3D12CommandAllocator>> _cmdAllocators;
+    ComPtr<ID3D12GraphicsCommandList>            _cmdList;
+    STLW::Vector<ComPtr<ID3D12CommandAllocator>> _cmdAllocators;
 
     uint            _currentFrame = 0;
     CommandListDesc _desc;

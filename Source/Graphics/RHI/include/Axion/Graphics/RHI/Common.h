@@ -1,12 +1,15 @@
 #pragma once
 // Axion Common Module
 #include "Axion/Common/Common.h"
+#include "Axion/Common/Containers/STLWrapper/Maps.h"
 #include "Axion/Common/Containers/STLWrapper/String.h"
+#include "Axion/Common/Containers/STLWrapper/Vector.h"
 #include "Axion/Common/Containers/String.h"
 #include "Axion/Common/Graphics/Common.h"
 #include "Axion/Common/Logging.h"
 #include "Axion/Common/Math.h"
 #include "Axion/Common/Memory/Pointers/OwnerPtr.h"
+
 
 #define ALIGN( _size, _alignment ) ( ( ( _size ) + ( _alignment ) - 1 ) & ~( ( _alignment ) - 1 ) )
 #define TEXTURE_DATA_PLACEMENT_ALIGNMENT ( 512 )
@@ -370,14 +373,17 @@ struct NativeObject {
     operator T*() const { return static_cast<T*>( pointer ); }
 };
 
-class IObject
+/**
+ * @brief Base interface for all device-related objects (Device, Swapchain, CommandList, Texture, etc.)
+ * Provides common functionality like debug naming and native object access.
+ */
+class IDeviceObject
 {
 protected:
-    IObject()          = default;
-    virtual ~IObject() = default;
+    IDeviceObject()          = default;
+    virtual ~IDeviceObject() = default;
 
 public:
-    // Debug utilities (optional but very useful for graphics engines)
     virtual void             setDebugName( std::string_view name ) = 0;
     virtual std::string_view getDebugName() const                  = 0;
     virtual STLW::String     toString() const                      = 0;
@@ -389,8 +395,8 @@ public:
         return nullptr;
     }
 
-    AXION_DISABLE_MOVE( IObject );
-    AXION_DISABLE_COPY( IObject )
+    AXION_DISABLE_MOVE( IDeviceObject );
+    AXION_DISABLE_COPY( IDeviceObject )
 };
 
 } // namespace RHI

@@ -10,7 +10,7 @@ namespace Graphics::RHI {
 DEFINE_OWNER_PTR_FOR_TYPE( ITexture, Texture )
 
 // Texture are always GPU. If you waNT TO wark with CPU ones, use a buffer.
-class ITexture : public IObject
+class ITexture : public IDeviceObject
 {
 public:
     struct Description {
@@ -20,7 +20,7 @@ public:
         uint             mipLevels   = 1;
         uint             sampleCount = 1;
         uint             arraySize   = 1;
-        std::string      debugName   = "";
+        String64         debugName   = "";
         TextureViewFlags viewFlags   = TextureViewShaderResource;
         ClearValue       clearValue  = { .color = { 0.0f, 0.0f, 0.0f, 1.0f }, .depth = { 1.0f } }; // Only if RenderTarget or DepthStencil
 
@@ -51,7 +51,7 @@ typedef ITexture::Description TextureDesc;
 
 DEFINE_OWNER_PTR_FOR_TYPE( IBuffer, Buffer )
 
-class IBuffer : public IObject
+class IBuffer : public IDeviceObject
 {
 public:
     struct Description {
@@ -61,7 +61,7 @@ public:
         BufferUsage     usageFlags    = BufferUsage::None;
         BufferViewFlags viewFlags     = BufferViewNone;
         bool            allowRawViews = false;
-        std::string     debugName     = "";
+        String64        debugName     = "";
 
         bool operator==( const Description& other ) const {
             return size == other.size &&
@@ -107,15 +107,15 @@ using BufferDesc = IBuffer::Description;
 
 DEFINE_OWNER_PTR_FOR_TYPE( IAccel, Accel )
 
-class IAccel : public IObject
+class IAccel : public IDeviceObject
 {
 public:
     struct Description {
-        AccelType                      type;
-        AccelBuildFlags                flags;
-        std::vector<AccelGeometryDesc> geometries; // Only valid if type == AccelType::BottomLevel
-        std::vector<AccelInstanceDesc> instances;  // Only valid if type == AccelType::TopLevel
-        std::string                    debugName = "";
+        AccelType                       type;
+        AccelBuildFlags                 flags;
+        STLW::Vector<AccelGeometryDesc> geometries; // Only valid if type == AccelType::BottomLevel
+        STLW::Vector<AccelInstanceDesc> instances;  // Only valid if type == AccelType::TopLevel
+        String64                        debugName = "";
 
         bool operator==( const Description& other ) const {
             return type == other.type &&
@@ -146,7 +146,7 @@ using AccelDesc = IAccel::Description;
 
 DEFINE_OWNER_PTR_FOR_TYPE( ISampler, Sampler )
 
-class ISampler : public IObject
+class ISampler : public IDeviceObject
 {
 public:
     virtual ~ISampler() = default;
@@ -163,7 +163,7 @@ public:
         float       minLOD        = 0.0f;
         float       mipLODBias    = 0.0f;
         CompareOp   compareOp     = CompareOp::Never;
-        std::string debugName;
+        String64    debugName;
 
         bool operator==( const Description& other ) const {
             return minFilter == other.minFilter &&

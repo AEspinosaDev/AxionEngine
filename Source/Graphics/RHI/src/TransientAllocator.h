@@ -16,10 +16,10 @@ public:
 
     const Description& getDescription() const override { return _desc; }
 
-    NativeObject       getNativeObject( ObjectType /*type*/ ) override { return nullptr; }
-    void               setDebugName( const std::string& name ) override { _desc.debugName = name; }
-    const std::string& getDebugName() const override { return _desc.debugName; };
-    std::string        toString() const override { return _desc.debugName; }
+    NativeObject     getNativeObject( ObjectType /*type*/ ) override { return nullptr; }
+    void             setDebugName( std::string_view name ) override;
+    std::string_view getDebugName() const override;
+    STLW::String     toString() const override;
 
 private:
     Description _desc;

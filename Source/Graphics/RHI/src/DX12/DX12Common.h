@@ -14,4 +14,16 @@ using namespace Microsoft::WRL;
 #include <dxgidebug.h>
 #pragma comment( lib, "dxguid.lib" )
 
-#include <D3D12MemAlloc.h> 
+#include <D3D12MemAlloc.h>
+
+static void setNativeName( ID3D12Object* obj, std::string_view n ) {
+    if ( !obj )
+        return;
+    wchar_t wname[128];
+    int     result = MultiByteToWideChar( CP_UTF8, 0, n.data(), (int)n.length(), wname, 127 );
+    if ( result > 0 )
+    {
+        wname[result] = L'\0';
+        obj->SetName( wname );
+    }
+};

@@ -12,14 +12,14 @@ struct ShaderModule {
     ShaderType  type;
     const void* code       = nullptr;
     size_t      codeSize   = 0;
-    std::string entryPoint = "main";
+    String32    entryPoint = "main";
     // For DX12 this should be a contiguous DXIL blob (VS/PS)
 };
 
 #pragma region Layout
 DEFINE_OWNER_PTR_FOR_TYPE( IPipelineLayout, PipelineLayout )
 
-class IPipelineLayout : public IObject
+class IPipelineLayout : public IDeviceObject
 {
 public:
     struct PushConstantDesc {
@@ -30,9 +30,9 @@ public:
     };
 
     struct Description {
-        std::vector<DescriptorLayoutDesc> sets;
-        PushConstantDesc                  pushConstant;
-        std::string                       debugName = "";
+        STLW::Vector<DescriptorLayoutDesc> sets;
+        PushConstantDesc                   pushConstant;
+        String64                           debugName = "";
 
         bool enableIndirectRendering = false;
     };
@@ -50,12 +50,12 @@ typedef IPipelineLayout::Description PipelineLayoutDesc;
 DEFINE_OWNER_PTR_FOR_TYPE( IGraphicPipeline, GraphicPipeline )
 
 struct VertexAttribute {
-    std::string semanticName; // "POSITION", "TEXCOORD", etc.
-    uint        semanticIndex     = 0;
-    Format      format            = Format::RGBA32_FLOAT;
-    uint        inputSlot         = 0;
-    uint        alignedByteOffset = AUTO_VAL;
-    uint        instanceStepRate  = 0;
+    String32 semanticName      = ""; // "POSITION", "TEXCOORD", etc.
+    uint     semanticIndex     = 0;
+    Format   format            = Format::RGBA32_FLOAT;
+    uint     inputSlot         = 0;
+    uint     alignedByteOffset = AUTO_VAL;
+    uint     instanceStepRate  = 0;
 };
 
 struct VertexBinding {
@@ -101,29 +101,29 @@ struct DepthStencilState {
     // stencil ops omitted for brevity (add if needed)
 };
 
-class IGraphicPipeline : public IObject
+class IGraphicPipeline : public IDeviceObject
 {
 public:
     struct Description {
 
-        std::vector<ShaderModule> shaderModules;
-        IPipelineLayout*          layout = nullptr;
+        STLW::Vector<ShaderModule> shaderModules;
+        IPipelineLayout*           layout = nullptr;
 
-        std::vector<VertexBinding>   bindings;
-        std::vector<VertexAttribute> attributes;
+        STLW::Vector<VertexBinding>   bindings;
+        STLW::Vector<VertexAttribute> attributes;
 
         PrimitiveTopology topology    = PrimitiveTopology::TriangleList;
         uint              sampleCount = 1;
 
-        std::vector<Format> renderTargetFormats;
-        Format              depthStencilFormat = Format::UNKNOWN;
+        STLW::Vector<Format> renderTargetFormats;
+        Format               depthStencilFormat = Format::UNKNOWN;
 
         BlendState        blendState;
         RasterizerState   rasterizerState;
         DepthStencilState depthStencilState;
 
-        uint        sampleMask = 0xFFFFFFFF;
-        std::string debugName  = "";
+        uint     sampleMask = 0xFFFFFFFF;
+        String64 debugName  = "";
     };
     virtual ~IGraphicPipeline()                       = default;
     virtual const Description& getDescription() const = 0;
@@ -135,26 +135,26 @@ typedef IGraphicPipeline::Description GraphicPipelineDesc;
 #pragma region Mesh
 DEFINE_OWNER_PTR_FOR_TYPE( IMeshPipeline, MeshPipeline )
 
-class IMeshPipeline : public IObject
+class IMeshPipeline : public IDeviceObject
 {
 public:
     struct Description {
 
-        std::vector<ShaderModule> shaderModules;
-        IPipelineLayout*          layout = nullptr;
+        STLW::Vector<ShaderModule> shaderModules;
+        IPipelineLayout*           layout = nullptr;
 
         PrimitiveTopology topology    = PrimitiveTopology::TriangleList;
         uint              sampleCount = 1;
 
-        std::vector<Format> renderTargetFormats;
-        Format              depthStencilFormat = Format::UNKNOWN;
+        STLW::Vector<Format> renderTargetFormats;
+        Format               depthStencilFormat = Format::UNKNOWN;
 
         BlendState        blendState;
         RasterizerState   rasterizerState;
         DepthStencilState depthStencilState;
 
-        uint        sampleMask = 0xFFFFFFFF;
-        std::string debugName  = "";
+        uint     sampleMask = 0xFFFFFFFF;
+        String64 debugName  = "";
     };
     virtual ~IMeshPipeline()                          = default;
     virtual const Description& getDescription() const = 0;
@@ -166,13 +166,13 @@ typedef IMeshPipeline::Description MeshPipelineDesc;
 #pragma region Compute
 DEFINE_OWNER_PTR_FOR_TYPE( IComputePipeline, ComputePipeline )
 
-class IComputePipeline : public IObject
+class IComputePipeline : public IDeviceObject
 {
 public:
     struct Description {
         ShaderModule     shaderModule;        ///< Only one: compute shader
         IPipelineLayout* layout    = nullptr; ///< Root signature
-        std::string      debugName = "";
+        String64         debugName = "";
 
         // Optional metadata (for reflection or validation)
         Math::iVec3 threadGroupSize = { 0, 0, 0 }; // (x, y, z) group size from shader
@@ -187,35 +187,35 @@ typedef IComputePipeline::Description ComputePipelineDesc;
 DEFINE_OWNER_PTR_FOR_TYPE( IRayTracingPipeline, RayTracingPipeline )
 
 struct HitGroupDesc {
-    std::string name;               // The name to use in the Shader Binding Table
-    std::string closestHitShader;   // Entry point name (export) for Closest Hit
-    std::string anyHitShader;       // Entry point name (export) for Any Hit (optional)
-    std::string intersectionShader; // Entry point name (export) for Intersection (optional)
-    std::string callableShader;     // Entry point name (export) for Callables (optional)
+    String64 name;               // The name to use in the Shader Binding Table
+    String64 closestHitShader;   // Entry point name (export) for Closest Hit
+    String64 anyHitShader;       // Entry point name (export) for Any Hit (optional)
+    String64 intersectionShader; // Entry point name (export) for Intersection (optional)
+    String64 callableShader;     // Entry point name (export) for Callables (optional)
 
     bool isProcedural() const { return !intersectionShader.empty(); }
 };
 
 #pragma endregion
 #pragma region RTX
-class IRayTracingPipeline : public IObject
+class IRayTracingPipeline : public IDeviceObject
 {
 public:
     struct Description {
-        std::vector<ShaderModule> shaderModules;
-        IPipelineLayout*          layout = nullptr;
-        std::vector<HitGroupDesc> hitGroups;
+        STLW::Vector<ShaderModule> shaderModules;
+        IPipelineLayout*           layout = nullptr;
+        STLW::Vector<HitGroupDesc> hitGroups;
         // Configuration
         uint maxDepth         = 1; // How many times rays can bounce (TraceRay calls)
         uint maxPayloadSize   = 0; // sizeof(RayPayload)
         uint maxAttributeSize = 8; // sizeof(BuiltInTriangleIntersectionAttributes) is 8 (float2)
 
-        std::string debugName = "";
+        String64 debugName = "";
     };
 
-    virtual ~IRayTracingPipeline()                                                        = default;
-    virtual const Description& getDescription() const                                     = 0;
-    virtual void*              getShaderIdentifier( const std::string& exportName ) const = 0;
+    virtual ~IRayTracingPipeline()                                                            = default;
+    virtual const Description& getDescription() const                                         = 0;
+    virtual void*              getShaderIdentifier( const std::string_view exportName ) const = 0;
 };
 
 typedef IRayTracingPipeline::Description RayTracingPipelineDesc;

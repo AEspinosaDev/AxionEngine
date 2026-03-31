@@ -2,7 +2,6 @@
 #include "Axion/Graphics/RHI/IPipeline.h"
 #include "DX12Device.h"
 
-
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
@@ -19,10 +18,10 @@ public:
     uint               getViewCount( uint setIndex ) const override;
     uint               getSamplerCount( uint setIndex ) const override;
     uint               getAccelCount( uint setIndex ) const override;
-    void               setDebugName( const std::string& name ) override;
-    const std::string& getDebugName() const override { return _desc.debugName; }
     NativeObject       getNativeObject( ObjectType objectType ) override;
-    std::string        toString() const override;
+    void               setDebugName( std::string_view name ) override;
+    std::string_view   getDebugName() const override;
+    STLW::String       toString() const override;
 
     std::pair<int, int> getRootIndices( uint setIndex ) const {
         if ( setIndex >= _rootIndexMap.size() )
@@ -61,10 +60,10 @@ public:
     ~DX12GraphicPipeline() override;
 
     const Description& getDescription() const override { return _desc; }
-    void               setDebugName( const std::string& name ) override;
-    const std::string& getDebugName() const override { return _desc.debugName; }
     NativeObject       getNativeObject( ObjectType objectType ) override;
-    std::string        toString() const override;
+    void               setDebugName( std::string_view name ) override;
+    std::string_view   getDebugName() const override;
+    STLW::String       toString() const override;
 
 private:
     void                           createPipelineState( const ComPtr<ID3D12Device2>& device );
@@ -83,10 +82,10 @@ public:
     ~DX12MeshPipeline() override;
 
     const MeshPipelineDesc& getDescription() const override { return _desc; }
-    void                    setDebugName( const std::string& name ) override;
-    const std::string&      getDebugName() const override { return _desc.debugName; }
     NativeObject            getNativeObject( ObjectType objectType ) override;
-    std::string             toString() const override;
+    void                    setDebugName( std::string_view name ) override;
+    std::string_view        getDebugName() const override;
+    STLW::String            toString() const override;
 
 private:
     void createPipelineState( const ComPtr<ID3D12Device2>& device );
@@ -117,10 +116,10 @@ public:
     ~DX12ComputePipeline() override;
 
     const Description& getDescription() const override { return _desc; }
-    void               setDebugName( const std::string& name ) override;
-    const std::string& getDebugName() const override { return _desc.debugName; }
     NativeObject       getNativeObject( ObjectType objectType ) override;
-    std::string        toString() const override;
+    void               setDebugName( std::string_view name ) override;
+    std::string_view   getDebugName() const override;
+    STLW::String       toString() const override;
 
 private:
     void createPipelineState( const ComPtr<ID3D12Device2>& device );
@@ -138,12 +137,12 @@ public:
     ~DX12RayTracingPipeline() override;
 
     const Description& getDescription() const override { return _desc; }
-    void*              getShaderIdentifier( const std::string& exportName ) const override;
+    void*              getShaderIdentifier( const std::string_view exportName ) const override;
 
-    void               setDebugName( const std::string& name ) override;
-    const std::string& getDebugName() const override { return _desc.debugName; }
-    NativeObject       getNativeObject( ObjectType objectType ) override;
-    std::string        toString() const override;
+    NativeObject     getNativeObject( ObjectType objectType ) override;
+    void             setDebugName( std::string_view name ) override;
+    std::string_view getDebugName() const override;
+    STLW::String     toString() const override;
 
 private:
     void createStateObject( const ComPtr<ID3D12Device5>& device );

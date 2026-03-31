@@ -17,16 +17,16 @@ public:
     void      reset() override;
 
     const Description& getDescription() const override { return _desc; }
-    void               setDebugName( const std::string& name ) override;
-    const std::string& getDebugName() const override { return _desc.debugName; }
     NativeObject       getNativeObject( ObjectType objectType ) override;
-    std::string        toString() const override;
+    void               setDebugName( std::string_view name ) override;
+    std::string_view   getDebugName() const override;
+    STLW::String       toString() const override;
 
 private:
     SBTAllocatorDesc _desc;
 
-    Memory::OwnerPtr<DX12Buffer>      _buffer    = nullptr;
-    Memory::OwnerPtr<LinearAllocator> _allocator = nullptr;
+    Memory::OwnerPtr<DX12Buffer> _buffer = nullptr;
+    LinearAllocator              _allocator;
 };
 
 } // namespace Graphics::RHI

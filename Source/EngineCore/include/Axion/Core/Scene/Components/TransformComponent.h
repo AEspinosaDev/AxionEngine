@@ -11,6 +11,9 @@ struct TransformComponent {
     Math::Quat rotation    = { 1.0f, 0.0f, 0.0f, 0.0f };
     Math::Vec3 scale       = { 1.0f, 1.0f, 1.0f };
 
+    // Math::Mat4 worldMatrix; // 64 bytes extra
+    // bool isDirty = true;    // Solo recalculamos si esto es true
+
     TransformComponent()                            = default;
     TransformComponent( const TransformComponent& ) = default;
     TransformComponent( const Math::Vec3& t )

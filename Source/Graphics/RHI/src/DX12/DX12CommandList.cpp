@@ -281,7 +281,7 @@ void DX12CommandList::updateAccel( IAccel* accel, const AccelDesc& newDesc, ITra
         return;
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
-    std::vector<D3D12_RAYTRACING_GEOMETRY_DESC>          nativeGeoms;
+    STLW::Vector<D3D12_RAYTRACING_GEOMETRY_DESC>          nativeGeoms;
     DX12Accel::prepareInputs( newDesc, inputs, nativeGeoms );
 
     // Force for some reason here
@@ -346,7 +346,7 @@ void DX12CommandList::buildAccel( IAccel* accel, const AccelDesc& newDesc, ITran
     }
 
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
-    std::vector<D3D12_RAYTRACING_GEOMETRY_DESC>          nativeGeoms;
+    STLW::Vector<D3D12_RAYTRACING_GEOMETRY_DESC>          nativeGeoms;
     DX12Accel::prepareInputs( newDesc, inputs, nativeGeoms );
 
     if ( newDesc.type == AccelType::TopLevel )
@@ -660,7 +660,7 @@ void DX12CommandList::dispatchRays( const SBT::View& sbtView, const Extent3D& sc
 
 void DX12CommandList::beginRendering( const RenderingDesc& info ) {
 
-    std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvHandles;
+    STLW::Vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvHandles;
 
     for ( const auto& att : info.colorAttachments )
     {
@@ -810,22 +810,28 @@ NativeObject DX12CommandList::getNativeObject( ObjectType objectType ) {
     }
 }
 
-void DX12CommandList::setDebugName( const std::string& name ) {
+void DX12CommandList::setDebugName( std::string_view name ) {
     _desc.debugName = name;
-    _cmdList->SetName( std::wstring( name.begin(), name.end() ).c_str() );
-    for ( size_t i = 0; i < _cmdAllocators.size(); i++ )
+
+    if ( name.empty() || !_cmdList )
+        return;
+
+    setNativeName( _cmdList.Get(), name );
+    for ( uint i = 0; i < (uint)_cmdAllocators.size(); ++i )
     {
-        std::string allocName = name + "_" + std::to_string( i );
-        _cmdAllocators[i]->SetName( std::wstring( allocName.begin(), allocName.end() ).c_str() );
+        char allocName[128];
+        snprintf( allocName, sizeof( allocName ), "%.100s_Alloc_%u", name.data(), i );
+
+        setNativeName( _cmdAllocators[i].Get(), allocName );
     }
 }
 
-const std::string& DX12CommandList::getDebugName() const {
+std::string_view DX12CommandList::getDebugName() const {
     return _desc.debugName;
 }
 
-std::string RHI::DX12CommandList::toString() const {
-    return std::string();
+STLW::String RHI::DX12CommandList::toString() const {
+    return STLW::String();
 }
 
 void DX12CommandList::pushConstants( uint setIndex, const void* data, uint numValues32Bit, uint offset32Bit ) {

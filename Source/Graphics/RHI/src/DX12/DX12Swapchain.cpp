@@ -63,7 +63,7 @@ const ISwapchain::Description& DX12Swapchain::getDescription() {
     return _desc;
 }
 
-std::vector<TextureOwnerPtr> DX12Swapchain::releaseImages() {
+STLW::Vector<TextureOwnerPtr> DX12Swapchain::releaseImages() {
     return std::move( _swapImages );
 }
 
@@ -174,17 +174,17 @@ NativeObject DX12Swapchain::getNativeObject( ObjectType objectType ) {
     }
 }
 
-void DX12Swapchain::setDebugName( const std::string& name ) {
+void DX12Swapchain::setDebugName( std::string_view name ) {
     _desc.debugName = name;
     // _swapchain->se( std::wstring( name.begin(), name.end() ).c_str() );
 }
 
-const std::string& DX12Swapchain::getDebugName() const {
+std::string_view DX12Swapchain::getDebugName() const {
     return _desc.debugName;
 }
 
-std::string RHI::DX12Swapchain::toString() const {
-    return std::string();
+STLW::String RHI::DX12Swapchain::toString() const {
+    return STLW::String();
 }
 
 } // namespace Graphics::RHI

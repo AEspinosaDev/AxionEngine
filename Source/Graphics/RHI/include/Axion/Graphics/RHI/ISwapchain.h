@@ -17,7 +17,7 @@ DEFINE_OWNER_PTR_FOR_TYPE( ISwapchain, Swapchain )
  *
  * @note Concrete implementations exist per backend (e.g., DX12, Vulkan).
  */
-class ISwapchain : public IObject
+class ISwapchain : public IDeviceObject
 {
 public:
     /**
@@ -29,7 +29,7 @@ public:
         uint        imageCount;                   ///< Number of backbuffers/images.
         PresentMode presentMode;                  ///< Presentation mode (e.g., immediate, vsync, mailbox, etc.).
         bool        tearingSupported = false;     ///< Whether tearing is supported on this platform.
-        std::string debugName        = "Swapchain";
+        String64    debugName        = "Swapchain";
     };
 
     virtual ~ISwapchain() = default;
@@ -73,7 +73,7 @@ public:
      *
      * @return Copy of the vector of swapchain images.
      */
-    virtual  std::vector<TextureOwnerPtr> releaseImages() = 0;
+    virtual STLW::Vector<TextureOwnerPtr> releaseImages() = 0;
 
     /**
      * @brief Reconfigures the swapchain with new description.

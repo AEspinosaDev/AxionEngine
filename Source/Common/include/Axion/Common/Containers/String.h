@@ -39,6 +39,7 @@ public:
     const char* c_str() const { return _data; }
     uint        size() const { return (uint)strlen( _data ); }
     uint        capacity() const { return N; }
+    bool        empty() const { return _data[0] == '\0'; }
 
     // Iterable
     char*       begin() { return _data; }

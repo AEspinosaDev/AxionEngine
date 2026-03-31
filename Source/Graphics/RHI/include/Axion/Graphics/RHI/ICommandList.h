@@ -1,10 +1,11 @@
 #pragma once
 #include "Axion/Common/Math.h"
 #include "Axion/Graphics/RHI/Common.h"
-#include "Axion/Graphics/RHI/Memory.h"
 #include "Axion/Graphics/RHI/IPipeline.h"
 #include "Axion/Graphics/RHI/IResource.h"
+#include "Axion/Graphics/RHI/Memory.h"
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
+
 
 AXION_NAMESPACE_BEGIN
 
@@ -14,14 +15,14 @@ DEFINE_OWNER_PTR_FOR_TYPE( ICommandList, CommandList )
 
 /// @brief Interface for recording GPU commands.
 /// Represents a hardware command buffer.
-class ICommandList : public IObject
+class ICommandList : public IDeviceObject
 {
 public:
     /// @brief Configuration descriptor for creating a Command List.
     struct Description {
-        QueueType   queueType;     ///< The queue type this list will be submitted to (Graphics, Compute, Copy).
-        uint        numFrames = 1; ///< Number of internal buffers for frame-in-flight rotation.
-        std::string debugName = "";
+        QueueType queueType;     ///< The queue type this list will be submitted to (Graphics, Compute, Copy).
+        uint      numFrames = 1; ///< Number of internal buffers for frame-in-flight rotation.
+        String64  debugName = "";
     };
 
     virtual ~ICommandList() = default;

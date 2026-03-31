@@ -20,7 +20,7 @@ struct Fence {
 
 /// @brief Represents a logical connection to the physical graphics adapter.
 /// Acts as the factory for all GPU resources and the entry point for command submission.
-class IDevice : public IObject
+class IDevice : public IDeviceObject
 {
 public:
     virtual ~IDevice() = default;

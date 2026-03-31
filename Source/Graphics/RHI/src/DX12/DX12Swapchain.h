@@ -18,18 +18,18 @@ public:
     DX12Swapchain( const HWND hwnd, DX12Device::Context& ctx, const ISwapchain::Description& desc );
     ~DX12Swapchain() override;
 
-    void                         updateImages() override;
-    void                         present() override;
-    uint                         acquireNextImage() override;
-    uint                         getCurrentImageIndex() override;
-    const Description&           getDescription() override;
-    std::vector<TextureOwnerPtr> releaseImages() override;
-    void                         update( const Description& newDesc ) override;
+    void                          updateImages() override;
+    void                          present() override;
+    uint                          acquireNextImage() override;
+    uint                          getCurrentImageIndex() override;
+    const Description&            getDescription() override;
+    STLW::Vector<TextureOwnerPtr> releaseImages() override;
+    void                          update( const Description& newDesc ) override;
 
-    NativeObject       getNativeObject( ObjectType objectType ) override;
-    void               setDebugName( const std::string& name ) override;
-    const std::string& getDebugName() const override;
-    std::string        toString() const override;
+    NativeObject     getNativeObject( ObjectType objectType ) override;
+    void             setDebugName( std::string_view name ) override;
+    std::string_view getDebugName() const override;
+    STLW::String     toString() const override;
 
 private:
     bool checkTearingSupport();
@@ -40,8 +40,8 @@ private:
     ComPtr<IDXGISwapChain4> _swapchain;
     uint                    _currentImage;
 
-    DX12DescriptorHeap           _heapRTV;
-    std::vector<TextureOwnerPtr> _swapImages;
+    DX12DescriptorHeap            _heapRTV;
+    STLW::Vector<TextureOwnerPtr> _swapImages;
 
     bool _initialized = false;
 };

@@ -61,8 +61,8 @@ D3D12_GPU_DESCRIPTOR_HANDLE DX12DescriptorHeap::getGPU( D3D12_CPU_DESCRIPTOR_HAN
     return gpu;
 }
 
-void DX12DescriptorHeap::setDebugName( const std::string& name ) {
-    _heap->SetName( std::wstring( name.begin(), name.end() ).c_str() );
+void DX12DescriptorHeap::setDebugName( std::string_view name ) {
+    setNativeName( _heap.Get(), name );
 }
 
 DX12DescriptorSet::DX12DescriptorSet( ID3D12Device* device, DescriptorHandleInfo views, DescriptorHandleInfo samplers )
@@ -257,7 +257,7 @@ void DX12DescriptorSet::attachBindless( uint binding, uint arrayIndex, ITexture*
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<ITexture*>& textures, ResourceState bindingState ) {
+void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<ITexture*>& textures, ResourceState bindingState ) {
     if ( textures.empty() )
         return;
 
@@ -311,7 +311,7 @@ void DX12DescriptorSet::attachBindless( uint binding, uint arrayIndex, IBuffer* 
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IBuffer*>& buffers, ResourceState bindingState ) {
+void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<IBuffer*>& buffers, ResourceState bindingState ) {
     if ( buffers.empty() )
         return;
 
@@ -361,7 +361,7 @@ void DX12DescriptorSet::attachBindless( uint binding, uint arrayIndex, ISampler*
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER );
 }
 
-void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<ISampler*>& samplers ) {
+void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<ISampler*>& samplers ) {
     if ( samplers.empty() )
         return;
 
@@ -397,7 +397,7 @@ void DX12DescriptorSet::attachBindless( uint binding, uint arrayIndex, IAccel* a
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IAccel*>& accels ) {
+void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<IAccel*>& accels ) {
     if ( accels.empty() )
         return;
 
@@ -420,11 +420,12 @@ void DX12DescriptorSet::attachBindlessArray( uint binding, uint startArrayIndex,
         1, &destStart, &destSize, (UINT)accels.size(), srcHandles.data(), srcSizes.data(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::setDebugName( const std::string& /*name*/ ) {
+void DX12DescriptorSet::setDebugName( std::string_view name ) {
+    AXION_UNUSED_PARAMETER( name );
 }
 
-const std::string& DX12DescriptorSet::getDebugName() const {
-    return std::string();
+std::string_view DX12DescriptorSet::getDebugName() const {
+    return "";
 }
 
 NativeObject DX12DescriptorSet::getNativeObject( ObjectType /*objectType*/ ) {
@@ -432,8 +433,8 @@ NativeObject DX12DescriptorSet::getNativeObject( ObjectType /*objectType*/ ) {
     return nullptr;
 }
 
-std::string DX12DescriptorSet::toString() const {
-    return std::string();
+STLW::String DX12DescriptorSet::toString() const {
+    return STLW::String();
 }
 
 DX12DescriptorAllocator::DX12DescriptorAllocator( ID3D12Device*                  device,
@@ -528,14 +529,21 @@ void DX12DescriptorAllocator::reset() {
     _poolIndex = _persistentPoolIndex;
 }
 
-void DX12DescriptorAllocator::setDebugName( const std::string& name ) {
-    _desc.debugName = name;
-    _viewHeap.setDebugName( _desc.debugName + "| Views Heap" );
-    _samplerHeap.setDebugName( _desc.debugName + "| Samplers Heap" );
+std::string_view DX12DescriptorAllocator::getDebugName() const {
+    return _desc.debugName;
 }
 
-const std::string& DX12DescriptorAllocator::getDebugName() const {
-    return _desc.debugName;
+STLW::String DX12DescriptorAllocator::toString() const {
+    return STLW::String();
+}
+
+void DX12DescriptorAllocator::setDebugName( std::string_view name ) {
+    _desc.debugName = name;
+    char buffer[128];
+    snprintf( buffer, sizeof( buffer ), "%.*s | Views Heap", (int)name.size(), name.data() );
+    _viewHeap.setDebugName( buffer );
+    snprintf( buffer, sizeof( buffer ), "%.*s | Samplers Heap", (int)name.size(), name.data() );
+    _samplerHeap.setDebugName( buffer );
 }
 
 NativeObject DX12DescriptorAllocator::getNativeObject( ObjectType objectType ) {
@@ -549,10 +557,6 @@ NativeObject DX12DescriptorAllocator::getNativeObject( ObjectType objectType ) {
             AXION_LOG_ERROR( Logger::Module::RHI, "DX12 Descriptor Allocator | Wrong Object Type" );
             return nullptr;
     }
-}
-
-std::string DX12DescriptorAllocator::toString() const {
-    return std::string();
 }
 
 void DX12DescriptorAllocator::lockPersistent() {

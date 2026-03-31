@@ -30,7 +30,7 @@ public:
     D3D12_CPU_DESCRIPTOR_HANDLE getCPUStart() const { return _baseCPU; }
     D3D12_GPU_DESCRIPTOR_HANDLE getGPUStart() const { return _baseGPU; }
 
-    void setDebugName( const std::string& name );
+    void setDebugName( std::string_view name );
 
 private:
     ComPtr<ID3D12DescriptorHeap> _heap           = nullptr;
@@ -65,18 +65,18 @@ public:
     void attachBufferView( uint binding, const BufferView& bufferView, ResourceState bindingState ) override;
 
     void attachBindless( uint binding, uint arrayIndex, ITexture* tex, ResourceState bindingState ) override;
-    void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<ITexture*>& textures, ResourceState bindingState ) override;
+    void attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<ITexture*>& textures, ResourceState bindingState ) override;
     void attachBindless( uint binding, uint arrayIndex, IBuffer* buf, ResourceState bindingState ) override;
-    void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IBuffer*>& buffers, ResourceState bindingState ) override;
+    void attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<IBuffer*>& buffers, ResourceState bindingState ) override;
     void attachBindless( uint binding, uint arrayIndex, ISampler* samp ) override;
-    void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<ISampler*>& samplers ) override;
+    void attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<ISampler*>& samplers ) override;
     void attachBindless( uint binding, uint arrayIndex, IAccel* accel ) override;
-    void attachBindlessArray( uint binding, uint startArrayIndex, const std::vector<IAccel*>& accels ) override;
+    void attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<IAccel*>& accels ) override;
 
-    void               setDebugName( const std::string& name ) override;
-    const std::string& getDebugName() const override;
-    NativeObject       getNativeObject( ObjectType objectType ) override;
-    std::string        toString() const override;
+    NativeObject     getNativeObject( ObjectType objectType ) override;
+    void             setDebugName( std::string_view name ) override;
+    std::string_view getDebugName() const override;
+    STLW::String     toString() const override;
 
     D3D12_GPU_DESCRIPTOR_HANDLE getViewGPUHandle() const { return _views.startGPU; }
     ID3D12DescriptorHeap*       getViewOwnerHeap() const { return _views.ownerHeap; }
@@ -111,10 +111,10 @@ public:
     void                           reset() override;
     const DescriptorAllocatorDesc& getDescription() const override { return _desc; }
 
+    NativeObject     getNativeObject( ObjectType objectType ) override;
     void             setDebugName( std::string_view name ) override;
     std::string_view getDebugName() const override;
-    NativeObject       getNativeObject( ObjectType objectType ) override;
-    std::string        toString() const override;
+    STLW::String     toString() const override;
 
     void lockPersistent() override;
     void unlockPersistent() override;
@@ -132,8 +132,8 @@ private:
     uint               _samplerHandleSize    = 0;
 
     // Pooling
-    std::vector<Memory::OwnerPtr<DX12DescriptorSet>> _setPool;
-    uint                                             _poolIndex = 0;
+    STLW::Vector<Memory::OwnerPtr<DX12DescriptorSet>> _setPool;
+    uint                                              _poolIndex = 0;
 
     // Persistent Views
     uint _persistentViewOffset    = 0;

@@ -16,9 +16,9 @@ struct ShaderBindingTable {
 
     /** @brief Represents a single shader record (Shader ID + Root Arguments). */
     struct Record {
-        std::string shaderName; ///< Export name used to retrieve the Shader Identifier.
-        void*       rootArgs;   ///< Pointer to local root arguments (constants/descriptors).
-        uint        argsSize;   ///< Size of the root arguments in bytes.
+        String64 shaderName; ///< Export name used to retrieve the Shader Identifier.
+        void*    rootArgs;   ///< Pointer to local root arguments (constants/descriptors).
+        uint     argsSize;   ///< Size of the root arguments in bytes.
     };
 
     /** @brief Describes the GPU memory layout of an uploaded SBT, used for DispatchRays. */
@@ -31,25 +31,25 @@ struct ShaderBindingTable {
         } missRegion, hitRegion, callableRegion;
     };
 
-    Record              rayGen;     ///< The Ray Generation shader record (only one allowed).
-    std::vector<Record> missGroups; ///< List of Miss shader records.
-    std::vector<Record> hitGroups;  ///< List of Hit Group records.
-    std::vector<Record> callables;  ///< Optional list of Callable shader records.
+    Record               rayGen;     ///< The Ray Generation shader record (only one allowed).
+    STLW::Vector<Record> missGroups; ///< List of Miss shader records.
+    STLW::Vector<Record> hitGroups;  ///< List of Hit Group records.
+    STLW::Vector<Record> callables;  ///< Optional list of Callable shader records.
 
     /// @brief Sets the mandatory Ray Generation shader.
-    inline void setRayGen( const std::string& name, void* args = nullptr, uint size = 0 ) {
+    inline void setRayGen( const std::string_view name, void* args = nullptr, uint size = 0 ) {
         rayGen = { name, args, size };
     }
     /// @brief Adds a Miss shader record.
-    inline void addMiss( const std::string& name, void* args = nullptr, uint size = 0 ) {
+    inline void addMiss( const std::string_view name, void* args = nullptr, uint size = 0 ) {
         missGroups.push_back( { name, args, size } );
     }
     /// @brief Adds a Hit Group record (Closest Hit + Any Hit + Intersection).
-    inline void addHitGroup( const std::string& name, void* args = nullptr, uint size = 0 ) {
+    inline void addHitGroup( const std::string_view name, void* args = nullptr, uint size = 0 ) {
         hitGroups.push_back( { name, args, size } );
     }
     /// @brief Adds a Callable shader record.
-    inline void addCallable( const std::string& name, void* args = nullptr, uint size = 0 ) {
+    inline void addCallable( const std::string_view name, void* args = nullptr, uint size = 0 ) {
         callables.push_back( { name, args, size } );
     }
 };
@@ -62,12 +62,12 @@ DEFINE_OWNER_PTR_FOR_TYPE( ISBTAllocator, SBTAllocator )
  * @brief Interface for a linear allocator specialized in managing Shader Binding Table memory.
  * Handles alignment and uploading of SBT records to the GPU.
  */
-class ISBTAllocator : public IObject
+class ISBTAllocator : public IDeviceObject
 {
 public:
     struct Description {
-        uint        sizeInBytes;
-        std::string debugName;
+        uint     sizeInBytes;
+        String64 debugName;
     };
 
     virtual ~ISBTAllocator() = default;
