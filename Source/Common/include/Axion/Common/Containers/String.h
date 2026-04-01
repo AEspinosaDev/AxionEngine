@@ -3,12 +3,20 @@
 
 AXION_NAMESPACE_BEGIN
 
+
+/**
+ * @brief String View. For now, just a wrapper of STL. WIP.
+ * Lightweight, stack allocated.
+ * 
+ */
+using StringView = std::string_view;
+
 /**
  * @brief A simple fixed-size string class that can be used in performance-critical paths where heap allocations are undesirable.
  * It provides basic string functionality while ensuring that the entire string data is stored inline, avoiding dynamic memory allocation.
  * Support for STL string_view allows for easy interoperability with standard string types without copying data.
  */
-template <uint N>
+template <u32 N>
 class FixedString
 {
 public:
@@ -22,7 +30,7 @@ public:
     operator std::string_view() const { return { _data }; }
 
     FixedString& operator=( std::string_view view ) {
-        uint safeLen = (uint)std::min( (size_t)view.length(), (size_t)N - 1 );
+        u32 safeLen = (u32)std::min( (size_t)view.length(), (size_t)N - 1 );
         memcpy( _data, view.data(), safeLen );
 
         // Nos aseguramos de que el último byte sea CERO
@@ -37,8 +45,8 @@ public:
     }
 
     const char* c_str() const { return _data; }
-    uint        size() const { return (uint)strlen( _data ); }
-    uint        capacity() const { return N; }
+    u32         size() const { return (u32)strlen( _data ); }
+    u32         capacity() const { return N; }
     bool        empty() const { return _data[0] == '\0'; }
 
     // Iterable

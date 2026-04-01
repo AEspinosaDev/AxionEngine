@@ -93,10 +93,24 @@
 // Handle Data Definitions
 // ---------------------------------------------------------------------------
 
-typedef unsigned long long ulong;  // Int 64
-typedef unsigned int       uint;   // Int 32
-typedef unsigned short     ushort; // Int 16
-typedef unsigned char      uchar;  // Int 8
+// Primitive types
+
+using ulong  = unsigned long long; // Unsigned Int 64
+using uint   = unsigned int;       // Unsigned Int 32
+using ushort = unsigned short;     // Unsigned Int 16
+using uchar  = unsigned char;      // Unsigned Int 8
+
+using u64 = uint64_t;
+using u32 = uint32_t;
+using u16 = uint16_t;
+using u8  = uint8_t;
+
+using s64 = int64_t;
+using s32 = int32_t;
+using s16 = int16_t;
+using s8  = int8_t;
+
+using byte = uint8_t;
 
 AXION_NAMESPACE_BEGIN
 
