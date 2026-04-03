@@ -5,7 +5,7 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
-ResourceStateTracker::ResourceStateTracker( uint mipLevels, uint arrayLayers )
+ResourceStateTracker::ResourceStateTracker( u32 mipLevels, u32 arrayLayers )
     : _miplevels( mipLevels )
     , _arrayLayers( arrayLayers ) {
 }
@@ -26,7 +26,7 @@ void ResourceStateTracker::reset() {
     _subresourceStates.clear();
 }
 
-void ResourceStateTracker::setState( ResourceState newState, uint mip, uint layer ) {
+void ResourceStateTracker::setState( ResourceState newState, u32 mip, u32 layer ) {
     if ( _subresourceStates.empty() )
         _subresourceStates.resize( _miplevels * _arrayLayers, ResourceState::Undefined );
 
@@ -34,7 +34,7 @@ void ResourceStateTracker::setState( ResourceState newState, uint mip, uint laye
     _subresourceStates[idx] = newState;
 }
 
-ResourceState ResourceStateTracker::getState( uint mip, uint layer ) const {
+ResourceState ResourceStateTracker::getState( u32 mip, u32 layer ) const {
     if ( _subresourceStates.empty() )
         return _globalState;
 

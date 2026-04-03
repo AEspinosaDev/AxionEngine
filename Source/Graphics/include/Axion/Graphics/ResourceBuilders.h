@@ -1,7 +1,6 @@
 #pragma once
 #include "Axion/Common/Helpers.h"
-#include "Axion/Graphics/RHI/Resource.h"
-#include <string>
+#include "Axion/Graphics/RHI/IResource.h"
 
 AXION_NAMESPACE_BEGIN
 namespace Graphics {
@@ -13,8 +12,8 @@ template <typename T>
 class TextureBuilderBase
 {
 public:
-    TextureBuilderBase( std::string name ) {
-        _desc.debugName = std::move( name );
+    TextureBuilderBase( StringView name ) {
+        _desc.debugName = name;
         _desc.dimension = TextureDimension::Texture2D;
         _desc.format    = Format::RGBA8_UNORM;
         _desc.viewFlags = TextureViewFlags::TextureViewShaderResource;
@@ -22,7 +21,7 @@ public:
     }
 
     /// @brief Sets texture dimensions. Auto-promotes to Texture3D if depth > 1.
-    T& extent( uint width, uint height, uint depth = 1 ) {
+    T& extent( u32 width, u32 height, u32 depth = 1 ) {
         _desc.size = { width, height, depth };
         if ( depth > 1 )
             _desc.dimension = TextureDimension::Texture3D;
@@ -57,19 +56,19 @@ public:
     }
 
     /// @brief Sets the number of mip levels.
-    T& mips( uint levels ) {
+    T& mips( u32 levels ) {
         _desc.mipLevels = levels;
         return static_cast<T&>( *this );
     }
 
     /// @brief Sets the array size.
-    T& array( uint size ) {
+    T& array( u32 size ) {
         _desc.arraySize = size;
         return static_cast<T&>( *this );
     }
 
     /// @brief Sets MSAA sample count.
-    T& samples( uint samples ) {
+    T& samples( u32 samples ) {
         _desc.sampleCount = samples;
         return static_cast<T&>( *this );
     }
@@ -116,8 +115,8 @@ template <typename T>
 class BufferBuilderBase
 {
 public:
-    BufferBuilderBase( std::string name ) {
-        _desc.debugName  = std::move( name );
+    BufferBuilderBase( StringView name ) {
+        _desc.debugName  = name;
         _desc.memoryType = MemoryUsage::GPUOnly;
     }
 
@@ -128,7 +127,7 @@ public:
     }
 
     /// @brief Sets element stride (for structured buffers).
-    T& stride( uint strideBytes ) {
+    T& stride( u32 strideBytes ) {
         _desc.stride = strideBytes;
         return static_cast<T&>( *this );
     }
@@ -221,8 +220,8 @@ template <typename T>
 class SamplerBuilderBase
 {
 public:
-    SamplerBuilderBase( std::string name ) {
-        _desc.debugName = std::move( name );
+    SamplerBuilderBase( StringView name ) {
+        _desc.debugName = name;
         _desc.minFilter = Filter::Linear;
         _desc.magFilter = Filter::Linear;
         _desc.mipFilter = Filter::Linear;
@@ -253,7 +252,7 @@ public:
     }
 
     /// @brief Max Anysotropic Filtering
-    T& anisotropy( uint maxAniso ) {
+    T& anisotropy( u32 maxAniso ) {
         _desc.maxAnisotropy = maxAniso;
         return static_cast<T&>( *this );
     }
@@ -288,8 +287,8 @@ template <typename T>
 class AccelBuilderBase
 {
 public:
-    AccelBuilderBase( std::string name ) {
-        _desc.debugName = std::move( name );
+    AccelBuilderBase( StringView name ) {
+        _desc.debugName = name;
         _desc.type      = RHI::AccelType::BottomLevel;
         _desc.flags     = RHI::ASBuildNone;
     }
@@ -343,12 +342,12 @@ public:
     }
 
     /// @brief Helper to add a mesh geometry from raw buffer addresses (BLAS only).
-    T& withGeometry( ulong  vertexAddress,
-                     uint   vertexCount,
-                     uint   vertexStride,
+    T& withGeometry( u64  vertexAddress,
+                     u32   vertexCount,
+                     u32   vertexStride,
                      Format vertexFormat,
-                     ulong  indexAddress = 0,
-                     uint   indexCount   = 0,
+                     u64  indexAddress = 0,
+                     u32   indexCount   = 0,
                      bool   isOpaque     = true ) {
         RHI::AccelGeometryDesc geom;
         geom.vertexBufferAddress = vertexAddress;
@@ -367,7 +366,7 @@ public:
     // ------------------------------------------------------------------------
 
     /// @brief Adds a set of instancea description (TLAS only).
-    T& intances( const std::vector<RHI::AccelInstanceDesc>& insts ) {
+    T& intances( const STLW::Vector<RHI::AccelInstanceDesc>& insts ) {
         _desc.instances = insts;
         return static_cast<T&>( *this );
     }
@@ -380,11 +379,11 @@ public:
 
     /// @brief Helper to add an instance pointing to a BLAS (TLAS only).
     /// @param transform 3x4 Row-major matrix.
-    T& withInstance( ulong                   blasAddress,
+    T& withInstance( u64                   blasAddress,
                      const float             transform[3][4],
-                     uint                    instanceID,
-                     uint                    hitGroupIndex = 0,
-                     uint                    mask          = 0xFF,
+                     u32                    instanceID,
+                     u32                    hitGroupIndex = 0,
+                     u32                    mask          = 0xFF,
                      RHI::AccelInstanceFlags flags         = RHI::AccelInstanceFlags::None ) {
         RHI::AccelInstanceDesc inst;
         std::memcpy( inst.transform, transform, sizeof( float ) * 12 );

@@ -1,12 +1,12 @@
 #include <Axion/Core/Platform/Window.h>
-#include <Axion/Graphics/Platforms/GLFW.h>
-#include <Axion/Graphics/Platforms/Win32.h>
+#include <Axion/Graphics/Platforms/IGLFW.h>
+#include <Axion/Graphics/Platforms/IWin32.h>
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Platform {
 
 struct Window::Impl {
-    std::unique_ptr<Graphics::IWindow> nativeWindow;
+    Memory::OwnerPtr<Graphics::IWindow> nativeWindow;
 
     Graphics::PlatformType platformType;
     bool                   useVsync = false;
@@ -36,14 +36,14 @@ struct Window::Impl {
 };
 
 Window::Window( const Settings& settings )
-    : _impl( std::make_unique<Impl>( settings ) ) {
+    : _impl( Memory::makeOwned<Impl>( settings ) ) {
 
     AXION_LOG_INFO( Logger::Module::Core, "Window [{}] Created Succesfully", settings.name );
     AXION_LOG_INFO( Logger::Module::Core, "{}", toString() );
 }
 
 Window::~Window() {
-    std::string wndName = _impl->nativeWindow ? _impl->nativeWindow->getSettings().name : "Closed";
+    String64 wndName = _impl->nativeWindow ? _impl->nativeWindow->getSettings().name : "Closed";
     AXION_LOG_INFO( Logger::Module::Core, "Destroying Window [{}]", wndName );
 };
 
@@ -63,7 +63,7 @@ Extent2D Window::getSize() const {
     return _impl->nativeWindow->getSettings().size;
 }
 
-void Window::setTitle( const std::string& title ) {
+void Window::setTitle( StringView title ) {
     _impl->nativeWindow->setTitle( title );
 }
 
@@ -134,16 +134,16 @@ Event::EventDispatcher<Event::MouseScrollEvent>& Window::onMouseScroll() {
     return _impl->nativeWindow->onMouseScroll();
 }
 
-std::string Window::toString() const {
+STLW::String Window::toString() const {
     const auto& currentSettings = getSettings();
 
-    std::string pltName = "Unknown";
+    STLW::String pltName = "Unknown";
     if ( currentSettings.platformType == Graphics::PlatformType::Win32 )
         pltName = "Win32";
     else if ( currentSettings.platformType == Graphics::PlatformType::GLFW )
         pltName = "GLFW";
 
-    return fmt::format(
+    return static_cast<STLW::String>( fmt::format(
         "Window Settings (Live State):\n"
         "  Name: {}\n"
         "  Platform: {}\n"
@@ -168,7 +168,7 @@ std::string Window::toString() const {
         currentSettings.size.height,
         currentSettings.flags & WindowCentered ? "Yes" : "No",
         currentSettings.iconPath,
-        currentSettings.cursorPath );
+        currentSettings.cursorPath ) );
 }
 
 } // namespace Core::Platform

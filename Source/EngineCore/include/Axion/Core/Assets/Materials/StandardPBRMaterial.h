@@ -23,12 +23,12 @@ public:
         // Chunk 2
         float normalScale;
         float aoStrength;
-        uint  albedoTexIndex;
-        uint  normalTexIndex;
+        u32  albedoTexIndex;
+        u32  normalTexIndex;
 
         // Chunk 3
-        uint  armTexIndex;      // Packed (AO, Roughness, Metallic)
-        uint  emissiveTexIndex; // Texture ID
+        u32  armTexIndex;      // Packed (AO, Roughness, Metallic)
+        u32  emissiveTexIndex; // Texture ID
         float padding[2];
     };
 
@@ -105,7 +105,7 @@ public:
     [[nodiscard]] float             getMetallic() const { return _metallic; }
     [[nodiscard]] const Math::Vec3& getEmissive() const { return _emissive; }
 
-    uint getPayloadSize() const override {
+    u32 getPayloadSize() const override {
         return sizeof( GPUPayload );
     };
 
@@ -135,13 +135,13 @@ public:
         std::memcpy( dest, &p, sizeof( GPUPayload ) );
     }
 
-    std::vector<TextureHandle> getTextureHandles() const override { return { _albedoMapHandle, _normalMapHandle, _armMapHandle, _emissiveMapHandle}; };
+    STLW::Vector<TextureHandle> getTextureHandles() const override { return { _albedoMapHandle, _normalMapHandle, _armMapHandle, _emissiveMapHandle}; };
 
 private:
     friend class AssetManager;
 
-    explicit StandardPBRMaterial( std::string name )
-        : Material( std::move( name ) ) {}
+    explicit StandardPBRMaterial( StringView name )
+        : Material(  name  ) {}
 
     Math::Vec3 _albedo      = { 0.5f, 0.5f, 0.5f };
     Math::Vec3 _emissive    = { 0.0f, 0.0f, 0.0f };

@@ -36,3 +36,10 @@ tiny_obj_loader
 stb_image
 meshoptimizer
 )
+
+target_include_directories(AxionCore
+    SYSTEM PRIVATE
+        ${TINYOBJ_INCLUDE_DIR}
+        ${STB_INCLUDE_DIR}
+        ${MESHOPT_INCLUDE_DIR}
+)

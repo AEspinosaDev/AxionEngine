@@ -1,5 +1,5 @@
 #pragma once
-#include "Axion/Common/Defines.h"
+#include "Axion/Common/Common.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE

@@ -1,9 +1,9 @@
 
 #pragma once
-#include "Axion/Common/Defines.h"
+#include "Axion/Common/Common.h"
 #include "Axion/Graphics/Passes/Utilitary.hpp"
-#include "Axion/Graphics/Platforms/Win32.h"
-#include "Axion/Graphics/Renderer.h"
+#include "Axion/Graphics/Platforms/IWin32.h"
+#include "Axion/Graphics/IRenderer.h"
 #include "cube.h"
 USING_AXION_NAMESPACE
 
@@ -26,7 +26,7 @@ struct Cube {
     Graphics::AccelHandle  accel;
 
     std::vector<Vertex> vertices = cubeVertices;
-    std::vector<uint>   indices  = cubeIndices;
+    std::vector<u32>   indices  = cubeIndices;
 };
 
 struct RTXPass {
@@ -97,7 +97,7 @@ int main( /*int argc, char* argv[]*/ ) {
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX Accel Update TEST" } );
 
         auto       bufferingType    = Graphics::BufferingType::Double;
-        const uint FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
+        const u32 FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
         auto       rnd              = Axion::Graphics::createRenderer( wnd.get(),
                                                                        { .gfxApi        = Graphics::API::DirectX12,
                                                                          .bufferingType = bufferingType,
@@ -147,7 +147,7 @@ int main( /*int argc, char* argv[]*/ ) {
                                   .buffer( "IndexBuffer" )
                                   .asReadOnlySSBO()
                                   .withData( rtPass.cubeData.indices.data() )
-                                  .size( rtPass.cubeData.indices.size() * sizeof( uint ) )
+                                  .size( rtPass.cubeData.indices.size() * sizeof( u32 ) )
                                   .create();
 
         // AS
@@ -204,7 +204,7 @@ int main( /*int argc, char* argv[]*/ ) {
         // UNIFORM CONSTANT BUFFER
         std::vector<Graphics::BufferHandle>
             scnBuffers( FRAMES_IN_FLIGHT );
-        for ( uint i = 0; i < FRAMES_IN_FLIGHT; ++i )
+        for ( u32 i = 0; i < FRAMES_IN_FLIGHT; ++i )
         {
             scnBuffers[i] = rnd->resources().buffer( "CamUniformBuffer_" + std::to_string( i ) ).size( sizeof( Scene::Payload ) ).asCBO().onCPU().create();
         }

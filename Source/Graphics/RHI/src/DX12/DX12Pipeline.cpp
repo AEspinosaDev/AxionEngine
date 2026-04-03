@@ -1,5 +1,5 @@
-#include "DX12Pipeline.hpp"
-#include "DX12Debug.hpp"
+#include "DX12Pipeline.h"
+#include "DX12Debug.h"
 #include "DX12TranslatorUnit.h"
 
 AXION_NAMESPACE_BEGIN
@@ -15,21 +15,30 @@ DX12PipelineLayout::~DX12PipelineLayout() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Pipeline Layout [{}]", _desc.debugName );
 }
 
-uint DX12PipelineLayout::getViewCount( uint setIndex ) const {
+u32 DX12PipelineLayout::getViewCount( u32 setIndex ) const {
     return setIndex < _desc.sets.size() ? _viewCountPerSet[setIndex] : 0;
 }
 
-uint DX12PipelineLayout::getSamplerCount( uint setIndex ) const {
+u32 DX12PipelineLayout::getSamplerCount( u32 setIndex ) const {
     return setIndex < _desc.sets.size() ? _samplerCountPerSet[setIndex] : 0;
 }
 
-uint DX12PipelineLayout::getAccelCount( uint setIndex ) const {
+u32 DX12PipelineLayout::getAccelCount( u32 setIndex ) const {
     return setIndex < _desc.sets.size() ? _accelCountPerSet[setIndex] : 0;
 }
 
-void DX12PipelineLayout::setDebugName( const std::string& name ) {
+STLW::String DX12PipelineLayout::toString() const {
+    return STLW::String();
+}
+
+void DX12PipelineLayout::setDebugName( StringView name ) {
     _desc.debugName = name;
-    _rootSignature->SetName( std::wstring( ( _desc.debugName + " RootSig" ).begin(), ( _desc.debugName + " RootSig" ).end() ).c_str() );
+    char buffer[128];
+    snprintf( buffer, sizeof( buffer ), "%.*s RootSig", (int)name.size(), name.data() );
+    setNativeName( _rootSignature.Get(), buffer );
+}
+StringView DX12PipelineLayout::getDebugName() const {
+    return _desc.debugName;
 }
 
 NativeObject DX12PipelineLayout::getNativeObject( ObjectType objectType ) {
@@ -43,20 +52,17 @@ NativeObject DX12PipelineLayout::getNativeObject( ObjectType objectType ) {
     }
 }
 
-std::string DX12PipelineLayout::toString() const {
-    return std::string();
-}
 void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device ) {
-    std::vector<CD3DX12_ROOT_PARAMETER1>   rootParams;
-    std::vector<CD3DX12_DESCRIPTOR_RANGE1> allRanges;
+    STLW::Vector<CD3DX12_ROOT_PARAMETER1>   rootParams;
+    STLW::Vector<CD3DX12_DESCRIPTOR_RANGE1> allRanges;
 
     struct TableInfo {
-        uint                    startIdx;
-        uint                    count;
+        u32                    startIdx;
+        u32                    count;
         D3D12_SHADER_VISIBILITY visibility;
         int*                    rootIndexMapTarget; // Puntero al entero donde guardaremos el índice final
     };
-    std::vector<TableInfo> pendingTables;
+    STLW::Vector<TableInfo> pendingTables;
 
     allRanges.reserve( 128 );
 
@@ -65,12 +71,12 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
     _samplerCountPerSet.resize( _desc.sets.size(), 0 );
     _accelCountPerSet.resize( _desc.sets.size(), 0 );
 
-    for ( uint setIndex = 0; setIndex < _desc.sets.size(); ++setIndex )
+    for ( u32 setIndex = 0; setIndex < _desc.sets.size(); ++setIndex )
     {
         const auto& set = _desc.sets[setIndex];
 
-        std::vector<CD3DX12_DESCRIPTOR_RANGE1> viewRanges;
-        std::vector<CD3DX12_DESCRIPTOR_RANGE1> samplerRanges;
+        STLW::Vector<CD3DX12_DESCRIPTOR_RANGE1> viewRanges;
+        STLW::Vector<CD3DX12_DESCRIPTOR_RANGE1> samplerRanges;
 
         for ( const auto& binding : set.bindings )
         {
@@ -103,8 +109,8 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
         if ( !viewRanges.empty() )
         {
             TableInfo info;
-            info.startIdx           = (uint)allRanges.size();
-            info.count              = (uint)viewRanges.size();
+            info.startIdx           = (u32)allRanges.size();
+            info.count              = (u32)viewRanges.size();
             info.visibility         = getShaderVisibility( set.bindings );
             info.rootIndexMapTarget = &_rootIndexMap[setIndex].first;
 
@@ -117,8 +123,8 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
         if ( !samplerRanges.empty() )
         {
             TableInfo info;
-            info.startIdx           = (uint)allRanges.size();
-            info.count              = (uint)samplerRanges.size();
+            info.startIdx           = (u32)allRanges.size();
+            info.count              = (u32)samplerRanges.size();
             info.visibility         = getShaderVisibility( set.bindings );
             info.rootIndexMapTarget = &_rootIndexMap[setIndex].second;
 
@@ -190,7 +196,7 @@ void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Devic
         return;
     }
 
-    bool validSize = ( _desc.pushConstant.size == sizeof( uint ) );
+    bool validSize = ( _desc.pushConstant.size == sizeof( u32 ) );
 
     AXION_LOG_ASSERT( validSize, Logger::Module::RHI, "DX12 Pipeline Layout [{}]: Push constant size must be 4 bytes (1 uint) for baseInstanceID. Current size: {}", _desc.debugName, _desc.pushConstant.size );
 
@@ -215,8 +221,7 @@ void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Devic
 
         DX_CHECK( device->CreateCommandSignature( &csDesc, _rootSignature.Get(), IID_PPV_ARGS( &_drawIndexedIndirectSignature ) ) );
 
-        std::string cmdSigName = _desc.debugName + " DrawIndirectSig";
-        _drawIndexedIndirectSignature->SetName( std::wstring( cmdSigName.begin(), cmdSigName.end() ).c_str() );
+        setNativeName( _drawIndexedIndirectSignature.Get(),_desc.debugName + " DrawIndirectSig" );
     }
 
     {
@@ -230,12 +235,11 @@ void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Devic
 
         DX_CHECK( device->CreateCommandSignature( &csDesc, _rootSignature.Get(), IID_PPV_ARGS( &_dispatchIndirectSignature ) ) );
 
-        std::string cmdSigName = _desc.debugName + " DispatchIndirectSig";
-        _dispatchIndirectSignature->SetName( std::wstring( cmdSigName.begin(), cmdSigName.end() ).c_str() );
+        setNativeName( _dispatchIndirectSignature.Get(),_desc.debugName + " DispatchIndirectSig" );
     }
 }
 
-D3D12_SHADER_VISIBILITY DX12PipelineLayout::getShaderVisibility( const std::vector<DescriptorBinding>& bindings ) {
+D3D12_SHADER_VISIBILITY DX12PipelineLayout::getShaderVisibility( const STLW::Vector<DescriptorBinding>& bindings ) {
     ShaderStage mask = ShaderStage::None;
     for ( auto& b : bindings )
         mask |= b.stageMask;
@@ -264,10 +268,7 @@ DX12GraphicPipeline::DX12GraphicPipeline( const ComPtr<ID3D12Device2>& device, c
 DX12GraphicPipeline::~DX12GraphicPipeline() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Graphic Pipeline [{}]", _desc.debugName );
 }
-void DX12GraphicPipeline::setDebugName( const std::string& name ) {
-    _desc.debugName = name;
-    _pso->SetName( std::wstring( name.begin(), name.end() ).c_str() );
-}
+
 NativeObject DX12GraphicPipeline::getNativeObject( ObjectType objectType ) {
     switch ( objectType )
     {
@@ -280,9 +281,19 @@ NativeObject DX12GraphicPipeline::getNativeObject( ObjectType objectType ) {
             return nullptr;
     }
 }
-std::string DX12GraphicPipeline::toString() const {
-    return fmt::format( "" );
+
+STLW::String DX12GraphicPipeline::toString() const {
+    return STLW::String();
 }
+
+void DX12GraphicPipeline::setDebugName( StringView name ) {
+    _desc.debugName = name;
+    setNativeName( _pso.Get(), name );
+}
+StringView DX12GraphicPipeline::getDebugName() const {
+    return _desc.debugName;
+}
+
 void DX12GraphicPipeline::createPipelineState( const ComPtr<ID3D12Device2>& device ) {
 
     const ShaderModule* vsModule = nullptr;
@@ -338,9 +349,9 @@ void DX12GraphicPipeline::createPipelineState( const ComPtr<ID3D12Device2>& devi
     }
 
     // Input layout
-    std::vector<D3D12_INPUT_ELEMENT_DESC> elems;
-    D3D12_INPUT_LAYOUT_DESC               inputLayout = makeInputLayout( _desc, elems );
-    psoDesc.InputLayout                               = inputLayout;
+    STLW::Vector<D3D12_INPUT_ELEMENT_DESC> elems;
+    D3D12_INPUT_LAYOUT_DESC                inputLayout = makeInputLayout( _desc, elems );
+    psoDesc.InputLayout                                = inputLayout;
 
     // Primitive topology -> IAState
     psoDesc.PrimitiveTopologyType = DX12Translator::get( _desc.topology );
@@ -390,15 +401,15 @@ void DX12GraphicPipeline::createPipelineState( const ComPtr<ID3D12Device2>& devi
     // Create PSO
     DX_CHECK( device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &_pso ) ) );
 }
-D3D12_INPUT_LAYOUT_DESC DX12GraphicPipeline::makeInputLayout( const IGraphicPipeline::Description& desc, std::vector<D3D12_INPUT_ELEMENT_DESC>& out ) {
+D3D12_INPUT_LAYOUT_DESC DX12GraphicPipeline::makeInputLayout( const IGraphicPipeline::Description& desc, STLW::Vector<D3D12_INPUT_ELEMENT_DESC>& out ) {
     out.clear();
     out.reserve( desc.attributes.size() );
 
-    uint offset = 0;
+    u32 offset = 0;
     for ( const auto& a : desc.attributes )
     {
         D3D12_INPUT_ELEMENT_DESC e = {};
-        e.SemanticName             = a.semanticName.c_str();
+        e.SemanticName             = a.semanticName.cstr();
         e.SemanticIndex            = a.semanticIndex;
         e.Format                   = DX12Translator::get( a.format );
         e.InputSlot                = a.inputSlot;
@@ -439,11 +450,6 @@ DX12ComputePipeline::~DX12ComputePipeline() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Compute Pipeline [{}]", _desc.debugName );
 }
 
-void DX12ComputePipeline::setDebugName( const std::string& name ) {
-    _desc.debugName = name;
-    _pso->SetName( std::wstring( name.begin(), name.end() ).c_str() );
-}
-
 NativeObject DX12ComputePipeline::getNativeObject( ObjectType objectType ) {
     switch ( objectType )
     {
@@ -457,8 +463,16 @@ NativeObject DX12ComputePipeline::getNativeObject( ObjectType objectType ) {
     }
 }
 
-std::string DX12ComputePipeline::toString() const {
-    return std::string();
+STLW::String DX12ComputePipeline::toString() const {
+    return STLW::String();
+}
+
+void DX12ComputePipeline::setDebugName( StringView name ) {
+    _desc.debugName = name;
+    setNativeName( _pso.Get(), name );
+}
+StringView DX12ComputePipeline::getDebugName() const {
+    return _desc.debugName;
 }
 
 void DX12ComputePipeline::createPipelineState( const ComPtr<ID3D12Device2>& device ) {
@@ -507,25 +521,27 @@ DX12RayTracingPipeline::~DX12RayTracingPipeline() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 RayTracing Pipeline [{}]", _desc.debugName );
 }
 
-void* DX12RayTracingPipeline::getShaderIdentifier( const std::string& exportName ) const {
+void* DX12RayTracingPipeline::getShaderIdentifier( const StringView exportName ) const {
     if ( !_props )
     {
         AXION_LOG_ERROR( Logger::Module::RHI, "Attempting to get Shader ID from invalid pipeline props" );
         return nullptr;
     }
 
-    std::wstring wName( exportName.begin(), exportName.end() );
-    void*        id = _props->GetShaderIdentifier( wName.c_str() );
+    // std::wstring wName( exportName.begin(), exportName.end() );
+    constexpr size_t MAX_NAME_LEN = 128;
+    wchar_t          wName[MAX_NAME_LEN];
+    size_t           length = std::min( exportName.length(), MAX_NAME_LEN - 1 );
+    for ( size_t i = 0; i < length; ++i )
+    {
+        wName[i] = static_cast<wchar_t>( exportName[i] );
+    }
+    wName[length] = L'\0';
+    void* id      = _props->GetShaderIdentifier( wName );
 
     if ( !id )
         AXION_LOG_ERROR( Logger::Module::RHI, "Shader Identifier [{}] not found in RT Pipeline [{}]", exportName, _desc.debugName );
     return id;
-}
-
-void DX12RayTracingPipeline::setDebugName( const std::string& name ) {
-    _desc.debugName = name;
-    if ( _so )
-        _so->SetName( std::wstring( name.begin(), name.end() ).c_str() );
 }
 
 NativeObject DX12RayTracingPipeline::getNativeObject( ObjectType objectType ) {
@@ -544,16 +560,24 @@ NativeObject DX12RayTracingPipeline::getNativeObject( ObjectType objectType ) {
     }
 }
 
-std::string DX12RayTracingPipeline::toString() const {
-    return std::string();
+STLW::String DX12RayTracingPipeline::toString() const {
+    return STLW::String();
+}
+
+void DX12RayTracingPipeline::setDebugName( StringView name ) {
+    _desc.debugName = name;
+    setNativeName( _so.Get(), name );
+}
+StringView DX12RayTracingPipeline::getDebugName() const {
+    return _desc.debugName;
 }
 
 void DX12RayTracingPipeline::createStateObject( const ComPtr<ID3D12Device5>& device ) {
 
     CD3DX12_STATE_OBJECT_DESC dxrPipelineDesc( D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE );
 
-    std::vector<std::wstring>          exportedNames;
-    std::vector<D3D12_SHADER_BYTECODE> stableBytecodes;
+    STLW::Vector<std::wstring>          exportedNames;
+    STLW::Vector<D3D12_SHADER_BYTECODE> stableBytecodes;
 
     size_t moduleCount = _desc.shaderModules.size();
     exportedNames.reserve( moduleCount );
@@ -590,8 +614,8 @@ void DX12RayTracingPipeline::createStateObject( const ComPtr<ID3D12Device5>& dev
         }
     }
 
-    std::vector<std::wstring> hitGroupNames;
-    std::vector<std::wstring> hitGroupImports;
+    STLW::Vector<std::wstring> hitGroupNames;
+    STLW::Vector<std::wstring> hitGroupImports;
     hitGroupNames.reserve( _desc.hitGroups.size() );
     hitGroupImports.reserve( _desc.hitGroups.size() * 3 );
 
@@ -642,7 +666,8 @@ void DX12RayTracingPipeline::createStateObject( const ComPtr<ID3D12Device5>& dev
     DX_CHECK( _so->QueryInterface( IID_PPV_ARGS( &_props ) ) );
 }
 
-DX12MeshPipeline::DX12MeshPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc ) : _desc( desc ) {
+DX12MeshPipeline::DX12MeshPipeline( const ComPtr<ID3D12Device2>& device, const Description& desc )
+    : _desc( desc ) {
     const ShaderModule* msModule = nullptr;
     for ( const auto& m : desc.shaderModules )
     {
@@ -662,11 +687,6 @@ DX12MeshPipeline::~DX12MeshPipeline() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Mesh Pipeline [{}]", _desc.debugName );
 }
 
-void DX12MeshPipeline::setDebugName( const std::string& name ) {
-    _desc.debugName = name;
-    _pso->SetName( std::wstring( name.begin(), name.end() ).c_str() );
-}
-
 NativeObject DX12MeshPipeline::getNativeObject( ObjectType objectType ) {
     switch ( objectType )
     {
@@ -680,8 +700,16 @@ NativeObject DX12MeshPipeline::getNativeObject( ObjectType objectType ) {
     }
 }
 
-std::string DX12MeshPipeline::toString() const {
-    return fmt::format( "DX12MeshPipeline: {}", _desc.debugName );
+STLW::String DX12MeshPipeline::toString() const {
+    return STLW::String();
+}
+
+void DX12MeshPipeline::setDebugName( StringView name ) {
+    _desc.debugName = name;
+    setNativeName( _pso.Get(), name );
+}
+StringView DX12MeshPipeline::getDebugName() const {
+    return _desc.debugName;
 }
 
 void DX12MeshPipeline::createPipelineState( const ComPtr<ID3D12Device2>& device ) {

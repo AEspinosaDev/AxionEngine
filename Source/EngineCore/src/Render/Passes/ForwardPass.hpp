@@ -3,7 +3,7 @@
 #include "../GPUScene.h"
 #include "../MaterialSystem.h"
 #include "../PassSystem.h"
-#include "Axion/Graphics/Subsystems/RenderGraph.h"
+#include "Axion/Graphics/Subsystems/IRenderGraph.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -24,15 +24,15 @@ public:
 
         GlobalBufferHandles inGlobalBufferHandles;
 
-        Graphics::RHI::BufferView inFrameView;
-        Graphics::RHI::BufferView inMeshesView;
-        Graphics::RHI::BufferView inMaterialsView;
-        Graphics::RHI::BufferView inInstancesView;
-        Graphics::RHI::BufferView inLightsView;
-        Graphics::RHI::BufferView inEnvsView;
-        Graphics::RHI::BufferView inRedirectionView;
+        Graphics::BufferSlice inFrameSlice;
+        Graphics::BufferSlice inMeshesSlice;
+        Graphics::BufferSlice inMaterialsSlice;
+        Graphics::BufferSlice inInstancesSlice;
+        Graphics::BufferSlice inLightsSlice;
+        Graphics::BufferSlice inEnvsSlice;
+        Graphics::BufferSlice inRedirectionSlice;
 
-        IndirectCommandData        indirectData;
+        IndirectCommandPayload        indirectData;
         Graphics::RGResourceHandle inIndirectBufferHandle;
         Graphics::RGResourceHandle inCulledRedirectBufferHandle;
         bool                       useGPUCulling = false;
@@ -101,29 +101,29 @@ private:
         auto* set0 = data.persistentDescriptorSet;
         cmd->bindDescriptorSet( 0, set0, matLayout );
 
-        // SPACE 1: Volatile Data (Views into the giant UBO)
+        // SPACE 1: Volatile Data (Slices into the giant UBO)
         auto* set1 = ctx.allocateSet( matLayout, 1 ); // Space 1
 
         // Frame (b0), Meshes (t0), Materials (t1), Instances (t2, Lights (t3), Redirection (t4)
-        set1->attachBufferView( 0, data.inFrameView, Graphics::RHI::ResourceState::ConstantBuffer );
-        set1->attachBufferView( 1, data.inMeshesView, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferView( 2, data.inMaterialsView, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferView( 3, data.inInstancesView, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferView( 4, data.inLightsView, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferView( 5, data.inEnvsView, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferSlice( 0, data.inFrameSlice, Graphics::RHI::ResourceState::ConstantBuffer );
+        set1->attachBufferSlice( 1, data.inMeshesSlice, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferSlice( 2, data.inMaterialsSlice, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferSlice( 3, data.inInstancesSlice, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferSlice( 4, data.inLightsSlice, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferSlice( 5, data.inEnvsSlice, Graphics::RHI::ResourceState::ShaderResource );
 
         if ( data.useGPUCulling )
         {
             auto* culledBuf = ctx.getBuffer( data.inCulledRedirectBufferHandle );
 
-            Graphics::RHI::BufferView culledView;
-            culledView.buffer = culledBuf;
-            culledView.offset = 0;
-            culledView.size   = data.inRedirectionView.size;
-            culledView.stride = data.inRedirectionView.stride;
-            set1->attachBufferView( 6, culledView, Graphics::RHI::ResourceState::ShaderResource );
+            Graphics::BufferSlice culledSlice;
+            culledSlice.container = culledBuf;
+            culledSlice.offset    = 0;
+            culledSlice.size      = data.inRedirectionSlice.size;
+            culledSlice.stride    = data.inRedirectionSlice.stride;
+            set1->attachBufferSlice( 6, culledSlice, Graphics::RHI::ResourceState::ShaderResource );
         } else
-            set1->attachBufferView( 6, data.inRedirectionView, Graphics::RHI::ResourceState::ShaderResource );
+            set1->attachBufferSlice( 6, data.inRedirectionSlice, Graphics::RHI::ResourceState::ShaderResource );
 
         cmd->bindDescriptorSet( 1, set1, matLayout );
 
@@ -135,7 +135,7 @@ private:
 #if DRAW_INDIRECT
         auto* ib = ctx.getBuffer( data.inGlobalBufferHandles.index );
         cmd->bindIndexBuffer( ib );
-        auto* indirectBuffer = data.useGPUCulling ? ctx.getBuffer( data.inIndirectBufferHandle ) : data.indirectData.commandBufferView.buffer;
+        auto* indirectBuffer = data.useGPUCulling ? ctx.getBuffer( data.inIndirectBufferHandle ) : data.indirectData.commandBufferSlice.container;
 
         for ( const auto& batch : data.indirectData.batches )
         {

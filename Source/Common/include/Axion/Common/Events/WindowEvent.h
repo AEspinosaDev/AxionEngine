@@ -1,5 +1,5 @@
 #pragma once
-#include "Axion/Common/Defines.h"
+#include "Axion/Common/Common.h"
 #include "Axion/Common/Events/Event.h"
 
 AXION_NAMESPACE_BEGIN
@@ -19,12 +19,12 @@ struct WindowEvent : public Event {
  * @brief Emitted when the window is resized.
  */
 struct WindowResizeEvent : public WindowEvent {
-    WindowResizeEvent( void* h, uint w, uint hgt )
+    WindowResizeEvent( void* h, u32 w, u32 hgt )
         : WindowEvent( h )
         , width( w )
         , height( hgt ) {}
-    uint width;
-    uint height;
+    u32 width;
+    u32 height;
 };
 
 /**

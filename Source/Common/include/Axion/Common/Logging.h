@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Axion/Common/Defines.h"
+#include "Axion/Common/Common.h"
 #include <chrono>
 #include <ctime>
 #include <format>
@@ -25,7 +25,7 @@ public:
     /**
      * @brief Log severity levels.
      */
-    enum class Level : uchar
+    enum class Level : byte
     {
         Info,
         Warn,
@@ -36,13 +36,14 @@ public:
     /**
      * @brief Engine sub-modules used for categorizing log messages.
      */
-    enum class Module : uchar
+    enum class Module : byte
     {
         Editor, /**< Editor Application */
         Core,   /**< Core engine systems */
         GFX,    /**< Graphics system */
         RHI,    /**< Rendering Hardware Interface Subsystem*/
         Shader, /**< Shader Compiling*/
+        Common, /**< Common*/
         All
     };
 
@@ -168,6 +169,7 @@ AXION_NAMESPACE_END
         if ( !( cond ) )                                   \
         {                                                  \
             AXION_LOG_ERROR( module, msg, ##__VA_ARGS__ ); \
+            AXION_DEBUG_BREAK();                            \
             Axion::Logger::flush();                        \
             std::abort();                                  \
         }                                                  \

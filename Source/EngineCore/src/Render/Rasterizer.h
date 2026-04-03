@@ -1,22 +1,23 @@
 #pragma once
 #include "Axion/Graphics/Passes/Utilitary.hpp"
-#include "Axion/Graphics/RHI/Memory.hpp"
+#include "Axion/Graphics/RHI/Memory.h"
 #include "DrawIndirect.h"
 #include "GPUScene.h"
 #include "MaterialSystem.h"
 #include "PassSystem.h"
+#include <Axion/Common/Containers/STLWrapper/String.h>
 #include <Axion/Core/Assets/Material.h>
-#include <Axion/Core/Render/Rasterizer.h>
-#include <Axion/Graphics/Renderer.h>
+#include <Axion/Core/Render/IRasterizer.h>
+#include <Axion/Graphics/IRenderer.h>
 
 // High Level Passes
 #include "Passes/CullingPass.hpp"
 #include "Passes/DepthPass.hpp"
+#include "Passes/FXAAPass.hpp"
 #include "Passes/ForwardPass.hpp"
 #include "Passes/IndirectUploadPass.hpp"
 #include "Passes/TonemappingPass.hpp"
 #include "Passes/UploadPass.hpp"
-#include "Passes/FXAAPass.hpp"
 
 AXION_NAMESPACE_BEGIN
 
@@ -28,7 +29,7 @@ public:
     Rasterizer( Platform::Window* wnd, const RasterizerSettings& settings );
     ~Rasterizer();
 
-    void compileShaders( uint threadCount = 1 ) override;
+    void compileShaders( u32 threadCount = 1 ) override;
     void render( const Scene::Scene& scene, Scene::Entity& cameraEntity, float deltaTime = 0.0f ) override;
     void shutdown() override;
 
@@ -40,12 +41,12 @@ public:
     MemoryBudget   getMemoryBudget() const override { return _settings.memory; };
     CommonSettings getCommonSettings() const override { return _settings.common; };
 
-    ulong getCurrentFrameIndex() const override;
-    ulong getTotalFrameNumber() const override;
+    u64 getCurrentFrameIndex() const override;
+    u64 getTotalFrameNumber() const override;
 
-    const uint getTotalFramesInFlight() const override { return _framesInFlight; };
+    const u32 getTotalFramesInFlight() const override { return _framesInFlight; };
 
-    std::string toString() const override;
+    STLW::String toString() const override;
 
 private:
     void setupMaterialLibrary();
@@ -53,20 +54,20 @@ private:
     void registerPasses();
     void createResources();
 
-    struct TransientViews {
-        Graphics::RHI::BufferView frameView;
-        Graphics::RHI::BufferView meshesView;
-        Graphics::RHI::BufferView mtlView;
-        Graphics::RHI::BufferView instancesView;
-        Graphics::RHI::BufferView lightsView;
-        Graphics::RHI::BufferView envsView;
-        Graphics::RHI::BufferView redirectView;
+    struct TransientPayload {
+        Graphics::BufferSlice frameSlice;
+        Graphics::BufferSlice meshesSlice;
+        Graphics::BufferSlice mtlSlice;
+        Graphics::BufferSlice instancesSlice;
+        Graphics::BufferSlice lightsSlice;
+        Graphics::BufferSlice envsSlice;
+        Graphics::BufferSlice redirectSlice;
     };
 
-    TransientViews      uploadTransientData( Graphics::RHI::LinearAllocator& currentUBOAlloc,
-                                             Graphics::RHI::LinearAllocator& currentSSBOAlloc );
-    IndirectCommandData uploadIndirectCommandData( Graphics::RHI::LinearAllocator& currentSSBOAlloc,
-                                                   Graphics::RHI::LinearAllocator& currentIndirectAlloc );
+    TransientPayload       uploadTransientData( Graphics::BufferLinearAllocator<>& currentUBOAlloc,
+                                                Graphics::BufferLinearAllocator<>& currentSSBOAlloc );
+    IndirectCommandPayload uploadIndirectCommandData( Graphics::BufferLinearAllocator<>& currentSSBOAlloc,
+                                                      Graphics::BufferLinearAllocator<>& currentIndirectAlloc );
 
     Platform::Window*  _window = nullptr;
     RasterizerSettings _settings;
@@ -86,47 +87,47 @@ private:
     GPUScene _gpuScene;
 
     struct FrameResources {
-        Graphics::BufferHandle         uboBufferHandle;
-        Graphics::RHI::LinearAllocator uboAllocator;
+        Graphics::BufferHandle            uboBufferHandle;
+        Graphics::BufferLinearAllocator<> uboAllocator;
 
-        Graphics::BufferHandle         ssboBufferHandle;
-        Graphics::RHI::LinearAllocator ssboAllocator;
+        Graphics::BufferHandle            ssboBufferHandle;
+        Graphics::BufferLinearAllocator<> ssboAllocator;
 
         // Indirect Rendering
-        Graphics::BufferHandle         indirectStagingBufferHandle;
-        Graphics::RHI::LinearAllocator indirectAllocator;
-        Graphics::BufferHandle         indirectTemplateBufferHandle;
-        Graphics::BufferHandle         indirectBufferHandle;
-        Graphics::BufferHandle         culledInstanceBufferHandle;
+        Graphics::BufferHandle            indirectStagingBufferHandle;
+        Graphics::BufferLinearAllocator<> indirectAllocator;
+        Graphics::BufferHandle            indirectTemplateBufferHandle;
+        Graphics::BufferHandle            indirectBufferHandle;
+        Graphics::BufferHandle            culledInstanceBufferHandle;
 
         // Persistent Descriptor Set
         Graphics::RHI::IDescriptorSet* persistentDescriptorSetPtr = nullptr;
     };
     struct GPUResources {
         // Resource Handles
-        Graphics::BufferHandle           vertexBufferHandle;
-        Graphics::RHI::FreeListAllocator vertexAllocator;
+        Graphics::BufferHandle               vertexBufferHandle;
+        Graphics::BufferGPUFreeListAllocator vertexAllocator;
 
-        Graphics::BufferHandle           indexBufferHandle;
-        Graphics::RHI::FreeListAllocator indexAllocator;
+        Graphics::BufferHandle               indexBufferHandle;
+        Graphics::BufferGPUFreeListAllocator indexAllocator;
 
-        Graphics::BufferHandle           mtlBufferHandle;
-        Graphics::RHI::FreeListAllocator mtlAllocator;
+        Graphics::BufferHandle               mtlBufferHandle;
+        Graphics::BufferGPUFreeListAllocator mtlAllocator;
 
-        std::vector<Graphics::TextureHandle> textureHandles;
-        Graphics::TextureHandle              fallbackTexture2DHandle;
-        std::vector<Graphics::SamplerHandle> samplerHandles;
-        Graphics::SamplerHandle              fallbackSamplerHandle;
+        STLW::Vector<Graphics::TextureHandle> textureHandles;
+        Graphics::TextureHandle               fallbackTexture2DHandle;
+        STLW::Vector<Graphics::SamplerHandle> samplerHandles;
+        Graphics::SamplerHandle               fallbackSamplerHandle;
 
-        std::vector<FrameResources> frame;
+        STLW::Vector<FrameResources> frame;
     };
     GPUResources _res;
 
-    Graphics::RendererPtr _rnd = nullptr;
+    Graphics::RendererOwnerPtr _rnd = nullptr;
 
-    IndirectCommandData::Cache _indirectCommandDataCache;
+    IndirectCommandPayload::Cache _indirectCommandDataCache;
 
-    uint _framesInFlight;
+    u32 _framesInFlight;
 };
 
 } // namespace Core::Render

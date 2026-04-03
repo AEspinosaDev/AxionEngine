@@ -1,6 +1,6 @@
 #pragma once
-#include "DX12Resource.hpp"
-#include "DX12Debug.hpp"
+#include "DX12Resource.h"
+#include "DX12Debug.h"
 #include "DX12TranslatorUnit.h"
 
 AXION_NAMESPACE_BEGIN
@@ -15,7 +15,7 @@ DX12Texture::DX12Texture( const TextureDesc& desc, DX12Device::Context& ctx, con
     dx12Desc.Width               = desc.size.width;
     dx12Desc.Height              = desc.size.height;
     dx12Desc.MipLevels           = static_cast<UINT16>( desc.mipLevels );
-    dx12Desc.DepthOrArraySize    = ( desc.dimension == TextureDimension::Texture3D ) ? (ushort)desc.size.depth : (ushort)desc.arraySize;
+    dx12Desc.DepthOrArraySize    = ( desc.dimension == TextureDimension::Texture3D ) ? (u16)desc.size.depth : (u16)desc.arraySize;
     dx12Desc.Format              = DX12Translator::get( desc.format );
     dx12Desc.SampleDesc.Count    = 1;
     dx12Desc.Flags               = D3D12_RESOURCE_FLAG_NONE;
@@ -62,10 +62,9 @@ DX12Texture::DX12Texture( const TextureDesc& desc, DX12Device::Context& ctx, con
         }
         pClearVal = &clearVal;
     }
-   
 
     D3D12MA::ALLOCATION_DESC allocDesc = {};
-    allocDesc.HeapType = D3D12_HEAP_TYPE_DEFAULT;
+    allocDesc.HeapType                 = D3D12_HEAP_TYPE_DEFAULT;
 
     DX_CHECK( ctx.allocator->CreateResource(
         &allocDesc,
@@ -204,11 +203,11 @@ void DX12Texture::uploadInitialData( DX12Device::Context& ctx, const void* initi
         ctx );
 
     // Copy initial data into padded upload memory
-    uchar*       mapped      = (uchar*)staging.map();
+    byte*       mapped      = (byte*)staging.map();
     size_t       pixelStride = getFormatBytes( _desc.format );
-    const uchar* src         = (const uchar*)initialData;
+    const byte* src         = (const byte*)initialData;
 
-    for ( uint row = 0; row < numRows; ++row )
+    for ( u32 row = 0; row < numRows; ++row )
     {
         memcpy(
             mapped + row * footprint.Footprint.RowPitch,
@@ -251,13 +250,13 @@ void DX12Texture::uploadInitialData( DX12Device::Context& ctx, const void* initi
     // Staging buffer deleted automatically via RAII
 }
 
-void DX12Texture::setDebugName( const std::string& name ) {
-    _desc.debugName = name;
-    _resource->SetName( std::wstring( name.begin(), name.end() ).c_str() );
+STLW::String DX12Texture::toString() const {
+    return STLW::String();
 }
 
-const std::string& DX12Texture::getDebugName() const {
-    return _desc.debugName;
+void DX12Texture::setDebugName( StringView name ) {
+    _desc.debugName = name;
+    setNativeName( _resource.Get(), name );
 }
 
 NativeObject DX12Texture::getNativeObject( ObjectType objectType ) {
@@ -275,9 +274,6 @@ ResourceStateTracker& DX12Texture::stateTracker() {
     return _stateTracker;
 }
 
-std::string DX12Texture::toString() const {
-    return std::string();
-}
 #pragma endregion
 #pragma region Buffer
 
@@ -319,9 +315,8 @@ DX12Buffer::DX12Buffer( const BufferDesc&    desc,
 
     auto resourceDesc = CD3DX12_RESOURCE_DESC::Buffer( desc.size, flags );
 
-    
     D3D12MA::ALLOCATION_DESC allocDesc = {};
-    allocDesc.HeapType = heapProps.Type;
+    allocDesc.HeapType                 = heapProps.Type;
 
     DX_CHECK( ctx.allocator->CreateResource(
         &allocDesc,
@@ -330,7 +325,6 @@ DX12Buffer::DX12Buffer( const BufferDesc&    desc,
         nullptr,
         &_allocation,
         IID_PPV_ARGS( &_resource ) ) );
-
 
     setDebugName( desc.debugName );
 
@@ -366,11 +360,11 @@ void DX12Buffer::unmap() {
     }
 }
 
-void DX12Buffer::copyData( const void* data, ulong size, ulong offset ) {
+void DX12Buffer::copyData( const void* data, u64 size, u64 offset ) {
     AXION_LOG_ASSERT( offset + size <= _desc.size, Logger::Module::RHI, "Buffer [{}] overflow!", _desc.debugName );
 
     bool   alreadyMapped = ( _mappedPtr != nullptr );
-    uchar* dstPtr        = static_cast<uchar*>( this->map() );
+    byte* dstPtr        = static_cast<byte*>( this->map() );
 
     if ( dstPtr )
     {
@@ -380,13 +374,8 @@ void DX12Buffer::copyData( const void* data, ulong size, ulong offset ) {
     }
 }
 
-void* DX12Buffer::getData() const {
+void* DX12Buffer::getHostAddress() const {
     return _mappedPtr;
-}
-
-void DX12Buffer::setDebugName( const std::string& name ) {
-    _desc.debugName = name;
-    _resource->SetName( std::wstring( name.begin(), name.end() ).c_str() );
 }
 
 NativeObject DX12Buffer::getNativeObject( ObjectType objectType ) {
@@ -400,15 +389,20 @@ NativeObject DX12Buffer::getNativeObject( ObjectType objectType ) {
     }
 }
 
-std::string DX12Buffer::toString() const {
-    return fmt::format( "" );
+STLW::String DX12Buffer::toString() const {
+    return STLW::String();
+}
+
+void DX12Buffer::setDebugName( StringView name ) {
+    _desc.debugName = name;
+    setNativeName( _resource.Get(), name );
 }
 D3D12_VERTEX_BUFFER_VIEW DX12Buffer::getVBV() const {
-    AXION_LOG_ASSERT((_desc.usageFlags & BufferUsage::Vertex) != BufferUsage::None, Logger::Module::RHI, "Buffer Usage is not Vertex" );
+    AXION_LOG_ASSERT( ( _desc.usageFlags & BufferUsage::Vertex ) != BufferUsage::None, Logger::Module::RHI, "Buffer Usage is not Vertex" );
     return _vbv;
 }
 D3D12_INDEX_BUFFER_VIEW DX12Buffer::getIBV() const {
-    AXION_LOG_ASSERT( (_desc.usageFlags & BufferUsage::Index) != BufferUsage::None, Logger::Module::RHI, "Buffer Usage is not Index" );
+    AXION_LOG_ASSERT( ( _desc.usageFlags & BufferUsage::Index ) != BufferUsage::None, Logger::Module::RHI, "Buffer Usage is not Index" );
     return _ibv;
 }
 void DX12Buffer::createViews( DX12Device::Context& ctx ) {
@@ -473,13 +467,13 @@ void DX12Buffer::createViews( DX12Device::Context& ctx ) {
         ctx.device->CreateUnorderedAccessView( _resource.Get(), nullptr, &desc, _uavHandle );
     }
     // Special case for VBO/(IBO)
-    if ( (_desc.usageFlags & BufferUsage::Index) != BufferUsage::None )
+    if ( ( _desc.usageFlags & BufferUsage::Index ) != BufferUsage::None )
     {
         _ibv.BufferLocation = _resource->GetGPUVirtualAddress();
         _ibv.SizeInBytes    = (UINT)_desc.size;
         _ibv.Format         = DXGI_FORMAT_R32_UINT;
     }
-    if ( (_desc.usageFlags & BufferUsage::Vertex) != BufferUsage::None )
+    if ( ( _desc.usageFlags & BufferUsage::Vertex ) != BufferUsage::None )
     {
         _vbv.BufferLocation = _resource->GetGPUVirtualAddress();
         _vbv.SizeInBytes    = (UINT)_desc.size;
@@ -597,10 +591,6 @@ DX12Sampler::~DX12Sampler() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Sampler [{}]", _desc.debugName );
 }
 
-void DX12Sampler::setDebugName( const std::string& name ) {
-    _desc.debugName = name;
-}
-
 NativeObject DX12Sampler::getNativeObject( ObjectType objectType ) {
     switch ( objectType )
     {
@@ -610,8 +600,12 @@ NativeObject DX12Sampler::getNativeObject( ObjectType objectType ) {
     }
 }
 
-std::string DX12Sampler::toString() const {
-    return std::string();
+STLW::String DX12Sampler::toString() const {
+    return STLW::String();
+}
+
+void DX12Sampler::setDebugName( StringView name ) {
+    _desc.debugName = name;
 }
 
 #pragma endregion
@@ -625,7 +619,7 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx, bool imme
 
     // 1. SETUP BUILD INPUTS
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
-    std::vector<D3D12_RAYTRACING_GEOMETRY_DESC>          nativeGeoms;
+    STLW::Vector<D3D12_RAYTRACING_GEOMETRY_DESC>         nativeGeoms;
     prepareInputs( desc, inputs, nativeGeoms );
 
     // 2. QUERY MEMORY REQUIREMENTS (GetPrebuildInfo)
@@ -636,13 +630,13 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx, bool imme
 
     // 3. ALLOCATE BUFFERS
     // A. Result Buffer: This is the persistent AS resource
-    _buffer = NEW_U( DX12Buffer )( BufferDesc {
-                                       .size       = ALIGN( prebuildInfo.ResultDataMaxSizeInBytes, 256 ),
-                                       .memoryType = MemoryUsage::GPUOnly,
-                                       .usageFlags = BufferUsage::AccelerationStructure,
-                                       .viewFlags  = BufferViewUnorderedAccess,
-                                       .debugName  = _desc.debugName + " Buffer" },
-                                   ctx );
+    _buffer = Memory::makeOwned<DX12Buffer>( BufferDesc {
+                                                 .size       = ALIGN( prebuildInfo.ResultDataMaxSizeInBytes, 256 ),
+                                                 .memoryType = MemoryUsage::GPUOnly,
+                                                 .usageFlags = BufferUsage::AccelerationStructure,
+                                                 .viewFlags  = BufferViewUnorderedAccess,
+                                                 .debugName  = _desc.debugName + " Buffer" },
+                                             ctx );
 
     if ( desc.type == AccelType::TopLevel )
         createView( ctx );
@@ -666,11 +660,11 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx, bool imme
 
     // 4. PREPARE INSTANCE DATA (TLAS ONLY)
     // TLAS build requires instances to be in a GPU buffer.
-    std::unique_ptr<DX12Buffer> instancesBuffer;
+    Memory::OwnerPtr<DX12Buffer> instancesBuffer;
 
     if ( desc.type == AccelType::TopLevel && !desc.instances.empty() )
     {
-        std::vector<D3D12_RAYTRACING_INSTANCE_DESC> rawInstances;
+        STLW::Vector<D3D12_RAYTRACING_INSTANCE_DESC> rawInstances;
         rawInstances.reserve( desc.instances.size() );
 
         for ( const auto& inst : desc.instances )
@@ -679,14 +673,14 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx, bool imme
         // Upload this data to GPU.
         // Assuming CreateBufferFromData creates a buffer on Default Heap and handles upload internally
         // or creates an Upload Heap buffer directly. State must be generic read.
-        instancesBuffer = NEW_U( DX12Buffer )( BufferDesc {
-                                                   .size       = rawInstances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ),
-                                                   .memoryType = MemoryUsage::GPUOnly,
-                                                   .usageFlags = BufferUsage::None,
-                                                   .viewFlags  = BufferViewNone,
-                                                   .debugName  = _desc.debugName + " TLAS Instances Buffer" },
-                                               ctx,
-                                               rawInstances.data() );
+        instancesBuffer = Memory::makeOwned<DX12Buffer>( BufferDesc {
+                                                             .size       = rawInstances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ),
+                                                             .memoryType = MemoryUsage::GPUOnly,
+                                                             .usageFlags = BufferUsage::None,
+                                                             .viewFlags  = BufferViewNone,
+                                                             .debugName  = _desc.debugName + " TLAS Instances Buffer" },
+                                                         ctx,
+                                                         rawInstances.data() );
 
         // Point the input struct to the GPU address of the instances
         inputs.InstanceDescs = instancesBuffer->getDeviceAddress();
@@ -718,10 +712,7 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx, bool imme
 DX12Accel::~DX12Accel() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Acceleration Structure [{}]", _desc.debugName );
 }
-void DX12Accel::setDebugName( const std::string& name ) {
-    _desc.debugName = name;
-    _buffer->setDebugName( name + " Buffer" );
-}
+
 NativeObject DX12Accel::getNativeObject( ObjectType objectType ) {
     switch ( objectType )
     {
@@ -732,24 +723,31 @@ NativeObject DX12Accel::getNativeObject( ObjectType objectType ) {
             return nullptr;
     }
 }
-std::string DX12Accel::toString() const {
-    return std::string();
+
+STLW::String DX12Accel::toString() const {
+    return STLW::String();
+}
+
+void DX12Accel::setDebugName( StringView name ) {
+    _desc.debugName         = name;
+    FixedString<64> tmpName = _desc.debugName + " Buffer";
+    _buffer->setDebugName( tmpName );
 }
 AccelType DX12Accel::getType() const {
     return _desc.type;
 }
-ulong DX12Accel::getDeviceAddress() const {
+u64 DX12Accel::getDeviceAddress() const {
     return _buffer->getDeviceAddress();
 }
-ulong DX12Accel::getUpdateScratchSize() const {
+u64 DX12Accel::getUpdateScratchSize() const {
     return _updateScratchSize;
 }
-ulong DX12Accel::getBuildScratchSize() const {
+u64 DX12Accel::getBuildScratchSize() const {
     return _buildScratchSize;
 }
 void DX12Accel::prepareInputs( const AccelDesc&                                      desc,
                                D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& outInputs,
-                               std::vector<D3D12_RAYTRACING_GEOMETRY_DESC>&          outGeoms ) {
+                               STLW::Vector<D3D12_RAYTRACING_GEOMETRY_DESC>&         outGeoms ) {
     outInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
 
     // Map build flags

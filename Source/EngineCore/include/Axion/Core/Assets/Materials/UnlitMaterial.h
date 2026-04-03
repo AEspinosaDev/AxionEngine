@@ -13,7 +13,7 @@ public:
     struct alignas( 16 ) GPUPayload {
         Math::Vec3 color;
         float      emissivePower;
-        uint       textureIndex;
+        u32       textureIndex;
         float      overrideStrength;
         float      padding[2];
     };
@@ -55,7 +55,7 @@ public:
     [[nodiscard]] TextureHandle     getColorTexture() const { return _colorTextureHandle; }
     [[nodiscard]] float             getTextureOverrideStrength() const { return _textureOverrideStrength; }
 
-    uint getPayloadSize() const override {
+    u32 getPayloadSize() const override {
         return sizeof( GPUPayload );
     };
     void writePayload( void* dest, const TextureResolver& resolver ) const override {
@@ -76,13 +76,13 @@ public:
         std::memcpy( dest, &tempPacket, sizeof( GPUPayload ) );
     }
 
-    std::vector<TextureHandle> getTextureHandles() const override { return { _colorTextureHandle }; };
+    STLW::Vector<TextureHandle> getTextureHandles() const override { return { _colorTextureHandle }; };
 
 private:
     friend class AssetManager;
 
-    explicit UnlitMaterial( std::string name )
-        : Material( std::move( name ) ) {}
+    explicit UnlitMaterial( StringView name )
+        : Material(  name  ) {}
 
     float         _emissivePower           = 1.0f;
     Math::Vec3    _color                   = { 1.0f, 1.0f, 1.0f };

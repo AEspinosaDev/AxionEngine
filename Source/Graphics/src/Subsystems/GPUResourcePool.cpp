@@ -1,18 +1,22 @@
-#include "GPUResourcePool.hpp"
+#include "GPUResourcePool.h"
 
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
 
-GPUResourcePool::GPUResourcePool( RHI::IDevice* device )
-    : _device( device ) {
-    AXION_LOG_INFO( Logger::Module::GFX, "GPU Resource Pool Initialized" );
+GPUResourcePool::GPUResourcePool()
+    : RendererSubsystem() {
 }
 
 GPUResourcePool::~GPUResourcePool() {
     clear();
     AXION_LOG_INFO( Logger::Module::GFX, "GPU Resource Pool Destroyed" );
 }
+void GPUResourcePool::initialize( const SubsystemInitContext& ctx ) {
+    RendererSubsystem::initialize( ctx );
+    AXION_LOG_INFO( Logger::Module::GFX, "GPU Resource Pool Initialized" );
+}
+
 BufferHandle GPUResourcePool::createBuffer( const RHI::BufferDesc& desc, const void* initialData, bool allowLookup ) {
     std::scoped_lock lock( _mutex );
 
@@ -29,7 +33,7 @@ BufferHandle GPUResourcePool::createBuffer( const RHI::BufferDesc& desc, const v
         return {};
     }
 
-    uint id = UINT32_MAX;
+    u32 id = UINT32_MAX;
 
     // Optimización: Podrías tener una std::queue<uint> _freeIndices para evitar este bucle.
     // Para < 1000 buffers, este bucle es despreciable.
@@ -37,14 +41,14 @@ BufferHandle GPUResourcePool::createBuffer( const RHI::BufferDesc& desc, const v
     {
         if ( !_buffers[i].alive )
         {
-            id = (uint)i;
+            id = (u32)i;
             break;
         }
     }
 
     if ( id == UINT32_MAX )
     {
-        id = (uint)_buffers.size();
+        id = (u32)_buffers.size();
         _buffers.emplace_back();
     }
 
@@ -78,7 +82,7 @@ TextureHandle GPUResourcePool::createTexture( const RHI::TextureDesc& desc, cons
         return {};
     }
 
-    uint id = UINT32_MAX;
+    u32 id = UINT32_MAX;
 
     // Optimización: Podrías tener una std::queue<uint> _freeIndices para evitar este bucle.
     // Para < 1000 buffers, este bucle es despreciable.
@@ -86,14 +90,14 @@ TextureHandle GPUResourcePool::createTexture( const RHI::TextureDesc& desc, cons
     {
         if ( !_textures[i].alive )
         {
-            id = (uint)i;
+            id = (u32)i;
             break;
         }
     }
 
     if ( id == UINT32_MAX )
     {
-        id = (uint)_textures.size();
+        id = (u32)_textures.size();
         _textures.emplace_back();
     }
 
@@ -127,7 +131,7 @@ SamplerHandle GPUResourcePool::createSampler( const RHI::SamplerDesc& desc, bool
         return {};
     }
 
-    uint id = UINT32_MAX;
+    u32 id = UINT32_MAX;
 
     // Optimización: Podrías tener una std::queue<uint> _freeIndices para evitar este bucle.
     // Para < 1000 buffers, este bucle es despreciable.
@@ -135,14 +139,14 @@ SamplerHandle GPUResourcePool::createSampler( const RHI::SamplerDesc& desc, bool
     {
         if ( !_samplers[i].alive )
         {
-            id = (uint)i;
+            id = (u32)i;
             break;
         }
     }
 
     if ( id == UINT32_MAX )
     {
-        id = (uint)_samplers.size();
+        id = (u32)_samplers.size();
         _samplers.emplace_back();
     }
 
@@ -176,7 +180,7 @@ AccelHandle GPUResourcePool::createAccel( const RHI::AccelDesc& desc, bool insta
         return {};
     }
 
-    uint id = UINT32_MAX;
+    u32 id = UINT32_MAX;
 
     // Optimización: Podrías tener una std::queue<uint> _freeIndices para evitar este bucle.
     // Para < 1000 buffers, este bucle es despreciable.
@@ -184,14 +188,14 @@ AccelHandle GPUResourcePool::createAccel( const RHI::AccelDesc& desc, bool insta
     {
         if ( !_accels[i].alive )
         {
-            id = (uint)i;
+            id = (u32)i;
             break;
         }
     }
 
     if ( id == UINT32_MAX )
     {
-        id = (uint)_accels.size();
+        id = (u32)_accels.size();
         _accels.emplace_back();
     }
 
@@ -228,7 +232,7 @@ RHI::IBuffer* GPUResourcePool::getBuffer( BufferHandle handle ) {
     return record.ptr.get();
 }
 
-std::optional<BufferHandle> GPUResourcePool::findBuffer( const std::string& name ) const {
+std::optional<BufferHandle> GPUResourcePool::findBuffer( StringView name ) const {
     std::scoped_lock lock( _mutex );
     auto             it = _buffNameToHandle.find( name );
     if ( it == _buffNameToHandle.end() )
@@ -276,7 +280,7 @@ RHI::ITexture* GPUResourcePool::getTexture( TextureHandle handle ) {
     return record.ptr.get();
 }
 
-std::optional<TextureHandle> GPUResourcePool::findTexture( const std::string& name ) const {
+std::optional<TextureHandle> GPUResourcePool::findTexture( StringView name ) const {
     std::scoped_lock lock( _mutex );
     auto             it = _texNameToHandle.find( name );
     if ( it == _texNameToHandle.end() )
@@ -324,7 +328,7 @@ RHI::ISampler* GPUResourcePool::getSampler( SamplerHandle handle ) {
     return record.ptr.get();
 }
 
-std::optional<SamplerHandle> GPUResourcePool::findSampler( const std::string& name ) const {
+std::optional<SamplerHandle> GPUResourcePool::findSampler( StringView name ) const {
     std::scoped_lock lock( _mutex );
     auto             it = _samplerNameToHandle.find( name );
     if ( it == _samplerNameToHandle.end() )
@@ -372,7 +376,7 @@ RHI::IAccel* GPUResourcePool::getAccel( AccelHandle handle ) {
     return record.ptr.get();
 }
 
-std::optional<AccelHandle> GPUResourcePool::findAccel( const std::string& name ) const {
+std::optional<AccelHandle> GPUResourcePool::findAccel( StringView name ) const {
     std::scoped_lock lock( _mutex );
     auto             it = _accelNameToHandle.find( name );
     if ( it == _accelNameToHandle.end() )
@@ -401,10 +405,10 @@ void GPUResourcePool::destroyAccel( AccelHandle handle ) {
     record.name.clear();
 }
 
-TextureHandle GPUResourcePool::registerExternalTexture( RHI::ITexture* ptr, const std::string& name ) {
+TextureHandle GPUResourcePool::registerExternalTexture( RHI::TextureOwnerPtr&& ptr, StringView name ) {
     std::scoped_lock lock( _mutex );
 
-    uint id = UINT32_MAX;
+    u32 id = UINT32_MAX;
 
     // Optimización: Podrías tener una std::queue<uint> _freeIndices para evitar este bucle.
     // Para < 1000 buffers, este bucle es despreciable.
@@ -412,19 +416,19 @@ TextureHandle GPUResourcePool::registerExternalTexture( RHI::ITexture* ptr, cons
     {
         if ( !_textures[i].alive )
         {
-            id = (uint)i;
+            id = (u32)i;
             break;
         }
     }
 
     if ( id == UINT32_MAX )
     {
-        id = (uint)_textures.size();
+        id = (u32)_textures.size();
         _textures.emplace_back();
     }
 
     auto& record = _textures[id];
-    record.ptr   = RHI::TexturePtr( ptr );
+    record.ptr   = std::move( ptr );
     record.name  = name;
     record.alive = true;
     record.generation++;
@@ -435,15 +439,15 @@ TextureHandle GPUResourcePool::registerExternalTexture( RHI::ITexture* ptr, cons
     return TextureHandle { id };
 }
 
-BufferHandle GPUResourcePool::registerExternalBuffer( RHI::IBuffer* ptr, const std::string& name ) {
+BufferHandle GPUResourcePool::registerExternalBuffer( RHI::BufferOwnerPtr&& /*ptr*/, StringView /*name*/ ) {
     return BufferHandle();
 }
 
-SamplerHandle GPUResourcePool::registerExternalSampler( RHI::ISampler* ptr, const std::string& name ) {
+SamplerHandle GPUResourcePool::registerExternalSampler( RHI::SamplerOwnerPtr&& /*ptr*/, StringView /*name*/ ) {
     return SamplerHandle();
 }
 
-AccelHandle GPUResourcePool::registerExternalAccel( RHI::IAccel* ptr, const std::string& name ) {
+AccelHandle GPUResourcePool::registerExternalAccel( RHI::AccelOwnerPtr&& /*ptr*/, StringView /*name*/ ) {
     return AccelHandle();
 }
 

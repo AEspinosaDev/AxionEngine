@@ -1,8 +1,8 @@
 #pragma once
 #include "Axion/Common/Helpers.h"
 #include "Axion/Graphics/RHI/Common.h"
-#include "Axion/Graphics/RHI/Pipeline.h"
-#include "Axion/Graphics/RHI/Resource.h"
+#include "Axion/Graphics/RHI/IPipeline.h"
+#include "Axion/Graphics/RHI/IResource.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -16,58 +16,58 @@ struct ShaderBindingTable {
 
     /** @brief Represents a single shader record (Shader ID + Root Arguments). */
     struct Record {
-        std::string shaderName; ///< Export name used to retrieve the Shader Identifier.
-        void*       rootArgs;   ///< Pointer to local root arguments (constants/descriptors).
-        uint        argsSize;   ///< Size of the root arguments in bytes.
+        String64 shaderName; ///< Export name used to retrieve the Shader Identifier.
+        void*    rootArgs;   ///< Pointer to local root arguments (constants/descriptors).
+        u32      argsSize;   ///< Size of the root arguments in bytes.
     };
 
     /** @brief Describes the GPU memory layout of an uploaded SBT, used for DispatchRays. */
-    struct View {
-        ulong rayGenAddress; ///< GPU Virtual Address of the Ray Generation record.
+    struct Allocation {
+        u64 rayGenAddress; ///< GPU Virtual Address of the Ray Generation record.
         struct Region {
-            ulong startAddress;  ///< GPU Virtual Address of the table region.
-            uint  sizeInBytes;   ///< Total size of the region.
-            uint  strideInBytes; ///< Stride between records in this region.
+            u64 startAddress;  ///< GPU Virtual Address of the table region.
+            u32 sizeInBytes;   ///< Total size of the region.
+            u32 strideInBytes; ///< Stride between records in this region.
         } missRegion, hitRegion, callableRegion;
     };
 
-    Record              rayGen;     ///< The Ray Generation shader record (only one allowed).
-    std::vector<Record> missGroups; ///< List of Miss shader records.
-    std::vector<Record> hitGroups;  ///< List of Hit Group records.
-    std::vector<Record> callables;  ///< Optional list of Callable shader records.
+    Record               rayGen;     ///< The Ray Generation shader record (only one allowed).
+    STLW::Vector<Record> missGroups; ///< List of Miss shader records.
+    STLW::Vector<Record> hitGroups;  ///< List of Hit Group records.
+    STLW::Vector<Record> callables;  ///< Optional list of Callable shader records.
 
     /// @brief Sets the mandatory Ray Generation shader.
-    inline void setRayGen( const std::string& name, void* args = nullptr, uint size = 0 ) {
+    inline void setRayGen( const StringView name, void* args = nullptr, u32 size = 0 ) {
         rayGen = { name, args, size };
     }
     /// @brief Adds a Miss shader record.
-    inline void addMiss( const std::string& name, void* args = nullptr, uint size = 0 ) {
+    inline void addMiss( const StringView name, void* args = nullptr, u32 size = 0 ) {
         missGroups.push_back( { name, args, size } );
     }
     /// @brief Adds a Hit Group record (Closest Hit + Any Hit + Intersection).
-    inline void addHitGroup( const std::string& name, void* args = nullptr, uint size = 0 ) {
+    inline void addHitGroup( const StringView name, void* args = nullptr, u32 size = 0 ) {
         hitGroups.push_back( { name, args, size } );
     }
     /// @brief Adds a Callable shader record.
-    inline void addCallable( const std::string& name, void* args = nullptr, uint size = 0 ) {
+    inline void addCallable( const StringView name, void* args = nullptr, u32 size = 0 ) {
         callables.push_back( { name, args, size } );
     }
 };
 
 typedef ShaderBindingTable SBT;
 
-DEFINE_COM_PTR_FOR_TYPE( ISBTAllocator, SBTAllocator )
+DEFINE_OWNER_PTR_FOR_TYPE( ISBTAllocator, SBTAllocator )
 
 /**
  * @brief Interface for a linear allocator specialized in managing Shader Binding Table memory.
  * Handles alignment and uploading of SBT records to the GPU.
  */
-class ISBTAllocator : public IResource
+class ISBTAllocator : public IDeviceObject
 {
 public:
     struct Description {
-        uint        sizeInBytes;
-        std::string debugName;
+        u32      sizeInBytes;
+        String64 debugName;
     };
 
     virtual ~ISBTAllocator() = default;
@@ -78,7 +78,7 @@ public:
      * @param pip The pipeline used to retrieve Shader Identifiers.
      * @return The buffer view required for the DispatchRays command.
      */
-    virtual SBT::View allocate( const ShaderBindingTable& sbt, IRayTracingPipeline* pip ) = 0;
+    virtual SBT::Allocation allocate( const ShaderBindingTable& sbt, IRayTracingPipeline* pip ) = 0;
 
     /** @brief Returns the allocator description. */
     virtual const Description& getDescription() const = 0;

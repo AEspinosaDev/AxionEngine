@@ -9,7 +9,7 @@
 // TODO: Replace this temporary ImGui wrapper with the final Axion UI API.
 // Direct ImGui include for rapid development.
 // ============================================================================
-#include <Axion/Common/Defines.h>
+#include <Axion/Common/Common.h>
 #include <imgui.h>
 
 AXION_NAMESPACE_BEGIN

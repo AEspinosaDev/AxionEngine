@@ -1,20 +1,26 @@
 #pragma once
-#include <Axion/Common/Defines.h>
+#include <Axion/Common/Common.h>
 
 AXION_NAMESPACE_BEGIN
 
 namespace Core::Scene {
 
-struct TagComponent {
-    std::string tag;
-
+class TagComponent
+{
+public:
     TagComponent()                      = default;
     TagComponent( const TagComponent& ) = default;
-    TagComponent( const std::string& t )
+    TagComponent( StringView t )
         : tag( t ) {}
 
-    operator std::string&() { return tag; }
-    operator const std::string&() const { return tag; }
+    void       setTag( StringView t ) { tag = t; }
+    StringView getTag() const { return tag; }
+
+    operator String64&() { return tag; }
+    operator const String64&() const { return tag; }
+
+private:
+    String64 tag;
 };
 
 } // namespace Core::Scene

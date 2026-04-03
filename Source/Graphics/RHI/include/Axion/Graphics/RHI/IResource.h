@@ -1,0 +1,202 @@
+#pragma once
+#include "Axion/Graphics/RHI/Common.h"
+
+
+AXION_NAMESPACE_BEGIN
+
+namespace Graphics::RHI {
+
+#pragma region Texture
+
+DEFINE_OWNER_PTR_FOR_TYPE( ITexture, Texture )
+
+// Texture are always GPU. If you waNT TO wark with CPU ones, use a buffer.
+class ITexture : public IDeviceObject
+{
+public:
+    struct Description {
+        Extent3D         size        = { 1, 1, 1 };
+        Format           format      = Format::UNKNOWN;
+        TextureDimension dimension   = TextureDimension::Texture2D;
+        u32              mipLevels   = 1;
+        u32              sampleCount = 1;
+        u32              arraySize   = 1;
+        String64         debugName   = "";
+        TextureViewFlags viewFlags   = TextureViewShaderResource;
+        ClearValue       clearValue  = { .color = { 0.0f, 0.0f, 0.0f, 1.0f }, .depth = { 1.0f } }; // Only if RenderTarget or DepthStencil
+
+        bool operator==( const Description& other ) const {
+            return size == other.size &&
+                   format == other.format &&
+                   dimension == other.dimension &&
+                   mipLevels == other.mipLevels &&
+                   sampleCount == other.sampleCount &&
+                   arraySize == other.arraySize &&
+                   debugName == other.debugName &&
+                   viewFlags == other.viewFlags;
+        }
+        bool operator!=( const Description& other ) const {
+            return !operator==( other );
+        }
+    };
+    virtual ~ITexture()                                           = default;
+    virtual const ITexture::Description& getDescription() const   = 0;
+    virtual ResourceState                getCurrentState() const  = 0;
+    virtual u64                          getDeviceAddress() const = 0;
+};
+
+typedef ITexture::Description TextureDesc;
+
+#pragma endregion
+#pragma region Buffer
+
+DEFINE_OWNER_PTR_FOR_TYPE( IBuffer, Buffer )
+
+
+/**
+ * 
+ * Buffers are more flexible than textures, they can be used for vertex/index data, uniform/constant buffers, storage buffers, indirect args, etc. They can also be mapped to CPU memory for read/write access. They can have different usage flags and memory types (GPU-only, CPU-visible, etc).
+ */
+class IBuffer : public IDeviceObject
+{
+public:
+    struct Description {
+        u64             size          = 0;
+        u32             stride        = 1; // for structured buffers
+        MemoryUsage     memoryType    = MemoryUsage::GPUOnly;
+        BufferUsage     usageFlags    = BufferUsage::None;
+        BufferViewFlags viewFlags     = BufferViewNone;
+        bool            allowRawViews = false;
+        String64        debugName     = "";
+
+        bool operator==( const Description& other ) const {
+            return size == other.size &&
+                   stride == other.stride &&
+                   memoryType == other.memoryType &&
+                   usageFlags == other.usageFlags &&
+                   viewFlags == other.viewFlags &&
+                   debugName == other.debugName;
+        }
+
+        bool operator!=( const Description& other ) const {
+            return !operator==( other );
+        }
+    };
+
+    virtual ~IBuffer()                                 = default;
+    virtual const Description& getDescription() const  = 0;
+    virtual ResourceState      getCurrentState() const = 0;
+
+    virtual u64   getDeviceAddress() const = 0;
+    virtual void* getHostAddress() const   = 0;
+
+    virtual void copyData( const void* data, u64 size, u64 offset = 0 ) = 0;
+
+    template <typename T>
+    void copyData( const T& data, u64 offset = 0 ) {
+        copyData( &data, sizeof( T ), offset );
+    }
+    // --- Vector Helper ---
+    template <typename T>
+    void copyData( const STLW::Vector<T>& data, size_t offset = 0 ) {
+        copyData( data.data(), data.size() * sizeof( T ), offset );
+    }
+    u64 getCapacity() const { return getDescription().size; }
+
+    // Careful usage
+    virtual void* map()   = 0;
+    virtual void  unmap() = 0;
+};
+
+using BufferDesc = IBuffer::Description;
+
+#pragma endregion
+#pragma region Accel
+
+DEFINE_OWNER_PTR_FOR_TYPE( IAccel, Accel )
+
+class IAccel : public IDeviceObject
+{
+public:
+    struct Description {
+        AccelType                       type;
+        AccelBuildFlags                 flags;
+        STLW::Vector<AccelGeometryDesc> geometries; // Only valid if type == AccelType::BottomLevel
+        STLW::Vector<AccelInstanceDesc> instances;  // Only valid if type == AccelType::TopLevel
+        String64                        debugName = "";
+
+        bool operator==( const Description& other ) const {
+            return type == other.type &&
+                   flags == other.flags &&
+                   geometries == other.geometries &&
+                   instances == other.instances &&
+                   debugName == other.debugName;
+        }
+        bool operator!=( const Description& other ) const {
+            return !operator==( other );
+        }
+    };
+
+    virtual ~IAccel() = default;
+
+    virtual const Description& getDescription() const   = 0;
+    virtual AccelType          getType() const          = 0;
+    virtual u64                getDeviceAddress() const = 0;
+
+    virtual u64 getUpdateScratchSize() const = 0;
+    virtual u64 getBuildScratchSize() const  = 0;
+};
+
+using AccelDesc = IAccel::Description;
+
+#pragma endregion
+#pragma region Sampler
+
+DEFINE_OWNER_PTR_FOR_TYPE( ISampler, Sampler )
+
+class ISampler : public IDeviceObject
+{
+public:
+    virtual ~ISampler() = default;
+
+    struct Description {
+        Filter      minFilter     = Filter::Linear;
+        Filter      magFilter     = Filter::Linear;
+        Filter      mipFilter     = Filter::Linear;
+        AddressMode addressU      = AddressMode::Repeat;
+        AddressMode addressV      = AddressMode::Repeat;
+        AddressMode addressW      = AddressMode::Repeat;
+        u32         maxAnisotropy = 16;
+        float       maxLOD        = 12.0;
+        float       minLOD        = 0.0f;
+        float       mipLODBias    = 0.0f;
+        CompareOp   compareOp     = CompareOp::Never;
+        String64    debugName;
+
+        bool operator==( const Description& other ) const {
+            return minFilter == other.minFilter &&
+                   magFilter == other.magFilter &&
+                   mipFilter == other.mipFilter &&
+                   addressU == other.addressU &&
+                   addressV == other.addressV &&
+                   addressW == other.addressW &&
+                   maxAnisotropy == other.maxAnisotropy &&
+                   maxLOD == other.maxLOD &&
+                   minLOD == other.minLOD &&
+                   mipLODBias == other.mipLODBias &&
+                   compareOp == other.compareOp &&
+                   debugName == other.debugName;
+        }
+
+        bool operator!=( const Description& other ) const {
+            return !operator==( other );
+        }
+    };
+    virtual const Description& getDescription() const = 0;
+};
+
+using SamplerDesc = ISampler::Description;
+
+} // namespace Graphics::RHI
+
+AXION_NAMESPACE_END

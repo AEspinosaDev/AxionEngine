@@ -1,5 +1,5 @@
 #pragma once
-#include "Axion/Graphics/Passes/Recipe.hpp"
+#include "Axion/Graphics/Passes/IRecipe.hpp"
 
 AXION_NAMESPACE_BEGIN
 

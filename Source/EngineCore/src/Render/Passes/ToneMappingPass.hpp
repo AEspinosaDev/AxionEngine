@@ -1,6 +1,6 @@
 #pragma once
 #include "../PassSystem.h"
-#include "Axion/Graphics/Subsystems/RenderGraph.h"
+#include "Axion/Graphics/Subsystems/IRenderGraph.h"
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
@@ -11,7 +11,7 @@ public:
     struct Config {
         Graphics::RGResourceHandle inputHandle;  // HDR
         Graphics::RGResourceHandle outputHandle; // LDR
-        uint                       tonemapType;
+        u32                       tonemapType;
         float                      exposure = 1.0f;
     };
 

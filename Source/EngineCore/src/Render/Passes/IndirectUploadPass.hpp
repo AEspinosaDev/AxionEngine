@@ -1,7 +1,7 @@
 #pragma once
 #include "../DrawIndirect.h"
 #include "../PassSystem.h"
-#include "Axion/Graphics/Subsystems/RenderGraph.h"
+#include "Axion/Graphics/Subsystems/IRenderGraph.h"
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
@@ -10,13 +10,13 @@ class IndirectUploadPass : public IRenderPass
 {
 public:
     struct Config {
-        IndirectCommandData        indirectData;
+        IndirectCommandPayload        indirectData;
         Graphics::RGResourceHandle inOutIndirectBufferHandle;
         Graphics::BufferHandle     inOutIndirectTemplateBufferHandle;
     };
 
-    void registerShaders( Graphics::IShaderRegistry& shaders ) override { /*NO OP*/ }
-    void createPipelines( Graphics::IPipelineRegistry& pipelines ) override { /*NO OP*/ }
+    void registerShaders( Graphics::IShaderRegistry& /*shaders*/ ) override { /*NO OP*/ }
+    void createPipelines( Graphics::IPipelineRegistry& /*pipelines*/ ) override { /*NO OP*/ }
 
     void addToGraph( Graphics::RenderGraphBuilder& builder, const Config& seedData ) {
 
@@ -41,8 +41,8 @@ private:
             cmd->barrier( templateBuffer, Graphics::RHI::ResourceState::CopyDest );
 
             cmd->copyBuffer( templateBuffer,
-                             data.indirectData.commandBufferView.buffer,
-                             data.indirectData.commandBufferView.size,
+                             data.indirectData.commandBufferSlice.container,
+                             data.indirectData.commandBufferSlice.size,
                              0,
                              0,
                              Graphics::RHI::BarrierPolicy::None );
@@ -53,8 +53,8 @@ private:
         // Fast
         // GPU -> GPU
         cmd->copyBuffer( activeBuffer,
-                         data.indirectData.commandBufferView.buffer,
-                         data.indirectData.commandBufferView.size,
+                         data.indirectData.commandBufferSlice.container,
+                         data.indirectData.commandBufferSlice.size,
                          0,
                          0,
                          Graphics::RHI::BarrierPolicy::None );

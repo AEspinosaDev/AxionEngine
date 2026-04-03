@@ -2,7 +2,7 @@
 #include "../DrawIndirect.h"
 #include "../GPUScene.h"
 #include "../PassSystem.h"
-#include "Axion/Graphics/Subsystems/RenderGraph.h"
+#include "Axion/Graphics/Subsystems/IRenderGraph.h"
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
@@ -15,14 +15,14 @@ public:
         Graphics::RGResourceHandle outIndirectBufferHandle;
         Graphics::RGResourceHandle outCulledRedirectBufferHandle;
 
-        Graphics::RHI::BufferView inFrameView;
-        Graphics::RHI::BufferView inMeshesView;
-        Graphics::RHI::BufferView inInstancesView;
-        Graphics::RHI::BufferView inRedirectionView;
+        Graphics::BufferSlice inFrameSlice;
+        Graphics::BufferSlice inMeshesSlice;
+        Graphics::BufferSlice inInstancesSlice;
+        Graphics::BufferSlice inRedirectionSlice;
 
-        IndirectCommandData indirectData;
+        IndirectCommandPayload indirectData;
 
-        uint instanceCount;
+        u32 instanceCount;
     };
 
     void registerShaders( Graphics::IShaderRegistry& shaders ) override {
@@ -64,11 +64,11 @@ private:
         // SET 0: INPUTS (ReadOnly) -> Space 0
         auto* set0 = ctx.allocateSet( pipLayout, 0 );
 
-        set0->attachBufferView( 0, data.inFrameView, Graphics::RHI::ResourceState::ConstantBuffer );
-        set0->attachBufferView( 1, data.inMeshesView, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attachBufferView( 2, data.inInstancesView, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attachBufferView( 3, data.inRedirectionView, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attachBufferView( 4, data.indirectData.batchMapView, Graphics::RHI::ResourceState::ShaderResource );
+        set0->attachBufferSlice( 0, data.inFrameSlice, Graphics::RHI::ResourceState::ConstantBuffer );
+        set0->attachBufferSlice( 1, data.inMeshesSlice, Graphics::RHI::ResourceState::ShaderResource );
+        set0->attachBufferSlice( 2, data.inInstancesSlice, Graphics::RHI::ResourceState::ShaderResource );
+        set0->attachBufferSlice( 3, data.inRedirectionSlice, Graphics::RHI::ResourceState::ShaderResource );
+        set0->attachBufferSlice( 4, data.indirectData.batchMapSlice, Graphics::RHI::ResourceState::ShaderResource );
 
         cmd->bindDescriptorSet( 0, set0 );
 
@@ -86,8 +86,8 @@ private:
 
         // DISPATCH
 
-        uint groupSize  = 64;
-        uint groupCount = ( data.instanceCount + groupSize - 1 ) / groupSize;
+        u32 groupSize  = 64;
+        u32 groupCount = ( data.instanceCount + groupSize - 1 ) / groupSize;
         ctx.cmd->dispatch( { groupCount, 1, 1 } );
     }
 

@@ -23,13 +23,14 @@
  * ==========================================================================================
  */
 #pragma once
-#include "Axion/Common/Defines.h"
+#include "Axion/Common/Common.h"
+#include "Axion/Graphics/IRenderer.h"
 #include "Axion/Graphics/Passes/PostProcess.hpp"
 #include "Axion/Graphics/Passes/Utilitary.hpp"
-#include "Axion/Graphics/Platforms/GLFW.h"
-#include "Axion/Graphics/Platforms/Win32.h"
-#include "Axion/Graphics/Renderer.h"
+#include "Axion/Graphics/Platforms/IGLFW.h"
+#include "Axion/Graphics/Platforms/IWin32.h"
 #include "cube.h"
+
 USING_AXION_NAMESPACE
 
 struct Scene {
@@ -41,7 +42,7 @@ struct Scene {
         Math::Mat4 invView;
         Math::Mat4 invProj;
         Math::Mat4 model;
-        uint       frameIndex;
+        u32       frameIndex;
     };
 };
 
@@ -51,8 +52,8 @@ struct Cube {
     Graphics::BufferHandle ibo;
     Graphics::AccelHandle  accel;
 
-    std::vector<Vertex> vertices = cubeVertices;
-    std::vector<uint>   indices  = cubeIndices;
+   FixedArray<Vertex, 24> vertices = cubeVertices;
+   FixedArray<u32, 36>   indices  = cubeIndices;
 };
 
 struct RTXPass {
@@ -109,11 +110,11 @@ struct RTXPass {
 };
 
 Axion::Graphics::RHI::AccelInstanceDesc createInstance(
-    uint              id,
-    uint              hitGroup,
+    u32              id,
+    u32              hitGroup,
     const Math::Vec3& pos,
     const Math::Vec3& scale,
-    ulong             blasAddress );
+    u64             blasAddress );
 int main( /*int argc, char* argv[]*/ ) {
 
     try
@@ -125,7 +126,7 @@ int main( /*int argc, char* argv[]*/ ) {
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX Raytracing Sample" } );
 
         auto       bufferingType    = Graphics::BufferingType::Double;
-        const uint FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
+        const u32 FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
         auto       rnd              = Axion::Graphics::createRenderer( wnd.get(),
                                                                        { .gfxApi        = Graphics::API::DirectX12,
                                                                          .bufferingType = bufferingType,
@@ -186,8 +187,8 @@ int main( /*int argc, char* argv[]*/ ) {
                                   .buffer( "IndexBuffer" )
                                   .asReadOnlySSBO()
                                   .withData( rtPass.cubeData.indices.data() )
-                                  .size( rtPass.cubeData.indices.size() * sizeof( uint ) )
-                                  .stride( sizeof( uint ) )
+                                  .size( rtPass.cubeData.indices.size() * sizeof( u32 ) )
+                                  .stride( sizeof( u32 ) )
                                   .create();
 
         // AS
@@ -214,9 +215,9 @@ int main( /*int argc, char* argv[]*/ ) {
 
         // 2. TLAS (Top Level Acceleration Structure)
 
-        auto*                                                cubeBlas = rnd->resources().getAccel( rtPass.cubeData.accel );
-        std::vector<Axion::Graphics::RHI::AccelInstanceDesc> instances;
-        auto                                                 add = cubeBlas->getDeviceAddress();
+        auto*                                                 cubeBlas = rnd->resources().getAccel( rtPass.cubeData.accel );
+        STLW::Vector<Axion::Graphics::RHI::AccelInstanceDesc> instances;
+        auto                                                  add = cubeBlas->getDeviceAddress();
         // 0. Floor (Grey)
         instances.push_back( createInstance( 0, 0, { 0, -2.0, 0 }, { 4, 0.1f, 4 }, add ) );
         // 1. Ceiling (Grey)
@@ -242,9 +243,9 @@ int main( /*int argc, char* argv[]*/ ) {
                                  .create();
 
         // UNIFORM CONSTANT BUFFER
-        std::vector<Graphics::BufferHandle>
+        STLW::Vector<Graphics::BufferHandle>
             scnBuffers( FRAMES_IN_FLIGHT );
-        for ( uint i = 0; i < FRAMES_IN_FLIGHT; ++i )
+        for ( u32 i = 0; i < FRAMES_IN_FLIGHT; ++i )
         {
             scnBuffers[i] = rnd->resources().buffer( "CamUniformBuffer_" + std::to_string( i ) ).size( sizeof( Scene::Payload ) ).asCBO().onCPU().create();
         }
@@ -259,7 +260,7 @@ int main( /*int argc, char* argv[]*/ ) {
         static Axion::Math::Vec3 target = { 0, 0, 0 };
 
         // Events
-        ulong frameCount = 0;
+        u64 frameCount = 0;
         auto  evnt       = wnd->onKey().subscribe( [&scn, &frameCount]( const Event::KeyEvent& e ) {
             if ( e.keyCode == Event::KeyCode::W && e.pressed )
             {
@@ -395,11 +396,11 @@ int main( /*int argc, char* argv[]*/ ) {
 }
 
 Axion::Graphics::RHI::AccelInstanceDesc createInstance(
-    uint              id,
-    uint              hitGroup,
+    u32              id,
+    u32              hitGroup,
     const Math::Vec3& pos,
     const Math::Vec3& scale,
-    ulong             blasAddress ) {
+    u64             blasAddress ) {
     Axion::Graphics::RHI::AccelInstanceDesc inst = {};
     inst.instanceID                              = id;
     inst.instanceMask                            = 0xFF;

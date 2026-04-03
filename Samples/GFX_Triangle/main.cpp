@@ -16,9 +16,10 @@
  * ==========================================================================================
  */
 #pragma once
-#include "Axion/Common/Defines.h"
-#include "Axion/Graphics/Platforms/Win32.h"
-#include "Axion/Graphics/Renderer.h"
+#include "Axion/Common/Common.h"
+#include "Axion/Common/Containers/Array.h"
+#include "Axion/Graphics/Platforms/IWin32.h"
+#include "Axion/Graphics/IRenderer.h"
 
 USING_AXION_NAMESPACE
 
@@ -88,7 +89,7 @@ int main( /*int argc, char* argv[]*/ ) {
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX Triangle Sample" } );
 
         auto       bufferingType    = Graphics::BufferingType::Double;
-        const uint FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
+        const u32 FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
         auto       rnd              = Axion::Graphics::createRenderer( wnd.get(),
                                                                        { .gfxApi        = Graphics::API::DirectX12,
                                                                          .bufferingType = bufferingType,
@@ -121,11 +122,11 @@ int main( /*int argc, char* argv[]*/ ) {
             float x, y, z;
             float r, g, b;
         };
-        std::vector<Vertex> vertices = {
+        FixedArray<Vertex, 3> vertices = {
             { 0.0f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f },
             { 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f },
             { -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f } };
-        std::vector<uint> indices = { 0, 1, 2 };
+        FixedArray<u32, 3> indices = { 0, 1, 2 };
 
         rpass.vbo = rnd->resources()
                         .buffer( "VertexBuffer" )
@@ -135,7 +136,7 @@ int main( /*int argc, char* argv[]*/ ) {
                         .size( vertices.size() * sizeof( Vertex ) )
                         .create();
 
-        rpass.ibo = rnd->resources().buffer( "IndexBuffer" ).asIBO().withData( indices.data() ).size( indices.size() * sizeof( uint ) ).create();
+        rpass.ibo = rnd->resources().buffer( "IndexBuffer" ).asIBO().withData( indices.data() ).size( indices.size() * sizeof( u32 ) ).create();
 
         //-------------------------------------
         // UNIFORM CONSTANT BUFFER

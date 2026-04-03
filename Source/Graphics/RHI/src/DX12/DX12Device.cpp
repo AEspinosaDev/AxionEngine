@@ -1,22 +1,24 @@
-#include "DX12Device.hpp"
-#include "../TransientAllocator.h"
-#include "DX12CommandList.hpp"
-#include "DX12Debug.hpp"
-#include "DX12Pipeline.hpp"
-#include "DX12Resource.hpp"
+#include "DX12Device.h"
+#include "DX12CommandList.h"
+#include "DX12Debug.h"
+#include "DX12Pipeline.h"
+#include "DX12Resource.h"
 #include "DX12SBTAllocator.h"
-#include "DX12Swapchain.hpp"
+#include "DX12Swapchain.h"
 #include "DX12TranslatorUnit.h"
+
+#include <GLFW/glfw3.h>
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+
+#include "../TransientAllocator.h"
 
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
-DX12DevicePtr RHI::createDX12Device( const DX12DeviceDesc& desc ) {
-    DX12Device*   raw = new DX12Device( desc );
-    DX12DevicePtr dev;
-    dev.attach( raw );
-    return dev;
+DX12DeviceOwnerPtr RHI::createDX12Device( const DX12DeviceDesc& desc ) {
+    return Memory::makeOwned<DX12Device>( desc );
 }
 
 DX12Device::DX12Device( const IDX12Device::Description& desc ) {
@@ -32,7 +34,9 @@ DX12Device::DX12Device( const IDX12Device::Description& desc ) {
         _ctx.adapter = getGPUAdapter( desc.preferredDeviceID );
 
         _ctx.device = createDevice( _ctx.adapter );
-        _ctx.device->SetName( std::wstring( desc.debugName.begin(), desc.debugName.end() ).c_str() );
+
+      
+        setNativeName( _ctx.device.Get(), desc.debugName );
         checkExtensions();
 
         _ctx.primaryQueue = createCommandQueue( QueueType::Graphics, "Graphics Queue" );
@@ -75,123 +79,79 @@ DX12Device::DX12Device( const IDX12Device::Description& desc ) {
 DX12Device::~DX12Device() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Device [{}]", _desc.debugName );
 }
-
-SwapchainPtr DX12Device::createSwapchain( const NativeObject& Ptr, const SwapchainDesc& desc ) {
+SwapchainOwnerPtr DX12Device::createSwapchain( const NativeObject& Ptr, const SwapchainDesc& desc ) {
     HWND hwnd = nullptr;
     switch ( Ptr.integer )
     {
         case ObjectTypes::WIN32_WINDOW:
 #ifdef _WIN32
-            hwnd = Ptr;
+            hwnd = (HWND)Ptr.pointer; // O como tengas el cast de NativeObject
 #endif
             break;
         case ObjectTypes::GLFW_Window:
-            hwnd = glfwGetWin32Window( Ptr );
+            hwnd = glfwGetWin32Window( (GLFWwindow*)Ptr.pointer );
             break;
         default:
             AXION_LOG_ERROR( Logger::Module::RHI, "Unsupported platform for swapchain" );
             throw AxionException( "Unsupported platform for swapchain" );
     }
-    DX12Swapchain* raw = new DX12Swapchain( hwnd, _ctx, desc );
-    SwapchainPtr   swp;
-    swp.attach( raw );
-    return swp;
+
+    return Memory::makeOwned<DX12Swapchain>( hwnd, _ctx, desc );
 }
 
-CommandListPtr DX12Device::createCommandList( const CommandListDesc& desc ) {
-    DX12CommandList* raw = new DX12CommandList( _ctx.device,
-                                                desc );
-    CommandListPtr   cmd;
-    cmd.attach( raw );
-    return cmd;
+CommandListOwnerPtr DX12Device::createCommandList( const CommandListDesc& desc ) {
+    return Memory::makeOwned<DX12CommandList>( _ctx.device, desc );
 }
 
-TexturePtr DX12Device::createTexture( const TextureDesc& desc, const void* initialData ) {
-    DX12Texture* raw = new DX12Texture( desc, _ctx, initialData );
-    TexturePtr   tex;
-    tex.attach( raw );
-    return tex;
+TextureOwnerPtr DX12Device::createTexture( const TextureDesc& desc, const void* initialData ) {
+    return Memory::makeOwned<DX12Texture>( desc, _ctx, initialData );
 }
 
-BufferPtr RHI::DX12Device::createBuffer( const BufferDesc& desc, const void* initialData ) {
-    DX12Buffer* raw = new DX12Buffer( desc, _ctx, initialData );
-    BufferPtr   buff;
-    buff.attach( raw );
-    return buff;
+BufferOwnerPtr DX12Device::createBuffer( const BufferDesc& desc, const void* initialData ) {
+    return Memory::makeOwned<DX12Buffer>( desc, _ctx, initialData );
 }
 
-SamplerPtr DX12Device::createSampler( const SamplerDesc& desc ) {
-    DX12Sampler* raw = new DX12Sampler( desc, _ctx );
-    SamplerPtr   sampler;
-    sampler.attach( raw );
-    return sampler;
+SamplerOwnerPtr DX12Device::createSampler( const SamplerDesc& desc ) {
+    return Memory::makeOwned<DX12Sampler>( desc, _ctx );
 }
 
-AccelPtr DX12Device::createAccel( const AccelDesc& desc, bool immediateBuild ) {
-    DX12Accel* raw = new DX12Accel( desc, _ctx, immediateBuild );
-    AccelPtr   acc;
-    acc.attach( raw );
-    return acc;
+AccelOwnerPtr DX12Device::createAccel( const AccelDesc& desc, bool immediateBuild ) {
+    return Memory::makeOwned<DX12Accel>( desc, _ctx, immediateBuild );
 }
 
-PipelineLayoutPtr DX12Device::createPipelineLayout( const PipelineLayoutDesc& desc ) {
-    DX12PipelineLayout* raw = new DX12PipelineLayout( _ctx.device, desc );
-    PipelineLayoutPtr   layout;
-    layout.attach( raw );
-    return layout;
+PipelineLayoutOwnerPtr DX12Device::createPipelineLayout( const PipelineLayoutDesc& desc ) {
+    return Memory::makeOwned<DX12PipelineLayout>( _ctx.device, desc );
 }
 
-GraphicPipelinePtr DX12Device::createGraphicPipeline( const GraphicPipelineDesc& desc ) {
-    DX12GraphicPipeline* raw = new DX12GraphicPipeline( _ctx.device, desc );
-    GraphicPipelinePtr   pip;
-    pip.attach( raw );
-    return pip;
+GraphicPipelineOwnerPtr DX12Device::createGraphicPipeline( const GraphicPipelineDesc& desc ) {
+    return Memory::makeOwned<DX12GraphicPipeline>( _ctx.device, desc );
 }
 
-ComputePipelinePtr DX12Device::createComputePipeline( const ComputePipelineDesc& desc ) {
-    DX12ComputePipeline* raw = new DX12ComputePipeline( _ctx.device, desc );
-    ComputePipelinePtr   pip;
-    pip.attach( raw );
-    return pip;
+ComputePipelineOwnerPtr DX12Device::createComputePipeline( const ComputePipelineDesc& desc ) {
+    return Memory::makeOwned<DX12ComputePipeline>( _ctx.device, desc );
 }
 
-RayTracingPipelinePtr DX12Device::createRayTracingPipeline( const RayTracingPipelineDesc& desc ) {
-    DX12RayTracingPipeline* raw = new DX12RayTracingPipeline( _ctx.device, desc );
-    RayTracingPipelinePtr   pip;
-    pip.attach( raw );
-    return pip;
+RayTracingPipelineOwnerPtr DX12Device::createRayTracingPipeline( const RayTracingPipelineDesc& desc ) {
+    return Memory::makeOwned<DX12RayTracingPipeline>( _ctx.device, desc );
 }
 
-MeshPipelinePtr DX12Device::createMeshPipeline( const MeshPipelineDesc& desc ) {
-    DX12MeshPipeline* raw = new DX12MeshPipeline( _ctx.device, desc );
-    MeshPipelinePtr   pip;
-    pip.attach( raw );
-    return pip;
+MeshPipelineOwnerPtr DX12Device::createMeshPipeline( const MeshPipelineDesc& desc ) {
+    return Memory::makeOwned<DX12MeshPipeline>( _ctx.device, desc );
 }
 
-DescriptorAllocatorPtr DX12Device::createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) {
-    DX12DescriptorAllocator* raw = new DX12DescriptorAllocator( _ctx.device.Get(), desc );
-    DescriptorAllocatorPtr   dAlloc;
-    dAlloc.attach( raw );
-    return dAlloc;
+DescriptorAllocatorOwnerPtr DX12Device::createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) {
+    return Memory::makeOwned<DX12DescriptorAllocator>( _ctx.device.Get(), desc );
 }
 
-SBTAllocatorPtr DX12Device::createSBTAllocator( const SBTAllocatorDesc& desc ) {
-    DX12SBTAllocator* raw = new DX12SBTAllocator( desc, _ctx );
-    SBTAllocatorPtr   sbtAlloc;
-    sbtAlloc.attach( raw );
-    return sbtAlloc;
+SBTAllocatorOwnerPtr DX12Device::createSBTAllocator( const SBTAllocatorDesc& desc ) {
+    return Memory::makeOwned<DX12SBTAllocator>( desc, _ctx );
 }
 
-TransientAllocatorPtr DX12Device::createTransientAllocator( const TransientAllocatorDesc& desc ) {
-    TransientAllocator*   raw = new TransientAllocator( this, desc );
-    TransientAllocatorPtr transAlloc;
-    transAlloc.attach( raw );
-    return transAlloc;
+TransientAllocatorOwnerPtr DX12Device::createTransientAllocator( const TransientAllocatorDesc& desc ) {
+    return Memory::makeOwned<TransientAllocator>( this, desc );
 }
-
-void DX12Device::executeCommandLists( const std::vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) {
-    std::vector<ID3D12CommandList*> nativeLists;
+void DX12Device::executeCommandLists( const STLW::Vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) {
+    STLW::Vector<ID3D12CommandList*> nativeLists;
     nativeLists.reserve( lists.size() );
     for ( ICommandList* list : lists )
     {
@@ -260,32 +220,32 @@ void DX12Device::oneTimeSubmit( std::function<void( ICommandList* cmd )>& comman
     _ctx.uploadContext.oneTimeSubmit( _ctx.primaryQueue, commands );
 }
 
-bool DX12Device::queryFeatureSupport( Feature feature, void* pInfo, size_t infoSize ) const {
+bool DX12Device::queryFeatureSupport( FeatureType feature, void* /*pInfo*/, size_t /*infoSize*/ ) const {
     switch ( feature ) // NOLINT(clang-diagnostic-switch-enum)
     {
-        case Feature::DeferredCommandLists:
+        case FeatureType::DeferredCommandLists:
             return true;
-        case Feature::SinglePassStereo:
+        case FeatureType::SinglePassStereo:
             return _ext.singlePassStereoSupported;
-        case Feature::RayTracingAccelStruct:
+        case FeatureType::RayTracingAccelStruct:
             return _ext.rayTracingSupported;
-        case Feature::RayTracingPipeline:
+        case FeatureType::RayTracingPipeline:
             return _ext.rayTracingSupported;
-        case Feature::RayTracingOpacityMicromap:
+        case FeatureType::RayTracingOpacityMicromap:
             return _ext.opacityMicromapSupported;
-        case Feature::RayTracingClusters:
+        case FeatureType::RayTracingClusters:
             return _ext.rayTracingClustersSupported;
-        case Feature::RayQuery:
+        case FeatureType::RayQuery:
             return _ext.traceRayInlineSupported;
-        case Feature::FastGeometryShader:
+        case FeatureType::FastGeometryShader:
             return _ext.fastGeometryShaderSupported;
-        case Feature::ShaderExecutionReordering:
+        case FeatureType::ShaderExecutionReordering:
             return _ext.shaderExecutionReorderingSupported;
-        case Feature::Spheres:
+        case FeatureType::Spheres:
             return _ext.spheresSupported;
-        case Feature::LinearSweptSpheres:
+        case FeatureType::LinearSweptSpheres:
             return _ext.linearSweptSpheresSupported;
-        case Feature::Meshlets:
+        case FeatureType::Meshlets:
             return _ext.meshletsSupported;
             //    *******************************MORE
         default:
@@ -297,7 +257,7 @@ FormatSupport DX12Device::queryFormatSupport( Format format ) const {
     // WIP
     return FormatSupport::None;
 }
-ComPtr<IDXGIAdapter4> DX12Device::getGPUAdapter( uint preferredDeviceID ) {
+ComPtr<IDXGIAdapter4> DX12Device::getGPUAdapter( u32 preferredDeviceID ) {
 
     ComPtr<IDXGIFactory4> dxgiFactory;
     UINT                  createFactoryFlags = 0;
@@ -368,13 +328,19 @@ ComPtr<IDXGIAdapter4> DX12Device::getGPUAdapter( uint preferredDeviceID ) {
         DXGI_ADAPTER_DESC desc;
         dxgiAdapter4->GetDesc( &desc );
 
-        _gpuAdapterName.clear();
+        char           narrowName[128];
         const wchar_t* wName = desc.Description;
-        while ( *wName )
+        u32            i     = 0;
+
+        while ( *wName && i < 127 )
         {
-            _gpuAdapterName += (char)*wName; // Basic cast
+            narrowName[i] = static_cast<char>( *wName );
             wName++;
+            i++;
         }
+        narrowName[i] = '\0'; // Ensure null termination
+
+        _gpuAdapterName = StringView(narrowName);
 
         AXION_LOG_INFO( Logger::Module::RHI, "DX12 Device [{}]: GPU Selected: {} (VRAM: {} MB)", _desc.debugName, _gpuAdapterName, desc.DedicatedVideoMemory / ( 1024 * 1024 ) );
     } else
@@ -482,8 +448,8 @@ API DX12Device::getGraphicsAPI() {
     return API::DirectX12;
 }
 
-std::unique_ptr<DX12Device::Queue> DX12Device::createCommandQueue( const QueueType& type, const std::string& name ) {
-    auto q = NEW_U( DX12Device::Queue )();
+Memory::OwnerPtr<DX12Device::Queue> DX12Device::createCommandQueue( const QueueType& type, const std::string& name ) {
+    auto q = Memory::makeOwned<DX12Device::Queue>();
 
     D3D12_COMMAND_QUEUE_DESC desc = {};
     desc.Type                     = DX12Translator::get( type );
@@ -537,61 +503,76 @@ NativeObject DX12Device::getNativeObject( ObjectType objectType ) {
     }
 }
 
-void DX12Device::setDebugName( const std::string& name ) {
+void DX12Device::setDebugName( std::string_view name ) {
     _desc.debugName = name;
-    _ctx.device->SetName( std::wstring( name.begin(), name.end() ).c_str() );
+    if ( !name.empty() && _ctx.device )
+    {
+        wchar_t wname[128];
+        int     result = MultiByteToWideChar( CP_UTF8, 0, name.data(), (int)name.length(), wname, 127 );
+        if ( result > 0 )
+        {
+            wname[result] = L'\0';
+            _ctx.device->SetName( wname );
+        }
+    }
 }
 
-const std::string& DX12Device::getDebugName() const {
+std::string_view DX12Device::getDebugName() const {
     return _desc.debugName;
 }
 
-std::string RHI::DX12Device::toString() const {
-    std::string deviceInfo = fmt::format(
-        "DX12 Device Description:\n"
-        "  Debug Name: {}\n"
-        "  Chosen GPU: {}\n"
-        "  Feature Level: 0x{:X}\n"
-        "  Enable Debug Layer: {}\n"
-        "  Use WARP: {}\n"
-        "  RTV Heap Size: {}\n"
-        "  DSV Heap Size: {}\n"
-        "  SRV Heap Size: {}\n"
-        "  Sampler Heap Size: {}\n"
-        "  Heap Directly Indexed: {}",
-        _desc.debugName,
-        _gpuAdapterName,
-        static_cast<int>( _desc.featureLevel ),
-        _desc.enableDebugLayer,
-        _desc.useWarp,
-        _desc.renderTargetViewHeapSize,
-        _desc.depthStencilViewHeapSize,
-        _desc.shaderResourceViewHeapSize,
-        _desc.samplerHeapSize,
-        _desc.enableHeapDirectlyIndexed );
+STLW::String RHI::DX12Device::toString() const {
+    fmt::memory_buffer out;
 
-    std::ostringstream ss;
-    ss << "  Extensions:\n";
-    ss << fmt::format( "    NVAPI Initialized: {}\n", _ext.nvapiIsInitialized );
-    ss << fmt::format( "    Single Pass Stereo: {}\n", _ext.singlePassStereoSupported );
-    ss << fmt::format( "    HLSL Extensions: {}\n", _ext.hlslExtensionsSupported );
-    ss << fmt::format( "    Fast Geometry Shader: {}\n", _ext.fastGeometryShaderSupported );
-    ss << fmt::format( "    Ray Tracing: {}\n", _ext.rayTracingSupported );
-    ss << fmt::format( "    Trace Ray Inline: {}\n", _ext.traceRayInlineSupported );
-    ss << fmt::format( "    Meshlets: {}\n", _ext.meshletsSupported );
-    ss << fmt::format( "    Variable Rate Shading: {}\n", _ext.variableRateShadingSupported );
-    ss << fmt::format( "    Opacity Micromap: {}\n", _ext.opacityMicromapSupported );
-    ss << fmt::format( "    Ray Tracing Clusters: {}\n", _ext.rayTracingClustersSupported );
-    ss << fmt::format( "    Linear Swept Spheres: {}\n", _ext.linearSweptSpheresSupported );
-    ss << fmt::format( "    Spheres: {}\n", _ext.spheresSupported );
-    ss << fmt::format( "    Shader Execution Reordering: {}\n", _ext.shaderExecutionReorderingSupported );
-    ss << fmt::format( "    Sampler Feedback: {}\n", _ext.samplerFeedbackSupported );
-    ss << fmt::format( "    Aftermath Enabled: {}\n", _ext.aftermathEnabled );
-    ss << fmt::format( "    Heap Directly Indexed: {}\n", _ext.heapDirectlyIndexedEnabled );
-    ss << fmt::format( "    Coop Vec Inferencing: {}\n", _ext.coopVecInferencingSupported );
-    ss << fmt::format( "    Coop Vec Training: {}\n", _ext.coopVecTrainingSupported );
+    fmt::format_to( std::back_inserter( out ),
+                    "DX12 Device Description:\n"
+                    "  Debug Name: {}\n"
+                    "  Chosen GPU: {}\n"
+                    "  Feature Level: 0x{:X}\n"
+                    "  Enable Debug Layer: {}\n"
+                    "  Use WARP: {}\n"
+                    "  RTV Heap Size: {}\n"
+                    "  DSV Heap Size: {}\n"
+                    "  SRV Heap Size: {}\n"
+                    "  Sampler Heap Size: {}\n"
+                    "  Heap Directly Indexed: {}\n",
+                    _desc.debugName.cstr(),
+                    _gpuAdapterName.cstr(),
+                    static_cast<int>( _desc.featureLevel ),
+                    _desc.enableDebugLayer,
+                    _desc.useWarp,
+                    _desc.renderTargetViewHeapSize,
+                    _desc.depthStencilViewHeapSize,
+                    _desc.shaderResourceViewHeapSize,
+                    _desc.samplerHeapSize,
+                    _desc.enableHeapDirectlyIndexed );
 
-    return fmt::format( "{}\n\n{}", deviceInfo, ss.str() );
+    fmt::format_to( std::back_inserter( out ), "  Extensions:\n" );
+
+    auto appendExt = [&]( std::string_view name, bool supported ) {
+        fmt::format_to( std::back_inserter( out ), "    {}: {}\n", name, supported );
+    };
+
+    appendExt( "NVAPI Initialized", _ext.nvapiIsInitialized );
+    appendExt( "Single Pass Stereo", _ext.singlePassStereoSupported );
+    appendExt( "HLSL Extensions", _ext.hlslExtensionsSupported );
+    appendExt( "Fast Geometry Shader", _ext.fastGeometryShaderSupported );
+    appendExt( "Ray Tracing", _ext.rayTracingSupported );
+    appendExt( "Trace Ray Inline", _ext.traceRayInlineSupported );
+    appendExt( "Meshlets", _ext.meshletsSupported );
+    appendExt( "Variable Rate Shading", _ext.variableRateShadingSupported );
+    appendExt( "Opacity Micromap", _ext.opacityMicromapSupported );
+    appendExt( "Ray Tracing Clusters", _ext.rayTracingClustersSupported );
+    appendExt( "Linear Swept Spheres", _ext.linearSweptSpheresSupported );
+    appendExt( "Spheres", _ext.spheresSupported );
+    appendExt( "Shader Execution Reordering", _ext.shaderExecutionReorderingSupported );
+    appendExt( "Sampler Feedback", _ext.samplerFeedbackSupported );
+    appendExt( "Aftermath Enabled", _ext.aftermathEnabled );
+    appendExt( "Heap Directly Indexed", _ext.heapDirectlyIndexedEnabled );
+    appendExt( "Coop Vec Inferencing", _ext.coopVecInferencingSupported );
+    appendExt( "Coop Vec Training", _ext.coopVecTrainingSupported );
+
+    return STLW::String( out.data(), out.size() );
 }
 
 DX12Device::Queue* DX12Device::getQueueRW( const QueueType& type ) {
@@ -601,12 +582,12 @@ DX12Device::Queue* DX12Device::getQueueRW( const QueueType& type ) {
 
 void DX12Device::UploadContext::init( const ComPtr<ID3D12Device2>& device ) {
 
-    DX12CommandList* raw = new DX12CommandList( device,
-                                                { .queueType = QueueType::Graphics, .numFrames = 1, .debugName = "Internal Device Command List" }
-
-    );
-    _cmdList.attach( raw );
-
+    _cmdList = Memory::makeOwned<DX12CommandList>(
+        device,
+        CommandListDesc {
+            .queueType = QueueType::Graphics,
+            .numFrames = 1,
+            .debugName = "Internal Device Command List" } );
     // Create fence
     DX_CHECK( device->CreateFence(
         0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &_fence ) ) );
@@ -616,7 +597,7 @@ void DX12Device::UploadContext::init( const ComPtr<ID3D12Device2>& device ) {
     _fenceEvent = ::CreateEvent( nullptr, FALSE, FALSE, nullptr );
 }
 
-void DX12Device::UploadContext::oneTimeSubmitRaw( const std::unique_ptr<Queue>& uploadQueue, const std::function<void( const ComPtr<ID3D12GraphicsCommandList>& )>& commands ) {
+void DX12Device::UploadContext::oneTimeSubmitRaw( const Memory::OwnerPtr<Queue>& uploadQueue, const std::function<void( const ComPtr<ID3D12GraphicsCommandList>& )>& commands ) {
     std::scoped_lock lock( _mutex );
 
     ID3D12GraphicsCommandList* rawcmdList = _cmdList->getNativeObject( ObjectTypes::DX12_CommandList );
@@ -639,7 +620,7 @@ void DX12Device::UploadContext::oneTimeSubmitRaw( const std::unique_ptr<Queue>& 
         WaitForSingleObject( _fenceEvent, INFINITE );
     }
 }
-void DX12Device::UploadContext::oneTimeSubmit( const std::unique_ptr<Queue>& uploadQueue, const std::function<void( ICommandList* )>& commands ) {
+void DX12Device::UploadContext::oneTimeSubmit( const Memory::OwnerPtr<Queue>& uploadQueue, const std::function<void( ICommandList* )>& commands ) {
     std::scoped_lock lock( _mutex );
 
     ID3D12GraphicsCommandList* rawcmdList = _cmdList->getNativeObject( ObjectTypes::DX12_CommandList );

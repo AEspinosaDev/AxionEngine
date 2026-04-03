@@ -3,7 +3,7 @@
 AXION_NAMESPACE_BEGIN
 
 namespace Core::Render {
-MaterialLibrary::ArchetypeBuilder MaterialLibrary::beginMaterial( const std::string& name ) {
+MaterialLibrary::ArchetypeBuilder MaterialLibrary::beginMaterial( StringView name ) {
     return MaterialLibrary::ArchetypeBuilder( *this, name );
 }
 
@@ -22,7 +22,7 @@ void MaterialLibrary::setPassFormats( MaterialPassType passType, const MaterialP
     _passProfiles[(size_t)passType] = profile;
 }
 
-uint MaterialLibrary::getArchetypeID( const std::string& name ) const {
+u32 MaterialLibrary::getArchetypeID( StringView name ) const {
     if ( auto it = _archetypeLookup.find( name ); it != _archetypeLookup.end() )
         return it->second;
 
@@ -41,7 +41,7 @@ void MaterialLibrary::registerArchetype( const MaterialArchetypeDesc& desc ) {
     enforceDefaultPasses( arch.desc );
 
     _archetypes.push_back( arch );
-    _archetypeLookup[desc.name] = (uint)_archetypes.size() - 1;
+    _archetypeLookup[desc.name] = (u32)_archetypes.size() - 1;
 
     AXION_LOG_INFO( Logger::Module::Core, "Registered Material [{}]", desc.name );
 }
@@ -181,7 +181,7 @@ void MaterialLibrary::enforceDefaultPasses( MaterialArchetypeDesc& desc ) {
     {
         MaterialArchetypePassConfig defaultDepthPass;
         defaultDepthPass.passType        = MaterialPassType::Depth;
-        defaultDepthPass.customPassAlias = "Global_Depth";
+        defaultDepthPass.customPassAlias = StringView("Global_Depth");
 
         defaultDepthPass.shaderPath  = AXION_SHADER_DIR "/Slang/Preprocess/DepthOnly.slang";
         defaultDepthPass.entryPoints = { { "vsDepth", Graphics::ShaderType::Vertex } };

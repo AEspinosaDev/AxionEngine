@@ -18,7 +18,8 @@ add_library(AxionRHI STATIC ${RHI_SOURCES})
 
 target_include_directories(AxionRHI
 PUBLIC
-${CMAKE_CURRENT_SOURCE_DIR}/include   
+${CMAKE_CURRENT_SOURCE_DIR}/include
+PRIVATE SYSTEM   
 ${CMAKE_SOURCE_DIR}/ThirdParty/directx-headers/include    
 ${Vulkan_INCLUDE_DIRS}
 PRIVATE
@@ -44,7 +45,7 @@ AxionCommon
 imgui
 )
 
-# Si quieres flags específicos por backend
+
 if(BUILD_GLFW)
     target_link_libraries(AxionRHI PUBLIC glfw )
     target_compile_definitions(AxionRHI PRIVATE BUILD_GLFW)

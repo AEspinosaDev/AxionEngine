@@ -1,13 +1,13 @@
-#include "Renderer.hpp"
-#include "Axion/Graphics/Platforms/Win32.h"
-#include "Axion/Graphics/RHI/DX12.h"
+#include "Renderer.h"
+#include "Axion/Graphics/Platforms/IWin32.h"
+#include "Axion/Graphics/RHI/DX12/IDX12Device.h"
 
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
 
-RendererPtr Graphics::createRenderer( IWindow* wnd, const RendererSettings& settings ) {
-    auto rnd = NEW_U( Renderer )( wnd, settings );
+RendererOwnerPtr Graphics::createRenderer( IWindow* wnd, const RendererSettings& settings ) {
+    auto rnd = Memory::makeOwned<Renderer>( wnd, settings );
     AXION_LOG_INFO( Logger::Module::GFX, "Renderer Created Succesfully" );
     AXION_LOG_INFO( Logger::Module::GFX, "{}", rnd->toString() );
     return rnd;
@@ -16,7 +16,7 @@ RendererPtr Graphics::createRenderer( IWindow* wnd, const RendererSettings& sett
 Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
     : _wnd( wnd )
     , _setts( settings )
-    , _FRAMES_IN_FLIGHT( static_cast<uint>( settings.bufferingType ) + 1 ) {
+    , _FRAMES_IN_FLIGHT( static_cast<u32>( settings.bufferingType ) + 1 ) {
 
     AXION_LOG_ASSERT( _wnd, Logger::Module::GFX, "Window is NULL | Renderer needs Window. If no window needed, use Headless Renderer" );
     _frameFences.resize( _FRAMES_IN_FLIGHT );
@@ -44,13 +44,19 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
     // Init Command List
     _commandList = _device->createCommandList( { .queueType = RHI::QueueType::Graphics, .numFrames = _FRAMES_IN_FLIGHT, .debugName = "Graphics Command List" } );
 
-    // Init Resource Pool
-    _resourcePool = NEW_U( GPUResourcePool )( _device.get() );
-    generateSwapchainHandles();
-    // Init Registries
-    _shaderRegistry   = NEW_U( ShaderRegistry )();
-    _pipelineRegistry = NEW_U( PipelineRegistry )( _device.get(), *_shaderRegistry.get() );
-    // Init Render Graph
+    // -------------------------------
+    // SUBSYSTEMS Initialization
+    // -------------------------------
+    SubsystemInitContext ctx;
+    ctx.device    = _device.get();
+    ctx.pool      = &_resourcePool;
+    ctx.shaderReg = &_shaderRegistry;
+    ctx.pipelines = &_pipelineRegistry;
+
+    _resourcePool.initialize( ctx );
+    _shaderRegistry.initialize( ctx );
+    _pipelineRegistry.initialize( ctx );
+
     RenderGraphDesc RGDesc = {
         .framesInFlight        = _FRAMES_IN_FLIGHT,
         .passDataAllocSize     = _setts.RGAllocSize,
@@ -59,9 +65,11 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
         .descriptorMaxSamplers = _setts.RGMaxSamplersPerFrame,
         .sbtAllocSize          = _setts.RGAllocSBTSize,
         .transientAllocSize    = _setts.RGTransientAllocSize,
-        .resourceTTL           = (uint)_setts.GCMode,
+        .resourceTTL           = (u32)_setts.GCMode,
         .autoSync              = _setts.autoSync };
-    _renderGraph = NEW_U( RenderGraph )( _device.get(), *_resourcePool.get(), *_pipelineRegistry.get(), RGDesc );
+    _renderGraph.initialize( ctx, RGDesc );
+
+    generateSwapchainHandles();
 
     // Init GUI Backend
     if ( _setts.enableGui )
@@ -78,8 +86,6 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
                 _guiBackend = RHI::createGUIBackendForDX12( _device.get(), guiDesc );
                 break;
                 // case GraphicsAPI::Vulkan:
-                //     break;
-                // default:
                 //     break;
         }
         AXION_LOG_ASSERT( _guiBackend, Logger::Module::Core, "GUI Backend is not initialized in Renderer" );
@@ -102,7 +108,7 @@ void Renderer::render( RenderGraphSetupFunc setup ) {
         for ( auto& handle : _swapchainHandles )
         {
             if ( handle.isValid() )
-                _resourcePool->destroyTexture( handle );
+                _resourcePool.destroyTexture( handle );
         }
 
         auto desc = _swapchain->getDescription();
@@ -119,7 +125,7 @@ void Renderer::render( RenderGraphSetupFunc setup ) {
     _commandList->setCurrentFrame( _currentFrame );
     _commandList->begin();
 
-    _renderGraph->execute( setup, _commandList.get() );
+    _renderGraph.execute( setup, _commandList.get() );
 
     _commandList->end();
 
@@ -150,12 +156,12 @@ IWindow* Renderer::getWindow() {
     return _wnd;
 }
 
-const RHI::DevicePtr& Renderer::getDevice() const {
+const RHI::DeviceOwnerPtr& Renderer::getDevice() const {
     return _device;
 }
 
-RHI::IDescriptorAllocator* Renderer::getFrameDescriptorAllocator( uint frameIndex ) {
-    return _renderGraph->getDescriptorAllocator( frameIndex );
+RHI::IDescriptorAllocator* Renderer::getFrameDescriptorAllocator( u32 frameIndex ) {
+    return _renderGraph.getDescriptorAllocator( frameIndex );
 }
 
 const RHI::IGUIBackend* Renderer::getGUIBackend() const {
@@ -166,11 +172,11 @@ TextureHandle Renderer::getCurrentBackbufferHandle() const {
     return _swapchainHandles[_currentFrame];
 }
 
-ulong Renderer::getCurrentFrameIndex() const {
+u32 Renderer::getCurrentFrameIndex() const {
     return _currentFrame;
 }
 
-std::string Renderer::toString() const {
+STLW::String Renderer::toString() const {
     // return fmt::format(
     //     "Settings:\n"
     //     "  Graphics API: {}\n"
@@ -183,12 +189,12 @@ std::string Renderer::toString() const {
     //     debugMode,
     //     presentModeToString( presentMode ),
     //     formatToString( backbufferFormat ) );
-    return fmt::format(
+    return static_cast<STLW::String>( fmt::format(
         "Renderer Settings:\n"
         "  Buffering Type: {}\n"
         "  Debug Mode: {}\n",
-        (uint)_setts.bufferingType + 1,
-        _setts.debugMode );
+        (u32)_setts.bufferingType + 1,
+        _setts.debugMode ) );
 }
 
 bool Renderer::instantExecution( std::function<void( RHI::ICommandList* cmd )>& commands ) {
@@ -207,15 +213,15 @@ const RendererSettings& Renderer::getSettings() const {
 }
 
 IGPUResourcePool& Renderer::resources() {
-    return *_resourcePool.get();
+    return _resourcePool;
 }
 
 IShaderRegistry& Renderer::shaders() {
-    return *_shaderRegistry.get();
+    return _shaderRegistry;
 }
 
 IPipelineRegistry& Renderer::pipelines() {
-    return *_pipelineRegistry.get();
+    return _pipelineRegistry;
 }
 
 void Renderer::windowCallback( const Extent2D& newSize ) {
@@ -226,11 +232,11 @@ void Renderer::windowCallback( const Extent2D& newSize ) {
 }
 void Renderer::generateSwapchainHandles() {
     _swapchainHandles.clear();
-    auto images = _swapchain->getSwapImages();
+    auto images = _swapchain->releaseImages();
 
     for ( size_t i = 0; i < images.size(); ++i )
     {
-        auto handle = _resourcePool->registerExternalTexture( images[i], "Backbuffer_" + std::to_string( i ) );
+        auto handle = _resourcePool.registerExternalTexture( std::move( images[i] ), "Backbuffer_" + std::to_string( i ) );
         _swapchainHandles.push_back( handle );
     }
 }

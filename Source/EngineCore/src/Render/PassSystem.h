@@ -1,12 +1,12 @@
 #pragma once
-#include "Axion/Graphics/Subsystems/PipelineRegistry.h"
-#include "Axion/Graphics/Subsystems/ShaderRegistry.h"
+#include "Axion/Graphics/Subsystems/IPipelineRegistry.h"
+#include "Axion/Graphics/Subsystems/IShaderRegistry.h"
 #include "typeindex"
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
 
-DEFINE_UNIQUE_PTR_FOR_TYPE( IRenderPass, RenderPass )
+DEFINE_OWNER_PTR_FOR_TYPE( IRenderPass, RenderPass )
 
 class IRenderPass
 {
@@ -22,7 +22,8 @@ class PassManager
 public:
     template <typename T>
     void registerPass() {
-        auto pass                = std::make_unique<T>();
+        // auto pass                = std::make_unique<T>();
+        auto pass                = Memory::makeOwned<T>();
         _passLookup[typeid( T )] = pass.get();
 
         _passes.push_back( std::move( pass ) );
@@ -48,8 +49,8 @@ public:
     }
 
 private:
-    std::vector<RenderPassPtr>                        _passes;
-    std::unordered_map<std::type_index, IRenderPass*> _passLookup;
+    STLW::Vector<RenderPassOwnerPtr>                  _passes;
+    STLW::UnorderedMap<std::type_index, IRenderPass*> _passLookup;
 };
 
 } // namespace Core::Render

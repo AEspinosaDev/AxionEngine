@@ -6,8 +6,8 @@ AXION_NAMESPACE_BEGIN
 
 namespace Core::Assets::Loaders {
 
-void computeTangents( std::vector<Vertex>& vertices, const std::vector<uint>& indices );
-MeshletData cookMeshlets( const std::vector<Vertex>& vertices, const std::vector<uint>& indices );
+void        computeTangents( STLW::Vector<Vertex>& vertices, const STLW::Vector<u32>& indices );
+MeshletData cookMeshlets( const STLW::Vector<Vertex>& vertices, const STLW::Vector<u32>& indices );
 
 } // namespace Core::Assets::Loaders
 

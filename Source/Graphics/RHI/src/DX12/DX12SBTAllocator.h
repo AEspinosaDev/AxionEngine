@@ -1,32 +1,32 @@
 #pragma once
-#include "Axion/Graphics/RHI/Memory.hpp"
+#include "Axion/Graphics/RHI/Memory.h"
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
-#include "DX12Resource.hpp"
+#include "DX12Resource.h"
 
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
-class DX12SBTAllocator : public RefCounter<ISBTAllocator>
+class DX12SBTAllocator : public ISBTAllocator
 {
 public:
     DX12SBTAllocator( const SBTAllocatorDesc& desc, DX12Device::Context& ctx );
     ~DX12SBTAllocator();
 
-    SBT::View allocate( const ShaderBindingTable& sbt, IRayTracingPipeline* pip ) override;
+    SBT::Allocation allocate( const ShaderBindingTable& sbt, IRayTracingPipeline* pip ) override;
     void      reset() override;
 
     const Description& getDescription() const override { return _desc; }
-    void               setDebugName( const std::string& name ) override;
-    const std::string& getDebugName() const override { return _desc.debugName; }
     NativeObject       getNativeObject( ObjectType objectType ) override;
-    std::string        toString() const override;
+    void               setDebugName( StringView name ) override;
+    StringView         getDebugName() const override;
+    STLW::String       toString() const override;
 
 private:
     SBTAllocatorDesc _desc;
 
-    std::unique_ptr<DX12Buffer>      _buffer    = nullptr;
-    std::unique_ptr<LinearAllocator> _allocator = nullptr;
+    Memory::OwnerPtr<DX12Buffer> _buffer = nullptr;
+    BufferLinearAllocator<>      _allocator;
 };
 
 } // namespace Graphics::RHI

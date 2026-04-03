@@ -1,9 +1,9 @@
 #pragma once
-#include <Axion/Common/Defines.h>
-#include <Axion/Common/Graphics/Defines.h>
+#include <Axion/Common/Common.h>
+#include <Axion/Common/Graphics/Common.h>
 #include <Axion/Common/Math.h>
 #include <Axion/Core/Assets/Handle.h>
-#include <Axion/Core/Render/Defines.h>
+#include <Axion/Core/Render/Common.h>
 #include <functional>
 #include <string_view>
 
@@ -18,9 +18,9 @@ class GlobalMaterialRegistry
 public:
     using SetupCallback = std::function<void( Render::MaterialArchetypeDesc& )>;
 
-    static void registerMaterial( std::string_view name, SetupCallback callback );
+    static void registerMaterial( Axion::StringView name, SetupCallback callback );
 
-    static void enumerate( std::function<void( const std::string& name, SetupCallback callback )> visitor );
+    static void enumerate( std::function<void( StringView name, SetupCallback callback )> visitor );
 };
 
 class Material
@@ -33,15 +33,15 @@ public:
     Material( Material&& ) noexcept        = default;
     Material& operator=( Material&& )      = default;
 
-    [[nodiscard]] const std::string& getName() const { return _name; }
-    [[nodiscard]] bool               isDirty() const { return _isDirty; }
-    void                             clearDirty();
+    [[nodiscard]] const String64& getName() const { return _name; }
+    [[nodiscard]] bool            isDirty() const { return _isDirty; }
+    void                          clearDirty();
 
-    virtual std::string_view           getArchetypeName() const  = 0;
-    virtual uint                       getPayloadSize() const    = 0;
-    virtual std::vector<TextureHandle> getTextureHandles() const = 0;
+    virtual Axion::StringView            getArchetypeName() const  = 0;
+    virtual u32                         getPayloadSize() const    = 0;
+    virtual STLW::Vector<TextureHandle> getTextureHandles() const = 0;
 
-    using TextureResolver = std::function<uint( const TextureHandle& )>;
+    using TextureResolver = std::function<u32( const TextureHandle& )>;
 
     virtual void writePayload( void* dest, const TextureResolver& resolver ) const = 0;
 
@@ -53,8 +53,8 @@ protected:
         _handle = handle;
     }
 
-    explicit Material( std::string name )
-        : _name( std::move( name ) )
+    explicit Material( StringView name )
+        : _name( name )
         , _isDirty( true ) {}
 
     void markDirty();
@@ -62,8 +62,8 @@ protected:
     AssetManager*  _owner = nullptr;
     MaterialHandle _handle;
 
-    std::string _name;
-    bool        _isDirty;
+    String64 _name;
+    bool     _isDirty;
 };
 
 } // namespace Core::Assets
@@ -72,9 +72,9 @@ AXION_NAMESPACE_END
 
 #define AXION_DECLARE_MATERIAL_ARCH_NAME( STRING_NAME )        \
 public:                                                        \
-    static constexpr std::string_view ARCHETYPE = STRING_NAME; \
+    static constexpr Axion::StringView ARCHETYPE = STRING_NAME; \
                                                                \
-    virtual std::string_view getArchetypeName() const override { return ARCHETYPE; }
+    virtual Axion::StringView getArchetypeName() const override { return ARCHETYPE; }
 
 #define AXION_REGISTER_MATERIAL( CLASS_NAME )                                          \
     static void setup##CLASS_NAME( Axion::Core::Render::MaterialArchetypeDesc& desc ); \

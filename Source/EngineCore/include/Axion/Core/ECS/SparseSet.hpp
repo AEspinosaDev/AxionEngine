@@ -1,9 +1,10 @@
 #pragma once
+#include <Axion/Common/Containers/STLWrapper/Vector.h>
 #include <Axion/Common/Logging.h>
 #include <Axion/Core/ECS/Entity.h>
 #include <algorithm>
 #include <cassert>
-#include <vector>
+
 
 AXION_NAMESPACE_BEGIN
 
@@ -17,14 +18,14 @@ public:
     virtual bool has( EntityID entity ) const = 0;
     virtual void clear()                      = 0;
 
-    virtual const std::vector<EntityID>& getEntities() const = 0;
+    virtual const STLW::Vector<EntityID>& getEntities() const = 0;
 };
 
 template <typename T>
 class Pool : public IPool
 {
 public:
-    Pool( ulong capacity = MAX_ENTITIES ) {
+    Pool( u64 capacity = MAX_ENTITIES ) {
         _components.reserve( 100 );
         _entityIndices.reserve( 100 );
 
@@ -47,7 +48,7 @@ public:
         _entityIndices.push_back( entity );
 
         // 3. Map the entity ID to the index in the dense array
-        ulong index = _components.size() - 1;
+        u64 index = _components.size() - 1;
 
         if ( entity >= _sparse.size() )
             _sparse.resize( entity + 1, NULL_ENTITY );
@@ -65,12 +66,12 @@ public:
         AXION_LOG_ASSERT( has( entity ), Logger::Module::Core, "Entity does not have this component!!" );
         return _components[_sparse[entity]];
     }
-    
+
     void remove( EntityID entity ) override {
         AXION_LOG_ASSERT( has( entity ), Logger::Module::Core, "Entity does not have this component!!" );
 
-        ulong indexToRemove = _sparse[entity];
-        ulong lastIndex     = _components.size() - 1;
+        u64 indexToRemove = _sparse[entity];
+        u64 lastIndex     = _components.size() - 1;
 
         if ( indexToRemove != lastIndex )
         {
@@ -97,17 +98,17 @@ public:
         std::fill( _sparse.begin(), _sparse.end(), NULL_ENTITY );
     }
 
-    std::vector<T>&              getData() { return _components; }
-    const std::vector<T>&        getData() const { return _components; }
-    const std::vector<EntityID>& getEntities() const override { return _entityIndices; }
+    STLW::Vector<T>&              getData() { return _components; }
+    const STLW::Vector<T>&        getData() const { return _components; }
+    const STLW::Vector<EntityID>& getEntities() const override { return _entityIndices; }
 
 private:
     // Components
-    std::vector<T> _components;
+    STLW::Vector<T> _components;
     // Dense Index -> EntityID
-    std::vector<EntityID> _entityIndices;
+    STLW::Vector<EntityID> _entityIndices;
     // Sparse array: Sparse[EntityID] -> Dense Index
-    std::vector<EntityID> _sparse;
+    STLW::Vector<EntityID> _sparse;
 };
 
 } // namespace Core::ECS

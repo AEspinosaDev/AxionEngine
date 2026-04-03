@@ -5,16 +5,16 @@ AXION_NAMESPACE_BEGIN
 
 namespace Core::Assets::Loaders {
 
-void computeTangents( std::vector<Vertex>& vertices, const std::vector<uint>& indices ) {
+void computeTangents( STLW::Vector<Vertex>& vertices, const STLW::Vector<u32>& indices ) {
 
-    std::vector<Math::Vec3> tempTangents( vertices.size(), { 0, 0, 0 } );
-    std::vector<Math::Vec3> tempBitangents( vertices.size(), { 0, 0, 0 } );
+    STLW::Vector<Math::Vec3> tempTangents( vertices.size(), { 0, 0, 0 } );
+    STLW::Vector<Math::Vec3> tempBitangents( vertices.size(), { 0, 0, 0 } );
 
     for ( size_t i = 0; i < indices.size(); i += 3 )
     {
-        uint i0 = indices[i];
-        uint i1 = indices[i + 1];
-        uint i2 = indices[i + 2];
+        u32 i0 = indices[i];
+        u32 i1 = indices[i + 1];
+        u32 i2 = indices[i + 2];
 
         auto tb = Math::computeTriangleTangent(
             vertices[i0].position,
@@ -53,7 +53,7 @@ void computeTangents( std::vector<Vertex>& vertices, const std::vector<uint>& in
         vertices[i].tangent = { t_ortho.x, t_ortho.y, t_ortho.z, w };
     }
 }
-MeshletData cookMeshlets( const std::vector<Vertex>& vertices, const std::vector<uint>& indices ) {
+MeshletData cookMeshlets( const STLW::Vector<Vertex>& vertices, const STLW::Vector<u32>& indices ) {
     Assets::MeshletData meshletData;
 
     // Hardware optimal settings for DX12 / Vulkan
@@ -63,7 +63,7 @@ MeshletData cookMeshlets( const std::vector<Vertex>& vertices, const std::vector
 
     size_t maxMeshlets = meshopt_buildMeshletsBound( indices.size(), maxVertices, maxTriangles );
 
-    std::vector<meshopt_Meshlet> rawMeshlets( maxMeshlets );
+    STLW::Vector<meshopt_Meshlet> rawMeshlets( maxMeshlets );
     meshletData.vertexIndices.resize( maxMeshlets * maxVertices );
     meshletData.primitiveIndices.resize( maxMeshlets * maxTriangles * 3 + 3 );
 

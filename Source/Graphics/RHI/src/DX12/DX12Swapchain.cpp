@@ -1,5 +1,5 @@
-#include "DX12Swapchain.hpp"
-#include "DX12Debug.hpp"
+#include "DX12Swapchain.h"
+#include "DX12Debug.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -63,8 +63,8 @@ const ISwapchain::Description& DX12Swapchain::getDescription() {
     return _desc;
 }
 
-const std::vector<TexturePtr>& DX12Swapchain::getSwapImages() {
-    return _swapImages;
+STLW::Vector<TextureOwnerPtr> DX12Swapchain::releaseImages() {
+    return std::move( _swapImages );
 }
 
 void DX12Swapchain::update( const Description& newDesc ) {
@@ -79,7 +79,6 @@ void DX12Swapchain::update( const Description& newDesc ) {
 
     DX_CHECK( _device->GetDeviceRemovedReason() );
 
-    // Release references to old back buffers before resizing
     _swapImages.clear();
     _heapRTV.reset();
 
@@ -114,7 +113,7 @@ DX12Swapchain::~DX12Swapchain() {
 }
 void DX12Swapchain::updateImages() {
 
-    _swapImages.resize( _desc.imageCount, nullptr );
+    _swapImages.resize( _desc.imageCount );
     TextureDesc desc = {
         .size   = _desc.size.to3D(),
         .format = _desc.format,
@@ -122,18 +121,14 @@ void DX12Swapchain::updateImages() {
         .debugName = "Swapchain Backbuffer",
         .viewFlags = TextureViewRenderTarget };
     DX12Device::Context ctx = { .device = _device, .heapRTV = _heapRTV };
-    for ( uint i = 0; i < _desc.imageCount; ++i )
+    for ( u32 i = 0; i < _desc.imageCount; ++i )
     {
         ComPtr<ID3D12Resource> backBuffer;
         DX_CHECK( _swapchain->GetBuffer( i, IID_PPV_ARGS( &backBuffer ) ) );
 
-        DX12Texture* rawBackBufferTexture = new DX12Texture( backBuffer, desc, ctx, false );
-        rawBackBufferTexture->stateTracker().setState( ResourceState::Present );
-        TexturePtr backBufferTexture;
-        backBufferTexture.attach( rawBackBufferTexture );
-        // Assign to vector (old element will be released automatically)
-        // _swapImages[i] = std::move( backBufferTexture );
-        _swapImages[i] = backBufferTexture;
+        auto backBufferTexture = Memory::makeOwned<DX12Texture>( backBuffer, desc, ctx, false );
+        backBufferTexture->stateTracker().setState( ResourceState::Present );
+        _swapImages[i] = std::move( backBufferTexture );
     }
 } // namespace RHI
 void DX12Swapchain::present() {
@@ -179,17 +174,17 @@ NativeObject DX12Swapchain::getNativeObject( ObjectType objectType ) {
     }
 }
 
-void DX12Swapchain::setDebugName( const std::string& name ) {
+void DX12Swapchain::setDebugName( std::string_view name ) {
     _desc.debugName = name;
     // _swapchain->se( std::wstring( name.begin(), name.end() ).c_str() );
 }
 
-const std::string& DX12Swapchain::getDebugName() const {
+std::string_view DX12Swapchain::getDebugName() const {
     return _desc.debugName;
 }
 
-std::string RHI::DX12Swapchain::toString() const {
-    return std::string();
+STLW::String RHI::DX12Swapchain::toString() const {
+    return STLW::String();
 }
 
 } // namespace Graphics::RHI

@@ -1,7 +1,7 @@
 #pragma once
-#include <Axion/Common/Defines.h>
-#include <Axion/Common/Graphics/Defines.h>
-#include <Axion/Core/Assets/Defines.h>
+#include <Axion/Common/Common.h>
+#include <Axion/Common/Graphics/Common.h>
+#include <Axion/Core/Assets/Common.h>
 #include <variant>
 
 AXION_NAMESPACE_BEGIN
@@ -10,7 +10,7 @@ namespace Core::Assets {
 
 class AssetManager;
 
-using TexturePixels = std::variant<std::vector<float>, std::vector<uchar>>;
+using TexturePixels = std::variant<STLW::Vector<float>, STLW::Vector<byte>>;
 
 class Texture
 {
@@ -19,20 +19,20 @@ public:
         Graphics::Filter      filter      = Graphics::Filter::Linear;
         Graphics::AddressMode addressMode = Graphics::AddressMode::Repeat;
         bool                  anisotropic = true;
-        uchar                 mipLevels   = 1;
+        byte                  mipLevels   = 1;
     };
 
     Texture()                     = delete;
     Texture( const Texture& )     = delete;
     Texture( Texture&& ) noexcept = default;
 
-    [[nodiscard]] const std::string& getName() const { return _name; }
-    [[nodiscard]] Extent3D           getSize() const { return _size; }
-    [[nodiscard]] uint               getChannels() const { return _channels; }
-    [[nodiscard]] bool               isHDR() const { return _isHDR; }
-    [[nodiscard]] TextureType        getType() const { return _type; }
-    [[nodiscard]] TextureFormat      getFormat() const { return _format; }
-    [[nodiscard]] TexturePrecision   getPrecision() const { return _precision; }
+    [[nodiscard]] const String64&  getName() const { return _name; }
+    [[nodiscard]] Extent3D         getSize() const { return _size; }
+    [[nodiscard]] u32              getChannels() const { return _channels; }
+    [[nodiscard]] bool             isHDR() const { return _isHDR; }
+    [[nodiscard]] TextureType      getType() const { return _type; }
+    [[nodiscard]] TextureFormat    getFormat() const { return _format; }
+    [[nodiscard]] TexturePrecision getPrecision() const { return _precision; }
 
     [[nodiscard]] Graphics::Format getGPUFormat() const { return _gpuFormat; }
 
@@ -51,7 +51,7 @@ public:
                            *_pixels );
     }
 
-    [[nodiscard]] size_t getSizeBytes() const {
+    [[nodiscard]] u64 getSizeBytes() const {
         return _sizeBytes;
     }
 
@@ -61,11 +61,11 @@ public:
 private:
     friend class AssetManager;
 
-    Texture( std::string name )
-        : _name( std::move( name ) ) {}
+    Texture( StringView name )
+        : _name( name ) {}
 
     AXION_FORCE_INLINE void setData( Extent3D&&       size,
-                                     uint             c,
+                                     u32              c,
                                      bool             hdr,
                                      TexturePixels&&  data,
                                      TextureFormat    fmt,
@@ -84,13 +84,13 @@ private:
 
     AXION_FORCE_INLINE size_t computeSizeInBytes() const {
         if ( _isHDR )
-            return std::get<std::vector<float>>( *_pixels ).size() * sizeof( float );
-        return std::get<std::vector<unsigned char>>( *_pixels ).size() * sizeof( unsigned char );
+            return std::get<STLW::Vector<float>>( *_pixels ).size() * sizeof( float );
+        return std::get<STLW::Vector<unsigned char>>( *_pixels ).size() * sizeof( unsigned char );
     }
 
-    std::string      _name;
+    String64         _name;
     Extent3D         _size;
-    uint             _channels  = 0;
+    u32              _channels  = 0;
     bool             _isHDR     = false;
     TextureType      _type      = TextureType::Texture2D;
     TextureFormat    _format    = TextureFormat::Gamma;
@@ -101,7 +101,7 @@ private:
     SamplerDescription _samplerDesc;
 
     std::shared_ptr<TexturePixels> _pixels;
-    size_t                         _sizeBytes = 0;
+    u64                            _sizeBytes = 0;
 };
 
 typedef Texture::SamplerDescription SamplerDesc;

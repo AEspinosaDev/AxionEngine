@@ -1,7 +1,7 @@
 #pragma once
 #include "../GPUScene.h"
 #include "../PassSystem.h"
-#include "Axion/Graphics/Subsystems/RenderGraph.h"
+#include "Axion/Graphics/Subsystems/IRenderGraph.h"
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
@@ -17,19 +17,19 @@ public:
     struct Config {
         GlobalBufferHandles outGlobalBufferHandles;
 
-        Graphics::RHI::FreeListAllocator* vertexAllocator = nullptr;
-        Graphics::RHI::FreeListAllocator* indexAllocator  = nullptr;
-        Graphics::RHI::FreeListAllocator* matAllocator    = nullptr;
+        Graphics::BufferGPUFreeListAllocator* vertexAllocator = nullptr;
+        Graphics::BufferGPUFreeListAllocator* indexAllocator  = nullptr;
+        Graphics::BufferGPUFreeListAllocator* matAllocator    = nullptr;
 
-        std::vector<Graphics::RHI::IDescriptorSet*> allPersistentSets;
+        STLW::Vector<Graphics::RHI::IDescriptorSet*> allPersistentSets;
 
-        std::vector<Graphics::TextureHandle>* mtlTextureHandles = nullptr;
-        GPUScene*                             gpuScene          = nullptr;
-        ulong                                 maxAllocationSize = 0;
+        STLW::Vector<Graphics::TextureHandle>* mtlTextureHandles = nullptr;
+        GPUScene*                              gpuScene          = nullptr;
+        u64                                    maxAllocationSize = 0;
     };
 
-    void registerShaders( Graphics::IShaderRegistry& shaders ) override { /*NO OP*/ }
-    void createPipelines( Graphics::IPipelineRegistry& pipelines ) override { /*NO OP*/ }
+    void registerShaders( Graphics::IShaderRegistry& /*shaders*/ ) override { /*NO OP*/ }
+    void createPipelines( Graphics::IPipelineRegistry& /*pipelines*/ ) override { /*NO OP*/ }
 
     void addToGraph( Graphics::RenderGraphBuilder& builder, const Config& seedData ) {
         // Early Exit
@@ -49,14 +49,14 @@ public:
 private:
     void execute( const Config& data, Graphics::RenderPassContext& ctx ) {
 
-        uint totalUsedSpace = 0;
+        u32 totalUsedSpace = 0;
 
         processMeshes( data, ctx, totalUsedSpace );
         processMaterials( data, ctx, totalUsedSpace );
         processTextures( data, ctx, totalUsedSpace );
     }
 
-    void processMeshes( const Config& data, Graphics::RenderPassContext& ctx, uint& totalUsedSpace ) {
+    void processMeshes( const Config& data, Graphics::RenderPassContext& ctx, u32& totalUsedSpace ) {
 
         auto* cmd       = ctx.cmd;
         auto& scene     = *data.gpuScene;
@@ -70,11 +70,11 @@ private:
         while ( !uploadQueue.empty() )
         {
             const auto& nextUpload           = uploadQueue.front();
-            uint        requiredVerticesSize = (uint)( nextUpload.geometryData->vertices.size() * sizeof( Assets::Vertex ) );
-            uint        requiredIndicesSize  = (uint)( nextUpload.geometryData->indices.size() * sizeof( uint ) );
-            uint        totalRequiredSpace   = requiredVerticesSize + requiredIndicesSize;
+            u32         requiredVerticesSize = (u32)( nextUpload.geometryData->vertices.size() * sizeof( Assets::Vertex ) );
+            u32         requiredIndicesSize  = (u32)( nextUpload.geometryData->indices.size() * sizeof( u32 ) );
+            u32         totalRequiredSpace   = requiredVerticesSize + requiredIndicesSize;
 
-            if ( totalUsedSpace + totalRequiredSpace > (uint)data.maxAllocationSize )
+            if ( totalUsedSpace + totalRequiredSpace > (u32)data.maxAllocationSize )
                 break;
 
             auto uploadEntry = std::move( uploadQueue.front() );
@@ -83,19 +83,19 @@ private:
             auto& gpuMesh = scene.meshes()[uploadEntry.GPUMeshID];
 
             // A. Vertices
-            auto vertexBufferView = data.vertexAllocator->allocate<Assets::Vertex>( uploadEntry.geometryData->vertices.size() );
-            if ( vertexBufferView.size > 0 )
+            auto vertexBufferSlice = data.vertexAllocator->allocate<Assets::Vertex>( uploadEntry.geometryData->vertices.size() );
+            if ( vertexBufferSlice.size > 0 )
             {
-                cmd->uploadBuffer( vb, uploadEntry.geometryData->vertices.data(), vertexBufferView.size, vertexBufferView.offset, allocator, Graphics::RHI::BarrierPolicy::None );
-                gpuMesh.vertexOffset = (uint)vertexBufferView.offset;
+                cmd->uploadBuffer( vb, uploadEntry.geometryData->vertices.data(), vertexBufferSlice.size, vertexBufferSlice.offset, allocator, Graphics::RHI::BarrierPolicy::None );
+                gpuMesh.vertexOffset = (u32)vertexBufferSlice.offset;
             }
 
             // B. Indices
-            auto indexBufferView = data.indexAllocator->allocate<uint>( uploadEntry.geometryData->indices.size() );
-            if ( indexBufferView.size > 0 )
+            auto indexBufferSlice = data.indexAllocator->allocate<u32>( uploadEntry.geometryData->indices.size() );
+            if ( indexBufferSlice.size > 0 )
             {
-                cmd->uploadBuffer( ib, uploadEntry.geometryData->indices.data(), indexBufferView.size, indexBufferView.offset, allocator, Graphics::RHI::BarrierPolicy::None );
-                gpuMesh.indexOffset = (uint)indexBufferView.offset;
+                cmd->uploadBuffer( ib, uploadEntry.geometryData->indices.data(), indexBufferSlice.size, indexBufferSlice.offset, allocator, Graphics::RHI::BarrierPolicy::None );
+                gpuMesh.indexOffset = (u32)indexBufferSlice.offset;
             }
 
             gpuMesh.valid = true;
@@ -111,37 +111,37 @@ private:
 
             if ( deletionEntry.vertexSize > 0 )
             {
-                Graphics::RHI::BufferView vView;
-                vView.buffer = vb;
-                vView.offset = deletionEntry.vertexOffset;
-                vView.size   = deletionEntry.vertexSize;
-                data.vertexAllocator->free( vView );
+                Graphics::BufferSlice vSlice;
+                vSlice.container = vb;
+                vSlice.offset    = deletionEntry.vertexOffset;
+                vSlice.size      = deletionEntry.vertexSize;
+                data.vertexAllocator->free( vSlice );
             }
 
             if ( deletionEntry.indexSize > 0 )
             {
-                Graphics::RHI::BufferView iView;
-                iView.buffer = ib;
-                iView.offset = deletionEntry.indexOffset;
-                iView.size   = deletionEntry.indexSize;
-                data.indexAllocator->free( iView );
+                Graphics::BufferSlice iSlice;
+                iSlice.container = ib;
+                iSlice.offset    = deletionEntry.indexOffset;
+                iSlice.size      = deletionEntry.indexSize;
+                data.indexAllocator->free( iSlice );
             }
         }
     }
 
-    void processMaterials( const Config& data, Graphics::RenderPassContext& ctx, uint& totalUsedSpace ) {
+    void processMaterials( const Config& data, Graphics::RenderPassContext& ctx, u32& totalUsedSpace ) {
 
         auto* cmd       = ctx.cmd;
         auto& scene     = *data.gpuScene;
         auto* allocator = ctx.transAllocator;
         auto* mtlb      = ctx.getBuffer( data.outGlobalBufferHandles.materials );
 
-        const ulong ALIGNMENT = 16;
+        const u64 ALIGNMENT = 16;
         // 1. UPLOAD QUEUE
         auto& uploadQueue = scene.pendingMaterialUploads();
         while ( !uploadQueue.empty() )
         {
-            if ( totalUsedSpace >= (uint)data.maxAllocationSize )
+            if ( totalUsedSpace >= (u32)data.maxAllocationSize )
                 break;
 
             auto uploadEntry = std::move( uploadQueue.front() );
@@ -156,12 +156,12 @@ private:
             // pero Free+Alloc evita fragmentación si el tamaño cambia.
             if ( gpuMtl.bufferOffset != 0 ) // Asumiendo que 0 es null/inválido
             {
-                Graphics::RHI::BufferView oldView;
-                oldView.buffer = mtlb;
-                oldView.offset = gpuMtl.bufferOffset;
-                oldView.size   = gpuMtl.payloadSize; // Usamos el tamaño viejo guardado en GPU struct
+                Graphics::BufferSlice oldSlice;
+                oldSlice.container = mtlb;
+                oldSlice.offset    = gpuMtl.bufferOffset;
+                oldSlice.size      = gpuMtl.payloadSize; // Usamos el tamaño viejo guardado en GPU struct
 
-                data.matAllocator->free( oldView );
+                data.matAllocator->free( oldSlice );
 
                 gpuMtl.bufferOffset = 0;
             }
@@ -177,11 +177,11 @@ private:
                                    allocator,
                                    Graphics::RHI::BarrierPolicy::None );
 
-                gpuMtl.bufferOffset = (uint)mtlBufferView.offset;
-                gpuMtl.payloadSize  = (uint)uploadEntry.payload.size();
+                gpuMtl.bufferOffset = (u32)mtlBufferView.offset;
+                gpuMtl.payloadSize  = (u32)uploadEntry.payload.size();
             }
 
-            totalUsedSpace += (uint)mtlBufferView.size;
+            totalUsedSpace += (u32)mtlBufferView.size;
         }
 
         // 2. DELETION QUEUE
@@ -193,17 +193,17 @@ private:
 
             if ( deletionEntry.payloadSize > 0 )
             {
-                Graphics::RHI::BufferView mView;
-                mView.buffer = mtlb;
-                mView.offset = deletionEntry.bufferOffset;
-                mView.size   = deletionEntry.payloadSize;
+                Graphics::BufferSlice mView;
+                mView.container = mtlb;
+                mView.offset    = deletionEntry.bufferOffset;
+                mView.size      = deletionEntry.payloadSize;
 
                 data.matAllocator->free( mView );
             }
         }
     }
 
-    void processTextures( const Config& data, Graphics::RenderPassContext& ctx, uint& totalUsedSpace ) {
+    void processTextures( const Config& data, Graphics::RenderPassContext& ctx, u32& totalUsedSpace ) {
 
         auto* cmd       = ctx.cmd;
         auto& scene     = *data.gpuScene;
@@ -217,15 +217,15 @@ private:
             size_t pixelSize = 0;
             if ( nextUpload.pixels )
             {
-                if ( std::holds_alternative<std::vector<uchar>>( *nextUpload.pixels ) )
-                    pixelSize = std::get<std::vector<uchar>>( *nextUpload.pixels ).size() * sizeof( uchar );
-                else if ( std::holds_alternative<std::vector<float>>( *nextUpload.pixels ) )
-                    pixelSize = std::get<std::vector<float>>( *nextUpload.pixels ).size() * sizeof( float );
+                if ( std::holds_alternative<STLW::Vector<byte>>( *nextUpload.pixels ) )
+                    pixelSize = std::get<STLW::Vector<byte>>( *nextUpload.pixels ).size() * sizeof( byte );
+                else if ( std::holds_alternative<STLW::Vector<float>>( *nextUpload.pixels ) )
+                    pixelSize = std::get<STLW::Vector<float>>( *nextUpload.pixels ).size() * sizeof( float );
             }
 
-            uint requiredSpace = (uint)pixelSize + D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT;
+            u32 requiredSpace = (u32)pixelSize + TEXTURE_DATA_PLACEMENT_ALIGNMENT;
 
-            if ( totalUsedSpace + requiredSpace > (uint)data.maxAllocationSize )
+            if ( totalUsedSpace + requiredSpace > (u32)data.maxAllocationSize )
                 break;
 
             auto uploadEntry = std::move( uploadQueue.front() );
@@ -236,10 +236,10 @@ private:
             if ( pixelSize > 0 )
             {
                 const void* pixelData = nullptr;
-                if ( std::holds_alternative<std::vector<uchar>>( *uploadEntry.pixels ) )
-                    pixelData = std::get<std::vector<uchar>>( *uploadEntry.pixels ).data();
-                else if ( std::holds_alternative<std::vector<float>>( *uploadEntry.pixels ) )
-                    pixelData = std::get<std::vector<float>>( *uploadEntry.pixels ).data();
+                if ( std::holds_alternative<STLW::Vector<byte>>( *uploadEntry.pixels ) )
+                    pixelData = std::get<STLW::Vector<byte>>( *uploadEntry.pixels ).data();
+                else if ( std::holds_alternative<STLW::Vector<float>>( *uploadEntry.pixels ) )
+                    pixelData = std::get<STLW::Vector<float>>( *uploadEntry.pixels ).data();
 
                 if ( pixelData != nullptr )
                 {

@@ -1,5 +1,5 @@
 #pragma once
-#include "Axion/Graphics/RHI/Memory.hpp"
+#include "Axion/Graphics/RHI/Memory.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -10,21 +10,21 @@ namespace Core::Render {
 // -----------------------------------------------------------------------------
 
 struct IndirectDrawBatch {
-    uint archetypeID;
-    uint topologyID;
-    uint bufferOffset;
-    uint drawCount;
+    u32 archetypeID;
+    u32 topologyID;
+    u32 bufferOffset;
+    u32 drawCount;
 };
 
-struct IndirectCommandData {
-    Graphics::RHI::BufferView      commandBufferView;
-    Graphics::RHI::BufferView      batchMapView;
-    std::vector<IndirectDrawBatch> batches;
-    bool                           dirty = true;
+struct IndirectCommandPayload {
+    Graphics::BufferSlice      commandBufferSlice;
+    Graphics::BufferSlice      batchMapSlice;
+    STLW::Vector<IndirectDrawBatch> batches;
+    bool                            dirty = true;
 
     struct Cache {
-        std::vector<Graphics::RHI::DrawIndexedIndirectCommand> commands;
-        std::vector<uint>                                      batchMap;
+        STLW::Vector<Graphics::RHI::DrawIndexedIndirectCommand> commands;
+        STLW::Vector<u32>                                       batchMap;
     };
 };
 

@@ -25,15 +25,16 @@ struct IndexEqual {
     }
 };
 
-bool loadOBJ( const std::string& filepath, MeshData& outMesh, MeshImportFlags flags ) {
+bool loadOBJ( const STLW::String& filepath, MeshData& outMesh, MeshImportFlags flags ) {
 
-    tinyobj::attrib_t                attrib;
+    tinyobj::attrib_t attrib;
+    // Memory unhandled here, tinyobjloader uses std::vector internally. For large models, consider implementing a custom allocator and modifying tinyobjloader to use it.
     std::vector<tinyobj::shape_t>    shapes;
     std::vector<tinyobj::material_t> materials;
     std::string                      warn, err;
 
     // Fetch materials
-    std::string baseDir = filepath.substr( 0, filepath.find_last_of( "/\\" ) + 1 );
+    STLW::String baseDir = filepath.substr( 0, filepath.find_last_of( "/\\" ) + 1 );
 
     const char* mtlSearchPath         = baseDir.c_str();
     bool        shouldImportMaterials = ( flags & MeshImportLoadMaterials );
@@ -68,7 +69,7 @@ bool loadOBJ( const std::string& filepath, MeshData& outMesh, MeshImportFlags fl
     outMesh.vertices.reserve( estimatedVertices );
 
     // Deduplicación: Key(OBJ Index) -> Value(New Mesh Index)
-    std::unordered_map<tinyobj::index_t, uint, IndexHasher, IndexEqual> uniqueVertices;
+    std::unordered_map<tinyobj::index_t, u32, IndexHasher, IndexEqual> uniqueVertices;
     uniqueVertices.reserve( estimatedVertices );
 
     // Merge all shapes into a single Mesh
@@ -120,7 +121,7 @@ bool loadOBJ( const std::string& filepath, MeshData& outMesh, MeshImportFlags fl
                 vertex.tangent = { 1.0f, 0.0f, 0.0f, 1.0f };
 
                 // Store new Index
-                uniqueVertices[index] = static_cast<uint>( outMesh.vertices.size() );
+                uniqueVertices[index] = static_cast<u32>( outMesh.vertices.size() );
                 outMesh.vertices.push_back( vertex );
             }
 

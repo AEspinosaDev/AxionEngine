@@ -13,7 +13,7 @@ TransientAllocator::TransientAllocator( IDevice* device, const Description& desc
         bDesc.viewFlags   = BufferViewUnorderedAccess;
         bDesc.debugName   = desc.debugName + "_ScratchBuffer";
         _scratchBuffer    = device->createBuffer( bDesc );
-        _scratchAllocator = NEW_U( LinearAllocator )( _scratchBuffer.get() );
+        _scratchAllocator.initialize( _scratchBuffer.get() );
     }
 
     // 2. UPLOAD (CPU Visible)
@@ -25,7 +25,7 @@ TransientAllocator::TransientAllocator( IDevice* device, const Description& desc
         bDesc.debugName  = desc.debugName + "_UploadBuffer";
         _uploadBuffer    = device->createBuffer( bDesc );
         _uploadBuffer->map();
-        _uploadAllocator = NEW_U( LinearAllocator )( _uploadBuffer.get() );
+        _uploadAllocator.initialize( _uploadBuffer.get() );
     }
 }
 
@@ -34,17 +34,28 @@ TransientAllocator::~TransientAllocator() {
         _uploadBuffer->unmap();
 }
 
-BufferView TransientAllocator::allocateScratch( ulong size, ulong alignment ) {
-    return _scratchAllocator->allocate( size, alignment );
+BufferSlice TransientAllocator::allocateScratch( u64 size, u64 alignment ) {
+    return _scratchAllocator.allocate( size, alignment );
 }
 
-BufferView TransientAllocator::allocateUpload( ulong size, ulong alignment ) {
-    return _uploadAllocator->allocate( size, alignment );
+BufferSlice TransientAllocator::allocateUpload( u64 size, u64 alignment ) {
+    return _uploadAllocator.allocate( size, alignment );
 }
 
 void TransientAllocator::reset() {
-    _scratchAllocator->reset();
-    _uploadAllocator->reset();
+    _scratchAllocator.reset();
+    _uploadAllocator.reset();
+}
+
+void TransientAllocator::setDebugName( StringView name ) {
+}
+
+StringView TransientAllocator::getDebugName() const {
+    return StringView();
+}
+
+STLW::String TransientAllocator::toString() const {
+    return STLW::String();
 }
 
 } // namespace Graphics::RHI

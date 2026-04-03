@@ -1,11 +1,9 @@
 #pragma once
-#include "Axion/Core/Render/Defines.h"
-#include "Axion/Graphics/Subsystems/PipelineRegistry.h"
-#include "Axion/Graphics/Subsystems/ShaderRegistry.h"
-#include <array>
-#include <string>
-#include <unordered_map>
-#include <vector>
+#include "Axion/Core/Render/Common.h"
+#include "Axion/Graphics/Subsystems/IPipelineRegistry.h"
+#include "Axion/Graphics/Subsystems/IShaderRegistry.h"
+#include "Axion/Common/Containers/STLWrapper/Maps.h"
+#include "Axion/Common/Containers/STLWrapper/Array.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -16,9 +14,9 @@ struct MaterialArchetype {
     MaterialArchetypeDesc desc {};
 
     //  Resources
-    std::array<Graphics::ShaderHandle, (size_t)MaterialPassType::Count> shaderHandles;
-    using TopologyArray = std::array<Graphics::PipelineHandle, (size_t)TopologyType::Count>;
-    std::array<TopologyArray, (size_t)MaterialPassType::Count> pipelines;
+    STLW::Array<Graphics::ShaderHandle, (size_t)MaterialPassType::Count> shaderHandles;
+    using TopologyArray = STLW::Array<Graphics::PipelineHandle, (size_t)TopologyType::Count>;
+    STLW::Array<TopologyArray, (size_t)MaterialPassType::Count> pipelines;
 
     MaterialArchetype() {
     }
@@ -29,11 +27,11 @@ struct MaterialArchetype {
 };
 
 struct MaterialPassProfile {
-    std::vector<Graphics::Format> renderTargetFormats;
-    Graphics::Format              depthTargetFormat = Graphics::Format::D32;
+    STLW::Vector<Graphics::Format> renderTargetFormats;
+    Graphics::Format               depthTargetFormat = Graphics::Format::D32;
 };
 
-enum MaterialPassSupportFlags : uchar
+enum MaterialPassSupportFlags : byte
 {
     MaterialPassSupportNone        = 1 << 0,
     MaterialPassSupportOpaque      = 1 << 1,
@@ -53,7 +51,7 @@ class MaterialLibrary
 public:
     class ArchetypeBuilder;
 
-    ArchetypeBuilder beginMaterial( const std::string& name );
+    ArchetypeBuilder beginMaterial( StringView name );
     void             registerArchetype( const MaterialArchetypeDesc& desc );
 
     void init( Graphics::API api, MaterialPassSupportFlags defaultPassSupportFlags = MaterialPassSupportNone );
@@ -66,11 +64,11 @@ public:
 
     void createPipelines( Graphics::IPipelineRegistry& pipelines );
 
-    AXION_FORCE_INLINE const std::vector<MaterialArchetype>& getArchetypesRaw() const { return _archetypes; }
-    AXION_FORCE_INLINE ulong                                 getArchetypesCount() const { return _archetypes.size(); }
-    AXION_FORCE_INLINE bool                                  isInitialized() const { return _initialized; }
+    AXION_FORCE_INLINE const STLW::Vector<MaterialArchetype>& getArchetypesRaw() const { return _archetypes; }
+    AXION_FORCE_INLINE u64                                  getArchetypesCount() const { return _archetypes.size(); }
+    AXION_FORCE_INLINE bool                                   isInitialized() const { return _initialized; }
 
-    uint getArchetypeID( const std::string& name ) const;
+    u32 getArchetypeID( StringView name ) const;
 
 private:
     void enforceDefaultPasses( MaterialArchetypeDesc& desc );
@@ -79,15 +77,15 @@ private:
     std::string           toString( TopologyType type );
     MaterialTopologyFlags topologyToFlags( TopologyType type );
 
-    std::vector<MaterialArchetype>        _archetypes;
-    std::unordered_map<std::string, uint> _archetypeLookup;
+    STLW::Vector<MaterialArchetype>       _archetypes;
+    STLW::UnorderedMap<String64, u32> _archetypeLookup;
 
-    std::array<MaterialPassProfile, (size_t)MaterialPassType::Count> _passProfiles;
+    STLW::Array<MaterialPassProfile, (size_t)MaterialPassType::Count> _passProfiles;
 
     Graphics::PipelineLayoutHandle _globalLayoutHandle; // Global Shader Contract
 
-    Graphics::API                   _api;
-    bool                            _initialized             = false;
+    Graphics::API            _api;
+    bool                     _initialized = false;
     MaterialPassSupportFlags _defaultPassSupportFlags;
 
     friend class ArchetypeBuilder;
@@ -96,16 +94,16 @@ private:
 class MaterialLibrary::ArchetypeBuilder
 {
 public:
-    ArchetypeBuilder( MaterialLibrary& l, const std::string& name )
+    ArchetypeBuilder( MaterialLibrary& l, StringView name )
         : _lib( l ) {
         _archDesc.name                = name;
         _archDesc.topologiesSupported = MaterialTopologyTriangles;
     }
 
-    ArchetypeBuilder& addPass( MaterialPassType                                 type,
-                               const std::string&                               path,
-                               const std::vector<Graphics::Shader::EntryPoint>& entryPoints,
-                               const std::string&                               customIncludePath = "" ) {
+    ArchetypeBuilder& addPass( MaterialPassType                                  type,
+                               const STLW::String&                               path,
+                               const STLW::Vector<Graphics::Shader::EntryPoint>& entryPoints,
+                               const STLW::String&                               customIncludePath = "" ) {
         MaterialArchetypePassConfig p;
         p.shaderPath        = path;
         p.passType          = type;
@@ -115,7 +113,7 @@ public:
         return *this;
     }
 
-    // MaterialBuilder& addForwardStandard( const std::string& path ) {
+    // MaterialBuilder& addForwardStandard( StringView path ) {
     //     addPass( MaterialPassPermutation::Opaque, path, "vsForward", "psForward" );
     //     addPass( MaterialPassPermutation::Blend, path, "vsForward", "psForward" );
     //     return *this;

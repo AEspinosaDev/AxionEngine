@@ -1,34 +1,34 @@
-#include "Axion/Graphics/RHI/Device.h"
-#include "Axion/Graphics/RHI/Memory.hpp"
+#include "Axion/Graphics/RHI/IDevice.h"
+#include "Axion/Graphics/RHI/Memory.h"
 
 AXION_NAMESPACE_BEGIN
 namespace Graphics::RHI {
 
-class TransientAllocator : public RefCounter<ITransientAllocator>
+class TransientAllocator : public ITransientAllocator
 {
 public:
     TransientAllocator( IDevice* device, const Description& desc );
     ~TransientAllocator();
 
-    BufferView allocateScratch( ulong size, ulong alignment ) override;
-    BufferView allocateUpload( ulong size, ulong alignment ) override;
-    void       reset() override;
+    BufferSlice allocateScratch( u64 size, u64 alignment ) override;
+    BufferSlice allocateUpload( u64 size, u64 alignment ) override;
+    void        reset() override;
 
     const Description& getDescription() const override { return _desc; }
 
-    NativeObject       getNativeObject( ObjectType type ) override { return nullptr; }
-    void               setDebugName( const std::string& name ) override { _desc.debugName = name; }
-    const std::string& getDebugName() const override { return _desc.debugName; };
-    std::string        toString() const override { return _desc.debugName; }
+    NativeObject getNativeObject( ObjectType /*type*/ ) override { return nullptr; }
+    void         setDebugName( StringView name ) override;
+    StringView   getDebugName() const override;
+    STLW::String toString() const override;
 
 private:
     Description _desc;
 
-    BufferPtr                        _scratchBuffer;
-    std::unique_ptr<LinearAllocator> _scratchAllocator;
+    BufferOwnerPtr          _scratchBuffer;
+    BufferLinearAllocator<> _scratchAllocator;
 
-    BufferPtr                        _uploadBuffer;
-    std::unique_ptr<LinearAllocator> _uploadAllocator;
+    BufferOwnerPtr          _uploadBuffer;
+    BufferLinearAllocator<> _uploadAllocator;
 };
 
 } // namespace Graphics::RHI

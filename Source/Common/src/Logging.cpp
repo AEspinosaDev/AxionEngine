@@ -76,6 +76,7 @@ const char* Logger::moduleToString( Module module ) {
         case Module::Shader: return "GFX::Shader";
         case Module::RHI:    return "GFX::RHI";
         case Module::Editor: return "Editor";
+        case Module::Common: return "Common";
         default:             return "Unknown";
     }
 }
@@ -99,6 +100,7 @@ const char* Logger::moduleColor( Module module ) {
         case Module::Shader: return "\033[35m"; // Bright Green
         case Module::RHI:    return "\033[35m"; // Bright Blue
         case Module::Editor: return "\033[97m"; // Bright White
+        case Module::Common: return "\033[37m"; // Gray
         default:             return "\033[37m"; // Gray
     }
 }
@@ -210,3 +212,79 @@ void Logger::flush() {
 }
 
 AXION_NAMESPACE_END
+// // 1. Cambiamos la firma a string_view para evitar copias
+// void Logger::log(Level level, Module module, std::string_view message) {
+//     if (level < instance()._logLevel || module > instance()._logModule) return;
+
+//     std::lock_guard<std::mutex> lock(instance()._mtx);
+
+//     // Usamos fmt::memory_buffer: vive en el STACK (500 bytes por defecto)
+//     // No reserva memoria en el heap a menos que el mensaje sea gigante.
+//     fmt::memory_buffer fileBuffer;
+//     fmt::memory_buffer consoleBuffer;
+
+//     // 1. Obtener timestamp en un buffer fijo (char[32])
+//     char timeStr[32];
+//     getTimestamp(timeStr, sizeof(timeStr)); 
+
+//     // 2. Construir Headers usando format_to (escribe directo al buffer)
+//     const char* lvlStr = levelToString(level);
+//     const char* modStr = moduleToString(level);
+
+//     // Archivo
+//     fmt::format_to(std::back_inserter(fileBuffer), "[AXION][{}][{}][{}] ", 
+//                    timeStr, lvlStr, modStr);
+
+//     // Consola (Inyección de colores ANSI)
+//     fmt::format_to(std::back_inserter(consoleBuffer), "[AXION][{}][{}][{}{}{}{}{}] ",
+//                    timeStr, lvlStr, resetColor(), moduleColor(module), modStr, 
+//                    resetColor(), levelColor(level));
+
+//     // 3. Procesar Multilínea sin istringstream
+//     auto processMessage = [&](auto& buffer, std::string_view msg, bool indent) {
+//         size_t start = 0;
+//         size_t end = msg.find('\n');
+        
+//         while (end != std::string_view::npos) {
+//             std::string_view line = msg.substr(start, end - start);
+//             if (!line.empty()) {
+//                 if (indent) fmt::format_to(std::back_inserter(buffer), "    ");
+//                 fmt::format_to(std::back_inserter(buffer), "{}\n", line);
+//             }
+//             start = end + 1;
+//             end = msg.find('\n', start);
+//         }
+        
+//         // Última línea o mensaje sin \n
+//         std::string_view lastLine = msg.substr(start);
+//         if (!lastLine.empty()) {
+//             if (indent && start > 0) fmt::format_to(std::back_inserter(buffer), "    ");
+//             fmt::format_to(std::back_inserter(buffer), "{}", lastLine);
+//         }
+//     };
+
+//     bool isMultiline = message.find('\n') != std::string_view::npos;
+//     if (isMultiline) {
+//         fmt::format_to(std::back_inserter(fileBuffer), "\n");
+//         fmt::format_to(std::back_inserter(consoleBuffer), "\n");
+//     }
+
+//     processMessage(fileBuffer, message, isMultiline);
+//     processMessage(consoleBuffer, message, isMultiline);
+
+//     // 4. Output final (se hace una sola vez)
+//     std::cout << levelColor(level) << std::string_view(consoleBuffer.data(), consoleBuffer.size()) 
+//               << resetColor() << std::endl;
+
+//     if (instance()._logFile.is_open()) {
+//         instance()._logFile.write(fileBuffer.data(), fileBuffer.size());
+//         instance()._logFile << std::endl;
+//     }
+// }
+// void Logger::getTimestamp(char* outBuffer, size_t size) {
+//     auto now = std::chrono::system_clock::now();
+//     auto in_time_t = std::chrono::system_clock::to_time_t(now);
+//     std::tm ltm;
+//     localtime_s(&ltm, &in_time_t);
+//     std::strftime(outBuffer, size, "%H:%M:%S", &ltm);
+// // }

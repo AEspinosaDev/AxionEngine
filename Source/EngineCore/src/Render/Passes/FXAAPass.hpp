@@ -1,6 +1,6 @@
 #pragma once
 #include "../PassSystem.h"
-#include "Axion/Graphics/Subsystems/RenderGraph.h"
+#include "Axion/Graphics/Subsystems/IRenderGraph.h"
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
@@ -8,7 +8,7 @@ namespace Core::Render {
 class FXAAPass : public IRenderPass
 {
 public:
-    enum class QualityPreset : uchar
+    enum class QualityPreset : byte
     {
         Low,
         Medium,

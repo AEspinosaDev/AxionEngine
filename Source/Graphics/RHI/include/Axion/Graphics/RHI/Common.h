@@ -1,37 +1,58 @@
 #pragma once
 // Axion Common Module
-#include "Axion/Common/Defines.h"
-#include "Axion/Common/Graphics/Defines.h"
+#include "Axion/Common/Common.h"
+#include "Axion/Common/Containers/STLWrapper/Maps.h"
+#include "Axion/Common/Containers/STLWrapper/String.h"
+#include "Axion/Common/Containers/STLWrapper/Vector.h"
+#include "Axion/Common/Containers/String.h"
+#include "Axion/Common/Graphics/Common.h"
 #include "Axion/Common/Logging.h"
 #include "Axion/Common/Math.h"
-
-// DirectX 12
-using namespace Microsoft::WRL;
-
-#include <directx/d3dx12.h> // D3D12 extension library.
-
-#include <DirectXMath.h>
-#include <d3d12.h>
-#include <d3dcompiler.h>
-#include <dxgi1_6.h>
-#include <dxgidebug.h>
-#pragma comment( lib, "dxguid.lib" )
-
-#include <D3D12MemAlloc.h> 
-
-// Vulkan
-#include <vulkan/vulkan.h>
-// GLFW
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3native.h>
+#include "Axion/Common/Memory/Pointers/OwnerPtr.h"
+#include <Axion/Common/Memory/Allocators/SubAllocators/FreeListSubAllocator.h>
+#include <Axion/Common/Memory/Allocators/SubAllocators/LinearSubAllocator.h>
 
 #define ALIGN( _size, _alignment ) ( ( ( _size ) + ( _alignment ) - 1 ) & ~( ( _alignment ) - 1 ) )
+#define TEXTURE_DATA_PLACEMENT_ALIGNMENT ( 512 )
 
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
+
+////////////////////////////////////////////////////////////////////////
+// Device Buffer Sub Allocator
+////////////////////////////////////////////////////////////////////////
+
+namespace RHI {
+class IBuffer;
+}
+
+/**
+ * A memory slice allocated from a larger buffer, used for sub-allocations within the RHI.
+ * This struct abstracts the details of the underlying buffer and provides necessary information for both CPU and GPU access.
+ */
+using BufferSlice = Memory::SubAllocation<RHI::IBuffer>;
+/** @brief Free-list allocator for persistent buffer data without thread synchronization. */
+template <typename VisibilityPolicy = Memory::VisibilityShared>
+using BufferFreeListAllocator = Memory::FreeListSubAllocator<RHI::IBuffer, VisibilityPolicy, Memory::NoLockPolicy>;
+
+/** @brief Free-list allocator for persistent, device-local (GPU-only) buffer data without thread synchronization. */
+using BufferGPUFreeListAllocator = Memory::FreeListSubAllocator<RHI::IBuffer, Memory::VisibilityDeviceOnly, Memory::NoLockPolicy>;
+
+/** @brief Thread-safe free-list allocator for persistent buffer data. */
+template <typename VisibilityPolicy = Memory::VisibilityShared>
+using LockedBufferFreeListAllocator = Memory::FreeListSubAllocator<RHI::IBuffer, VisibilityPolicy, Memory::MutexLockPolicy>;
+
+/** @brief Linear allocator for transient buffer data without thread synchronization. Ideal for per-frame allocations. */
+template <typename VisibilityPolicy = Memory::VisibilityShared>
+using BufferLinearAllocator = Memory::LinearSubAllocator<RHI::IBuffer, VisibilityPolicy, Memory::NoLockPolicy>;
+
+/** @brief Linear allocator for transient, device-local (GPU-only) buffer data without thread synchronization. */
+using BufferGPULinearAllocator = Memory::LinearSubAllocator<RHI::IBuffer, Memory::VisibilityDeviceOnly, Memory::NoLockPolicy>;
+
+/** @brief Thread-safe linear allocator for transient buffer data. */
+template <typename VisibilityPolicy = Memory::VisibilityShared>
+using LockedBufferLinearAllocator = Memory::LinearSubAllocator<RHI::IBuffer, VisibilityPolicy, Memory::MutexLockPolicy>;
 
 ////////////////////////////////////////////////////////////////////////
 // RHI Reserved Definitions
@@ -40,22 +61,22 @@ namespace Graphics {
 namespace RHI {
 
 struct DrawIndexedIndirectCommand {
-    uint baseInstanceID; ///< Current Instance ID + offset
+    u32 baseInstanceID; ///< Current Instance ID + offset
 
-    uint indexCount;    ///< Number of indexes to draw
-    uint instanceCount; ///< Number of instances to draw
-    uint firstIndex;    ///< Offset in IndexBuffer (elements, not bytes)
-    int  vertexOffset;  ///< Offset in VertexBuffer
-    uint firstInstance; ///< ID as base
+    u32 indexCount;    ///< Number of indexes to draw
+    u32 instanceCount; ///< Number of instances to draw
+    u32 firstIndex;    ///< Offset in IndexBuffer (elements, not bytes)
+    int vertexOffset;  ///< Offset in VertexBuffer
+    u32 firstInstance; ///< ID as base
 
-    uint _padding[2];
+    u32 _padding[2];
 };
 
 struct DispatchIndirectCommand {
-    uint baseInstanceID;
-    uint threadGroupCountX;
-    uint threadGroupCountY;
-    uint threadGroupCountZ;
+    u32 baseInstanceID;
+    u32 threadGroupCountX;
+    u32 threadGroupCountY;
+    u32 threadGroupCountZ;
 };
 
 enum class BarrierPolicy
@@ -78,7 +99,7 @@ enum class QueueType
     Transfer = 2
 };
 
-enum class Feature : ushort
+enum class FeatureType : u16
 {
     ComputeQueue,
     ConservativeRasterization,
@@ -107,7 +128,7 @@ enum class Feature : ushort
     CooperativeVectorTraining
 };
 
-enum class ResourceState : uint
+enum class ResourceState : u32
 {
     Undefined = 0,
 
@@ -160,7 +181,7 @@ enum class ResourceState : uint
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( ResourceState )
 
-enum class FormatSupport : uint
+enum class FormatSupport : u32
 {
     None = 0,
 
@@ -182,7 +203,7 @@ enum class FormatSupport : uint
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( FormatSupport )
 
-enum class DescriptorType : uchar
+enum class DescriptorType : byte
 {
     UniformBuffer = 0,     // Constant buffer / UBO
     StorageBuffer,         // RW buffer / SSBO
@@ -224,12 +245,12 @@ struct RenderingAttachment {
 };
 
 struct RenderingDesc {
-    std::vector<RenderingAttachment> colorAttachments;
-    RenderingAttachment              depthStencilAttachment;
-    Extent2D                         renderArea;
+    STLW::Vector<RenderingAttachment> colorAttachments;
+    RenderingAttachment               depthStencilAttachment;
+    Extent2D                          renderArea;
 };
 
-enum class PipelineBindPoint : uchar
+enum class PipelineBindPoint : byte
 {
     None,
     Compute,
@@ -243,7 +264,7 @@ enum class AccelType
     TopLevel     // TLAS: Instances of BLAS
 };
 
-enum AccelBuildFlags : uchar
+enum AccelBuildFlags : byte
 {
     ASBuildNone            = 0,
     ASBuildPreferFastTrace = 1 << 0, // Good for static geometry, slower build
@@ -254,7 +275,7 @@ enum AccelBuildFlags : uchar
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( AccelBuildFlags )
 
-enum class AccelInstanceFlags : uchar
+enum class AccelInstanceFlags : byte
 {
     None                = 0,
     TriangleCullDisable = 0x1,
@@ -264,7 +285,7 @@ enum class AccelInstanceFlags : uchar
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( AccelInstanceFlags )
 
-enum class AccelPrimitive : uint
+enum class AccelPrimitive : u32
 {
     Triangles,
     AABBs,
@@ -273,11 +294,11 @@ enum class AccelPrimitive : uint
 // Description for a single geometry piece (Mesh) inside a BLAS
 struct AccelGeometryDesc {
     AccelPrimitive primitiveType;
-    ulong          vertexBufferAddress;
-    ulong          indexBufferAddress; //(optional)
-    uint           vertexCount;
-    uint           indexCount;
-    uint           vertexStride; // Stride in bytes
+    u64            vertexBufferAddress;
+    u64            indexBufferAddress; //(optional)
+    u32            vertexCount;
+    u32            indexCount;
+    u32            vertexStride; // Stride in bytes
     Format         vertexFormat;
     bool           isOpaque; // Optimization flag: no any-hit shader needed
 
@@ -299,11 +320,11 @@ struct AccelGeometryDesc {
 // Description for an instance inside a TLAS
 struct AccelInstanceDesc {
     Math::Mat4         transform;
-    uint               instanceID;          // Custom ID to access in shader (gl_InstanceCustomIndex)
-    uint               instanceMask = 0xFF; // Visibility mask (0xFF usually)
-    uint               hitGroupIndex;       // Offset in the Shader Binding Table
+    u32                instanceID;          // Custom ID to access in shader (gl_InstanceCustomIndex)
+    u32                instanceMask = 0xFF; // Visibility mask (0xFF usually)
+    u32                hitGroupIndex;       // Offset in the Shader Binding Table
     AccelInstanceFlags flags;               // Instance specific flags
-    ulong              blasDeviceAddress;   // The address of the BLAS this instance represents
+    u64                blasDeviceAddress;   // The address of the BLAS this instance represents
 
     bool operator==( const AccelInstanceDesc& other ) const {
         return instanceID == other.instanceID &&
@@ -317,7 +338,7 @@ struct AccelInstanceDesc {
     }
 };
 
-typedef uint ObjectType;
+typedef u32 ObjectType;
 
 // ObjectTypes namespace contains identifiers for various object types.
 // All constants have to be distinct. Implementations may extend the list.
@@ -373,14 +394,14 @@ constexpr ObjectType VK_ImageCreateInfo          = 0x00020015;
 }; // namespace ObjectTypes
 
 struct NativeObject {
-    ulong integer;
+    u64   integer;
     void* pointer;
 
-    NativeObject( ulong i )
+    NativeObject( u64 i )
         : integer( i ) {}
     NativeObject( void* p )
         : pointer( p ) {}
-    NativeObject( ulong i, void* p )
+    NativeObject( u64 i, void* p )
         : integer( i )
         , pointer( p ) {}
 
@@ -388,22 +409,20 @@ struct NativeObject {
     operator T*() const { return static_cast<T*>( pointer ); }
 };
 
-class IResource
+/**
+ * @brief Base interface for all device-related objects (Device, Swapchain, CommandList, Texture, etc.)
+ * Provides common functionality like debug naming and native object access.
+ */
+class IDeviceObject
 {
 protected:
-    IResource()          = default;
-    virtual ~IResource() = default;
+    IDeviceObject()          = default;
+    virtual ~IDeviceObject() = default;
 
 public:
-    // Intrusive ref count API
-    virtual ulong addRef() noexcept            = 0;
-    virtual ulong release() noexcept           = 0;
-    virtual ulong getRefCount() const noexcept = 0;
-
-    // Debug utilities (optional but very useful for graphics engines)
-    virtual void               setDebugName( const std::string& name ) = 0;
-    virtual const std::string& getDebugName() const                    = 0;
-    virtual std::string        toString() const                        = 0;
+    virtual void             setDebugName( std::string_view name ) = 0;
+    virtual std::string_view getDebugName() const                  = 0;
+    virtual STLW::String     toString() const                      = 0;
 
     // Returns a native object or interface, for example ID3D12Device*, or nullptr if the requested interface is unavailable.
     // Does *not* AddRef the returned interface.
@@ -412,175 +431,9 @@ public:
         return nullptr;
     }
 
-    // Non-copyable, non-movable
-    IResource( const IResource& )            = delete;
-    IResource& operator=( const IResource& ) = delete;
-    IResource( IResource&& )                 = delete;
-    IResource& operator=( IResource&& )      = delete;
+    AXION_DISABLE_MOVE( IDeviceObject );
+    AXION_DISABLE_COPY( IDeviceObject )
 };
-
-// Template to add reference counting to any base
-template <class T>
-class RefCounter : public T
-{
-public:
-    RefCounter()
-        : _refCount( 1 ) {
-        // std::cout << "[RefCounter] Created: " << this << " RefCount=1\n";
-    }
-
-    virtual ~RefCounter() {
-        // std::cout << "[RefCounter] Destroyed: " << this << "\n";
-    }
-
-    ulong addRef() noexcept override {
-        ulong val = ++_refCount;
-        // std::cout << "[RefCounter] addRef: " << this << " RefCount=" << val << "\n";
-        return val;
-    }
-
-    ulong release() noexcept override {
-        ulong val = --_refCount;
-        // std::cout << "[RefCounter] release: " << this << " RefCount=" << val << "\n";
-        if ( val == 0 )
-        {
-            // std::cout << "[RefCounter] deleting: " << this << "\n";
-            delete this;
-        }
-        return val;
-    }
-
-    ulong getRefCount() const noexcept override {
-        return _refCount.load();
-    }
-
-private:
-    std::atomic<ulong> _refCount;
-};
-
-// COM-style smart pointer
-template <class T>
-class Ptr
-{
-public:
-    Ptr()
-        : _ptr( nullptr ) {}
-    Ptr( std::nullptr_t )
-        : _ptr( nullptr ) {}
-
-    Ptr( T* raw )
-        : _ptr( raw ) {
-        internalAddRef();
-    }
-
-    Ptr( const Ptr& other )
-        : _ptr( other._ptr )
-        , _ownsReference( true ) {
-        internalAddRef();
-    }
-    Ptr( Ptr&& other ) noexcept
-        : _ptr( other._ptr )
-        , _ownsReference( other._ownsReference ) {
-        other._ptr           = nullptr;
-        other._ownsReference = false;
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    Ptr( const Ptr<U>& other )
-        : _ptr( other._ptr ) {
-        internalAddRef();
-    }
-
-    template <typename U, typename = std::enable_if_t<std::is_convertible<U*, T*>::value>>
-    Ptr( Ptr<U>&& other ) noexcept
-        : _ptr( other._ptr ) {
-        other._ptr = nullptr;
-    }
-    Ptr( T* raw, bool takeOwnership )
-        : _ptr( raw )
-        , _ownsReference( takeOwnership ) // Nuevo flag
-    {
-        if ( _ownsReference )
-        {
-            internalAddRef();
-        }
-    }
-
-    ~Ptr() {
-        if ( _ownsReference )
-        {
-            internalRelease();
-        }
-    }
-
-    Ptr& operator=( const Ptr& other ) {
-        if ( this != &other )
-        {
-            internalRelease();
-            _ptr = other._ptr;
-            internalAddRef();
-        }
-        return *this;
-    }
-
-    // operators
-    T* operator->() const { return _ptr; }
-    T& operator*() const { return *_ptr; }
-       operator bool() const { return _ptr != nullptr; }
-       operator T*() const { return _ptr; }
-
-    T* get() const { return _ptr; }
-
-    // Returns a pointer to the internal pointer (like COM & operator)
-    T** operator&() {
-        internalRelease();
-        _ptr = nullptr;
-        return &_ptr;
-    }
-
-    // Detach the pointer (caller takes ownership, RefPtr forgets it)
-    T* detach() {
-        T* tmp = _ptr;
-        _ptr   = nullptr;
-        return tmp;
-    }
-
-    // Attach a raw pointer (takes ownership)
-    void attach( T* raw ) {
-        internalRelease();
-        _ptr = raw;
-    }
-
-    // Factory method, returns Ptr that owns new object
-    template <class... Args>
-    static Ptr<T> create( Args&&... args ) {
-        T* obj = new T( std::forward<Args>( args )... );
-        return Ptr<T>( obj );
-    }
-
-private:
-    void internalAddRef() {
-        if ( _ptr )
-            _ptr->addRef();
-    }
-
-    void internalRelease() {
-        if ( _ptr )
-            _ptr->release();
-        _ptr = nullptr;
-    }
-
-private:
-    T*   _ptr;
-    bool _ownsReference = true;
-
-    template <typename>
-    friend class Ptr;
-};
-
-#define DEFINE_COM_PTR_FOR_TYPE( type, clean ) \
-    class type;                                \
-    typedef Ptr<type> clean##Ptr;
 
 } // namespace RHI
 } // namespace Graphics

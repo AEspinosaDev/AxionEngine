@@ -1,6 +1,6 @@
 #pragma once
-#include "Axion/Common/Defines.h"
-#include <vector>
+#include "Axion/Common/Common.h"
+#include "Axion/Common/Containers/Array.h"
 
 struct Vertex {
     float x, y, z;
@@ -8,7 +8,7 @@ struct Vertex {
     float u, v;
 };
 
-std::vector<Vertex> cubeVertices = {
+Axion::FixedArray<Vertex, 24> cubeVertices = {
     // Front Face (Z+)
     { -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f }, // 0
     { 0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f },  // 1
@@ -46,7 +46,7 @@ std::vector<Vertex> cubeVertices = {
     { -0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f }   // 23
 };
 
-std::vector<uint> cubeIndices = {
+Axion::FixedArray<u32, 36> cubeIndices = {
     0,
     1,
     2,
@@ -84,3 +84,4 @@ std::vector<uint> cubeIndices = {
     23,
     20 // Bottom
 };
+

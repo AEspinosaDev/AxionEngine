@@ -8,7 +8,7 @@ namespace Graphics::RHI {
 class ResourceStateTracker
 {
 public:
-    explicit ResourceStateTracker( uint mipLevels = 1, uint arrayLayers = 1 );
+    explicit ResourceStateTracker( u32 mipLevels = 1, u32 arrayLayers = 1 );
 
     // --- Main API ---
     bool          needsTransition( ResourceState newState ) const;
@@ -18,16 +18,16 @@ public:
     bool          isInitialized() const { return _initialized; }
 
     // --- Optional per-subresource (Textures) ---
-    void          setState( ResourceState newState, uint mip, uint layer = 0 );
-    ResourceState getState( uint mip, uint layer = 0 ) const;
+    void          setState( ResourceState newState, u32 mip, u32 layer = 0 );
+    ResourceState getState( u32 mip, u32 layer = 0 ) const;
 
 private:
     ResourceState _globalState = ResourceState::Undefined;
     bool          _initialized = false;
 
     std::vector<ResourceState> _subresourceStates;
-    uint                       _miplevels   = 1;
-    uint                       _arrayLayers = 1;
+    u32                       _miplevels   = 1;
+    u32                       _arrayLayers = 1;
 };
 
 } // namespace RHI
