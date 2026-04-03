@@ -25,22 +25,22 @@ namespace Graphics {
 namespace RHI {
 
 struct DrawIndexedIndirectCommand {
-    uint baseInstanceID; ///< Current Instance ID + offset
+    u32 baseInstanceID; ///< Current Instance ID + offset
 
-    uint indexCount;    ///< Number of indexes to draw
-    uint instanceCount; ///< Number of instances to draw
-    uint firstIndex;    ///< Offset in IndexBuffer (elements, not bytes)
+    u32 indexCount;    ///< Number of indexes to draw
+    u32 instanceCount; ///< Number of instances to draw
+    u32 firstIndex;    ///< Offset in IndexBuffer (elements, not bytes)
     int  vertexOffset;  ///< Offset in VertexBuffer
-    uint firstInstance; ///< ID as base
+    u32 firstInstance; ///< ID as base
 
-    uint _padding[2];
+    u32 _padding[2];
 };
 
 struct DispatchIndirectCommand {
-    uint baseInstanceID;
-    uint threadGroupCountX;
-    uint threadGroupCountY;
-    uint threadGroupCountZ;
+    u32 baseInstanceID;
+    u32 threadGroupCountX;
+    u32 threadGroupCountY;
+    u32 threadGroupCountZ;
 };
 
 enum class BarrierPolicy
@@ -63,7 +63,7 @@ enum class QueueType
     Transfer = 2
 };
 
-enum class FeatureType : ushort
+enum class FeatureType : u16
 {
     ComputeQueue,
     ConservativeRasterization,
@@ -92,7 +92,7 @@ enum class FeatureType : ushort
     CooperativeVectorTraining
 };
 
-enum class ResourceState : uint
+enum class ResourceState : u32
 {
     Undefined = 0,
 
@@ -145,7 +145,7 @@ enum class ResourceState : uint
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( ResourceState )
 
-enum class FormatSupport : uint
+enum class FormatSupport : u32
 {
     None = 0,
 
@@ -167,7 +167,7 @@ enum class FormatSupport : uint
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( FormatSupport )
 
-enum class DescriptorType : uchar
+enum class DescriptorType : byte
 {
     UniformBuffer = 0,     // Constant buffer / UBO
     StorageBuffer,         // RW buffer / SSBO
@@ -209,12 +209,12 @@ struct RenderingAttachment {
 };
 
 struct RenderingDesc {
-    std::vector<RenderingAttachment> colorAttachments;
+    STLW::Vector<RenderingAttachment> colorAttachments;
     RenderingAttachment              depthStencilAttachment;
     Extent2D                         renderArea;
 };
 
-enum class PipelineBindPoint : uchar
+enum class PipelineBindPoint : byte
 {
     None,
     Compute,
@@ -228,7 +228,7 @@ enum class AccelType
     TopLevel     // TLAS: Instances of BLAS
 };
 
-enum AccelBuildFlags : uchar
+enum AccelBuildFlags : byte
 {
     ASBuildNone            = 0,
     ASBuildPreferFastTrace = 1 << 0, // Good for static geometry, slower build
@@ -239,7 +239,7 @@ enum AccelBuildFlags : uchar
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( AccelBuildFlags )
 
-enum class AccelInstanceFlags : uchar
+enum class AccelInstanceFlags : byte
 {
     None                = 0,
     TriangleCullDisable = 0x1,
@@ -249,7 +249,7 @@ enum class AccelInstanceFlags : uchar
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( AccelInstanceFlags )
 
-enum class AccelPrimitive : uint
+enum class AccelPrimitive : u32
 {
     Triangles,
     AABBs,
@@ -258,11 +258,11 @@ enum class AccelPrimitive : uint
 // Description for a single geometry piece (Mesh) inside a BLAS
 struct AccelGeometryDesc {
     AccelPrimitive primitiveType;
-    ulong          vertexBufferAddress;
-    ulong          indexBufferAddress; //(optional)
-    uint           vertexCount;
-    uint           indexCount;
-    uint           vertexStride; // Stride in bytes
+    u64          vertexBufferAddress;
+    u64          indexBufferAddress; //(optional)
+    u32           vertexCount;
+    u32           indexCount;
+    u32           vertexStride; // Stride in bytes
     Format         vertexFormat;
     bool           isOpaque; // Optimization flag: no any-hit shader needed
 
@@ -284,11 +284,11 @@ struct AccelGeometryDesc {
 // Description for an instance inside a TLAS
 struct AccelInstanceDesc {
     Math::Mat4         transform;
-    uint               instanceID;          // Custom ID to access in shader (gl_InstanceCustomIndex)
-    uint               instanceMask = 0xFF; // Visibility mask (0xFF usually)
-    uint               hitGroupIndex;       // Offset in the Shader Binding Table
+    u32               instanceID;          // Custom ID to access in shader (gl_InstanceCustomIndex)
+    u32               instanceMask = 0xFF; // Visibility mask (0xFF usually)
+    u32               hitGroupIndex;       // Offset in the Shader Binding Table
     AccelInstanceFlags flags;               // Instance specific flags
-    ulong              blasDeviceAddress;   // The address of the BLAS this instance represents
+    u64              blasDeviceAddress;   // The address of the BLAS this instance represents
 
     bool operator==( const AccelInstanceDesc& other ) const {
         return instanceID == other.instanceID &&
@@ -302,7 +302,7 @@ struct AccelInstanceDesc {
     }
 };
 
-typedef uint ObjectType;
+typedef u32 ObjectType;
 
 // ObjectTypes namespace contains identifiers for various object types.
 // All constants have to be distinct. Implementations may extend the list.
@@ -358,14 +358,14 @@ constexpr ObjectType VK_ImageCreateInfo          = 0x00020015;
 }; // namespace ObjectTypes
 
 struct NativeObject {
-    ulong integer;
+    u64 integer;
     void* pointer;
 
-    NativeObject( ulong i )
+    NativeObject( u64 i )
         : integer( i ) {}
     NativeObject( void* p )
         : pointer( p ) {}
-    NativeObject( ulong i, void* p )
+    NativeObject( u64 i, void* p )
         : integer( i )
         , pointer( p ) {}
 

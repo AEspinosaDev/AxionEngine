@@ -21,7 +21,7 @@ public:
     /// @brief Configuration descriptor for creating a Command List.
     struct Description {
         QueueType queueType;     ///< The queue type this list will be submitted to (Graphics, Compute, Copy).
-        uint      numFrames = 1; ///< Number of internal buffers for frame-in-flight rotation.
+        u32      numFrames = 1; ///< Number of internal buffers for frame-in-flight rotation.
         String64  debugName = "";
     };
 
@@ -39,10 +39,10 @@ public:
 
     /// @brief Sets the index for the current frame in flight (0..FramesInFlight-1).
     /// Used to rotate internal allocators or versioned resources.
-    virtual void setCurrentFrame( uint index ) = 0;
+    virtual void setCurrentFrame( u32 index ) = 0;
 
     /// @brief Returns the current frame index being recorded.
-    virtual uint getCurrentFrame() const = 0;
+    virtual u32 getCurrentFrame() const = 0;
 
     /// @brief Returns the creation description.
     virtual const Description& getDescription() const = 0;
@@ -69,7 +69,7 @@ public:
 
     /// @brief Copies data from one buffer to another (GPU to GPU).
     /// @param barrierPolicy If Auto, injects CopyDest/CopySource barriers. Use None for batching.
-    virtual void copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset = 0, ulong srcOffset = 0, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) = 0;
+    virtual void copyBuffer( IBuffer* dst, IBuffer* src, u64 numBytes, u64 dstOffset = 0, u64 srcOffset = 0, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) = 0;
 
     /// @brief Copies a whole texture to another (GPU to GPU).
     /// @param barrierPolicy If Auto, injects CopyDest/CopySource barriers.
@@ -78,12 +78,12 @@ public:
     /// @brief Uploads CPU data to a GPU buffer using a Transient Allocator (Staging).
     /// @param allocator The frame-transient allocator to allocate upload memory from.
     /// @param barrierPolicy If Auto, transitions dst to CopyDest.
-    virtual void uploadBuffer( IBuffer* dst, const void* data, ulong size, ulong dstOffset, ITransientAllocator* allocator, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) = 0;
+    virtual void uploadBuffer( IBuffer* dst, const void* data, u64 size, u64 dstOffset, ITransientAllocator* allocator, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) = 0;
 
     /// @brief Uploads CPU pixel data to a Texture using a Transient Allocator (Staging).
     /// Automatically handles row-pitch alignment and padding requirements.
     /// @param allocator The frame-transient allocator to allocate upload memory from.
-    virtual void uploadTexture( ITexture* dst, const void* data, ITransientAllocator* allocator, uint mipSlice = 0, uint arraySlice = 0, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) = 0;
+    virtual void uploadTexture( ITexture* dst, const void* data, ITransientAllocator* allocator, u32 mipSlice = 0, u32 arraySlice = 0, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) = 0;
 
     // -------------------------------------------------------------------------
     // RAYTRACING ACCELERATION STRUCTURES
@@ -108,11 +108,11 @@ public:
 
     /// @brief Binds a Descriptor Set (Resource Group) to a specific slot. Command buffer will automatically
     // use the last bound pipeline's layout
-    virtual void bindDescriptorSet( uint setIndex, IDescriptorSet* set ) = 0;
+    virtual void bindDescriptorSet( u32 setIndex, IDescriptorSet* set ) = 0;
 
     /// @brief Binds a Descriptor Set (Resource Group) to a specific slot. Command buffer will override and use
     // given layout and bind point;
-    virtual void bindDescriptorSet( uint setIndex, IDescriptorSet* set, IPipelineLayout* layout, PipelineBindPoint bindPoint = PipelineBindPoint::Graphic ) = 0;
+    virtual void bindDescriptorSet( u32 setIndex, IDescriptorSet* set, IPipelineLayout* layout, PipelineBindPoint bindPoint = PipelineBindPoint::Graphic ) = 0;
 
     // -------------------------------------------------------------------------
     // DISPATCH & DRAW
@@ -133,27 +133,27 @@ public:
     /// @brief Ends the current rendering pass.
     virtual void endRendering() = 0;
 
-    virtual void draw( uint vertexCount, uint instanceCount = 1, uint firstVertex = 0, uint firstInstance = 0 ) = 0;
+    virtual void draw( u32 vertexCount, u32 instanceCount = 1, u32 firstVertex = 0, u32 firstInstance = 0 ) = 0;
 
-    virtual void drawIndexed( uint indexCount,
-                              uint instanceCount = 1,
-                              uint firstIndex    = 0,
+    virtual void drawIndexed( u32 indexCount,
+                              u32 instanceCount = 1,
+                              u32 firstIndex    = 0,
                               int  vertexOffset  = 0,
-                              uint firstInstance = 0 ) = 0;
+                              u32 firstInstance = 0 ) = 0;
 
-    virtual void bindVertexBuffer( uint slot, IBuffer* buffer ) = 0;
+    virtual void bindVertexBuffer( u32 slot, IBuffer* buffer ) = 0;
     virtual void bindIndexBuffer( IBuffer* buffer )             = 0;
 
     virtual void drawIndexedIndirect( IBuffer* indirectBuffer,
-                                      ulong    bufferOffset,
-                                      uint     maxDrawCount,
+                                      u64    bufferOffset,
+                                      u32     maxDrawCount,
                                       IBuffer* countBuffer       = nullptr,
-                                      ulong    countBufferOffset = 0 ) = 0;
+                                      u64    countBufferOffset = 0 ) = 0;
 
     /// @brief Pushes 32-bit constants directly to the pipeline (Root Constants).
     /// @tparam T The struct type to push. Must be 4-byte aligned.
     template <typename T>
-    void pushConstants( uint rootIndex, const T& data, uint offset32Bit = 0 ) {
+    void pushConstants( u32 rootIndex, const T& data, u32 offset32Bit = 0 ) {
         static_assert( sizeof( T ) % 4 == 0, "Push Constant struct size must be 4-byte aligned" );
         auto size = sizeof( T ) / 4;
         pushConstants( rootIndex, &data, size, offset32Bit );
@@ -161,7 +161,7 @@ public:
 
 protected:
     /// @brief Internal implementation for push constants.
-    virtual void pushConstants( uint setIndex, const void* data, uint numValues32Bit, uint offset32Bit = 0 ) = 0;
+    virtual void pushConstants( u32 setIndex, const void* data, u32 numValues32Bit, u32 offset32Bit = 0 ) = 0;
 };
 
 typedef ICommandList::Description CommandListDesc;

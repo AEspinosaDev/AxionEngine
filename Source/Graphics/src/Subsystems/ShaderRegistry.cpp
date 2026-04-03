@@ -22,8 +22,8 @@ void ShaderRegistry::initialize( const SubsystemInitContext& ctx ) {
 ShaderHandle ShaderRegistry::registerShader( const ShaderDesc& desc ) {
     std::scoped_lock lock( _mutex );
 
-    uint id = UINT32_MAX;
-    for ( uint i = 0; i < _shaders.size(); ++i )
+    u32 id = UINT32_MAX;
+    for ( u32 i = 0; i < _shaders.size(); ++i )
     {
         if ( !_shaders[i].alive )
         {
@@ -34,7 +34,7 @@ ShaderHandle ShaderRegistry::registerShader( const ShaderDesc& desc ) {
     }
     if ( id == UINT32_MAX )
     {
-        id = (uint)_shaders.size();
+        id = (u32)_shaders.size();
         _shaders.push_back( { {}, desc, /*std::move( layout ),*/ ShaderState::Uncompiled, true } );
     }
     // Map name
@@ -69,7 +69,7 @@ const ShaderBundle& ShaderRegistry::getBundle( ShaderHandle handle ) const {
     return record.bundle;
 }
 
-std::optional<ShaderHandle> ShaderRegistry::findShader( const std::string& name ) const {
+std::optional<ShaderHandle> ShaderRegistry::findShader( StringView name ) const {
     // std::scoped_lock lock( _mutex );
 
     auto it = _nameToHandle.find( name );
@@ -108,7 +108,7 @@ const ShaderBundle& ShaderRegistry::compileShader( ShaderHandle handle ) {
     return record.bundle;
 }
 
-const ShaderBundle& ShaderRegistry::compileShader( const std::string& name ) {
+const ShaderBundle& ShaderRegistry::compileShader( StringView name ) {
     auto handleOpt = findShader( name );
 
     if ( !handleOpt.has_value() )
@@ -119,7 +119,7 @@ const ShaderBundle& ShaderRegistry::compileShader( const std::string& name ) {
     return compileShader( *handleOpt );
 }
 
-void ShaderRegistry::compileAllShaders( uint threadCount ) {
+void ShaderRegistry::compileAllShaders( u32 threadCount ) {
     if ( threadCount > 1 )
     {
         // TO DO . . .

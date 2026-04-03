@@ -35,11 +35,8 @@ DX12Device::DX12Device( const IDX12Device::Description& desc ) {
 
         _ctx.device = createDevice( _ctx.adapter );
 
-        wchar_t wname[128];
-        int     result = MultiByteToWideChar( CP_UTF8, 0, desc.debugName.c_str(), (int)desc.debugName.size(), wname, 127 );
-        wname[result]  = L'\0';
-
-        _ctx.device->SetName( wname );
+      
+        setNativeName( _ctx.device.Get(), desc.debugName );
         checkExtensions();
 
         _ctx.primaryQueue = createCommandQueue( QueueType::Graphics, "Graphics Queue" );
@@ -153,8 +150,8 @@ SBTAllocatorOwnerPtr DX12Device::createSBTAllocator( const SBTAllocatorDesc& des
 TransientAllocatorOwnerPtr DX12Device::createTransientAllocator( const TransientAllocatorDesc& desc ) {
     return Memory::makeOwned<TransientAllocator>( this, desc );
 }
-void DX12Device::executeCommandLists( const std::vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) {
-    std::vector<ID3D12CommandList*> nativeLists;
+void DX12Device::executeCommandLists( const STLW::Vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) {
+    STLW::Vector<ID3D12CommandList*> nativeLists;
     nativeLists.reserve( lists.size() );
     for ( ICommandList* list : lists )
     {
@@ -260,7 +257,7 @@ FormatSupport DX12Device::queryFormatSupport( Format format ) const {
     // WIP
     return FormatSupport::None;
 }
-ComPtr<IDXGIAdapter4> DX12Device::getGPUAdapter( uint preferredDeviceID ) {
+ComPtr<IDXGIAdapter4> DX12Device::getGPUAdapter( u32 preferredDeviceID ) {
 
     ComPtr<IDXGIFactory4> dxgiFactory;
     UINT                  createFactoryFlags = 0;
@@ -331,13 +328,19 @@ ComPtr<IDXGIAdapter4> DX12Device::getGPUAdapter( uint preferredDeviceID ) {
         DXGI_ADAPTER_DESC desc;
         dxgiAdapter4->GetDesc( &desc );
 
-        _gpuAdapterName.clear();
+        char           narrowName[128];
         const wchar_t* wName = desc.Description;
-        while ( *wName )
+        u32            i     = 0;
+
+        while ( *wName && i < 127 )
         {
-            _gpuAdapterName += (char)*wName; // Basic cast
+            narrowName[i] = static_cast<char>( *wName );
             wName++;
+            i++;
         }
+        narrowName[i] = '\0'; // Ensure null termination
+
+        _gpuAdapterName = StringView(narrowName);
 
         AXION_LOG_INFO( Logger::Module::RHI, "DX12 Device [{}]: GPU Selected: {} (VRAM: {} MB)", _desc.debugName, _gpuAdapterName, desc.DedicatedVideoMemory / ( 1024 * 1024 ) );
     } else
@@ -533,8 +536,8 @@ STLW::String RHI::DX12Device::toString() const {
                     "  SRV Heap Size: {}\n"
                     "  Sampler Heap Size: {}\n"
                     "  Heap Directly Indexed: {}\n",
-                    _desc.debugName.c_str(),
-                    _gpuAdapterName.c_str(),
+                    _desc.debugName.cstr(),
+                    _gpuAdapterName.cstr(),
                     static_cast<int>( _desc.featureLevel ),
                     _desc.enableDebugLayer,
                     _desc.useWarp,

@@ -22,7 +22,7 @@ public:
 
         IndirectCommandData indirectData;
 
-        uint instanceCount;
+        u32 instanceCount;
     };
 
     void registerShaders( Graphics::IShaderRegistry& shaders ) override {
@@ -86,8 +86,8 @@ private:
 
         // DISPATCH
 
-        uint groupSize  = 64;
-        uint groupCount = ( data.instanceCount + groupSize - 1 ) / groupSize;
+        u32 groupSize  = 64;
+        u32 groupCount = ( data.instanceCount + groupSize - 1 ) / groupSize;
         ctx.cmd->dispatch( { groupCount, 1, 1 } );
     }
 

@@ -16,7 +16,7 @@ public:
 
     ~DebugMaterial() override = default;
 
-    uint getPayloadSize() const override {
+    u32 getPayloadSize() const override {
         return sizeof( GPUPayload );
     };
     void writePayload( void* dest, const TextureResolver& resolver ) const override {

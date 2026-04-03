@@ -23,12 +23,12 @@ public:
         // Chunk 2
         float normalScale;
         float aoStrength;
-        uint  albedoTexIndex;
-        uint  normalTexIndex;
+        u32  albedoTexIndex;
+        u32  normalTexIndex;
 
         // Chunk 3
-        uint  armTexIndex;      // Packed (AO, Roughness, Metallic)
-        uint  emissiveTexIndex; // Texture ID
+        u32  armTexIndex;      // Packed (AO, Roughness, Metallic)
+        u32  emissiveTexIndex; // Texture ID
         float padding[2];
     };
 
@@ -105,7 +105,7 @@ public:
     [[nodiscard]] float             getMetallic() const { return _metallic; }
     [[nodiscard]] const Math::Vec3& getEmissive() const { return _emissive; }
 
-    uint getPayloadSize() const override {
+    u32 getPayloadSize() const override {
         return sizeof( GPUPayload );
     };
 

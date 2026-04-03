@@ -24,7 +24,7 @@ public:
 
     const Settings& getSettings() const override { return _setts; }
     void            setSettings( const Settings& settings ) override { _setts = settings; }
-    void            setTitle( const std::string& title ) override;
+    void            setTitle( StringView title ) override;
 
     bool              shouldClose() const override { return _shouldClose; }
     PlatformType      getPlatformType() const override { return PlatformType::GLFW; }

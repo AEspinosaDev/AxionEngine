@@ -19,20 +19,20 @@ constexpr T alignUp( T value, T alignment ) {
 /**
  * Only workf with multiple of 2
  */
-constexpr uint alignubits( uint value, uint alignment ) {
+constexpr u32 alignubits( u32 value, u32 alignment ) {
     return ( value + alignment - 1 ) & ~( alignment - 1 );
 }
-constexpr uint alignu( uint value, uint alignment ) {
+constexpr u32 alignu( u32 value, u32 alignment ) {
     if ( alignment == 0 )
         return value;
-    uint remainder = value % alignment;
+    u32 remainder = value % alignment;
     if ( remainder == 0 )
         return value;
     return value + ( alignment - remainder );
 }
 
 
-constexpr ulong safeAlign( ulong current, ulong align ) {
+constexpr u64 safeAlign( u64 current, u64 align ) {
     if ( align <= 1 )
         return current;
 
@@ -42,7 +42,7 @@ constexpr ulong safeAlign( ulong current, ulong align ) {
         return ( current + ( align - 1 ) ) & ~( align - 1 );
 
     // SAFE TRACK: Aritmética para tamaños raros (ej: 144, 80)
-    ulong remainder = current % align;
+    u64 remainder = current % align;
     if ( remainder == 0 )
         return current;
     return current + ( align - remainder );
@@ -58,7 +58,7 @@ public:
     };
 
     static Info tick() {
-        static ulong                              frameCounter   = 0;
+        static u64                              frameCounter   = 0;
         static double                             elapsedSeconds = 0.0;
         static std::chrono::high_resolution_clock clock;
         static auto                               t0 = clock.now();

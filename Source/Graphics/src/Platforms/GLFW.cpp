@@ -16,7 +16,7 @@ GLFWWindow::GLFWWindow( const Settings& settings )
     glfwInit();
     glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API ); // Set for Vulkan/DX12 context
     glfwWindowHint( GLFW_RESIZABLE, true );
-    _hWnd = glfwCreateWindow( _setts.size.width, _setts.size.height, _setts.name.c_str(), nullptr, nullptr );
+    _hWnd = glfwCreateWindow( _setts.size.width, _setts.size.height, _setts.name.cstr(), nullptr, nullptr );
 
     if ( !_hWnd )
     {
@@ -43,7 +43,7 @@ GLFWWindow::GLFWWindow( const Settings& settings )
         int posX = monitorX + ( mode->width - winWidth ) / 2;
         int posY = monitorY + ( mode->height - winHeight ) / 2;
 
-        _setts.position = { (uint)posX, (uint)posY };
+        _setts.position = { (u32)posX, (u32)posY };
     }
     glfwSetWindowPos( _hWnd, (int)_setts.position.x, (int)_setts.position.y );
     glfwSetWindowUserPointer( _hWnd, this );
@@ -79,7 +79,7 @@ void GLFWWindow::setFullscreen( bool fullscreen ) {
     {
         const GLFWvidmode* mode = glfwGetVideoMode( glfwGetPrimaryMonitor() );
         glfwSetWindowMonitor( _hWnd, glfwGetPrimaryMonitor(), 0, 0, mode->width, mode->height, mode->refreshRate );
-        _setts.size = { (uint)mode->width, (uint)mode->height };
+        _setts.size = { (u32)mode->width, (u32)mode->height };
     }
 
     int fbw = 0, fbh = 0;
@@ -90,7 +90,7 @@ void GLFWWindow::setFullscreen( bool fullscreen ) {
         glfwGetFramebufferSize( _hWnd, &fbw, &fbh );
     }
 
-    _setts.size = { (uint)fbw, (uint)fbh };
+    _setts.size = { (u32)fbw, (u32)fbh };
 
     Event::WindowResizeEvent evt( _hWnd, fbw, fbh );
     _onResize.dispatch( evt );
@@ -100,8 +100,9 @@ bool GLFWWindow::minimized() const {
     return _minimized;
 }
 
-void GLFWWindow::setTitle( const std::string& title ) {
-    glfwSetWindowTitle( _hWnd, title.c_str() );
+void GLFWWindow::setTitle( StringView title ) {
+    _setts.name = title;
+    glfwSetWindowTitle( _hWnd, _setts.name.cstr() );
 }
 
 RHI::NativeObject GLFWWindow::getNativeObject() {
@@ -137,16 +138,16 @@ void GLFWWindow::setCallbacksFunctions() {
 
     // --- Mouse buttons ---
     glfwSetMouseButtonCallback( _hWnd, []( GLFWwindow* w, int button, int action, int mods ) {
-        GLFWWindow*             instance = static_cast<GLFWWindow*>( glfwGetWindowUserPointer( w ) );
+        GLFWWindow* instance = static_cast<GLFWWindow*>( glfwGetWindowUserPointer( w ) );
         if ( instance->onGUIMouseButton( w, button, action, mods ) )
             return;
-        Event::MouseButtonEvent evt( w, (uint)button, action == GLFW_PRESS );
+        Event::MouseButtonEvent evt( w, (u32)button, action == GLFW_PRESS );
         instance->_onMouseButton.dispatch( evt );
     } );
 
     // --- Mouse movement ---
     glfwSetCursorPosCallback( _hWnd, []( GLFWwindow* w, double x, double y ) {
-        GLFWWindow*           instance = static_cast<GLFWWindow*>( glfwGetWindowUserPointer( w ) );
+        GLFWWindow* instance = static_cast<GLFWWindow*>( glfwGetWindowUserPointer( w ) );
         if ( instance->onGUIMouseMove( w, x, y ) )
             return;
         Event::MouseMoveEvent evt( w, (int)x, (int)y );
@@ -155,7 +156,7 @@ void GLFWWindow::setCallbacksFunctions() {
 
     // --- Mouse scroll ---
     glfwSetScrollCallback( _hWnd, []( GLFWwindow* w, double x, double y ) {
-        GLFWWindow*             instance = static_cast<GLFWWindow*>( glfwGetWindowUserPointer( w ) );
+        GLFWWindow* instance = static_cast<GLFWWindow*>( glfwGetWindowUserPointer( w ) );
         if ( instance->onGUIMouseScroll( w, x, y ) )
             return;
         Event::MouseScrollEvent evt( w, (float)y );
@@ -173,8 +174,8 @@ void GLFWWindow::setCallbacksFunctions() {
         }
 
         instance->_minimized  = false;
-        instance->_setts.size = { (uint)width, (uint)height };
-        Event::WindowResizeEvent evt( w, (uint)width, (uint)height );
+        instance->_setts.size = { (u32)width, (u32)height };
+        Event::WindowResizeEvent evt( w, (u32)width, (u32)height );
         instance->_onResize.dispatch( evt );
     } );
 

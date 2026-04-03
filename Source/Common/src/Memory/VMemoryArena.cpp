@@ -5,7 +5,7 @@
 AXION_NAMESPACE_BEGIN
 namespace Memory {
 
-VMemoryArena::VMemoryArena( uint capacity ) {
+VMemoryArena::VMemoryArena( u32 capacity ) {
     _reservation = VMemoryManager::virtualReserve( capacity );
     _pageSize    = VMemoryManager::getPageSize();
 }
@@ -34,39 +34,39 @@ VMemoryArena& VMemoryArena::operator=( VMemoryArena&& other ) noexcept {
     }
     return *this;
 }
-bool VMemoryArena::commitRange( uint offset, uint size ) {
+bool VMemoryArena::commitRange( u32 offset, u32 size ) {
     if ( offset + size > _reservation.size )
     {
         AXION_LOG_ERROR( Logger::Module::Common, "VirtualArena OOM! Offset: {}, Size: {}, Capacity: {}", offset, size, _reservation.size );
         return false;
     }
 
-    uint pageAlignedOffset = ( offset / _pageSize ) * _pageSize;
-    uint pageAlignedEnd    = VMemoryManager::alignToPageSize( offset + size );
-    uint commitSize        = pageAlignedEnd - pageAlignedOffset;
+    u32 pageAlignedOffset = ( offset / _pageSize ) * _pageSize;
+    u32 pageAlignedEnd    = VMemoryManager::alignToPageSize( offset + size );
+    u32 commitSize        = pageAlignedEnd - pageAlignedOffset;
 
     VMemoryView viewToCommit = {
-        static_cast<uchar*>( _reservation.ptr ) + pageAlignedOffset,
+        static_cast<byte*>( _reservation.ptr ) + pageAlignedOffset,
         commitSize };
 
     return VMemoryManager::virtualCommit( viewToCommit );
 }
-void VMemoryArena::decommitRange( uint offset, uint size ) {
+void VMemoryArena::decommitRange( u32 offset, u32 size ) {
     if ( size == 0 || offset + size > _reservation.size )
         return;
 
-    uint pageAlignedOffset = VMemoryManager::alignToPageSize( offset );
+    u32 pageAlignedOffset = VMemoryManager::alignToPageSize( offset );
 
-    uint endOffset      = offset + size;
-    uint pageAlignedEnd = ( endOffset / _pageSize ) * _pageSize;
+    u32 endOffset      = offset + size;
+    u32 pageAlignedEnd = ( endOffset / _pageSize ) * _pageSize;
 
     if ( pageAlignedEnd <= pageAlignedOffset )
         return;
 
-    uint decommitSize = pageAlignedEnd - pageAlignedOffset;
+    u32 decommitSize = pageAlignedEnd - pageAlignedOffset;
 
     VMemoryView viewToDecommit = {
-        static_cast<uchar*>( _reservation.ptr ) + pageAlignedOffset,
+        static_cast<byte*>( _reservation.ptr ) + pageAlignedOffset,
         decommitSize };
 
     VMemoryManager::virtualDecommit( viewToDecommit );

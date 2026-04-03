@@ -34,17 +34,28 @@ TransientAllocator::~TransientAllocator() {
         _uploadBuffer->unmap();
 }
 
-BufferView TransientAllocator::allocateScratch( ulong size, ulong alignment ) {
+BufferView TransientAllocator::allocateScratch( u64 size, u64 alignment ) {
     return _scratchAllocator.allocate( size, alignment );
 }
 
-BufferView TransientAllocator::allocateUpload( ulong size, ulong alignment ) {
+BufferView TransientAllocator::allocateUpload( u64 size, u64 alignment ) {
     return _uploadAllocator.allocate( size, alignment );
 }
 
 void TransientAllocator::reset() {
     _scratchAllocator.reset();
     _uploadAllocator.reset();
+}
+
+void TransientAllocator::setDebugName( StringView name ) {
+}
+
+StringView TransientAllocator::getDebugName() const {
+    return StringView();
+}
+
+STLW::String TransientAllocator::toString() const {
+    return STLW::String();
 }
 
 } // namespace Graphics::RHI

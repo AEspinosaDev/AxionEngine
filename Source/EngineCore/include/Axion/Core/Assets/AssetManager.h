@@ -89,35 +89,35 @@ public:
     // -------------------------------------------------------------------------
 
     /// @brief Returns the total number of mesh slots occupied.
-    [[nodiscard]] uint getMeshCount() const;
+    [[nodiscard]] u32 getMeshCount() const;
 
     /// @brief Returns the total number of texture slots occupied.
-    [[nodiscard]] uint getTextureCount() const;
+    [[nodiscard]] u32 getTextureCount() const;
 
     /// @brief Returns the total number of material slots occupied.
-    [[nodiscard]] uint getMaterialCount() const;
+    [[nodiscard]] u32 getMaterialCount() const;
 
-    void                            notifyMaterialDirty( MaterialHandle handle, bool dirty = true );
-    std::pair<const uchar*, size_t> getMaterialDirtyLUT() const;
+    void                           notifyMaterialDirty( MaterialHandle handle, bool dirty = true );
+    std::pair<const byte*, size_t> getMaterialDirtyLUT() const;
 
 private:
     MeshHandle    importMesh( const std::string& name, const std::string& filepath, MeshImportFlags flags );
     MeshHandle    createMesh( const std::string&          name,
                               const std::vector<Vertex>&  vertices,
-                              const std::vector<uint>&    indices  = {},
+                              const std::vector<u32>&     indices  = {},
                               Graphics::PrimitiveTopology topology = Graphics::PrimitiveTopology::TriangleList );
-    MeshHandle    createQuad( const std::string& name, uint subdivisions = 0, bool asMeshlet = false );
+    MeshHandle    createQuad( const std::string& name, u32 subdivisions = 0, bool asMeshlet = false );
     MeshHandle    createCube( const std::string& name, bool asMeshlet = false );
-    MeshHandle    createSphere( const std::string& name, uint segments = 32, bool asMeshlet = false );
+    MeshHandle    createSphere( const std::string& name, u32 segments = 32, bool asMeshlet = false );
     TextureHandle importTexture( const std::string& name, const std::string& filepath, TextureImportFlags flags );
-    TextureHandle createTexture( const std::string&                                          name,
-                                 const Extent3D&                                             size,
-                                 const std::variant<std::vector<uchar>, std::vector<float>>& pixels,
-                                 const uint                                                  channels,
-                                 const TextureFormat                                         format,
-                                 const TexturePrecision                                      precision,
-                                 const TextureType                                           type,
-                                 const SamplerDesc&                                          samplerDesc = {} );
+    TextureHandle createTexture( const std::string&                                         name,
+                                 const Extent3D&                                            size,
+                                 const std::variant<std::vector<byte>, std::vector<float>>& pixels,
+                                 const u32                                                  channels,
+                                 const TextureFormat                                        format,
+                                 const TexturePrecision                                     precision,
+                                 const TextureType                                          type,
+                                 const SamplerDesc&                                         samplerDesc = {} );
 
     template <typename T, typename... Args>
     MaterialHandle createMaterial( const std::string& name, Args&&... args ) {
@@ -164,17 +164,17 @@ public:
     }
 
     /// @brief Generates a procedural Sphere (UV Sphere).
-    MeshHandle createSphere( uint segments = 32 ) {
+    MeshHandle createSphere( u32 segments = 32 ) {
         return _manager.createSphere( _name, segments, _asMeshlet );
     }
 
     /// @brief Generates a procedural Quad (Square).
-    MeshHandle createQuad( uint subdivisions = 0 ) {
+    MeshHandle createQuad( u32 subdivisions = 0 ) {
         return _manager.createQuad( _name, subdivisions, _asMeshlet );
     }
 
     /// @brief Creates a mesh from raw vertex and index data.
-    MeshHandle create( const std::vector<Vertex>& vertices, const std::vector<uint>& indices = {} ) {
+    MeshHandle create( const std::vector<Vertex>& vertices, const std::vector<u32>& indices = {} ) {
         return _manager.createMesh( _name, vertices, indices );
     }
 
@@ -251,9 +251,9 @@ public:
     }
 
     /// @brief Finalizes and creates a texture from raw memory data.
-    TextureHandle create( const Extent3D&                                             size,
-                          const std::variant<std::vector<uchar>, std::vector<float>>& pixels,
-                          uint                                                        channels ) {
+    TextureHandle create( const Extent3D&                                            size,
+                          const std::variant<std::vector<byte>, std::vector<float>>& pixels,
+                          u32                                                        channels ) {
         return _manager.createTexture( _name, size, pixels, channels, _fmt, _prec, _type, _sampler );
     }
 

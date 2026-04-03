@@ -14,10 +14,10 @@ namespace Core::Render {
 struct GPUInstance {
     Math::Mat4 modelMatrix;  // 64 bytes
     Math::Mat4 normalMatrix; // 64 bytes
-    uint       meshID;       // 4 bytes
-    uint       materialID;   // 4 bytes
-    uint       active;       // 4 bytes
-    uint       raytraced;    // 4 bytes
+    u32       meshID;       // 4 bytes
+    u32       materialID;   // 4 bytes
+    u32       active;       // 4 bytes
+    u32       raytraced;    // 4 bytes
 
     // Total: 144 bytes. (Multiple of 4, OK for StructuredBuffer).
 };
@@ -25,10 +25,10 @@ struct GPUInstance {
 struct GPUEnvironment {
     Math::Vec4 skyColor_Intensity;
     Math::Vec4 groundColor_Type;
-    uint       colorCubeMapID   = 0xFFFFFFFF;
-    uint       irradianceMapID  = 0xFFFFFFFF;
-    uint       prefilteredMapID = 0xFFFFFFFF;
-    uint       brdfLUTID        = 0xFFFFFFFF;
+    u32       colorCubeMapID   = 0xFFFFFFFF;
+    u32       irradianceMapID  = 0xFFFFFFFF;
+    u32       prefilteredMapID = 0xFFFFFFFF;
+    u32       brdfLUTID        = 0xFFFFFFFF;
     Math::Vec4 rotation_BlendDist;
     Math::Vec4 procSettings;
 };
@@ -66,43 +66,43 @@ struct GPULight {
 // telling the Renderer WHERE in the MegaBuffer the data is located.
 struct GPUMesh {
     // Offsets y Counts (16 bytes)
-    uint vertexOffset;
-    uint indexOffset;
-    uint vertexCount;
-    uint indexCount;
+    u32 vertexOffset;
+    u32 indexOffset;
+    u32 vertexCount;
+    u32 indexCount;
 
     Math::Vec4 bsphere;          // Bounding Sphere (16 bytes) -> xyz = center, w = radius
     Math::Vec4 aabbMin;          // AABB Min (16 bytes) -> xyz = min, w = unused
     Math::Vec4 aabbMax_Topology; // AABB Max (16 bytes) -> xyz = max, w = topology ID
 
     // Flags y Tracking (16 bytes)
-    uint needsAS;
-    uint valid;
-    uint lastFrameUsed;
-    uint originalAssetID;
+    u32 needsAS;
+    u32 valid;
+    u32 lastFrameUsed;
+    u32 originalAssetID;
 
     // Total: 80 bytes. (Multiple of 4, OK for StructuredBuffer).
 };
 
 struct GPUMaterial {
     // Offsets y Counts (32 bytes)
-    uint bufferOffset;
-    uint payloadSize;
-    uint archetypeID;
-    uint valid;
+    u32 bufferOffset;
+    u32 payloadSize;
+    u32 archetypeID;
+    u32 valid;
 
-    uint lastFrameUsed;
-    uint originalAssetID;
-    uint uv[2];
+    u32 lastFrameUsed;
+    u32 originalAssetID;
+    u32 uv[2];
     // Maybe I could aadd here basic ovverides (albedo, uv, etc) that dont need the slow staging route
 };
 
 struct GPUTexture {
-    uint slot;
+    u32 slot;
 
-    uint valid;
-    uint lastFrameUsed;
-    uint originalAssetID;
+    u32 valid;
+    u32 lastFrameUsed;
+    u32 originalAssetID;
 };
 
 // -----------------------------------------------------------------------------
@@ -113,38 +113,38 @@ struct GPUTexture {
 
 // Order: "Please upload this raw CPU data to VRAM and tell me the offsets"
 struct PendingMeshUpload {
-    uint                                  GPUMeshID;    // Destination Slot in _meshCache
+    u32                                  GPUMeshID;    // Destination Slot in _meshCache
     std::shared_ptr<Assets::GeometryData> geometryData; // Optional meshlet data for AS-capable meshes
 };
 
 // Order: "This slot is empty, please mark this VRAM region as free"
 struct PendingMeshFree {
-    uint vertexOffset;
-    uint vertexSize;
-    uint indexOffset;
-    uint indexSize;
-    uint GPUMeshID; // Slot to recycle
+    u32 vertexOffset;
+    u32 vertexSize;
+    u32 indexOffset;
+    u32 indexSize;
+    u32 GPUMeshID; // Slot to recycle
 };
 
 // // Order: "Please upload this raw CPU data to VRAM and tell me the offsets"
 struct PendingMaterialUpload {
-    uint               GPUMaterialID;
-    std::vector<uchar> payload;
+    u32                GPUMaterialID;
+    STLW::Vector<byte> payload;
 };
 
 // // Order: "This slot is empty, please mark this VRAM region as free"
 struct PendingMaterialFree {
-    uint bufferOffset;
-    uint payloadSize;
-    uint GPUMaterialID;
+    u32 bufferOffset;
+    u32 payloadSize;
+    u32 GPUMaterialID;
 };
 
 struct PendingTextureUpload {
-    uint                                   slot;
+    u32                                   slot;
     std::shared_ptr<Assets::TexturePixels> pixels;
     Graphics::Format                       format;
     Extent3D                               extent;
-    std::string                            name;
+    String64                               name;
 };
 
 } // namespace Core::Render

@@ -15,7 +15,7 @@ DX12CommandList::DX12CommandList( const ComPtr<ID3D12Device2>& device,
     _cmdAllocators.resize( desc.numFrames );
 
     auto dx12type = DX12Translator::get( desc.queueType );
-    for ( uint i = 0; i < desc.numFrames; i++ )
+    for ( u32 i = 0; i < desc.numFrames; i++ )
     {
         DX_CHECK( device->CreateCommandAllocator( dx12type, IID_PPV_ARGS( &_cmdAllocators[i] ) ) );
     }
@@ -59,12 +59,12 @@ void DX12CommandList::end() {
     DX_CHECK( _cmdList->Close() );
 }
 
-void DX12CommandList::setCurrentFrame( uint index ) {
+void DX12CommandList::setCurrentFrame( u32 index ) {
     AXION_LOG_ASSERT( index < _cmdAllocators.size(), Logger::Module::RHI, "Invalid frame index in setCurrentFrame()" );
     _currentFrame = index;
 }
 
-uint DX12CommandList::getCurrentFrame() const {
+u32 DX12CommandList::getCurrentFrame() const {
     return _currentFrame;
 }
 
@@ -156,7 +156,7 @@ void DX12CommandList::clearTexture( ITexture* texture, const ClearValue& clearVa
     }
 }
 
-void DX12CommandList::copyBuffer( IBuffer* dst, IBuffer* src, ulong numBytes, ulong dstOffset, ulong srcOffset, BarrierPolicy barrierPolicy ) {
+void DX12CommandList::copyBuffer( IBuffer* dst, IBuffer* src, u64 numBytes, u64 dstOffset, u64 srcOffset, BarrierPolicy barrierPolicy ) {
     if ( barrierPolicy == BarrierPolicy::Auto )
     {
         barrier( dst, ResourceState::CopyDest );
@@ -176,7 +176,7 @@ void DX12CommandList::copyTexture( ITexture* dst, ITexture* src, BarrierPolicy b
     _cmdList->CopyResource( dst->getNativeObject( ObjectTypes::DX12_Resource ), src->getNativeObject( ObjectTypes::DX12_Resource ) );
 }
 
-void DX12CommandList::uploadBuffer( IBuffer* dst, const void* data, ulong size, ulong dstOffset, ITransientAllocator* allocator, BarrierPolicy barrierPolicy ) {
+void DX12CommandList::uploadBuffer( IBuffer* dst, const void* data, u64 size, u64 dstOffset, ITransientAllocator* allocator, BarrierPolicy barrierPolicy ) {
     if ( !dst || !data || size == 0 || !allocator )
     {
         AXION_LOG_ERROR( Logger::Module::RHI, "Invalid arguments for uploadBuffer" );
@@ -197,7 +197,7 @@ void DX12CommandList::uploadBuffer( IBuffer* dst, const void* data, ulong size, 
     copyBuffer( dst, mem.buffer, size, dstOffset, mem.offset, barrierPolicy );
 }
 
-void DX12CommandList::uploadTexture( ITexture* dst, const void* data, ITransientAllocator* allocator, uint mipSlice, uint arraySlice, BarrierPolicy barrierPolicy ) {
+void DX12CommandList::uploadTexture( ITexture* dst, const void* data, ITransientAllocator* allocator, u32 mipSlice, u32 arraySlice, BarrierPolicy barrierPolicy ) {
     if ( !dst || !data || !allocator )
     {
         AXION_LOG_ERROR( Logger::Module::RHI, "Invalid arguments for uploadTexture" );
@@ -211,7 +211,7 @@ void DX12CommandList::uploadTexture( ITexture* dst, const void* data, ITransient
     d3dRes->GetDevice( IID_PPV_ARGS( &device ) );
 
     // Query footprint requirements for the specific subresource (mip + array slice)
-    uint subresourceIndex = mipSlice + ( arraySlice * desc.MipLevels );
+    u32 subresourceIndex = mipSlice + ( arraySlice * desc.MipLevels );
 
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
     UINT                               numRows;
@@ -236,12 +236,12 @@ void DX12CommandList::uploadTexture( ITexture* dst, const void* data, ITransient
     }
 
     // Copy data to the staging buffer row by row to respect the D3D12 Pitch Alignment
-    uchar*       mapped      = static_cast<uchar*>( mem.cpuAddress );
+    byte*       mapped      = static_cast<byte*>( mem.cpuAddress );
     size_t       pixelStride = getFormatBytes( dst->getDescription().format );
-    const uchar* src         = static_cast<const uchar*>( data );
-    uint         width       = desc.Width;
+    const byte* src         = static_cast<const byte*>( data );
+    u32         width       = static_cast<u32>( desc.Width );
 
-    for ( uint row = 0; row < numRows; ++row )
+    for ( u32 row = 0; row < numRows; ++row )
     {
         memcpy(
             mapped + row * footprint.Footprint.RowPitch,
@@ -289,7 +289,7 @@ void DX12CommandList::updateAccel( IAccel* accel, const AccelDesc& newDesc, ITra
 
     if ( newDesc.type == AccelType::TopLevel )
     {
-        uint instanceDataSize = (uint)( newDesc.instances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
+        u32 instanceDataSize = (u32)( newDesc.instances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
 
         auto instanceMem = allocator->allocateUpload( instanceDataSize, 16 );
 
@@ -309,7 +309,7 @@ void DX12CommandList::updateAccel( IAccel* accel, const AccelDesc& newDesc, ITra
         inputs.NumDescs      = (UINT)newDesc.instances.size();
     }
 
-    ulong scratchSize = dxAccel->getUpdateScratchSize();
+    u64 scratchSize = dxAccel->getUpdateScratchSize();
 
     auto scratchMem = allocator->allocateScratch( scratchSize, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT );
 
@@ -351,7 +351,7 @@ void DX12CommandList::buildAccel( IAccel* accel, const AccelDesc& newDesc, ITran
 
     if ( newDesc.type == AccelType::TopLevel )
     {
-        uint instanceDataSize = (uint)( newDesc.instances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
+        u32 instanceDataSize = (u32)( newDesc.instances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
 
         auto instanceMem = allocator->allocateUpload( instanceDataSize, 16 );
 
@@ -371,7 +371,7 @@ void DX12CommandList::buildAccel( IAccel* accel, const AccelDesc& newDesc, ITran
         inputs.NumDescs      = (UINT)newDesc.instances.size();
     }
 
-    ulong scratchSize = dxAccel->getBuildScratchSize();
+    u64 scratchSize = dxAccel->getBuildScratchSize();
 
     auto scratchMem = allocator->allocateScratch( scratchSize, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT );
 
@@ -482,7 +482,7 @@ void DX12CommandList::bindMeshPipeline( IMeshPipeline* pipeline ) {
     _bindPoint = PipelineBindPoint::Graphic;
 }
 
-void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set ) {
+void DX12CommandList::bindDescriptorSet( u32 setIndex, IDescriptorSet* set ) {
     AXION_LOG_ASSERT( set, Logger::Module::RHI, "Binding NULL Descriptor Set" );
 
     auto* dxSet = static_cast<DX12DescriptorSet*>( set );
@@ -496,7 +496,7 @@ void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set ) {
         _currentSamplerHeap = samplerHeap;
 
         ID3D12DescriptorHeap* heapsToBind[2] = {};
-        uint                  heapCount      = 0;
+        u32                  heapCount      = 0;
 
         if ( _currentViewHeap )
             heapsToBind[heapCount++] = _currentViewHeap;
@@ -532,7 +532,7 @@ void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set ) {
     }
 }
 
-void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set, IPipelineLayout* layout, PipelineBindPoint bindPoint ) {
+void DX12CommandList::bindDescriptorSet( u32 setIndex, IDescriptorSet* set, IPipelineLayout* layout, PipelineBindPoint bindPoint ) {
     AXION_LOG_ASSERT( set, Logger::Module::RHI, "Binding NULL Descriptor Set" );
 
     auto* dxSet = static_cast<DX12DescriptorSet*>( set );
@@ -561,7 +561,7 @@ void DX12CommandList::bindDescriptorSet( uint setIndex, IDescriptorSet* set, IPi
         _currentSamplerHeap = samplerHeap;
 
         ID3D12DescriptorHeap* heapsToBind[2] = {};
-        uint                  heapCount      = 0;
+        u32                  heapCount      = 0;
 
         if ( _currentViewHeap )
             heapsToBind[heapCount++] = _currentViewHeap;
@@ -698,7 +698,7 @@ void DX12CommandList::beginRendering( const RenderingDesc& info ) {
         if ( info.depthStencilAttachment.loadOp == LoadOp::Clear )
         {
             float depth   = 0.0f;
-            uchar stencil = 0;
+            byte stencil = 0;
 
             if ( info.depthStencilAttachment.clearValue.has_value() )
             {
@@ -721,7 +721,7 @@ void DX12CommandList::beginRendering( const RenderingDesc& info ) {
     }
 
     _cmdList->OMSetRenderTargets(
-        (uint)rtvHandles.size(),
+        (u32)rtvHandles.size(),
         rtvHandles.data(),
         FALSE, // Descriptores contiguos? No necesariamente, pasamos array
         hasDepth ? &dsvHandle : nullptr );
@@ -743,7 +743,7 @@ void DX12CommandList::endRendering() {
     // DX12 Doesnt need it
 }
 
-void DX12CommandList::draw( uint vertexCount, uint instanceCount, uint firstVertex, uint firstInstance ) {
+void DX12CommandList::draw( u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance ) {
     AXION_LOG_ASSERT( _bindPoint == PipelineBindPoint::Graphic, Logger::Module::RHI, "Draw called without Graphic Pipeline!" );
     _cmdList->DrawInstanced(
         vertexCount,
@@ -752,7 +752,7 @@ void DX12CommandList::draw( uint vertexCount, uint instanceCount, uint firstVert
         firstInstance );
 }
 
-void DX12CommandList::drawIndexed( uint indexCount, uint instanceCount, uint firstIndex, int vertexOffset, uint firstInstance ) {
+void DX12CommandList::drawIndexed( u32 indexCount, u32 instanceCount, u32 firstIndex, int vertexOffset, u32 firstInstance ) {
     AXION_LOG_ASSERT( _bindPoint == PipelineBindPoint::Graphic, Logger::Module::RHI, "Draw called without Graphic Pipeline!" );
     _cmdList->DrawIndexedInstanced(
         indexCount,
@@ -762,7 +762,7 @@ void DX12CommandList::drawIndexed( uint indexCount, uint instanceCount, uint fir
         firstInstance );
 }
 
-void DX12CommandList::bindVertexBuffer( uint slot, IBuffer* buffer ) {
+void DX12CommandList::bindVertexBuffer( u32 slot, IBuffer* buffer ) {
     auto* dxBuf = static_cast<DX12Buffer*>( buffer );
     auto  view  = dxBuf->getVBV();
     _cmdList->IASetVertexBuffers( slot, 1, &view );
@@ -774,7 +774,7 @@ void DX12CommandList::bindIndexBuffer( IBuffer* buffer ) {
     _cmdList->IASetIndexBuffer( &view );
 }
 
-void DX12CommandList::drawIndexedIndirect( IBuffer* indirectBuffer, ulong bufferOffset, uint maxDrawCount, IBuffer* countBuffer, ulong countBufferOffset ) {
+void DX12CommandList::drawIndexedIndirect( IBuffer* indirectBuffer, u64 bufferOffset, u32 maxDrawCount, IBuffer* countBuffer, u64 countBufferOffset ) {
     AXION_LOG_ASSERT( indirectBuffer, Logger::Module::RHI, "Indirect command buffer cannot be null" );
     AXION_LOG_ASSERT( maxDrawCount > 0, Logger::Module::RHI, "Max draw count must be > 0" );
 
@@ -810,14 +810,14 @@ NativeObject DX12CommandList::getNativeObject( ObjectType objectType ) {
     }
 }
 
-void DX12CommandList::setDebugName( std::string_view name ) {
+void DX12CommandList::setDebugName( StringView name ) {
     _desc.debugName = name;
 
     if ( name.empty() || !_cmdList )
         return;
 
     setNativeName( _cmdList.Get(), name );
-    for ( uint i = 0; i < (uint)_cmdAllocators.size(); ++i )
+    for ( u32 i = 0; i < (u32)_cmdAllocators.size(); ++i )
     {
         char allocName[128];
         snprintf( allocName, sizeof( allocName ), "%.100s_Alloc_%u", name.data(), i );
@@ -826,7 +826,7 @@ void DX12CommandList::setDebugName( std::string_view name ) {
     }
 }
 
-std::string_view DX12CommandList::getDebugName() const {
+StringView DX12CommandList::getDebugName() const {
     return _desc.debugName;
 }
 
@@ -834,7 +834,7 @@ STLW::String RHI::DX12CommandList::toString() const {
     return STLW::String();
 }
 
-void DX12CommandList::pushConstants( uint setIndex, const void* data, uint numValues32Bit, uint offset32Bit ) {
+void DX12CommandList::pushConstants( u32 setIndex, const void* data, u32 numValues32Bit, u32 offset32Bit ) {
     AXION_LOG_ASSERT( _bindPoint != PipelineBindPoint::None, Logger::Module::RHI, "Attempting to set Push Constants without a bound Pipeline!" );
     if ( _bindPoint == PipelineBindPoint::Compute )
         _cmdList->SetComputeRoot32BitConstants(

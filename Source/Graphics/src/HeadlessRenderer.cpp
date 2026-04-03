@@ -18,7 +18,7 @@ RendererOwnerPtr Graphics::createHeadlessRenderer( const RendererSettings& setti
 
 HeadlessRenderer::HeadlessRenderer( const RendererSettings& settings )
     : _setts( settings )
-    , _FRAMES_IN_FLIGHT( static_cast<uint>( settings.bufferingType ) + 1 ) {
+    , _FRAMES_IN_FLIGHT( static_cast<u32>( settings.bufferingType ) + 1 ) {
 
     _frameFences.resize( _FRAMES_IN_FLIGHT );
 
@@ -61,7 +61,7 @@ HeadlessRenderer::HeadlessRenderer( const RendererSettings& settings )
         .descriptorMaxSamplers = _setts.RGMaxSamplersPerFrame,
         .sbtAllocSize          = _setts.RGAllocSBTSize,
         .transientAllocSize    = _setts.RGTransientAllocSize,
-        .resourceTTL           = (uint)_setts.GCMode,
+        .resourceTTL           = (u32)_setts.GCMode,
         .autoSync              = _setts.autoSync };
     _renderGraph.initialize( ctx, RGDesc );
 }
@@ -106,7 +106,7 @@ const RHI::DeviceOwnerPtr& HeadlessRenderer::getDevice() const {
     return _device;
 }
 
-RHI::IDescriptorAllocator* HeadlessRenderer::getFrameDescriptorAllocator( uint frameIndex ) {
+RHI::IDescriptorAllocator* HeadlessRenderer::getFrameDescriptorAllocator( u32 frameIndex ) {
     return _renderGraph.getDescriptorAllocator( frameIndex );
 }
 
@@ -115,13 +115,13 @@ const RHI::IGUIBackend* HeadlessRenderer::getGUIBackend() const {
     return nullptr;
 }
 
-std::string HeadlessRenderer::toString() const {
-    return fmt::format(
-        "Settings:\n"
+STLW::String HeadlessRenderer::toString() const {
+    return static_cast<STLW::String>( fmt::format(
+        "Renderer Settings:\n"
         "  Buffering Type: {}\n"
         "  Debug Mode: {}\n",
-        (uint)_setts.bufferingType + 1,
-        _setts.debugMode );
+        (u32)_setts.bufferingType + 1,
+        _setts.debugMode ) );
 }
 
 bool HeadlessRenderer::instantExecution( std::function<void( RHI::ICommandList* cmd )>& commands ) {
@@ -149,7 +149,7 @@ IPipelineRegistry& HeadlessRenderer::pipelines() {
     return _pipelineRegistry;
 }
 
-ulong HeadlessRenderer::getCurrentFrameIndex() const {
+u64 HeadlessRenderer::getCurrentFrameIndex() const {
     return _currentFrame;
 }
 

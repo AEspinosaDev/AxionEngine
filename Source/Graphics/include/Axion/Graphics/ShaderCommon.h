@@ -11,7 +11,7 @@ namespace Graphics {
 namespace Shader {
 
 /// @brief Target binary format for shader compilation.
-enum NativeFormat : uchar
+enum NativeFormat : byte
 {
     DXIL,   ///< DirectX Intermediate Language (DirectX 12).
     SPIR_V, ///< Standard Portable Intermediate Representation (Vulkan).
@@ -20,28 +20,28 @@ enum NativeFormat : uchar
 
 struct ProgramBundle {
     struct StageBlob {
-        ShaderType         type;
-        std::vector<uchar> code;
-        std::string        entryPointName;
+        ShaderType          type;
+        STLW::Vector<byte> code;
+        String32            entryPointName;
     };
 
-    std::vector<StageBlob>            stageBlobs;
-    RHI::PipelineLayoutDesc           layoutDesc;
-    std::vector<RHI::VertexAttribute> vertexAttributes;
-    bool                              isValid() const { return !stageBlobs.empty(); }
+    STLW::Vector<StageBlob>            stageBlobs;
+    RHI::PipelineLayoutDesc            layoutDesc;
+    STLW::Vector<RHI::VertexAttribute> vertexAttributes;
+    bool                               isValid() const { return !stageBlobs.empty(); }
 };
 
 /// @brief Configuration descriptor for a shader source.
 struct Description {
-    std::string                                      path;                ///< Path to the .slang source file.
-    std::vector<std::string>                         includePaths;        ///< Additional directories for import resolution.
-    NativeFormat                                     format = DXIL;       ///< Target binary format.
-    std::vector<EntryPoint>                          entryPoints;         ///< Name of the entry point functions (e.g., "vsMain").
-    std::optional<std::vector<PreprocessorDefine>>   preprocessorDefines; ///< Optional preprocessor definitions.
-    std::optional<RHI::PipelineLayoutDesc>           layoutDesc;
-    std::optional<std::vector<RHI::VertexAttribute>> vertexAttributes;
-    bool                                             autoReflect = true; ///< Whether to generate reflection data.
-    std::string                                      name;
+    STLW::String                                      path;                ///< Path to the .slang source file.
+    STLW::Vector<STLW::String>                        includePaths;        ///< Additional directories for import resolution.
+    NativeFormat                                      format = DXIL;       ///< Target binary format.
+    STLW::Vector<EntryPoint>                          entryPoints;         ///< Name of the entry point functions (e.g., "vsMain").
+    std::optional<STLW::Vector<PreprocessorDefine>>   preprocessorDefines; ///< Optional preprocessor definitions.
+    std::optional<RHI::PipelineLayoutDesc>            layoutDesc;
+    std::optional<STLW::Vector<RHI::VertexAttribute>> vertexAttributes;
+    bool                                              autoReflect = true; ///< Whether to generate reflection data.
+    String64                                          name;
 };
 
 } // namespace Shader

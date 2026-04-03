@@ -15,7 +15,7 @@ namespace Graphics {
 class IRenderGraph;
 
 /// @brief Logical handle representing a resource within the RenderGraph frame.
-using RGResourceHandle                   = uint;
+using RGResourceHandle                   = u32;
 const RGResourceHandle RG_INVALID_HANDLE = UINT32_MAX;
 
 /// @brief Context passed to the execution lambda of a render pass.
@@ -36,16 +36,16 @@ struct RenderPassContext {
     /// @brief Resolves a logical texture handle to its physical pointer.
     RHI::ITexture* getTexture( RGResourceHandle handle ) const;
 
-    RHI::IDescriptorSet* allocateSet( RHI::IPipelineLayout* layout, uint setIndex ) const;
+    RHI::IDescriptorSet* allocateSet( RHI::IPipelineLayout* layout, u32 setIndex ) const;
     RHI::SBT::View       allocateSBT( const RHI::SBT& sbt, RHI::IRayTracingPipeline* pip ) const;
-    RHI::BufferView      uploadDynamic( const void* data, ulong size, ulong alignment = 256 ) const;
+    RHI::BufferView      uploadDynamic( const void* data, u64 size, u64 alignment = 256 ) const;
 };
 
 /// @brief Helper class to declare resource usage during the Setup phase.
 class RenderPassBuilder
 {
 public:
-    RenderPassBuilder( IRenderGraph& graph, uint passIndex )
+    RenderPassBuilder( IRenderGraph& graph, u32 passIndex )
         : _graph( graph )
         , _passIndex( passIndex ) {}
 
@@ -59,7 +59,7 @@ public:
 
 private:
     IRenderGraph& _graph;
-    uint          _passIndex;
+    u32          _passIndex;
 };
 
 /// @brief Main entry point for defining the frame graph structure.
@@ -73,16 +73,16 @@ public:
     class BufferBuilder;
 
     /// @brief Starts building a transient texture description.
-    TextureBuilder texture( const std::string& name );
+    TextureBuilder texture( StringView name );
 
     /// @brief Starts building a transient buffer description.
-    BufferBuilder buffer( const std::string& name );
+    BufferBuilder buffer( StringView name );
 
     /// @brief Imports an existing physical texture into the graph.
-    RGResourceHandle import( const std::string& name, TextureHandle handle );
+    RGResourceHandle import( StringView name, TextureHandle handle );
 
     /// @brief Imports an existing physical buffer into the graph.
-    RGResourceHandle import( const std::string& name, BufferHandle handle );
+    RGResourceHandle import( StringView name, BufferHandle handle );
 
     /// @brief Adds a new render pass to the graph.
     /// @tparam PassData Struct type to hold pass-specific data (handles, settings).
@@ -91,7 +91,7 @@ public:
     /// @param execute Lambda for recording GPU commands.
     template <typename PassData>
     void addPass(
-        const std::string&                                         name,
+        StringView                                                 name,
         std::function<void( RenderPassBuilder&, PassData& )>       setup,
         std::function<void( const PassData&, RenderPassContext& )> execute );
 
@@ -103,18 +103,18 @@ public:
     /// @param execute Lambda for recording GPU commands.
     template <typename PassData>
     void addPass(
-        const std::string&                                         name,
+        StringView                                                 name,
         const PassData&                                            seedData,
         std::function<void( RenderPassBuilder&, PassData& )>       setup,
         std::function<void( const PassData&, RenderPassContext& )> execute );
 
     template <typename PassClass>
-    void addPass( const std::string& name, PassClass& passInstance );
+    void addPass( StringView name, PassClass& passInstance );
 
 private:
     // Internal proxies calling virtual methods on IRenderGraph
-    RGResourceHandle create( const std::string& name, const RHI::TextureDesc& desc );
-    RGResourceHandle create( const std::string& name, const RHI::BufferDesc& desc );
+    RGResourceHandle create( StringView name, const RHI::TextureDesc& desc );
+    RGResourceHandle create( StringView name, const RHI::BufferDesc& desc );
     IRenderGraph&    _graph;
 };
 
@@ -127,14 +127,14 @@ class IRenderGraph
 {
 public:
     struct Description {
-        uint  framesInFlight;
-        ulong passDataAllocSize;
-        uint  desciptorSetAllocSize;
-        uint  descriptorMaxViews    = 256;
-        uint  descriptorMaxSamplers = 64;
-        ulong sbtAllocSize          = 0;
-        ulong transientAllocSize    = 64 * 1024 * 1024;
-        uint  resourceTTL;
+        u32  framesInFlight;
+        u64 passDataAllocSize;
+        u32  desciptorSetAllocSize;
+        u32  descriptorMaxViews    = 256;
+        u32  descriptorMaxSamplers = 64;
+        u64 sbtAllocSize          = 0;
+        u64 transientAllocSize    = 64 * 1024 * 1024;
+        u32  resourceTTL;
         bool  autoSync = true;
     };
 
@@ -154,10 +154,10 @@ public:
 
     virtual RHI::IBuffer*              getPhysicalBuffer( RGResourceHandle handle ) const  = 0;
     virtual RHI::ITexture*             getPhysicalTexture( RGResourceHandle handle ) const = 0;
-    virtual RHI::IDescriptorAllocator* getDescriptorAllocator( uint frameIndex )           = 0;
+    virtual RHI::IDescriptorAllocator* getDescriptorAllocator( u32 frameIndex )           = 0;
 
     /// @brief Sets the Time-To-Live for cached transient resources.
-    virtual void setGarbageCollectionTTL( uint frames ) = 0;
+    virtual void setGarbageCollectionTTL( u32 frames ) = 0;
 
     /// @brief Enables Automatic Barriers.
     virtual void setAutoSync( bool enable ) = 0;
@@ -165,17 +165,17 @@ public:
 protected:
     // -- Bridge Methods (Implemented by Concrete Class) --
 
-    virtual RGResourceHandle createTexture( const std::string& name, const RHI::TextureDesc& desc ) = 0;
-    virtual RGResourceHandle createBuffer( const std::string& name, const RHI::BufferDesc& desc )   = 0;
-    virtual RGResourceHandle importTexture( const std::string& name, TextureHandle handle )         = 0;
-    virtual RGResourceHandle importBuffer( const std::string& name, BufferHandle handle )           = 0;
+    virtual RGResourceHandle createTexture( StringView name, const RHI::TextureDesc& desc ) = 0;
+    virtual RGResourceHandle createBuffer( StringView name, const RHI::BufferDesc& desc )   = 0;
+    virtual RGResourceHandle importTexture( StringView name, TextureHandle handle )         = 0;
+    virtual RGResourceHandle importBuffer( StringView name, BufferHandle handle )           = 0;
 
-    virtual void  registerPass( const std::string& name, std::function<void( RenderPassContext& )> executor )                     = 0;
-    virtual void  registerDependency( uint passIndex, RGResourceHandle resource, RHI::ResourceState requiredState, bool isWrite ) = 0;
+    virtual void  registerPass( StringView name, std::function<void( RenderPassContext& )> executor )                             = 0;
+    virtual void  registerDependency( u32 passIndex, RGResourceHandle resource, RHI::ResourceState requiredState, bool isWrite ) = 0;
     virtual void  storePassData( void* dataPtr, std::function<void()> destructor )                                                = 0;
     virtual void* allocateFrameMemory( size_t size, size_t alignment )                                                            = 0;
 
-    virtual uint getCurrentPassIndex() const = 0;
+    virtual u32 getCurrentPassIndex() const = 0;
 
     friend class RenderGraphBuilder;
     friend class RenderPassBuilder;
@@ -189,7 +189,7 @@ typedef IRenderGraph::Description RenderGraphDesc;
 
 template <typename PassData>
 void RenderGraphBuilder::addPass(
-    const std::string&                                         name,
+    StringView                                                 name,
     std::function<void( RenderPassBuilder&, PassData& )>       setup,
     std::function<void( const PassData&, RenderPassContext& )> execute ) {
     // 1. Allocate Data (Linear Allocator)
@@ -211,7 +211,7 @@ void RenderGraphBuilder::addPass(
 }
 template <typename PassData>
 void RenderGraphBuilder::addPass(
-    const std::string&                                         name,
+    StringView                                                 name,
     const PassData&                                            seedData,
     std::function<void( RenderPassBuilder&, PassData& )>       setup,
     std::function<void( const PassData&, RenderPassContext& )> execute ) {
@@ -233,7 +233,7 @@ void RenderGraphBuilder::addPass(
 }
 
 template <typename PassClass>
-void RenderGraphBuilder::addPass( const std::string& name, PassClass& passInstance ) {
+void RenderGraphBuilder::addPass( StringView name, PassClass& passInstance ) {
     using PassData = typename PassClass::Data;
     addPass<PassData>( name, [&]( RenderPassBuilder& pb, PassData& data ) { passInstance.setup( pb, data ); }, [&]( const PassData& data, RenderPassContext& ctx ) { passInstance.execute( data, ctx ); } );
 }
@@ -241,8 +241,8 @@ void RenderGraphBuilder::addPass( const std::string& name, PassClass& passInstan
 class RenderGraphBuilder::TextureBuilder : public TextureBuilderBase<TextureBuilder>
 {
 public:
-    TextureBuilder( RenderGraphBuilder& builder, std::string name )
-        : TextureBuilderBase( std::move( name ) )
+    TextureBuilder( RenderGraphBuilder& builder, StringView name )
+        : TextureBuilderBase( name )
         , _builder( builder ) {}
 
     RGResourceHandle create() {
@@ -256,8 +256,8 @@ private:
 class RenderGraphBuilder::BufferBuilder : public BufferBuilderBase<BufferBuilder>
 {
 public:
-    BufferBuilder( RenderGraphBuilder& builder, std::string name )
-        : BufferBuilderBase( std::move( name ) )
+    BufferBuilder( RenderGraphBuilder& builder, StringView name )
+        : BufferBuilderBase( name )
         , _builder( builder ) {}
 
     RGResourceHandle create() {

@@ -22,9 +22,9 @@ private:
     RHI::DescriptorType slangTypeToRHI( slang::TypeReflection* type );
     Format              slangFormatToRHI( slang::TypeReflection* type );
 
-    void reflectParameter( slang::VariableLayoutReflection* varLayout, std::map<uint32_t, std::vector<RHI::DescriptorBinding>>& tempSets );
-    void extractReflection( const std::string& name, slang::IComponentType* program, RHI::PipelineLayoutDesc& outDesc );
-    void extractVertexAttributes( slang::IComponentType* program, std::vector<RHI::VertexAttribute>& outAttribs );
+    void reflectParameter( slang::VariableLayoutReflection* varLayout, STLW::Map<uint32_t, STLW::Vector<RHI::DescriptorBinding>>& tempSets );
+    void extractReflection( StringView name, slang::IComponentType* program, RHI::PipelineLayoutDesc& outDesc );
+    void extractVertexAttributes( slang::IComponentType* program, STLW::Vector<RHI::VertexAttribute>& outAttribs );
 
     Slang::ComPtr<IGlobalSession> _globalSession = nullptr;
 

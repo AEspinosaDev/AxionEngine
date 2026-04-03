@@ -26,7 +26,7 @@ public:
     struct Description {
         Extent2D    size;                         ///< Dimensions of the swapchain images.
         Format      format = Format::RGBA8_UNORM; ///< Color format of the swapchain images.
-        uint        imageCount;                   ///< Number of backbuffers/images.
+        u32        imageCount;                   ///< Number of backbuffers/images.
         PresentMode presentMode;                  ///< Presentation mode (e.g., immediate, vsync, mailbox, etc.).
         bool        tearingSupported = false;     ///< Whether tearing is supported on this platform.
         String64    debugName        = "Swapchain";
@@ -49,7 +49,7 @@ public:
      *
      * @return Index of the next available swapchain image.
      */
-    virtual uint acquireNextImage() = 0;
+    virtual u32 acquireNextImage() = 0;
 
     /**
      * @brief Get the index of the current backbuffer image.
@@ -57,7 +57,7 @@ public:
      * @return Current image index.
      */
 
-    virtual uint getCurrentImageIndex() = 0;
+    virtual u32 getCurrentImageIndex() = 0;
 
     /**
      * @brief Retrieve the swapchain description used during creation.

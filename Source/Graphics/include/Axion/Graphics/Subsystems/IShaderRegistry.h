@@ -23,7 +23,7 @@ public:
 
     /// @brief Starts the fluent registration process for a new shader program.
     /// @param name Unique logical name for the shader (used for lookups).
-    virtual Builder shader( const std::string& name ) = 0;
+    virtual Builder shader( StringView name ) = 0;
 
     // -------------------------------------------------------------------------
     // RUNTIME ACCESS
@@ -34,21 +34,21 @@ public:
     virtual const ShaderBundle& getBundle( ShaderHandle handle ) const = 0;
 
     /// @brief Looks up a shader handle by its logical name.
-    virtual std::optional<ShaderHandle> findShader( const std::string& name ) const = 0;
+    virtual std::optional<ShaderHandle> findShader( StringView name ) const = 0;
 
     /// @brief Triggers compilation for a specific shader if not already ready.
     /// @return The compiled bundle.
     virtual const ShaderBundle& compileShader( ShaderHandle handle ) = 0;
 
     /// @brief Triggers compilation by name (Convenience method).
-    virtual const ShaderBundle& compileShader( const std::string& name ) = 0;
+    virtual const ShaderBundle& compileShader( StringView name ) = 0;
 
     /// @brief Compiles all registered shaders that are not yet ready.
     /// @param async If true, compilation happens on worker threads (not implemented yet).
-    virtual void compileAllShaders( uint threadCount = 1 ) = 0;
+    virtual void compileAllShaders( u32 threadCount = 1 ) = 0;
 
     /// @brief Returns the total number of registered shaders.
-    virtual uint size() const = 0;
+    virtual u32 size() const = 0;
 
 protected:
     IShaderRegistry() = default;
@@ -67,20 +67,20 @@ protected:
 class IShaderRegistry::Builder
 {
 public:
-    Builder( IShaderRegistry& reg, std::string name )
+    Builder( IShaderRegistry& reg, StringView name )
         : _registry( reg ) {
-        _desc.name = std::move( name );
+        _desc.name =  name ;
     }
 
     /// @brief Sets the source file path (e.g., "Assets/Shaders/MyShader.slang").
-    Builder& path( const std::string& p ) {
+    Builder& path( const STLW::String& p ) {
         _desc.path = p;
         return *this;
     }
 
     /// @brief Adds an include directory for import resolution.
-    Builder& include( const std::string& inc ) {
-        _desc.includePaths.push_back( inc );
+    Builder& include( const STLW::String& p ) {
+        _desc.includePaths.push_back( p );
         return *this;
     }
 
@@ -116,62 +116,62 @@ public:
     // --- STAGE ENTRY POINTS ---
 
     /// @brief Adds a Vertex Shader entry point.
-    Builder& vs( const std::string& entryName ) {
+    Builder& vs( StringView entryName ) {
         _desc.entryPoints.push_back( { entryName, ShaderType::Vertex } );
         return *this;
     }
     /// @brief Adds a Pixel (Fragment) Shader entry point.
-    Builder& ps( const std::string& entryName ) {
+    Builder& ps( StringView entryName ) {
         _desc.entryPoints.push_back( { entryName, ShaderType::Pixel } );
         return *this;
     }
     /// @brief Adds a Compute Shader entry point.
-    Builder& cs( const std::string& entryName ) {
+    Builder& cs( StringView entryName ) {
         _desc.entryPoints.push_back( { entryName, ShaderType::Compute } );
         return *this;
     }
     /// @brief Adds a Geometry Shader entry point.
-    Builder& gs( const std::string& entryName ) {
+    Builder& gs( StringView entryName ) {
         _desc.entryPoints.push_back( { entryName, ShaderType::Geometry } );
         return *this;
     }
     /// @brief Adds a Hull (Tessellation Control) Shader entry point.
-    Builder& hs( const std::string& entryName ) {
+    Builder& hs( StringView entryName ) {
         _desc.entryPoints.push_back( { entryName, ShaderType::Hull } );
         return *this;
     }
     /// @brief Adds a Domain (Tessellation Evaluation) Shader entry point.
-    Builder& ds( const std::string& entryName ) {
+    Builder& ds( StringView entryName ) {
         _desc.entryPoints.push_back( { entryName, ShaderType::Domain } );
         return *this;
     }
     /// @brief Adds a Raygen Shader entry point.
-    Builder& raygen( const std::string& entryName ) {
+    Builder& raygen( StringView entryName ) {
         _desc.entryPoints.push_back( { entryName, ShaderType::RayGeneration } );
         return *this;
     }
     /// @brief Adds a Miss Shader entry point.
-    Builder& miss( const std::string& entryName ) {
+    Builder& miss( StringView entryName ) {
         _desc.entryPoints.push_back( { entryName, ShaderType::Miss } );
         return *this;
     }
     /// @brief Adds a Closest Hit Shader entry point.
-    Builder& closestHit( const std::string& entryName ) {
+    Builder& closestHit( StringView entryName ) {
         _desc.entryPoints.push_back( { entryName, ShaderType::ClosestHit } );
         return *this;
     }
     /// @brief Adds a Callable Shader entry point.
-    Builder& callable( const std::string& entryName ) {
+    Builder& callable( StringView entryName ) {
         _desc.entryPoints.push_back( { entryName, ShaderType::Callable } );
         return *this;
     }
     /// @brief Adds a Mesh Shader entry point.
-    Builder& ms( const std::string& entryName ) {
+    Builder& ms( StringView entryName ) {
         _desc.entryPoints.push_back( { entryName, ShaderType::Mesh } );
         return *this;
     }
     /// @brief Adds an Amplification Shader entry point.
-    Builder& as( const std::string& entryName ) {
+    Builder& as( StringView entryName ) {
         _desc.entryPoints.push_back( { entryName, ShaderType::Amplification } );
         return *this;
     }
@@ -179,7 +179,7 @@ public:
     // --- MANUAL CONFIGURATION ---
 
     /// @brief Manually defines the entire shader entry points description.
-    Builder& entryPoints( const std::vector<Shader::EntryPoint>& ep ) {
+    Builder& entryPoints( const STLW::Vector<Shader::EntryPoint>& ep ) {
         _desc.entryPoints = ep;
         return *this;
     }
@@ -194,7 +194,7 @@ public:
 
     /// @brief Manually defines the Vertex Input Attributes.
     /// Overrides auto-reflection for vertex inputs.
-    Builder& vertexAttributes( const std::vector<RHI::VertexAttribute>& attrs ) {
+    Builder& vertexAttributes( const STLW::Vector<RHI::VertexAttribute>& attrs ) {
         _desc.vertexAttributes = attrs;
         return *this;
     }

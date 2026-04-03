@@ -1,5 +1,5 @@
 #pragma once
-#include "Axion/Common/Defines.h"
+#include "Axion/Common/Common.h"
 #include "Axion/Graphics/Platforms/IGLFW.h"
 #include "Axion/Graphics/Platforms/IWin32.h"
 #include "Axion/Graphics/IRenderer.h"

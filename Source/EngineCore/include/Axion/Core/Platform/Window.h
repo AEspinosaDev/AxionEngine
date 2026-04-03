@@ -1,8 +1,11 @@
 #pragma once
 #include <Axion/Common/Common.h>
+#include <Axion/Common/Containers/STLWrapper/String.h>
+#include <Axion/Common/Memory/Pointers/OwnerPtr.h>
 #include <Axion/Common/Events/InputEvent.h>
 #include <Axion/Common/Events/WindowEvent.h>
 #include <Axion/Common/Graphics/Common.h>
+
 
 AXION_NAMESPACE_BEGIN
 
@@ -13,7 +16,7 @@ class IWindow;
 
 namespace Core::Platform {
 
-enum WindowFlags : ushort
+enum WindowFlags : u16
 {
     WindowNone               = 0,
     WindowResizable          = 1 << 0,
@@ -44,11 +47,11 @@ public:
     struct Settings {
 
         Graphics::PlatformType platformType = Graphics::PlatformType::Win32;
-        std::string            name         = "Axion Window";
+        String64               name         = "Axion Window";
         Extent2D               size         = { 1280, 720 };
         Position2D             position     = { 100, 100 };
-        std::string            iconPath     = "";
-        std::string            cursorPath   = "";
+        STLW::String           iconPath     = "";
+        STLW::String           cursorPath   = "";
         int                    style        = 0;
         WindowFlags            flags        = WindowResizable | WindowCentered | WindowEnableGUICallbacks;
     };
@@ -86,7 +89,7 @@ public:
      */
     void setFullscreen( bool fullscreen );
 
-    void setTitle( const std::string& title );
+    void setTitle( StringView title );
 
     /**
      * @brief Checks if the window has received a request to close (e.g., user pressed 'X').
@@ -164,11 +167,11 @@ public:
     /** @brief Dispatcher for mouse wheel scrolling. */
     Event::EventDispatcher<Event::MouseScrollEvent>& onMouseScroll();
 
-    std::string toString() const;
+    STLW::String toString() const;
 
 private:
     struct Impl;
-    std::unique_ptr<Impl> _impl;
+    Memory::OwnerPtr<Impl> _impl;
 };
 
 } // namespace Core::Platform

@@ -12,8 +12,8 @@ namespace Core::Assets {
  */
 template <typename T>
 struct Handle {
-    uint id         = UINT32_MAX;
-    uint generation = 0;
+    u32 id         = UINT32_MAX;
+    u32 generation = 0;
 
     bool isValid() const { return id != UINT32_MAX; }
 

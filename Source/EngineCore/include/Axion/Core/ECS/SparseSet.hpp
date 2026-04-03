@@ -24,7 +24,7 @@ template <typename T>
 class Pool : public IPool
 {
 public:
-    Pool( ulong capacity = MAX_ENTITIES ) {
+    Pool( u64 capacity = MAX_ENTITIES ) {
         _components.reserve( 100 );
         _entityIndices.reserve( 100 );
 
@@ -47,7 +47,7 @@ public:
         _entityIndices.push_back( entity );
 
         // 3. Map the entity ID to the index in the dense array
-        ulong index = _components.size() - 1;
+        u64 index = _components.size() - 1;
 
         if ( entity >= _sparse.size() )
             _sparse.resize( entity + 1, NULL_ENTITY );
@@ -69,8 +69,8 @@ public:
     void remove( EntityID entity ) override {
         AXION_LOG_ASSERT( has( entity ), Logger::Module::Core, "Entity does not have this component!!" );
 
-        ulong indexToRemove = _sparse[entity];
-        ulong lastIndex     = _components.size() - 1;
+        u64 indexToRemove = _sparse[entity];
+        u64 lastIndex     = _components.size() - 1;
 
         if ( indexToRemove != lastIndex )
         {

@@ -25,7 +25,7 @@ public:
     /**
      * @brief Log severity levels.
      */
-    enum class Level : uchar
+    enum class Level : byte
     {
         Info,
         Warn,
@@ -36,7 +36,7 @@ public:
     /**
      * @brief Engine sub-modules used for categorizing log messages.
      */
-    enum class Module : uchar
+    enum class Module : byte
     {
         Editor, /**< Editor Application */
         Core,   /**< Core engine systems */

@@ -9,16 +9,16 @@ namespace Graphics {
 class PipelineRegistry final : public IPipelineRegistry, public RendererSubsystem
 {
 public:
-    explicit PipelineRegistry( );
+    explicit PipelineRegistry();
     ~PipelineRegistry() override;
 
-    void initialize( const SubsystemInitContext& ctx ) override;   
+    void initialize( const SubsystemInitContext& ctx ) override;
 
-    GraphicBuilder    graphic( const std::string& name ) override { return GraphicBuilder( *this, name ); }
-    ComputeBuilder    compute( const std::string& name ) override { return ComputeBuilder( *this, name ); }
-    RayTracingBuilder raytracing( const std::string& name ) override { return RayTracingBuilder( *this, name ); }
-    MeshBuilder       mesh( const std::string& name ) override { return MeshBuilder( *this, name ); }
-    LayoutBuilder     layout( const std::string& name ) override { return LayoutBuilder( *this, name ); }
+    GraphicBuilder    graphic( StringView name ) override { return GraphicBuilder( *this, name ); }
+    ComputeBuilder    compute( StringView name ) override { return ComputeBuilder( *this, name ); }
+    RayTracingBuilder raytracing( StringView name ) override { return RayTracingBuilder( *this, name ); }
+    MeshBuilder       mesh( StringView name ) override { return MeshBuilder( *this, name ); }
+    LayoutBuilder     layout( StringView name ) override { return LayoutBuilder( *this, name ); }
 
     RHI::IGraphicPipeline*    getGraphicPipeline( PipelineHandle handle ) override;
     RHI::IComputePipeline*    getComputePipeline( PipelineHandle handle ) override;
@@ -26,13 +26,13 @@ public:
     RHI::IMeshPipeline*       getMeshPipeline( PipelineHandle handle ) override;
     RHI::IPipelineLayout*     getLayout( PipelineLayoutHandle handle ) override;
 
-    std::optional<PipelineHandle>       findPipeline( const std::string& name ) const override;
-    std::optional<PipelineLayoutHandle> findLayout( const std::string& name ) const override;
+    std::optional<PipelineHandle>       findPipeline( StringView name ) const override;
+    std::optional<PipelineLayoutHandle> findLayout( StringView name ) const override;
 
     void destroyLayout( PipelineLayoutHandle handle ) override;
     void destroyPipeline( PipelineHandle handle ) override;
 
-    uint size() const override { return (uint)_pipelines.size(); };
+    u32 size() const override { return (u32)_pipelines.size(); };
 
     // (Hot-Reloading)
     void reloadAll() override;
@@ -42,37 +42,37 @@ private:
     PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, ShaderHandle shaderHandle ) override;
     PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, ShaderHandle shaderHandle ) override;
     PipelineHandle createMesh( RHI::MeshPipelineDesc& desc, ShaderHandle shaderHandle ) override;
-    PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName ) override;
-    PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName ) override;
-    PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) override;
-    PipelineHandle createMesh( RHI::MeshPipelineDesc& desc, const std::string& shaderName ) override;
+    PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, StringView shaderName ) override;
+    PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, StringView shaderName ) override;
+    PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, StringView shaderName ) override;
+    PipelineHandle createMesh( RHI::MeshPipelineDesc& desc, StringView shaderName ) override;
 
     PipelineLayoutHandle createLayout( const RHI::PipelineLayoutDesc& desc ) override;
 
     IShaderRegistry* _shaderReg = nullptr;
 
     struct PipelineRecord {
-        std::string name;
-        bool        alive = false;
+        String64 name;
+        bool     alive = false;
         std::variant<std::monostate,
                      RHI::GraphicPipelineOwnerPtr,
                      RHI::ComputePipelineOwnerPtr,
                      RHI::RayTracingPipelineOwnerPtr,
                      RHI::MeshPipelineOwnerPtr>
-                               pipeline;
+                                    pipeline;
         RHI::PipelineLayoutOwnerPtr layoutOwner = nullptr;
     };
     struct LayoutRecord {
-        std::string            name;
-        bool                   alive = true;
+        String64                    name;
+        bool                        alive = true;
         RHI::PipelineLayoutOwnerPtr layout;
     };
 
-    std::vector<PipelineRecord>                     _pipelines;
-    std::unordered_map<std::string, PipelineHandle> _nameToHandle;
+    STLW::Vector<PipelineRecord>                 _pipelines;
+    STLW::UnorderedMap<String64, PipelineHandle> _nameToHandle;
 
-    std::vector<LayoutRecord>                             _layouts;
-    std::unordered_map<std::string, PipelineLayoutHandle> _nameToLayoutHandle;
+    STLW::Vector<LayoutRecord>                         _layouts;
+    STLW::UnorderedMap<String64, PipelineLayoutHandle> _nameToLayoutHandle;
 };
 
 AXION_NAMESPACE_END

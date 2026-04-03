@@ -8,7 +8,7 @@ namespace Core::Render {
 class FXAAPass : public IRenderPass
 {
 public:
-    enum class QualityPreset : uchar
+    enum class QualityPreset : byte
     {
         Low,
         Medium,

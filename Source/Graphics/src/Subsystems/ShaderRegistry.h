@@ -1,8 +1,8 @@
 
 #pragma once
 #include "Axion/Graphics/RHI/IPipeline.h"
-#include "ShaderCompiler.h"
 #include "RendererSubsystem.h"
+#include "ShaderCompiler.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -16,14 +16,14 @@ public:
 
     void initialize( const SubsystemInitContext& ctx ) override;
 
-    Builder shader( const std::string& name ) override { return Builder( *this, name ); }
+    Builder shader( StringView name ) override { return Builder( *this, name ); }
 
     const ShaderBundle&         getBundle( ShaderHandle handle ) const override;
-    std::optional<ShaderHandle> findShader( const std::string& name ) const override;
+    std::optional<ShaderHandle> findShader( StringView name ) const override;
     const ShaderBundle&         compileShader( ShaderHandle handle ) override;
-    const ShaderBundle&         compileShader( const std::string& name ) override;
-    void                        compileAllShaders( uint threadCount = 1 ) override;
-    uint                        size() const override { return (uint)_shaders.size(); };
+    const ShaderBundle&         compileShader( StringView name ) override;
+    void                        compileAllShaders( u32 threadCount = 1 ) override;
+    u32                         size() const override { return (u32)_shaders.size(); };
 
 private:
     ShaderHandle registerShader( const ShaderDesc& desc ) override;
@@ -44,8 +44,8 @@ private:
 
     ShaderCompiler _compiler;
 
-    std::vector<ShaderRecord>                     _shaders;
-    std::unordered_map<std::string, ShaderHandle> _nameToHandle;
+    STLW::Vector<ShaderRecord>                 _shaders;
+    STLW::UnorderedMap<String64, ShaderHandle> _nameToHandle;
 };
 
 } // namespace Graphics

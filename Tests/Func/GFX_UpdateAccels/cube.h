@@ -45,7 +45,7 @@ std::vector<Vertex> cubeVertices = {
     { -0.5f, -0.5f, 0.5f, 0.0f, 0.0f }   // 23
 };
 
-std::vector<uint> cubeIndices = {
+std::vector<u32> cubeIndices = {
     0,
     1,
     2,

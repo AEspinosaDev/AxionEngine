@@ -11,7 +11,7 @@ public:
     struct Config {
         Graphics::RGResourceHandle inputHandle;  // HDR
         Graphics::RGResourceHandle outputHandle; // LDR
-        uint                       tonemapType;
+        u32                       tonemapType;
         float                      exposure = 1.0f;
     };
 

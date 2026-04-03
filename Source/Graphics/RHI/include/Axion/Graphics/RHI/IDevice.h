@@ -15,7 +15,7 @@ DEFINE_OWNER_PTR_FOR_TYPE( IDevice, Device )
 
 /// @brief Simple synchronization primitive holding a fence value.
 struct Fence {
-    ulong value = 0;
+    u64 value = 0;
 };
 
 /// @brief Represents a logical connection to the physical graphics adapter.
@@ -80,7 +80,7 @@ public:
 
     /// @brief Submits a batch of command lists to the GPU queue.
     /// @param frameFence The fence to signal when this batch completes execution.
-    virtual void executeCommandLists( const std::vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) = 0;
+    virtual void executeCommandLists( const STLW::Vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) = 0;
 
     /// @brief Blocks the CPU until the specified fence value is reached (Frame Pacing).
     virtual void waitForFrame( const Fence& frameFence, QueueType workingQueue ) = 0;

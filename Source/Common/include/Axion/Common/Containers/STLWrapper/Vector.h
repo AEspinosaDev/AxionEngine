@@ -16,7 +16,7 @@ public:
 
     explicit Vector( Memory::IAllocator* allocator )
         : Base( Memory::STLAdapter<T>( allocator ) ) {}
-    explicit Vector()
+    Vector()
         : Base( Memory::STLAdapter<T>( nullptr ) ) {}
 };
 

@@ -8,17 +8,17 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
-constexpr uint UNBOUNDED_DESCRIPTOR_ARRAY = 0xFFFFFFFF;
+constexpr u32 UNBOUNDED_DESCRIPTOR_ARRAY = 0xFFFFFFFF;
 
 struct DescriptorBinding {
-    uint           binding = 0; // register(t#, b#, s#, etc.)
+    u32           binding = 0; // register(t#, b#, s#, etc.)
     DescriptorType type;
     ShaderStage    stageMask = ShaderStage::Vertex | ShaderStage::Pixel;
-    uint           arraySize = 1; ///< -1 for unbounded
+    u32           arraySize = 1; ///< -1 for unbounded
 };
 
 struct DescriptorLayoutDesc {
-    std::vector<DescriptorBinding> bindings;
+    STLW::Vector<DescriptorBinding> bindings;
 };
 
 DEFINE_OWNER_PTR_FOR_TYPE( IDescriptorSet, DescriptorSet )
@@ -28,22 +28,22 @@ class IDescriptorSet : public IDeviceObject
 public:
     virtual ~IDescriptorSet() = default;
 
-    virtual void attach( uint binding, ITexture* tex, ResourceState bindingState )                                               = 0;
-    virtual void attach( uint binding, IBuffer* buf, ResourceState bindingState )                                                = 0;
-    virtual void attach( uint binding, ISampler* samp )                                                                          = 0;
-    virtual void attach( uint binding, IAccel* accel )                                                                           = 0;
-    virtual void attachDynamic( uint binding, IBuffer* buf, ulong offset, ulong range, uint stride, ResourceState bindingState ) = 0;
-    virtual void attachBufferView( uint binding, const BufferView& bufferView, ResourceState bindingState )                      = 0;
+    virtual void attach( u32 binding, ITexture* tex, ResourceState bindingState )                                               = 0;
+    virtual void attach( u32 binding, IBuffer* buf, ResourceState bindingState )                                                = 0;
+    virtual void attach( u32 binding, ISampler* samp )                                                                          = 0;
+    virtual void attach( u32 binding, IAccel* accel )                                                                           = 0;
+    virtual void attachDynamic( u32 binding, IBuffer* buf, u64 offset, u64 range, u32 stride, ResourceState bindingState ) = 0;
+    virtual void attachBufferView( u32 binding, const BufferView& bufferView, ResourceState bindingState )                      = 0;
 
     // Bindless Workflow
-    virtual void attachBindless( uint binding, uint arrayIndex, ITexture* tex, ResourceState bindingState )                                     = 0;
-    virtual void attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<ITexture*>& textures, ResourceState bindingState ) = 0;
-    virtual void attachBindless( uint binding, uint arrayIndex, IBuffer* buf, ResourceState bindingState )                                      = 0;
-    virtual void attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<IBuffer*>& buffers, ResourceState bindingState )   = 0;
-    virtual void attachBindless( uint binding, uint arrayIndex, ISampler* samp )                                                                = 0;
-    virtual void attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<ISampler*>& samplers )                             = 0;
-    virtual void attachBindless( uint binding, uint arrayIndex, IAccel* accel )                                                                 = 0;
-    virtual void attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<IAccel*>& accels )                                 = 0;
+    virtual void attachBindless( u32 binding, u32 arrayIndex, ITexture* tex, ResourceState bindingState )                                     = 0;
+    virtual void attachBindlessArray( u32 binding, u32 startArrayIndex, const STLW::Vector<ITexture*>& textures, ResourceState bindingState ) = 0;
+    virtual void attachBindless( u32 binding, u32 arrayIndex, IBuffer* buf, ResourceState bindingState )                                      = 0;
+    virtual void attachBindlessArray( u32 binding, u32 startArrayIndex, const STLW::Vector<IBuffer*>& buffers, ResourceState bindingState )   = 0;
+    virtual void attachBindless( u32 binding, u32 arrayIndex, ISampler* samp )                                                                = 0;
+    virtual void attachBindlessArray( u32 binding, u32 startArrayIndex, const STLW::Vector<ISampler*>& samplers )                             = 0;
+    virtual void attachBindless( u32 binding, u32 arrayIndex, IAccel* accel )                                                                 = 0;
+    virtual void attachBindlessArray( u32 binding, u32 startArrayIndex, const STLW::Vector<IAccel*>& accels )                                 = 0;
 };
 
 DEFINE_OWNER_PTR_FOR_TYPE( IDescriptorAllocator, DescriptorAllocator )
@@ -53,15 +53,15 @@ class IDescriptorAllocator : public IDeviceObject
 {
 public:
     struct Description {
-        uint     numDescriptors = 256;
-        uint     numViews       = 256;
-        uint     numSamplers    = 64;
+        u32     numDescriptors = 256;
+        u32     numViews       = 256;
+        u32     numSamplers    = 64;
         String64 debugName      = "";
     };
 
     virtual ~IDescriptorAllocator() = default;
 
-    virtual IDescriptorSet* allocate( IPipelineLayout* layout, uint setIndex ) = 0;
+    virtual IDescriptorSet* allocate( IPipelineLayout* layout, u32 setIndex ) = 0;
     virtual void            reset()                                            = 0;
 
     virtual const IDescriptorAllocator::Description& getDescription() const = 0;

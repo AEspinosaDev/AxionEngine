@@ -12,35 +12,35 @@ public:
 
     void initialize( const SubsystemInitContext& ctx ) override;
 
-    BufferBuilder  buffer( const std::string& name ) override { return BufferBuilder( *this, name ); }
-    TextureBuilder texture( const std::string& name ) override { return TextureBuilder( *this, name ); }
-    SamplerBuilder sampler( const std::string& name ) override { return SamplerBuilder( *this, name ); }
-    AccelBuilder   accel( const std::string& name ) override { return AccelBuilder( *this, name ); }
+    BufferBuilder  buffer( StringView name ) override { return BufferBuilder( *this, name ); }
+    TextureBuilder texture( StringView name ) override { return TextureBuilder( *this, name ); }
+    SamplerBuilder sampler( StringView name ) override { return SamplerBuilder( *this, name ); }
+    AccelBuilder   accel( StringView name ) override { return AccelBuilder( *this, name ); }
 
     RHI::IBuffer*                getBuffer( BufferHandle handle ) override;
-    std::optional<BufferHandle>  findBuffer( const std::string& name ) const override;
+    std::optional<BufferHandle>  findBuffer( StringView name ) const override;
     void                         destroyBuffer( BufferHandle handle ) override;
     RHI::ITexture*               getTexture( TextureHandle handle ) override;
-    std::optional<TextureHandle> findTexture( const std::string& name ) const override;
+    std::optional<TextureHandle> findTexture( StringView name ) const override;
     void                         destroyTexture( TextureHandle handle ) override;
     RHI::ISampler*               getSampler( SamplerHandle handle ) override;
-    std::optional<SamplerHandle> findSampler( const std::string& name ) const override;
+    std::optional<SamplerHandle> findSampler( StringView name ) const override;
     void                         destroySampler( SamplerHandle handle ) override;
     RHI::IAccel*                 getAccel( AccelHandle handle ) override;
-    std::optional<AccelHandle>   findAccel( const std::string& name ) const override;
+    std::optional<AccelHandle>   findAccel( StringView name ) const override;
     void                         destroyAccel( AccelHandle handle ) override;
 
     // Special functions for renderer interop
-    TextureHandle registerExternalTexture( RHI::TextureOwnerPtr&& ptr, const std::string& name );
-    BufferHandle  registerExternalBuffer( RHI::BufferOwnerPtr&& ptr, const std::string& name );
-    SamplerHandle registerExternalSampler( RHI::SamplerOwnerPtr&& ptr, const std::string& name );
-    AccelHandle   registerExternalAccel( RHI::AccelOwnerPtr&& ptr, const std::string& name );
+    TextureHandle registerExternalTexture( RHI::TextureOwnerPtr&& ptr, StringView name );
+    BufferHandle  registerExternalBuffer( RHI::BufferOwnerPtr&& ptr, StringView name );
+    SamplerHandle registerExternalSampler( RHI::SamplerOwnerPtr&& ptr, StringView name );
+    AccelHandle   registerExternalAccel( RHI::AccelOwnerPtr&& ptr, StringView name );
 
     void clear() override;
-    uint bufferCount() const override { return (uint)_buffers.size(); };
-    uint textureCount() const override { return (uint)_textures.size(); };
-    uint samplerCount() const override { return (uint)_samplers.size(); };
-    uint accelCount() const override { return (uint)_accels.size(); };
+    u32 bufferCount() const override { return (u32)_buffers.size(); };
+    u32 textureCount() const override { return (u32)_textures.size(); };
+    u32 samplerCount() const override { return (u32)_samplers.size(); };
+    u32 accelCount() const override { return (u32)_accels.size(); };
 
 private:
     BufferHandle  createBuffer( const RHI::BufferDesc& desc, const void* initialData, bool allowLookup = true ) override;
@@ -51,24 +51,24 @@ private:
 private:
     template <typename T>
     struct ResourceRecord {
-        T           ptr = nullptr;
-        std::string name;
-        ushort      generation = 0;
-        bool        alive      = false;
+        T        ptr = nullptr;
+        String64 name;
+        u16   generation = 0;
+        bool     alive      = false;
     };
 
     // Buffers
-    std::vector<ResourceRecord<RHI::BufferOwnerPtr>>   _buffers;
-    std::unordered_map<std::string, BufferHandle> _buffNameToHandle;
+    STLW::Vector<ResourceRecord<RHI::BufferOwnerPtr>> _buffers;
+    STLW::UnorderedMap<String64, BufferHandle>        _buffNameToHandle;
     // Textures
-    std::vector<ResourceRecord<RHI::TextureOwnerPtr>>   _textures;
-    std::unordered_map<std::string, TextureHandle> _texNameToHandle;
+    STLW::Vector<ResourceRecord<RHI::TextureOwnerPtr>> _textures;
+    STLW::UnorderedMap<String64, TextureHandle>        _texNameToHandle;
     // Samplers
-    std::vector<ResourceRecord<RHI::SamplerOwnerPtr>>   _samplers;
-    std::unordered_map<std::string, SamplerHandle> _samplerNameToHandle;
+    STLW::Vector<ResourceRecord<RHI::SamplerOwnerPtr>> _samplers;
+    STLW::UnorderedMap<String64, SamplerHandle>        _samplerNameToHandle;
     // Acceleration Structures
-    std::vector<ResourceRecord<RHI::AccelOwnerPtr>>   _accels;
-    std::unordered_map<std::string, AccelHandle> _accelNameToHandle;
+    STLW::Vector<ResourceRecord<RHI::AccelOwnerPtr>> _accels;
+    STLW::UnorderedMap<String64, AccelHandle>        _accelNameToHandle;
 };
 
 } // namespace Graphics

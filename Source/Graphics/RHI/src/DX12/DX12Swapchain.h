@@ -20,8 +20,8 @@ public:
 
     void                          updateImages() override;
     void                          present() override;
-    uint                          acquireNextImage() override;
-    uint                          getCurrentImageIndex() override;
+    u32                          acquireNextImage() override;
+    u32                          getCurrentImageIndex() override;
     const Description&            getDescription() override;
     STLW::Vector<TextureOwnerPtr> releaseImages() override;
     void                          update( const Description& newDesc ) override;
@@ -38,7 +38,7 @@ private:
 
     ComPtr<ID3D12Device2>   _device;
     ComPtr<IDXGISwapChain4> _swapchain;
-    uint                    _currentImage;
+    u32                    _currentImage;
 
     DX12DescriptorHeap            _heapRTV;
     STLW::Vector<TextureOwnerPtr> _swapImages;

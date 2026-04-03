@@ -23,7 +23,7 @@ public:
     template <typename T>
     void registerPass() {
         // auto pass                = std::make_unique<T>();
-        auto pass = Memory::makeOwned<T>();
+        auto pass                = Memory::makeOwned<T>();
         _passLookup[typeid( T )] = pass.get();
 
         _passes.push_back( std::move( pass ) );
@@ -49,8 +49,8 @@ public:
     }
 
 private:
-    std::vector<RenderPassOwnerPtr>                        _passes;
-    std::unordered_map<std::type_index, IRenderPass*> _passLookup;
+    STLW::Vector<RenderPassOwnerPtr>                  _passes;
+    STLW::UnorderedMap<std::type_index, IRenderPass*> _passLookup;
 };
 
 } // namespace Core::Render

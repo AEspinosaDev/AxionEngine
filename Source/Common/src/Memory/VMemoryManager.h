@@ -8,10 +8,10 @@ namespace Memory {
 class VMemoryManager
 {
 public:
-    static uint getPageSize();
-    static uint alignToPageSize( uint size );
+    static u32 getPageSize();
+    static u32 alignToPageSize( u32 size );
 
-    static VMemoryView virtualReserve( uint size );
+    static VMemoryView virtualReserve( u32 size );
     static bool        virtualCommit( VMemoryView view );
     static void        virtualDecommit( VMemoryView view );
     static void        virtualRelease( VMemoryView view );

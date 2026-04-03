@@ -18,8 +18,8 @@ public:
 
     const Description& getDescription() const override { return _desc; }
     NativeObject       getNativeObject( ObjectType objectType ) override;
-    void               setDebugName( std::string_view name ) override;
-    std::string_view   getDebugName() const override;
+    void               setDebugName( StringView name ) override;
+    StringView         getDebugName() const override;
     STLW::String       toString() const override;
 
 private:

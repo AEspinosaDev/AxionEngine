@@ -23,14 +23,15 @@ public:
     ~DX12Texture() override;
 
     const TextureDesc&    getDescription() const override;
-    void                  setDebugName( const std::string& name ) override;
-    const std::string&    getDebugName() const override;
     NativeObject          getNativeObject( ObjectType objectType ) override;
     ResourceState         getCurrentState() const override { return _stateTracker.getCurrentState(); }
     ResourceStateTracker& stateTracker();
-    std::string           toString() const override;
 
-    ulong getDeviceAddress() const override { return _resource->GetGPUVirtualAddress(); }
+    void         setDebugName( StringView name ) override;
+    StringView   getDebugName() const override { return _desc.debugName; };
+    STLW::String toString() const override;
+
+    u64 getDeviceAddress() const override { return _resource->GetGPUVirtualAddress(); }
 
     D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getRTV() const { return _rtvHandle; }
@@ -66,16 +67,17 @@ public:
     ~DX12Buffer() override;
 
     const BufferDesc&     getDescription() const override { return _desc; }
-    void                  copyData( const void* data, ulong size, ulong offset = 0 ) override;
+    void                  copyData( const void* data, u64 size, u64 offset = 0 ) override;
     void*                 getData() const override;
-    void                  setDebugName( const std::string& name ) override;
-    const std::string&    getDebugName() const override { return _desc.debugName; }
     NativeObject          getNativeObject( ObjectType objectType ) override;
     ResourceState         getCurrentState() const override { return _stateTracker.getCurrentState(); }
     ResourceStateTracker& stateTracker() { return _stateTracker; };
-    std::string           toString() const override;
 
-    ulong getDeviceAddress() const override { return _resource->GetGPUVirtualAddress(); }
+    void         setDebugName( StringView name ) override;
+    StringView   getDebugName() const override { return _desc.debugName; };
+    STLW::String toString() const override;
+
+    u64 getDeviceAddress() const override { return _resource->GetGPUVirtualAddress(); }
 
     D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getCBV() const { return _cbvHandle; }
@@ -115,10 +117,11 @@ public:
     ~DX12Sampler() override;
 
     const Description& getDescription() const override { return _desc; };
-    void               setDebugName( const std::string& name ) override;
-    const std::string& getDebugName() const override { return _desc.debugName; }
     NativeObject       getNativeObject( ObjectType objectType ) override;
-    std::string        toString() const override;
+
+    void         setDebugName( StringView name ) override;
+    StringView   getDebugName() const override { return _desc.debugName; };
+    STLW::String toString() const override;
 
     D3D12_CPU_DESCRIPTOR_HANDLE getSamplerHandle() const { return _samplerHandle; }
 
@@ -137,22 +140,23 @@ public:
     ~DX12Accel() override;
 
     const Description& getDescription() const override { return _desc; };
-    void               setDebugName( const std::string& name ) override;
-    const std::string& getDebugName() const override { return _desc.debugName; }
     NativeObject       getNativeObject( ObjectType objectType ) override;
-    std::string        toString() const override;
+
+    void         setDebugName( StringView name ) override;
+    StringView   getDebugName() const override { return _desc.debugName; };
+    STLW::String toString() const override;
 
     AccelType getType() const override;
-    ulong     getDeviceAddress() const override;
+    u64     getDeviceAddress() const override;
 
-    ulong getUpdateScratchSize() const override;
-    ulong getBuildScratchSize() const override;
+    u64 getUpdateScratchSize() const override;
+    u64 getBuildScratchSize() const override;
 
     D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }
 
     static void prepareInputs( const AccelDesc&                                      desc,
                                D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& outInputs,
-                               std::vector<D3D12_RAYTRACING_GEOMETRY_DESC>&          outGeoms );
+                               STLW::Vector<D3D12_RAYTRACING_GEOMETRY_DESC>&         outGeoms );
 
 private:
     void      createView( DX12Device::Context& ctx );
@@ -160,10 +164,10 @@ private:
 
     Memory::OwnerPtr<DX12Buffer> _buffer = nullptr;
 
-    ulong _deviceAddress = 0;
+    u64 _deviceAddress = 0;
 
-    ulong _updateScratchSize = 0;
-    ulong _buildScratchSize  = 0;
+    u64 _updateScratchSize = 0;
+    u64 _buildScratchSize  = 0;
 
     D3D12_CPU_DESCRIPTOR_HANDLE _srvHandle = {};
 

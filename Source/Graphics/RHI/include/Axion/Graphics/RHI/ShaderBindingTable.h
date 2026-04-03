@@ -18,16 +18,16 @@ struct ShaderBindingTable {
     struct Record {
         String64 shaderName; ///< Export name used to retrieve the Shader Identifier.
         void*    rootArgs;   ///< Pointer to local root arguments (constants/descriptors).
-        uint     argsSize;   ///< Size of the root arguments in bytes.
+        u32     argsSize;   ///< Size of the root arguments in bytes.
     };
 
     /** @brief Describes the GPU memory layout of an uploaded SBT, used for DispatchRays. */
     struct View {
-        ulong rayGenAddress; ///< GPU Virtual Address of the Ray Generation record.
+        u64 rayGenAddress; ///< GPU Virtual Address of the Ray Generation record.
         struct Region {
-            ulong startAddress;  ///< GPU Virtual Address of the table region.
-            uint  sizeInBytes;   ///< Total size of the region.
-            uint  strideInBytes; ///< Stride between records in this region.
+            u64 startAddress;  ///< GPU Virtual Address of the table region.
+            u32  sizeInBytes;   ///< Total size of the region.
+            u32  strideInBytes; ///< Stride between records in this region.
         } missRegion, hitRegion, callableRegion;
     };
 
@@ -37,19 +37,19 @@ struct ShaderBindingTable {
     STLW::Vector<Record> callables;  ///< Optional list of Callable shader records.
 
     /// @brief Sets the mandatory Ray Generation shader.
-    inline void setRayGen( const std::string_view name, void* args = nullptr, uint size = 0 ) {
+    inline void setRayGen( const std::string_view name, void* args = nullptr, u32 size = 0 ) {
         rayGen = { name, args, size };
     }
     /// @brief Adds a Miss shader record.
-    inline void addMiss( const std::string_view name, void* args = nullptr, uint size = 0 ) {
+    inline void addMiss( const std::string_view name, void* args = nullptr, u32 size = 0 ) {
         missGroups.push_back( { name, args, size } );
     }
     /// @brief Adds a Hit Group record (Closest Hit + Any Hit + Intersection).
-    inline void addHitGroup( const std::string_view name, void* args = nullptr, uint size = 0 ) {
+    inline void addHitGroup( const std::string_view name, void* args = nullptr, u32 size = 0 ) {
         hitGroups.push_back( { name, args, size } );
     }
     /// @brief Adds a Callable shader record.
-    inline void addCallable( const std::string_view name, void* args = nullptr, uint size = 0 ) {
+    inline void addCallable( const std::string_view name, void* args = nullptr, u32 size = 0 ) {
         callables.push_back( { name, args, size } );
     }
 };
@@ -66,7 +66,7 @@ class ISBTAllocator : public IDeviceObject
 {
 public:
     struct Description {
-        uint     sizeInBytes;
+        u32     sizeInBytes;
         String64 debugName;
     };
 

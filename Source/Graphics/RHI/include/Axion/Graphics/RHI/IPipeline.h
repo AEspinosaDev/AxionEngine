@@ -23,9 +23,9 @@ class IPipelineLayout : public IDeviceObject
 {
 public:
     struct PushConstantDesc {
-        uint        size           = 0;
-        uint        customSpace    = 1;
-        uint        customRegister = 0;
+        u32        size           = 0;
+        u32        customSpace    = 1;
+        u32        customRegister = 0;
         ShaderStage stageMask      = ShaderStage::Vertex | ShaderStage::Pixel;
     };
 
@@ -38,9 +38,9 @@ public:
     };
     virtual ~IPipelineLayout()                                        = default;
     virtual const Description& getDescription() const                 = 0;
-    virtual uint               getViewCount( uint setIndex ) const    = 0;
-    virtual uint               getSamplerCount( uint setIndex ) const = 0;
-    virtual uint               getAccelCount( uint setIndex ) const   = 0;
+    virtual u32               getViewCount( u32 setIndex ) const    = 0;
+    virtual u32               getSamplerCount( u32 setIndex ) const = 0;
+    virtual u32               getAccelCount( u32 setIndex ) const   = 0;
 };
 
 typedef IPipelineLayout::Description PipelineLayoutDesc;
@@ -51,16 +51,16 @@ DEFINE_OWNER_PTR_FOR_TYPE( IGraphicPipeline, GraphicPipeline )
 
 struct VertexAttribute {
     String32 semanticName      = ""; // "POSITION", "TEXCOORD", etc.
-    uint     semanticIndex     = 0;
+    u32     semanticIndex     = 0;
     Format   format            = Format::RGBA32_FLOAT;
-    uint     inputSlot         = 0;
-    uint     alignedByteOffset = AUTO_VAL;
-    uint     instanceStepRate  = 0;
+    u32     inputSlot         = 0;
+    u32     alignedByteOffset = AUTO_VAL;
+    u32     instanceStepRate  = 0;
 };
 
 struct VertexBinding {
-    uint stride      = 0;
-    uint inputSlot   = 0;
+    u32 stride      = 0;
+    u32 inputSlot   = 0;
     bool perInstance = false;
 };
 
@@ -77,8 +77,8 @@ struct BlendAttachment {
 };
 
 struct BlendState {
-    bool                         alphaToCoverage = false;
-    std::vector<BlendAttachment> attachments; // one per RTV slot
+    bool                          alphaToCoverage = false;
+    STLW::Vector<BlendAttachment> attachments; // one per RTV slot
 };
 
 struct RasterizerState {
@@ -113,7 +113,7 @@ public:
         STLW::Vector<VertexAttribute> attributes;
 
         PrimitiveTopology topology    = PrimitiveTopology::TriangleList;
-        uint              sampleCount = 1;
+        u32              sampleCount = 1;
 
         STLW::Vector<Format> renderTargetFormats;
         Format               depthStencilFormat = Format::UNKNOWN;
@@ -122,7 +122,7 @@ public:
         RasterizerState   rasterizerState;
         DepthStencilState depthStencilState;
 
-        uint     sampleMask = 0xFFFFFFFF;
+        u32     sampleMask = 0xFFFFFFFF;
         String64 debugName  = "";
     };
     virtual ~IGraphicPipeline()                       = default;
@@ -144,7 +144,7 @@ public:
         IPipelineLayout*           layout = nullptr;
 
         PrimitiveTopology topology    = PrimitiveTopology::TriangleList;
-        uint              sampleCount = 1;
+        u32              sampleCount = 1;
 
         STLW::Vector<Format> renderTargetFormats;
         Format               depthStencilFormat = Format::UNKNOWN;
@@ -153,7 +153,7 @@ public:
         RasterizerState   rasterizerState;
         DepthStencilState depthStencilState;
 
-        uint     sampleMask = 0xFFFFFFFF;
+        u32     sampleMask = 0xFFFFFFFF;
         String64 debugName  = "";
     };
     virtual ~IMeshPipeline()                          = default;
@@ -206,9 +206,9 @@ public:
         IPipelineLayout*           layout = nullptr;
         STLW::Vector<HitGroupDesc> hitGroups;
         // Configuration
-        uint maxDepth         = 1; // How many times rays can bounce (TraceRay calls)
-        uint maxPayloadSize   = 0; // sizeof(RayPayload)
-        uint maxAttributeSize = 8; // sizeof(BuiltInTriangleIntersectionAttributes) is 8 (float2)
+        u32 maxDepth         = 1; // How many times rays can bounce (TraceRay calls)
+        u32 maxPayloadSize   = 0; // sizeof(RayPayload)
+        u32 maxAttributeSize = 8; // sizeof(BuiltInTriangleIntersectionAttributes) is 8 (float2)
 
         String64 debugName = "";
     };

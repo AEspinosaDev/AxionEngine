@@ -46,7 +46,7 @@ struct MeshData {
     Graphics::TextureHandle texture;
     Graphics::SamplerHandle sampler;
 
-    uint indicesCount = 0;
+    u32 indicesCount = 0;
 };
 
 struct ForwardPass {
@@ -119,7 +119,7 @@ int main( /*int argc, char* argv[]*/ ) {
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "INTEROP TEXTURE SAMPLERS" } );
 
         auto       bufferingType    = Graphics::BufferingType::Double;
-        const uint FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
+        const u32 FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
         auto       rnd              = Axion::Graphics::createRenderer( wnd.get(),
                                                                        { .gfxApi        = Graphics::API::DirectX12,
                                                                          .bufferingType = bufferingType,
@@ -199,13 +199,13 @@ int main( /*int argc, char* argv[]*/ ) {
                                   .buffer( "IndexBuffer" )
                                   .asIBO()
                                   .withData( geoData->indices.data() )
-                                  .size( geoData->indices.size() * sizeof( uint ) )
-                                  .stride( sizeof( uint ) )
+                                  .size( geoData->indices.size() * sizeof( u32 ) )
+                                  .stride( sizeof( u32 ) )
                                   .create();
 
         // UNIFORM CONSTANT BUFFER
         std::vector<Graphics::BufferHandle> camBuffers( FRAMES_IN_FLIGHT );
-        for ( uint i = 0; i < FRAMES_IN_FLIGHT; ++i )
+        for ( u32 i = 0; i < FRAMES_IN_FLIGHT; ++i )
         {
             camBuffers[i] = rnd->resources().buffer( "CamUniformBuffer_" + std::to_string( i ) ).size( sizeof( Camera::Payload ) ).asCBO().onCPU().create();
         }

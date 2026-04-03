@@ -6,7 +6,7 @@ AXION_NAMESPACE_BEGIN
 
 namespace Event {
  
-enum class KeyCode : uint
+enum class KeyCode : u32
 {
     Unknown = 0,
     
@@ -46,11 +46,11 @@ struct KeyEvent : public InputEvent {
  * @brief Mouse button press/release event.
  */
 struct MouseButtonEvent : public InputEvent {
-    MouseButtonEvent( void* h, uint button, bool pressed )
+    MouseButtonEvent( void* h, u32 button, bool pressed )
         : InputEvent( h )
         , button( button )
         , pressed( pressed ) {}
-    uint button;
+    u32 button;
     bool pressed;
 };
 

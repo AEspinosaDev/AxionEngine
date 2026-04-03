@@ -95,22 +95,16 @@
 
 // Primitive types
 
-using ulong  = unsigned long long; // Unsigned Int 64
-using uint   = unsigned int;       // Unsigned Int 32
-using ushort = unsigned short;     // Unsigned Int 16
-using uchar  = unsigned char;      // Unsigned Int 8
+using u64 = uint64_t; // Unsigned Int 64
+using u32 = uint32_t; // Unsigned Int 32
+using u16 = uint16_t; // Unsigned Int 16
 
-using u64 = uint64_t;
-using u32 = uint32_t;
-using u16 = uint16_t;
-using u8  = uint8_t;
+using byte = uint8_t; // Byte (alias for uint8_t)
 
 using s64 = int64_t;
 using s32 = int32_t;
 using s16 = int16_t;
 using s8  = int8_t;
-
-using byte = uint8_t;
 
 AXION_NAMESPACE_BEGIN
 
@@ -126,8 +120,8 @@ public:
 
 struct Extent3D;
 struct Extent2D {
-    uint width { 0 };
-    uint height { 0 };
+    u32 width { 0 };
+    u32 height { 0 };
 
     inline bool operator==( const Extent2D o ) const {
         return width == o.width && height == o.height;
@@ -138,9 +132,9 @@ struct Extent2D {
     Extent3D to3D() const;
 };
 struct Extent3D {
-    uint width { 0 };
-    uint height { 0 };
-    uint depth { 0 };
+    u32 width { 0 };
+    u32 height { 0 };
+    u32 depth { 0 };
 
     inline bool operator==( const Extent3D& o ) const {
         return width == o.width && height == o.height && depth == o.depth;
@@ -151,8 +145,8 @@ struct Extent3D {
     Extent2D to2D() const;
 };
 struct Position2D {
-    uint x { 0 };
-    uint y { 0 };
+    u32 x { 0 };
+    u32 y { 0 };
 
     inline bool operator==( const Position2D& o ) const {
         return x == o.x && y == o.y;

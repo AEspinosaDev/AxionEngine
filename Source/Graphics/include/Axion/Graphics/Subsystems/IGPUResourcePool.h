@@ -32,19 +32,19 @@ public:
 
     /// @brief Starts the fluent construction of a GPU Buffer.
     /// @param name Debug name for the resource.
-    virtual BufferBuilder buffer( const std::string& name ) = 0;
+    virtual BufferBuilder buffer( StringView name ) = 0;
 
     /// @brief Starts the fluent construction of a GPU Texture.
     /// @param name Debug name for the resource.
-    virtual TextureBuilder texture( const std::string& name ) = 0;
+    virtual TextureBuilder texture( StringView name ) = 0;
 
     /// @brief Starts the fluent construction of a GPU Sampler.
     /// @param name Debug name for the resource.
-    virtual SamplerBuilder sampler( const std::string& name ) = 0;
+    virtual SamplerBuilder sampler( StringView name ) = 0;
 
     /// @brief Starts the fluent construction of a GPU Acceleration Structure.
     /// @param name Debug name for the resource.
-    virtual AccelBuilder accel( const std::string& name ) = 0;
+    virtual AccelBuilder accel( StringView name ) = 0;
 
     // -------------------------------------------------------------------------
     // RUNTIME ACCESS
@@ -55,7 +55,7 @@ public:
     virtual RHI::IBuffer* getBuffer( BufferHandle handle ) = 0;
 
     /// @brief Looks up a buffer handle by its debug name.
-    virtual std::optional<BufferHandle> findBuffer( const std::string& name ) const = 0;
+    virtual std::optional<BufferHandle> findBuffer( StringView name ) const = 0;
 
     /// @brief Destroys the buffer and frees GPU memory immediately.
     virtual void destroyBuffer( BufferHandle handle ) = 0;
@@ -65,7 +65,7 @@ public:
     virtual RHI::ITexture* getTexture( TextureHandle handle ) = 0;
 
     /// @brief Looks up a texture handle by its debug name.
-    virtual std::optional<TextureHandle> findTexture( const std::string& name ) const = 0;
+    virtual std::optional<TextureHandle> findTexture( StringView name ) const = 0;
 
     /// @brief Destroys the texture and frees GPU memory immediately.
     virtual void destroyTexture( TextureHandle handle ) = 0;
@@ -75,7 +75,7 @@ public:
     virtual RHI::ISampler* getSampler( SamplerHandle handle ) = 0;
 
     /// @brief Looks up a sampler handle by its debug name.
-    virtual std::optional<SamplerHandle> findSampler( const std::string& name ) const = 0;
+    virtual std::optional<SamplerHandle> findSampler( StringView name ) const = 0;
 
     /// @brief Destroys the sampler and frees GPU memory immediately.
     virtual void destroySampler( SamplerHandle handle ) = 0;
@@ -85,7 +85,7 @@ public:
     virtual RHI::IAccel* getAccel( AccelHandle handle ) = 0;
 
     /// @brief Looks up a accel handle by its debug name.
-    virtual std::optional<AccelHandle> findAccel( const std::string& name ) const = 0;
+    virtual std::optional<AccelHandle> findAccel( StringView name ) const = 0;
 
     /// @brief Destroys the accel and frees GPU memory immediately.
     virtual void destroyAccel( AccelHandle handle ) = 0;
@@ -98,16 +98,16 @@ public:
     virtual void clear() = 0;
 
     /// @brief Returns the total number of buffer slots occupied (whether they are alive or not).
-    virtual uint bufferCount() const = 0;
+    virtual u32 bufferCount() const = 0;
 
     /// @brief Returns the total number of texture slots occupied (whether they are alive or not).
-    virtual uint textureCount() const = 0;
+    virtual u32 textureCount() const = 0;
 
     /// @brief Returns the total number of samplers slots occupied (whether they are alive or not).
-    virtual uint samplerCount() const = 0;
+    virtual u32 samplerCount() const = 0;
 
     /// @brief Returns the total number of samplers slots occupied (whether they are alive or not).
-    virtual uint accelCount() const = 0;
+    virtual u32 accelCount() const = 0;
 
 protected:
     IGPUResourcePool() = default;
@@ -132,7 +132,7 @@ protected:
 class IGPUResourcePool::TextureBuilder : public TextureBuilderBase<TextureBuilder>
 {
 public:
-    TextureBuilder( IGPUResourcePool& pool, std::string name )
+    TextureBuilder( IGPUResourcePool& pool, StringView name )
         : TextureBuilderBase( std::move( name ) )
         , _pool( pool ) {}
 
@@ -163,8 +163,8 @@ private:
 class IGPUResourcePool::BufferBuilder : public BufferBuilderBase<BufferBuilder>
 {
 public:
-    BufferBuilder( IGPUResourcePool& pool, std::string name )
-        : BufferBuilderBase( std::move( name ) )
+    BufferBuilder( IGPUResourcePool& pool, StringView name )
+        : BufferBuilderBase( name )
         , _pool( pool ) {}
 
     /// @brief Marks if name will be added as a key for future lookups.
@@ -194,8 +194,8 @@ private:
 class IGPUResourcePool::SamplerBuilder : public SamplerBuilderBase<SamplerBuilder>
 {
 public:
-    SamplerBuilder( IGPUResourcePool& pool, std::string name )
-        : SamplerBuilderBase( std::move( name ) )
+    SamplerBuilder( IGPUResourcePool& pool, StringView name )
+        : SamplerBuilderBase( name )
         , _pool( pool ) {}
 
     /// @brief Marks if name will be added as a key for future lookups.
@@ -218,8 +218,8 @@ private:
 class IGPUResourcePool::AccelBuilder : public AccelBuilderBase<AccelBuilder>
 {
 public:
-    AccelBuilder( IGPUResourcePool& pool, std::string name )
-        : AccelBuilderBase( std::move( name ) )
+    AccelBuilder( IGPUResourcePool& pool, StringView name )
+        : AccelBuilderBase( name )
         , _pool( pool ) {}
 
     /// @brief Marks if name will be added as a key for future lookups.

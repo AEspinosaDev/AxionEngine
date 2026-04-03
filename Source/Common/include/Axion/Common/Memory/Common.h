@@ -14,7 +14,7 @@ using VMemoryAddress = std::uintptr_t;
 // Represents a raw block of memory from the OS
 struct VMemoryView {
     void* ptr  = nullptr;
-    uint  size = 0;
+    u32  size = 0;
     bool  isValid() const { return ptr != nullptr && size > 0; }
 };
 

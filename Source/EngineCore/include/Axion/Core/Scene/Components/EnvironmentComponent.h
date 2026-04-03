@@ -9,12 +9,12 @@ namespace Core::Scene {
 
 struct EnvironmentComponent {
 
-    enum class Type : uchar
+    enum class Type : byte
     {
         Global = 0,
         Volume = 1,
     };
-    enum class SkyType : uchar
+    enum class SkyType : byte
     {
         Constant   = 0,
         Procedural = 1, // Passes needed {Atmosphere Compute, Athmosphere -> Screen}
@@ -27,7 +27,7 @@ struct EnvironmentComponent {
     Type       type = Type::Global;
     Math::AABB aabb; // In case its volume type
     float      blendDistance = 0.0f;
-    uint       priority      = 0;
+    u32       priority      = 0;
 
     SkyType               skyType     = SkyType::Constant; // For now, only constant supported
     Math::Vec3            skyColor    = { 0.1f, 0.2f, 0.7f };

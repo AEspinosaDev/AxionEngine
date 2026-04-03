@@ -38,10 +38,10 @@ public:
     void                             clearDirty();
 
     virtual std::string_view           getArchetypeName() const  = 0;
-    virtual uint                       getPayloadSize() const    = 0;
+    virtual u32                       getPayloadSize() const    = 0;
     virtual std::vector<TextureHandle> getTextureHandles() const = 0;
 
-    using TextureResolver = std::function<uint( const TextureHandle& )>;
+    using TextureResolver = std::function<u32( const TextureHandle& )>;
 
     virtual void writePayload( void* dest, const TextureResolver& resolver ) const = 0;
 

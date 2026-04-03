@@ -1,11 +1,9 @@
 #pragma once
-#include <Axion/Common/Memory/Pointers/OwnerPtr.h>
 #include "Axion/Common/Common.h"
 #include "Axion/Common/Events/InputEvent.h"
 #include "Axion/Common/Events/WindowEvent.h"
 #include "Axion/Graphics/RHI/IDevice.h"
-
-
+#include <Axion/Common/Memory/Pointers/OwnerPtr.h>
 
 AXION_NAMESPACE_BEGIN
 
@@ -27,15 +25,15 @@ public:
      * @brief Holds configuration and state for a window.
      */
     struct Settings {
-        std::string name              = "Axion Window"; //!< Window title
-        Extent2D    size              = { 1280, 720 };  //!< Initial window size
-        bool        fullscreen        = false;          //!< Fullscreen mode flag
-        bool        centered          = true;           //!< Whether to center the window
-        Position2D  position          = { 100, 100 };   //!< Position on the screen (if not centered)
-        std::string iconPath          = "";             //!< Path to window icon
-        std::string cursorPath        = "";             //!< Path to cursor icon
-        int         style             = 0;              //!< Platform-specific style flags
-        bool        enableGuiInputCBs = true;           //!< Enable Gui Input
+        String64     name              = "Axion Window"; //!< Window title
+        Extent2D     size              = { 1280, 720 };  //!< Initial window size
+        bool         fullscreen        = false;          //!< Fullscreen mode flag
+        bool         centered          = true;           //!< Whether to center the window
+        Position2D   position          = { 100, 100 };   //!< Position on the screen (if not centered)
+        STLW::String iconPath          = "";             //!< Path to window icon
+        STLW::String cursorPath        = "";             //!< Path to cursor icon
+        int          style             = 0;              //!< Platform-specific style flags
+        bool         enableGuiInputCBs = true;           //!< Enable Gui Input
     };
 
     /** @brief Virtual destructor for safe polymorphic deletion. */
@@ -80,7 +78,7 @@ public:
      */
     virtual const Settings& getSettings() const = 0;
 
-    virtual void setTitle( const std::string& title ) = 0;
+    virtual void setTitle( const StringView title ) = 0;
 
     /**
      * @brief Updates the window configuration.

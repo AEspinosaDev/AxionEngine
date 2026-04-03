@@ -68,7 +68,7 @@ bool loadOBJ( const std::string& filepath, MeshData& outMesh, MeshImportFlags fl
     outMesh.vertices.reserve( estimatedVertices );
 
     // Deduplicación: Key(OBJ Index) -> Value(New Mesh Index)
-    std::unordered_map<tinyobj::index_t, uint, IndexHasher, IndexEqual> uniqueVertices;
+    std::unordered_map<tinyobj::index_t, u32, IndexHasher, IndexEqual> uniqueVertices;
     uniqueVertices.reserve( estimatedVertices );
 
     // Merge all shapes into a single Mesh
@@ -120,7 +120,7 @@ bool loadOBJ( const std::string& filepath, MeshData& outMesh, MeshImportFlags fl
                 vertex.tangent = { 1.0f, 0.0f, 0.0f, 1.0f };
 
                 // Store new Index
-                uniqueVertices[index] = static_cast<uint>( outMesh.vertices.size() );
+                uniqueVertices[index] = static_cast<u32>( outMesh.vertices.size() );
                 outMesh.vertices.push_back( vertex );
             }
 

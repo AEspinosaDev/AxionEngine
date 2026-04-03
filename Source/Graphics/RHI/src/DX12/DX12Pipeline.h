@@ -15,15 +15,15 @@ public:
     ~DX12PipelineLayout() override;
 
     const Description& getDescription() const override { return _desc; }
-    uint               getViewCount( uint setIndex ) const override;
-    uint               getSamplerCount( uint setIndex ) const override;
-    uint               getAccelCount( uint setIndex ) const override;
+    u32               getViewCount( u32 setIndex ) const override;
+    u32               getSamplerCount( u32 setIndex ) const override;
+    u32               getAccelCount( u32 setIndex ) const override;
     NativeObject       getNativeObject( ObjectType objectType ) override;
-    void               setDebugName( std::string_view name ) override;
-    std::string_view   getDebugName() const override;
+    void               setDebugName( StringView name ) override;
+    StringView         getDebugName() const override;
     STLW::String       toString() const override;
 
-    std::pair<int, int> getRootIndices( uint setIndex ) const {
+    std::pair<int, int> getRootIndices( u32 setIndex ) const {
         if ( setIndex >= _rootIndexMap.size() )
             return { -1, -1 };
         return _rootIndexMap[setIndex];
@@ -34,7 +34,7 @@ public:
 private:
     void                           buildRootSignature( const ComPtr<ID3D12Device2>& device );
     void                           buildIndirectCommandSignature( const ComPtr<ID3D12Device2>& device );
-    static D3D12_SHADER_VISIBILITY getShaderVisibility( const std::vector<DescriptorBinding>& bindings );
+    static D3D12_SHADER_VISIBILITY getShaderVisibility( const STLW::Vector<DescriptorBinding>& bindings );
 
     PipelineLayoutDesc          _desc;
     ComPtr<ID3D12RootSignature> _rootSignature;
@@ -44,11 +44,11 @@ private:
     ComPtr<ID3D12CommandSignature> _drawIndexedIndirectSignature;
     ComPtr<ID3D12CommandSignature> _dispatchIndirectSignature;
 
-    std::vector<uint> _viewCountPerSet;
-    std::vector<uint> _samplerCountPerSet;
-    std::vector<uint> _accelCountPerSet;
+    STLW::Vector<u32> _viewCountPerSet;
+    STLW::Vector<u32> _samplerCountPerSet;
+    STLW::Vector<u32> _accelCountPerSet;
 
-    std::vector<std::pair<int, int>> _rootIndexMap;
+    STLW::Vector<std::pair<int, int>> _rootIndexMap;
 };
 
 DEFINE_OWNER_PTR_FOR_TYPE( DX12GraphicPipeline, DX12GraphicPipeline )
@@ -61,13 +61,13 @@ public:
 
     const Description& getDescription() const override { return _desc; }
     NativeObject       getNativeObject( ObjectType objectType ) override;
-    void               setDebugName( std::string_view name ) override;
-    std::string_view   getDebugName() const override;
+    void               setDebugName( StringView name ) override;
+    StringView         getDebugName() const override;
     STLW::String       toString() const override;
 
 private:
     void                           createPipelineState( const ComPtr<ID3D12Device2>& device );
-    static D3D12_INPUT_LAYOUT_DESC makeInputLayout( const IGraphicPipeline::Description& desc, std::vector<D3D12_INPUT_ELEMENT_DESC>& out );
+    static D3D12_INPUT_LAYOUT_DESC makeInputLayout( const IGraphicPipeline::Description& desc, STLW::Vector<D3D12_INPUT_ELEMENT_DESC>& out );
 
     Description                 _desc;
     ComPtr<ID3D12PipelineState> _pso;
@@ -83,8 +83,8 @@ public:
 
     const MeshPipelineDesc& getDescription() const override { return _desc; }
     NativeObject            getNativeObject( ObjectType objectType ) override;
-    void                    setDebugName( std::string_view name ) override;
-    std::string_view        getDebugName() const override;
+    void                    setDebugName( StringView name ) override;
+    StringView              getDebugName() const override;
     STLW::String            toString() const override;
 
 private:
@@ -117,8 +117,8 @@ public:
 
     const Description& getDescription() const override { return _desc; }
     NativeObject       getNativeObject( ObjectType objectType ) override;
-    void               setDebugName( std::string_view name ) override;
-    std::string_view   getDebugName() const override;
+    void               setDebugName( StringView name ) override;
+    StringView         getDebugName() const override;
     STLW::String       toString() const override;
 
 private:
@@ -137,12 +137,12 @@ public:
     ~DX12RayTracingPipeline() override;
 
     const Description& getDescription() const override { return _desc; }
-    void*              getShaderIdentifier( const std::string_view exportName ) const override;
+    void*              getShaderIdentifier( const StringView exportName ) const override;
 
-    NativeObject     getNativeObject( ObjectType objectType ) override;
-    void             setDebugName( std::string_view name ) override;
-    std::string_view getDebugName() const override;
-    STLW::String     toString() const override;
+    NativeObject getNativeObject( ObjectType objectType ) override;
+    void         setDebugName( StringView name ) override;
+    StringView   getDebugName() const override;
+    STLW::String toString() const override;
 
 private:
     void createStateObject( const ComPtr<ID3D12Device5>& device );

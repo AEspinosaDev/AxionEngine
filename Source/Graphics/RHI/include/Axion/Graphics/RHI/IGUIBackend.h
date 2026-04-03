@@ -15,7 +15,7 @@ public:
     struct Description {
         PlatformType platform           = PlatformType::Win32;
         Format       backbufferFormat   = Format::RGBA8_UNORM;
-        uint         framesInFlight     = 2;
+        u32         framesInFlight     = 2;
         int          configFlags        = 0;
         void*        nativeWindowHandle = nullptr;
     };

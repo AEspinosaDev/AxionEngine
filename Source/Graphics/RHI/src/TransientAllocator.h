@@ -10,16 +10,16 @@ public:
     TransientAllocator( IDevice* device, const Description& desc );
     ~TransientAllocator();
 
-    BufferView allocateScratch( ulong size, ulong alignment ) override;
-    BufferView allocateUpload( ulong size, ulong alignment ) override;
+    BufferView allocateScratch( u64 size, u64 alignment ) override;
+    BufferView allocateUpload( u64 size, u64 alignment ) override;
     void       reset() override;
 
     const Description& getDescription() const override { return _desc; }
 
-    NativeObject     getNativeObject( ObjectType /*type*/ ) override { return nullptr; }
-    void             setDebugName( std::string_view name ) override;
-    std::string_view getDebugName() const override;
-    STLW::String     toString() const override;
+    NativeObject getNativeObject( ObjectType /*type*/ ) override { return nullptr; }
+    void         setDebugName( StringView name ) override;
+    StringView   getDebugName() const override;
+    STLW::String toString() const override;
 
 private:
     Description _desc;

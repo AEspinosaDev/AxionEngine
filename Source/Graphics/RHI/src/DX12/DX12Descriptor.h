@@ -18,7 +18,7 @@ public:
         Sampler
     };
 
-    void init( ID3D12Device* device, Type type, uint numDescriptors, bool shaderVisible = false );
+    void init( ID3D12Device* device, Type type, u32 numDescriptors, bool shaderVisible = false );
     void reset();
 
     D3D12_CPU_DESCRIPTOR_HANDLE allocateCPU();
@@ -30,13 +30,13 @@ public:
     D3D12_CPU_DESCRIPTOR_HANDLE getCPUStart() const { return _baseCPU; }
     D3D12_GPU_DESCRIPTOR_HANDLE getGPUStart() const { return _baseGPU; }
 
-    void setDebugName( std::string_view name );
+    void setDebugName( StringView name );
 
 private:
     ComPtr<ID3D12DescriptorHeap> _heap           = nullptr;
-    uint                         _descriptorSize = 0;
-    uint                         _allocated      = 0;
-    uint                         _capacity       = 0;
+    u32                         _descriptorSize = 0;
+    u32                         _allocated      = 0;
+    u32                         _capacity       = 0;
     D3D12_CPU_DESCRIPTOR_HANDLE  _baseCPU {};
     D3D12_GPU_DESCRIPTOR_HANDLE  _baseGPU {};
     Type                         _type;
@@ -45,7 +45,7 @@ private:
 struct DescriptorHandleInfo {
     D3D12_CPU_DESCRIPTOR_HANDLE startCPU;
     D3D12_GPU_DESCRIPTOR_HANDLE startGPU;
-    uint                        handleSize;
+    u32                        handleSize;
     ID3D12DescriptorHeap*       ownerHeap = nullptr;
 };
 
@@ -57,26 +57,26 @@ public:
                        DescriptorHandleInfo samplers );
     ~DX12DescriptorSet() override;
 
-    void attach( uint binding, ITexture* tex, ResourceState bindingState ) override;
-    void attach( uint binding, IBuffer* buf, ResourceState bindingState ) override;
-    void attach( uint binding, ISampler* samp ) override;
-    void attach( uint binding, IAccel* accel ) override;
-    void attachDynamic( uint binding, IBuffer* buf, ulong offset, ulong range, uint stride, ResourceState bindingState ) override;
-    void attachBufferView( uint binding, const BufferView& bufferView, ResourceState bindingState ) override;
+    void attach( u32 binding, ITexture* tex, ResourceState bindingState ) override;
+    void attach( u32 binding, IBuffer* buf, ResourceState bindingState ) override;
+    void attach( u32 binding, ISampler* samp ) override;
+    void attach( u32 binding, IAccel* accel ) override;
+    void attachDynamic( u32 binding, IBuffer* buf, u64 offset, u64 range, u32 stride, ResourceState bindingState ) override;
+    void attachBufferView( u32 binding, const BufferView& bufferView, ResourceState bindingState ) override;
 
-    void attachBindless( uint binding, uint arrayIndex, ITexture* tex, ResourceState bindingState ) override;
-    void attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<ITexture*>& textures, ResourceState bindingState ) override;
-    void attachBindless( uint binding, uint arrayIndex, IBuffer* buf, ResourceState bindingState ) override;
-    void attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<IBuffer*>& buffers, ResourceState bindingState ) override;
-    void attachBindless( uint binding, uint arrayIndex, ISampler* samp ) override;
-    void attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<ISampler*>& samplers ) override;
-    void attachBindless( uint binding, uint arrayIndex, IAccel* accel ) override;
-    void attachBindlessArray( uint binding, uint startArrayIndex, const STLW::Vector<IAccel*>& accels ) override;
+    void attachBindless( u32 binding, u32 arrayIndex, ITexture* tex, ResourceState bindingState ) override;
+    void attachBindlessArray( u32 binding, u32 startArrayIndex, const STLW::Vector<ITexture*>& textures, ResourceState bindingState ) override;
+    void attachBindless( u32 binding, u32 arrayIndex, IBuffer* buf, ResourceState bindingState ) override;
+    void attachBindlessArray( u32 binding, u32 startArrayIndex, const STLW::Vector<IBuffer*>& buffers, ResourceState bindingState ) override;
+    void attachBindless( u32 binding, u32 arrayIndex, ISampler* samp ) override;
+    void attachBindlessArray( u32 binding, u32 startArrayIndex, const STLW::Vector<ISampler*>& samplers ) override;
+    void attachBindless( u32 binding, u32 arrayIndex, IAccel* accel ) override;
+    void attachBindlessArray( u32 binding, u32 startArrayIndex, const STLW::Vector<IAccel*>& accels ) override;
 
-    NativeObject     getNativeObject( ObjectType objectType ) override;
-    void             setDebugName( std::string_view name ) override;
-    std::string_view getDebugName() const override;
-    STLW::String     toString() const override;
+    NativeObject getNativeObject( ObjectType objectType ) override;
+    void         setDebugName( StringView name ) override;
+    StringView   getDebugName() const override;
+    STLW::String toString() const override;
 
     D3D12_GPU_DESCRIPTOR_HANDLE getViewGPUHandle() const { return _views.startGPU; }
     ID3D12DescriptorHeap*       getViewOwnerHeap() const { return _views.ownerHeap; }
@@ -107,14 +107,14 @@ public:
     DX12DescriptorAllocator( ID3D12Device* device, const DescriptorAllocatorDesc& desc );
     ~DX12DescriptorAllocator() override;
 
-    IDescriptorSet*                allocate( IPipelineLayout* layout, uint setIndex ) override;
+    IDescriptorSet*                allocate( IPipelineLayout* layout, u32 setIndex ) override;
     void                           reset() override;
     const DescriptorAllocatorDesc& getDescription() const override { return _desc; }
 
-    NativeObject     getNativeObject( ObjectType objectType ) override;
-    void             setDebugName( std::string_view name ) override;
-    std::string_view getDebugName() const override;
-    STLW::String     toString() const override;
+    NativeObject getNativeObject( ObjectType objectType ) override;
+    void         setDebugName( StringView name ) override;
+    StringView   getDebugName() const override;
+    STLW::String toString() const override;
 
     void lockPersistent() override;
     void unlockPersistent() override;
@@ -124,21 +124,21 @@ private:
     DescriptorAllocatorDesc _desc;
 
     DX12DescriptorHeap _viewHeap;
-    uint               _currentViewOffset = 0;
-    uint               _viewHandleSize    = 0;
+    u32               _currentViewOffset = 0;
+    u32               _viewHandleSize    = 0;
 
     DX12DescriptorHeap _samplerHeap;
-    uint               _currentSamplerOffset = 0;
-    uint               _samplerHandleSize    = 0;
+    u32               _currentSamplerOffset = 0;
+    u32               _samplerHandleSize    = 0;
 
     // Pooling
     STLW::Vector<Memory::OwnerPtr<DX12DescriptorSet>> _setPool;
-    uint                                              _poolIndex = 0;
+    u32                                              _poolIndex = 0;
 
     // Persistent Views
-    uint _persistentViewOffset    = 0;
-    uint _persistentSamplerOffset = 0;
-    uint _persistentPoolIndex     = 0;
+    u32 _persistentViewOffset    = 0;
+    u32 _persistentSamplerOffset = 0;
+    u32 _persistentPoolIndex     = 0;
 };
 } // namespace Graphics::RHI
 

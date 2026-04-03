@@ -10,7 +10,7 @@ namespace Core::Assets {
 
 class AssetManager;
 
-using TexturePixels = std::variant<std::vector<float>, std::vector<uchar>>;
+using TexturePixels = std::variant<STLW::Vector<float>, STLW::Vector<byte>>;
 
 class Texture
 {
@@ -19,7 +19,7 @@ public:
         Graphics::Filter      filter      = Graphics::Filter::Linear;
         Graphics::AddressMode addressMode = Graphics::AddressMode::Repeat;
         bool                  anisotropic = true;
-        uchar                 mipLevels   = 1;
+        byte                 mipLevels   = 1;
     };
 
     Texture()                     = delete;
@@ -28,7 +28,7 @@ public:
 
     [[nodiscard]] const std::string& getName() const { return _name; }
     [[nodiscard]] Extent3D           getSize() const { return _size; }
-    [[nodiscard]] uint               getChannels() const { return _channels; }
+    [[nodiscard]] u32               getChannels() const { return _channels; }
     [[nodiscard]] bool               isHDR() const { return _isHDR; }
     [[nodiscard]] TextureType        getType() const { return _type; }
     [[nodiscard]] TextureFormat      getFormat() const { return _format; }
@@ -65,7 +65,7 @@ private:
         : _name( std::move( name ) ) {}
 
     AXION_FORCE_INLINE void setData( Extent3D&&       size,
-                                     uint             c,
+                                     u32             c,
                                      bool             hdr,
                                      TexturePixels&&  data,
                                      TextureFormat    fmt,
@@ -84,13 +84,13 @@ private:
 
     AXION_FORCE_INLINE size_t computeSizeInBytes() const {
         if ( _isHDR )
-            return std::get<std::vector<float>>( *_pixels ).size() * sizeof( float );
-        return std::get<std::vector<unsigned char>>( *_pixels ).size() * sizeof( unsigned char );
+            return std::get<STLW::Vector<float>>( *_pixels ).size() * sizeof( float );
+        return std::get<STLW::Vector<unsigned char>>( *_pixels ).size() * sizeof( unsigned char );
     }
 
     std::string      _name;
     Extent3D         _size;
-    uint             _channels  = 0;
+    u32             _channels  = 0;
     bool             _isHDR     = false;
     TextureType      _type      = TextureType::Texture2D;
     TextureFormat    _format    = TextureFormat::Gamma;

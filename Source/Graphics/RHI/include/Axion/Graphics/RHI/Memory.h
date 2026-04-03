@@ -10,13 +10,13 @@ namespace Graphics::RHI {
 struct BufferView {
 
     IBuffer* buffer = nullptr;
-    ulong    size   = 0;
-    ulong    stride = 0;
-    ulong    count  = 0;
-    ulong    offset = 0;
+    u64    size   = 0;
+    u64    stride = 0;
+    u64    count  = 0;
+    u64    offset = 0;
 
-    ulong  gpuAddress = 0;
-    uchar* cpuAddress = nullptr;
+    u64  gpuAddress = 0;
+    byte* cpuAddress = nullptr;
 
     bool isValid() const { return buffer != nullptr; }
 };
@@ -40,18 +40,18 @@ public:
 
         if ( buffer->getDescription().memoryType != MemoryUsage::GPUOnly )
         {
-            _cpuBase = static_cast<uchar*>( buffer->getData() );
+            _cpuBase = static_cast<byte*>( buffer->getData() );
         }
     }
 
     template <typename T>
-    AXION_FORCE_INLINE BufferView allocate( ulong count ) {
+    AXION_FORCE_INLINE BufferView allocate( u64 count ) {
         return allocate( count * sizeof( T ), sizeof( T ) );
     }
 
-    AXION_FORCE_INLINE BufferView allocate( ulong size, ulong alignment = 256 ) {
+    AXION_FORCE_INLINE BufferView allocate( u64 size, u64 alignment = 256 ) {
 
-        ulong alignedOffset = Helpers::safeAlign( _currentOffset, alignment );
+        u64 alignedOffset = Helpers::safeAlign( _currentOffset, alignment );
 
         if ( alignedOffset + size > _capacity )
         {
@@ -93,17 +93,17 @@ public:
         _currentOffset = 0;
     }
 
-    AXION_FORCE_INLINE ulong getUsedSize() const { return _currentOffset; }
-    AXION_FORCE_INLINE ulong getTotalSize() const { return _capacity; }
+    AXION_FORCE_INLINE u64 getUsedSize() const { return _currentOffset; }
+    AXION_FORCE_INLINE u64 getTotalSize() const { return _capacity; }
 
 private:
     IBuffer* _buffer = nullptr;
 
-    ulong  _gpuBase = 0;
-    uchar* _cpuBase = nullptr;
+    u64  _gpuBase = 0;
+    byte* _cpuBase = nullptr;
 
-    ulong _capacity      = 0;
-    ulong _currentOffset = 0;
+    u64 _capacity      = 0;
+    u64 _currentOffset = 0;
 };
 
 typedef BufferLinearAllocator LinearAllocator;
@@ -115,8 +115,8 @@ typedef BufferLinearAllocator LinearAllocator;
 class BufferFreeListAllocator
 {
     struct FreeBlock {
-        ulong offset;
-        ulong size;
+        u64 offset;
+        u64 size;
     };
 
 public:
@@ -135,7 +135,7 @@ public:
 
         if ( buffer->getDescription().memoryType != MemoryUsage::GPUOnly )
         {
-            _cpuBase = static_cast<uchar*>( buffer->getData() );
+            _cpuBase = static_cast<byte*>( buffer->getData() );
         }
 
         _freeBlocks.clear();
@@ -143,17 +143,17 @@ public:
     }
 
     template <typename T>
-    AXION_FORCE_INLINE BufferView allocate( ulong count ) {
+    AXION_FORCE_INLINE BufferView allocate( u64 count ) {
         return allocate( count * sizeof( T ), sizeof( T ) );
     }
 
-    BufferView allocate( ulong size, ulong alignment = 256 ) {
+    BufferView allocate( u64 size, u64 alignment = 256 ) {
 
         for ( auto it = _freeBlocks.begin(); it != _freeBlocks.end(); ++it )
         {
-            ulong alignedOffset = Helpers::safeAlign( it->offset, alignment );
-            ulong padding       = alignedOffset - it->offset;
-            ulong requiredSize  = size + padding;
+            u64 alignedOffset = Helpers::safeAlign( it->offset, alignment );
+            u64 padding       = alignedOffset - it->offset;
+            u64 requiredSize  = size + padding;
 
             if ( it->size >= requiredSize )
             {
@@ -178,8 +178,8 @@ public:
                     alloc.cpuAddress = _cpuBase + alignedOffset;
 
                 // Update Free Slot
-                ulong totalConsumed = requiredSize;
-                ulong remainingSize = it->size - totalConsumed;
+                u64 totalConsumed = requiredSize;
+                u64 remainingSize = it->size - totalConsumed;
 
                 if ( remainingSize > 0 )
                 {
@@ -225,13 +225,13 @@ public:
         _usedSize = 0;
     }
 
-    ulong getUsedSize() const { return _usedSize; }
-    ulong getTotalSize() const { return _capacity; }
+    u64 getUsedSize() const { return _usedSize; }
+    u64 getTotalSize() const { return _capacity; }
 
 private:
     void insertAndCoalesce( FreeBlock block ) {
 
-        auto it = std::upper_bound( _freeBlocks.begin(), _freeBlocks.end(), block.offset, []( ulong val, const FreeBlock& b ) { return val < b.offset; } );
+        auto it = std::upper_bound( _freeBlocks.begin(), _freeBlocks.end(), block.offset, []( u64 val, const FreeBlock& b ) { return val < b.offset; } );
 
         it = _freeBlocks.insert( it, block );
 
@@ -258,8 +258,8 @@ private:
         }
     }
 
-    ulong getMaxFreeBlockSize() const {
-        ulong maxS = 0;
+    u64 getMaxFreeBlockSize() const {
+        u64 maxS = 0;
         for ( const auto& b : _freeBlocks )
             if ( b.size > maxS )
                 maxS = b.size;
@@ -267,13 +267,13 @@ private:
     }
 
     IBuffer* _buffer  = nullptr;
-    ulong    _gpuBase = 0;
-    uchar*   _cpuBase = nullptr;
+    u64    _gpuBase = 0;
+    byte*   _cpuBase = nullptr;
 
-    ulong _capacity = 0;
-    ulong _usedSize = 0;
+    u64 _capacity = 0;
+    u64 _usedSize = 0;
 
-    std::vector<FreeBlock> _freeBlocks;
+    STLW::Vector<FreeBlock> _freeBlocks;
 };
 typedef BufferFreeListAllocator FreeListAllocator;
 
@@ -288,15 +288,15 @@ class ITransientAllocator : public IDeviceObject
 {
 public:
     struct Description {
-        ulong    scratchSize = 64 * 1024 * 1024;
-        ulong    uploadSize  = 64 * 1024 * 1024;
+        u64    scratchSize = 64 * 1024 * 1024;
+        u64    uploadSize  = 64 * 1024 * 1024;
         String64 debugName;
     };
 
     virtual ~ITransientAllocator() = default;
 
-    virtual BufferView allocateScratch( ulong size, ulong alignment = 256 ) = 0;
-    virtual BufferView allocateUpload( ulong size, ulong alignment = 256 )  = 0;
+    virtual BufferView allocateScratch( u64 size, u64 alignment = 256 ) = 0;
+    virtual BufferView allocateUpload( u64 size, u64 alignment = 256 )  = 0;
 
     virtual void reset() = 0;
 

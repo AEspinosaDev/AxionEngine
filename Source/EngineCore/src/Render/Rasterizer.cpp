@@ -33,7 +33,7 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
         .selectedDeviceID      = settings.common.selectedDeviceID,
         .enableGui             = ( settings.common.flags & RendererEnableGUI ) != RendererNone };
 
-    const uint remainingVolatileViews = _settings.memory.RGMaxViewsPerFrame - settings.common.maxMtlTextures;
+    const u32 remainingVolatileViews = _settings.memory.RGMaxViewsPerFrame - settings.common.maxMtlTextures;
     AXION_LOG_ASSERT( remainingVolatileViews >= 256, Logger::Module::RHI, "Volatile Views Count is critically low!" );
 
     _rnd = Graphics::createRenderer( wnd->getNativeWindow(), rndStts );
@@ -63,19 +63,19 @@ void Rasterizer::newGuiFrame() const {
         _rnd->getGUIBackend()->newFrame();
 }
 
-ulong Rasterizer::getCurrentFrameIndex() const {
+u64 Rasterizer::getCurrentFrameIndex() const {
     return _rnd->getCurrentFrameIndex();
 }
 
-ulong Rasterizer::getTotalFrameNumber() const {
+u64 Rasterizer::getTotalFrameNumber() const {
     return _rnd->getTotalFrameNumber();
 }
 
-std::string Rasterizer::toString() const {
-    return std::string();
+STLW::String Rasterizer::toString() const {
+    return STLW::String();
 }
 
-void Rasterizer::compileShaders( uint threadCount ) {
+void Rasterizer::compileShaders( u32 threadCount ) {
 
     auto startTime = std::chrono::high_resolution_clock::now();
     AXION_LOG_INFO( Logger::Module::Core, "Start of shader compilation for Renderer [{}] | Num Threads: {}", _settings.common.name, threadCount );
@@ -151,7 +151,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
         upConfig.mtlTextureHandles = &_res.textureHandles;
 
-        for ( uint i = 0; i < _framesInFlight; ++i )
+        for ( u32 i = 0; i < _framesInFlight; ++i )
             upConfig.allPersistentSets.push_back( _res.frame[i].persistentDescriptorSetPtr );
 
         _passes.getPass<UploadPass>()->addToGraph( builder, upConfig );
@@ -179,7 +179,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
             cullConfig.indirectData = indirectCmdData;
 
-            cullConfig.instanceCount = (uint)_gpuScene.instances().size();
+            cullConfig.instanceCount = (u32)_gpuScene.instances().size();
 
             _passes.getPass<CullingPass>()->addToGraph( builder, cullConfig );
         }
@@ -348,7 +348,7 @@ void Rasterizer::setupMaterialLibrary() {
                                      { 5, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Instance Redirection Buffer
                                  } )
                                  // Space 2: Instance ID Push Constant
-                                 .setPushConstants( sizeof( uint ), 0, 2 )
+                                 .setPushConstants( sizeof( u32 ), 0, 2 )
                                  .enableIndirectRendering()
                                  .create();
 
@@ -431,8 +431,8 @@ void Rasterizer::createResources() {
 
     //------------------------- B. Fallback Resources -------------------
 
-    std::array<uchar, 4> fallbackPixels = { 255, 0, 255, 255 };
-    _res.fallbackTexture2DHandle        = r.texture( "FallbackTexture2D" )
+    STLW::Array<byte, 4> fallbackPixels = { 255, 0, 255, 255 };
+    _res.fallbackTexture2DHandle         = r.texture( "FallbackTexture2D" )
                                        .format( Graphics::Format::RGBA8_UNORM )
                                        .extent( { 1, 1, 1 } )
                                        .withData( fallbackPixels.data() )
@@ -440,13 +440,13 @@ void Rasterizer::createResources() {
 
     _res.fallbackSamplerHandle = r.sampler( "FallbackSampler" ).create();
 
-    std::vector<Graphics::RHI::ITexture*> initialTextures( _settings.common.maxMtlTextures, r.getTexture( _res.fallbackTexture2DHandle ) );
-    std::vector<Graphics::RHI::ISampler*> initialSamplers( _settings.common.maxMtlSamplers, r.getSampler( _res.fallbackSamplerHandle ) );
+    STLW::Vector<Graphics::RHI::ITexture*> initialTextures( _settings.common.maxMtlTextures, r.getTexture( _res.fallbackTexture2DHandle ) );
+    STLW::Vector<Graphics::RHI::ISampler*> initialSamplers( _settings.common.maxMtlSamplers, r.getSampler( _res.fallbackSamplerHandle ) );
 
     // ----------------------- C. PER-FRAME BUFFERS (Volatile) -------------------
     _framesInFlight = _rnd->getTotalFramesInFlight();
     _res.frame.resize( _framesInFlight );
-    for ( uint i = 0; i < _framesInFlight; ++i )
+    for ( u32 i = 0; i < _framesInFlight; ++i )
     {
         _res.frame[i].uboBufferHandle = r.buffer( "GlobalUBO_" + std::to_string( i ) )
                                             .size( 1024 )
@@ -487,7 +487,7 @@ void Rasterizer::createResources() {
 
         _res.frame[i].culledInstanceBufferHandle = r.buffer( "IndirectCulledInstanceBuffer_" + std::to_string( i ) )
                                                        .size( _settings.memory.volatileBufferSize )
-                                                       .stride( sizeof( uint ) )
+                                                       .stride( sizeof( u32 ) )
                                                        .onGPU()
                                                        .asSSBO()
                                                        .create();
@@ -519,7 +519,7 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
     TransientViews views;
 
     // (D3D12/Vulkan)
-    const uint CBV_ALIGNMENT = 256;
+    const u32 CBV_ALIGNMENT = 256;
 
     // =================================================================================
     // 1. FRAME DATA (UBO - Constant Buffer)
@@ -663,11 +663,11 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
 
         if ( !sortedKeys.empty() )
         {
-            views.redirectView = currentSSBOAlloc.allocate<uint>( sortedKeys.size() );
+            views.redirectView = currentSSBOAlloc.allocate<u32>( sortedKeys.size() );
 
             if ( views.redirectView.isValid() )
             {
-                auto* redirectPtr = (uint*)views.redirectView.cpuAddress;
+                auto* redirectPtr = (u32*)views.redirectView.cpuAddress;
 
                 for ( size_t i = 0; i < sortedKeys.size(); ++i )
                 {
@@ -676,7 +676,7 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
             }
         } else
         {
-            views.redirectView       = currentSSBOAlloc.allocate<uint>( 1 );
+            views.redirectView       = currentSSBOAlloc.allocate<u32>( 1 );
             views.redirectView.count = 0;
             if ( views.redirectView.cpuAddress )
                 memset( views.redirectView.cpuAddress, 0, views.redirectView.size );
@@ -716,30 +716,30 @@ IndirectCommandData Rasterizer::uploadIndirectCommandData(
     // 2. LOOP
     // =================================================================================
 
-    uint currentArch = 0, currentTopo = 0, currentMeshID = 0;
+    u32 currentArch = 0, currentTopo = 0, currentMeshID = 0;
     sortedKeys[0].unpack( currentArch, currentTopo, currentMeshID );
 
     auto lastMesh = meshes[instances[sortedKeys[0].originalInstanceIdx].meshID];
 
     // Trackers
-    uint batchStartOffsetInRedirect = 0;
-    uint instanceAccumulator        = 0;
+    u32 batchStartOffsetInRedirect = 0;
+    u32 instanceAccumulator        = 0;
 
-    uint cmdWriteIdx          = 0;
-    uint cmdsInCurrentArch    = 0;
-    uint archBatchStartCmdIdx = 0;
+    u32 cmdWriteIdx          = 0;
+    u32 cmdsInCurrentArch    = 0;
+    u32 archBatchStartCmdIdx = 0;
 
-    uint*                     indirectCmdMapPtr = nullptr;
+    u32*                     indirectCmdMapPtr = nullptr;
     Graphics::RHI::BufferView cmdMapAlloc {};
     if ( _settings.useGPUCulling )
     {
-        cmdMapAlloc       = currentSSBOAlloc.allocate<uint>( instances.size() );
-        indirectCmdMapPtr = (uint*)cmdMapAlloc.cpuAddress;
+        cmdMapAlloc       = currentSSBOAlloc.allocate<u32>( instances.size() );
+        indirectCmdMapPtr = (u32*)cmdMapAlloc.cpuAddress;
     }
 
     for ( size_t i = 0; i < sortedKeys.size(); ++i )
     {
-        uint arch, topo, meshID;
+        u32 arch, topo, meshID;
         sortedKeys[i].unpack( arch, topo, meshID );
 
         bool breakInstancing = ( meshID != currentMeshID ) ||
@@ -764,11 +764,11 @@ IndirectCommandData Rasterizer::uploadIndirectCommandData(
 
             // Reset
             instanceAccumulator        = 0;
-            batchStartOffsetInRedirect = (uint)i;
+            batchStartOffsetInRedirect = (u32)i;
 
             // Update Trackers
             currentMeshID    = meshID;
-            uint originalIdx = sortedKeys[i].originalInstanceIdx;
+            u32 originalIdx = sortedKeys[i].originalInstanceIdx;
             lastMesh         = meshes[instances[originalIdx].meshID];
         }
 
@@ -776,7 +776,7 @@ IndirectCommandData Rasterizer::uploadIndirectCommandData(
         {
             indirectData.batches.push_back( { .archetypeID  = currentArch,
                                               .topologyID   = currentTopo,
-                                              .bufferOffset = (uint)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
+                                              .bufferOffset = (u32)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
                                               .drawCount    = cmdsInCurrentArch } );
 
             currentArch          = arch;
@@ -814,7 +814,7 @@ IndirectCommandData Rasterizer::uploadIndirectCommandData(
     {
         indirectData.batches.push_back( { .archetypeID  = currentArch,
                                           .topologyID   = currentTopo,
-                                          .bufferOffset = (uint)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
+                                          .bufferOffset = (u32)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
                                           .drawCount    = cmdsInCurrentArch } );
     }
 
@@ -846,7 +846,7 @@ IndirectCommandData Rasterizer::uploadIndirectCommandData(
     {
         if ( currentMapCount != _indirectCommandDataCache.batchMap.size() )
             structuralChanges = true;
-        else if ( std::memcmp( indirectCmdMapPtr, _indirectCommandDataCache.batchMap.data(), currentMapCount * sizeof( uint ) ) != 0 )
+        else if ( std::memcmp( indirectCmdMapPtr, _indirectCommandDataCache.batchMap.data(), currentMapCount * sizeof( u32 ) ) != 0 )
             structuralChanges = true;
     }
 

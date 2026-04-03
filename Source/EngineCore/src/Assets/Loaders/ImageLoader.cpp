@@ -24,7 +24,7 @@ bool loadImage( const std::string& filepath, ImageData& outImage, TextureImportF
 
         outImage.channels = (req_comp == 0) ? c : 4;
 
-        std::vector<float>& vec = outImage.pixels.emplace<std::vector<float>>();
+        STLW::Vector<float>& vec = outImage.pixels.emplace<STLW::Vector<float>>();
         vec.assign( data, data + ( w * h * outImage.channels ) );
 
         stbi_image_free( data );
@@ -41,7 +41,7 @@ bool loadImage( const std::string& filepath, ImageData& outImage, TextureImportF
 
         outImage.channels = (req_comp == 0) ? c : 4;
 
-        std::vector<unsigned char>& vec = outImage.pixels.emplace<std::vector<unsigned char>>();
+        STLW::Vector<unsigned char>& vec = outImage.pixels.emplace<STLW::Vector<unsigned char>>();
         vec.assign( data, data + ( w * h * outImage.channels ) );
 
         stbi_image_free( data );
@@ -49,8 +49,8 @@ bool loadImage( const std::string& filepath, ImageData& outImage, TextureImportF
 
     // Default 2D Size
     outImage.size = {
-        .width  = static_cast<uint>( w ),
-        .height = static_cast<uint>( h ),
+        .width  = static_cast<u32>( w ),
+        .height = static_cast<u32>( h ),
         .depth  = 1,
     };
 
@@ -58,8 +58,8 @@ bool loadImage( const std::string& filepath, ImageData& outImage, TextureImportF
     if ( flags & TextureImportAs3DTexture ) 
     {
        
-        uint tileSize = static_cast<uint>( w );
-        uint totalHeight = static_cast<uint>( h );
+        u32 tileSize = static_cast<u32>( w );
+        u32 totalHeight = static_cast<u32>( h );
         
         if ( tileSize > 0 && (totalHeight % tileSize == 0) ) {
             outImage.size = {

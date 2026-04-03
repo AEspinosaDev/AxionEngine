@@ -1,7 +1,7 @@
 #pragma once
 #include "Axion/Common/Helpers.h"
-#include <Axion/Graphics/Subsystems/IRenderGraph.h>
 #include "RendererSubsystem.h"
+#include <Axion/Graphics/Subsystems/IRenderGraph.h>
 
 AXION_NAMESPACE_BEGIN
 namespace Graphics {
@@ -21,34 +21,34 @@ public:
 
     RHI::IBuffer*              getPhysicalBuffer( RGResourceHandle handle ) const override;
     RHI::ITexture*             getPhysicalTexture( RGResourceHandle handle ) const override;
-    RHI::IDescriptorAllocator* getDescriptorAllocator( uint frameIndex ) override;
+    RHI::IDescriptorAllocator* getDescriptorAllocator( u32 frameIndex ) override;
 
-    void setGarbageCollectionTTL( uint frames ) override;
+    void setGarbageCollectionTTL( u32 frames ) override;
     void setAutoSync( bool enable ) override;
 
 private:
     // Bridge methods
-    RGResourceHandle createTexture( const std::string& name, const RHI::TextureDesc& desc ) override;
-    RGResourceHandle createBuffer( const std::string& name, const RHI::BufferDesc& desc ) override;
-    RGResourceHandle importTexture( const std::string& name, TextureHandle handle ) override;
-    RGResourceHandle importBuffer( const std::string& name, BufferHandle handle ) override;
+    RGResourceHandle createTexture( StringView name, const RHI::TextureDesc& desc ) override;
+    RGResourceHandle createBuffer( StringView name, const RHI::BufferDesc& desc ) override;
+    RGResourceHandle importTexture( StringView name, TextureHandle handle ) override;
+    RGResourceHandle importBuffer( StringView name, BufferHandle handle ) override;
 
-    void  registerPass( const std::string& name, std::function<void( RenderPassContext& )> executor ) override;
-    void  registerDependency( uint passIndex, RGResourceHandle resource, RHI::ResourceState requiredState, bool isWrite ) override;
+    void  registerPass( StringView name, std::function<void( RenderPassContext& )> executor ) override;
+    void  registerDependency( u32 passIndex, RGResourceHandle resource, RHI::ResourceState requiredState, bool isWrite ) override;
     void  storePassData( void* dataPtr, std::function<void()> destructor ) override;
     void* allocateFrameMemory( size_t size, size_t alignment ) override;
 
-    uint getCurrentPassIndex() const override;
+    u32 getCurrentPassIndex() const override;
 
     void runGC();
 
     void compile();
 
-    IGPUResourcePool*                        _pool = nullptr;
-    IPipelineRegistry*                       _pipelines = nullptr;
-    std::vector<RHI::DescriptorAllocatorOwnerPtr> _descriptorAllocators;
-    std::vector<RHI::SBTAllocatorOwnerPtr>        _sbtAllocators;
-    std::vector<RHI::TransientAllocatorOwnerPtr>  _transientAllocators;
+    IGPUResourcePool*                              _pool      = nullptr;
+    IPipelineRegistry*                             _pipelines = nullptr;
+    STLW::Vector<RHI::DescriptorAllocatorOwnerPtr> _descriptorAllocators;
+    STLW::Vector<RHI::SBTAllocatorOwnerPtr>        _sbtAllocators;
+    STLW::Vector<RHI::TransientAllocatorOwnerPtr>  _transientAllocators;
 
     RenderGraphDesc _desc;
 
@@ -57,7 +57,7 @@ private:
     //--------------------------
 
     struct RGResource {
-        std::string                                     name;
+        String64                                        name;
         std::variant<RHI::BufferDesc, RHI::TextureDesc> desc;
         std::variant<BufferHandle, TextureHandle>       physicalHandle;
         bool                                            isImported    = false;
@@ -77,20 +77,20 @@ private:
     };
 
     struct RGPass {
-        std::string                               name;
+        String64                                  name;
         std::function<void( RenderPassContext& )> executor;
-        std::vector<RGUsage>                      reads;
-        std::vector<RGUsage>                      writes;
+        STLW::Vector<RGUsage>                     reads;
+        STLW::Vector<RGUsage>                     writes;
 
-        std::vector<RGBarrier> barriers;
+        STLW::Vector<RGBarrier> barriers;
     };
 
-    std::vector<RGResource>            _resources;
-    std::vector<RGPass>                _passes;
-    std::vector<std::function<void()>> _passDataCleanup;
+    STLW::Vector<RGResource>            _resources;
+    STLW::Vector<RGPass>                _passes;
+    STLW::Vector<std::function<void()>> _passDataCleanup;
 
-    std::vector<uchar> _frameMemory;
-    size_t             _frameOffset = 0;
+    STLW::Vector<byte> _frameMemory;
+    size_t              _frameOffset = 0;
 
     //--------------------------
     // CACHED DATA
@@ -131,7 +131,7 @@ private:
     std::unordered_multimap<RHI::TextureDesc, CachedTexture, TextureDescHash> _textureCache;
     std::unordered_multimap<RHI::BufferDesc, CachedBuffer, BufferDescHash>    _bufferCache;
 
-    uint _frameCounter = 0;
+    u32 _frameCounter = 0;
 };
 
 } // namespace Graphics

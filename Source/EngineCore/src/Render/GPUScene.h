@@ -13,7 +13,7 @@ AXION_NAMESPACE_BEGIN
 namespace Core::Render {
 
 // Flags to control the data transformation pipeline during the update.
-enum GPUSceneUpdateFlags : uint
+enum GPUSceneUpdateFlags : u32
 {
     GPUSceneNone              = 1 << 0,
     GPUSceneForceRaytrace     = 1 << 1, // Force all objects to be marked for Raytracing AS
@@ -42,17 +42,17 @@ public:
 
     // -- Read-Write Accessors for the Renderer --
     // The Renderer consumes these vectors to fill the Volatile Allocators (LinearAllocators)
-    GPUFrame&                    frame() { return _frame; }
-    std::vector<GPUInstance>&    instances() { return _instances; }
-    std::vector<GPULight>&       lights() { return _lights; }
-    std::vector<GPUEnvironment>& environments() { return _environments; }
+    GPUFrame&                     frame() { return _frame; }
+    STLW::Vector<GPUInstance>&    instances() { return _instances; }
+    STLW::Vector<GPULight>&       lights() { return _lights; }
+    STLW::Vector<GPUEnvironment>& environments() { return _environments; }
 
     // Persistent cache access (Used to bind SRVs for geometry)
-    std::vector<GPUMesh>& meshes() { return _meshCache.cache; }
+    STLW::Vector<GPUMesh>& meshes() { return _meshCache.cache; }
     // Persistent cache access (Used to bind SRVs for materials)
-    std::vector<GPUMaterial>& materials() { return _materialCache.cache; }
+    STLW::Vector<GPUMaterial>& materials() { return _materialCache.cache; }
     // Persistent cache access (Used to bind SRVs for textures)
-    std::vector<GPUTexture>& textures() { return _textureCache.cache; }
+    STLW::Vector<GPUTexture>& textures() { return _textureCache.cache; }
 
     // Command Queues consumption
     std::queue<PendingMeshUpload>&     pendingMeshUploads() { return _pendingMeshUploads; }
@@ -60,20 +60,20 @@ public:
     std::queue<PendingMaterialUpload>& pendingMaterialUploads() { return _pendingMtlUploads; }
     std::queue<PendingMaterialFree>&   pendingMaterialReleases() { return _pendingMtlReleases; }
     std::queue<PendingTextureUpload>&  pendingTextureUploads() { return _pendingTextureUploads; }
-    std::queue<uint>&                  pendingTextureReleases() { return _pendingTextureReleases; }
+    std::queue<u32>&                  pendingTextureReleases() { return _pendingTextureReleases; }
 
     struct SortKey {
-        ulong key;
-        uint  originalInstanceIdx;
+        u64 key;
+        u32  originalInstanceIdx;
 
-        void unpack( uint& archID, uint& topology, uint& meshID ) const {
-            archID   = (uint)( ( key >> 48 ) & 0xFFFF );
-            topology = (uint)( ( key >> 44 ) & 0xF );
-            meshID   = (uint)( key & 0xFFFFFFFFFFF );
+        void unpack( u32& archID, u32& topology, u32& meshID ) const {
+            archID   = (u32)( ( key >> 48 ) & 0xFFFF );
+            topology = (u32)( ( key >> 44 ) & 0xF );
+            meshID   = (u32)( key & 0xFFFFFFFFFFF );
         }
     };
 
-    const std::vector<SortKey>& getSortedKeys() const { return _sortedKeys; }
+    const STLW::Vector<SortKey>& getSortedKeys() const { return _sortedKeys; }
 
     // Query
     bool hasPendingUploads() const;
@@ -92,7 +92,7 @@ public:
                  float                  deltaTime,
                  GPUSceneUpdateFlags    flags = GPUSceneNone );
 
-    void setGCMode( Graphics::GCMode mode ) { _resourceTTL = (uint)mode; }
+    void setGCMode( Graphics::GCMode mode ) { _resourceTTL = (u32)mode; }
 
 private:
     // -- Internal Pipeline Stages --
@@ -103,12 +103,12 @@ private:
                            bool                   sort,
                            bool                   transpose,
                            bool                   forceRaytrace );
-    uint processMesh( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::MeshHandle& cpuMeshHandle );
-    uint processMaterial( const Axion::Core::Assets::AssetManager*   assets,
+    u32 processMesh( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::MeshHandle& cpuMeshHandle );
+    u32 processMaterial( const Axion::Core::Assets::AssetManager*   assets,
                           const MaterialLibrary&                     mtlLib,
-                          std::pair<const uchar*, size_t>&           dirtyLUT,
+                          std::pair<const byte*, size_t>&           dirtyLUT,
                           const Axion::Core::Assets::MaterialHandle& cpuMtlHandle );
-    uint processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle );
+    u32 processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle );
 
     void processLights( const Scene::Scene& cpuScene );
     void processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose );
@@ -116,30 +116,30 @@ private:
 
     void runGC();
 
-    AXION_FORCE_INLINE ulong makeSortKey( uint archID, uint topology, uint meshID ) {
+    AXION_FORCE_INLINE u64 makeSortKey( u32 archID, u32 topology, u32 meshID ) {
         // [Archetype 16b] [Topology 4b] [Mesh 44b]
-        return ( (ulong)archID << 48 ) |
-               ( (ulong)topology << 44 ) |
-               ( (ulong)meshID & 0xFFFFFFFFFFF );
+        return ( (u64)archID << 48 ) |
+               ( (u64)topology << 44 ) |
+               ( (u64)meshID & 0xFFFFFFFFFFF );
     }
 
     // -- Transient Data (Cleared every frame) --
-    GPUFrame                    _frame;
-    std::vector<GPUInstance>    _instances;
-    std::vector<GPULight>       _lights;
-    std::vector<GPUEnvironment> _environments;
+    GPUFrame                     _frame;
+    STLW::Vector<GPUInstance>    _instances;
+    STLW::Vector<GPULight>       _lights;
+    STLW::Vector<GPUEnvironment> _environments;
 
-    std::vector<SortKey> _sortedKeys;
+    STLW::Vector<SortKey> _sortedKeys;
 
     // -- Persistent Data Cache --
     template <typename T>
     struct GPUCache {
         // The slot container. Indices here are stable until GC.
-        std::vector<T> cache;
+        STLW::Vector<T> cache;
         // Slots that were freed and can be reused.
-        std::queue<ulong> freeIndexQueue;
+        std::queue<u64> freeIndexQueue;
         // O(1) Look-Up Table mapping [CPU_AssetID] -> [GPU_CacheSlot]
-        std::vector<int> assetToCacheLUT;
+        STLW::Vector<int> assetToCacheLUT;
     };
     GPUCache<GPUMesh>     _meshCache;
     GPUCache<GPUMaterial> _materialCache;
@@ -151,14 +151,14 @@ private:
     std::queue<PendingMaterialUpload> _pendingMtlUploads;
     std::queue<PendingMaterialFree>   _pendingMtlReleases;
     std::queue<PendingTextureUpload>  _pendingTextureUploads;
-    std::queue<uint>                  _pendingTextureReleases;
+    std::queue<u32>                  _pendingTextureReleases;
 
     // -- State --
     bool  _forceRaytrace     = false;
     float _accumulatedTime   = 0.0f;
-    uint  _currentFrameIndex = 0;
+    u32  _currentFrameIndex = 0;
 
-    uint _resourceTTL = (uint)Graphics::GCMode::AvgMemory;
+    u32 _resourceTTL = (u32)Graphics::GCMode::AvgMemory;
 };
 
 } // namespace Core::Render

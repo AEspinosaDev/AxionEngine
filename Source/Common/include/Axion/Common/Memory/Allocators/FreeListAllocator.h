@@ -12,18 +12,18 @@ class FreeListAllocator : public IAllocator, public LockPolicy
 private:
     // Placed at the start of every active allocation
     struct AllocationHeader {
-        uint size;
-        uint padding;
+        u32 size;
+        u32 padding;
     };
 
     // Placed at the start of every free block
     struct FreeNode {
-        uint      size;
+        u32      size;
         FreeNode* next;
     };
 
 public:
-    FreeListAllocator( VMemoryArena* arena, uint arenaOffset, uint maxCapacity )
+    FreeListAllocator( VMemoryArena* arena, u32 arenaOffset, u32 maxCapacity )
         : _arena( arena )
         , _ARENA_OFFSET( arenaOffset )
         , _MAX_CAPACITY( maxCapacity )
@@ -35,7 +35,7 @@ public:
         reset();
     }
 
-    void* allocate( uint size, uint alignment = 16 ) override {
+    void* allocate( u32 size, u32 alignment = 16 ) override {
         this->lock();
 
         FreeNode* prevNode = nullptr;
@@ -44,12 +44,12 @@ public:
         while ( currNode != nullptr )
         {
             VMemoryAddress currAddress     = reinterpret_cast<VMemoryAddress>( currNode );
-            uint          requiredPadding = calculatePaddingWithHeader( currAddress, alignment, sizeof( AllocationHeader ) );
-            uint          requiredSpace   = size + requiredPadding;
+            u32          requiredPadding = calculatePaddingWithHeader( currAddress, alignment, sizeof( AllocationHeader ) );
+            u32          requiredSpace   = size + requiredPadding;
 
             if ( currNode->size >= requiredSpace )
             {
-                uint remainingSize = currNode->size - requiredSpace;
+                u32 remainingSize = currNode->size - requiredSpace;
 
                 if ( remainingSize > sizeof( FreeNode ) )
                 {
@@ -88,11 +88,11 @@ public:
         }
 
         // 2. Fallback: Allocate from the uncommitted bump pointer
-        uint          currentAbsoluteOffset = _ARENA_OFFSET + _allocatedSize;
+        u32          currentAbsoluteOffset = _ARENA_OFFSET + _allocatedSize;
         VMemoryAddress bumpAddress           = reinterpret_cast<VMemoryAddress>( _arena->getBasePtr() ) + currentAbsoluteOffset;
 
-        uint requiredPadding = calculatePaddingWithHeader( bumpAddress, alignment, sizeof( AllocationHeader ) );
-        uint requiredSpace   = size + requiredPadding;
+        u32 requiredPadding = calculatePaddingWithHeader( bumpAddress, alignment, sizeof( AllocationHeader ) );
+        u32 requiredSpace   = size + requiredPadding;
 
         if ( _allocatedSize + requiredSpace > _MAX_CAPACITY )
         {
@@ -134,7 +134,7 @@ public:
 
         // Find the absolute start of the block
         VMemoryAddress blockStart = ptrAddress - header->padding;
-        uint          blockSize  = header->size;
+        u32          blockSize  = header->size;
 
         FreeNode* freeNode = reinterpret_cast<FreeNode*>( blockStart );
         freeNode->size     = blockSize;
@@ -155,14 +155,14 @@ public:
         this->unlock();
     }
 
-    uint getUsedSize() const override {
+    u32 getUsedSize() const override {
         this->lock();
-        uint used = _allocatedSize;
+        u32 used = _allocatedSize;
         this->unlock();
         return used;
     }
 
-    uint getTotalSize() const override { return _MAX_CAPACITY; }
+    u32 getTotalSize() const override { return _MAX_CAPACITY; }
 
 private:
     // Inserts a node back into the linked list maintaining address order, then merges neighbors
@@ -212,12 +212,12 @@ private:
         }
     }
 
-    uint calculatePaddingWithHeader( VMemoryAddress ptr, uint alignment, uint headerSize ) const {
-        uint padding = alignment - ( ptr % alignment );
+    u32 calculatePaddingWithHeader( VMemoryAddress ptr, u32 alignment, u32 headerSize ) const {
+        u32 padding = alignment - ( ptr % alignment );
         if ( padding == alignment )
             padding = 0;
 
-        uint neededSpace = headerSize;
+        u32 neededSpace = headerSize;
         if ( padding < neededSpace )
         {
             neededSpace -= padding;
@@ -230,12 +230,12 @@ private:
     }
 
     VMemoryArena* _arena;
-    const uint _ARENA_OFFSET;
-    const uint _MAX_CAPACITY;
+    const u32 _ARENA_OFFSET;
+    const u32 _MAX_CAPACITY;
 
     FreeNode* _freeList;
-    uint      _allocatedSize     = 0;
-    uint      _activeAllocations = 0; // Tracks actual blocks in use
+    u32      _allocatedSize     = 0;
+    u32      _activeAllocations = 0; // Tracks actual blocks in use
 };
 
 using LockedFreeListAllocator = FreeListAllocator<MutexLockPolicy>;

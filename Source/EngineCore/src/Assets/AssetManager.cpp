@@ -15,7 +15,7 @@ namespace Core::Assets {
 template <typename T>
 struct AssetRecord {
     std::unique_ptr<T> asset      = nullptr;
-    ushort             generation = 0;
+    u16             generation = 0;
     bool               active     = false;
 };
 
@@ -26,24 +26,24 @@ struct AssetManager::Impl {
 
     std::vector<AssetRecord<Mesh>>              meshes;
     std::unordered_map<std::string, MeshHandle> meshHandles;
-    std::queue<uint>                            meshFreeIndices;
+    std::queue<u32>                            meshFreeIndices;
 
     std::vector<AssetRecord<Texture>>              textures;
     std::unordered_map<std::string, TextureHandle> textureHandles;
-    std::queue<uint>                               textureFreeIndices;
+    std::queue<u32>                               textureFreeIndices;
 
     std::vector<AssetRecord<Material>>              materials;
     std::unordered_map<std::string, MaterialHandle> materialHandles;
-    std::queue<uint>                                materialFreeIndices;
-    std::vector<uchar>                              dirtyMaterialLUT;
+    std::queue<u32>                                materialFreeIndices;
+    std::vector<byte>                              dirtyMaterialLUT;
 
     std::mutex mutex;
     std::mutex dirtyMutex;
 
     MeshHandle addMesh( Mesh&& mesh, const std::string& key = "" ) {
 
-        uint id         = UINT32_MAX;
-        uint generation = 0;
+        u32 id         = UINT32_MAX;
+        u32 generation = 0;
 
         if ( !meshFreeIndices.empty() )
         {
@@ -57,7 +57,7 @@ struct AssetManager::Impl {
             generation = slot.generation;
         } else
         {
-            id         = static_cast<uint>( meshes.size() );
+            id         = static_cast<u32>( meshes.size() );
             generation = 0;
 
             AssetRecord<Mesh> newSlot;
@@ -110,8 +110,8 @@ struct AssetManager::Impl {
     }
     TextureHandle addTexture( Texture&& texture, const std::string& key = "" ) {
 
-        uint id         = UINT32_MAX;
-        uint generation = 0;
+        u32 id         = UINT32_MAX;
+        u32 generation = 0;
 
         if ( !textureFreeIndices.empty() )
         {
@@ -125,7 +125,7 @@ struct AssetManager::Impl {
             generation = slot.generation;
         } else
         {
-            id         = static_cast<uint>( textures.size() );
+            id         = static_cast<u32>( textures.size() );
             generation = 0;
 
             AssetRecord<Texture> newSlot;
@@ -178,8 +178,8 @@ struct AssetManager::Impl {
     }
 
     MaterialHandle addMaterial( std::unique_ptr<Material> mat, const std::string& key = "" ) {
-        uint id         = UINT32_MAX;
-        uint generation = 0;
+        u32 id         = UINT32_MAX;
+        u32 generation = 0;
 
         if ( !materialFreeIndices.empty() )
         {
@@ -195,7 +195,7 @@ struct AssetManager::Impl {
 
         } else
         {
-            id         = static_cast<uint>( materials.size() );
+            id         = static_cast<u32>( materials.size() );
             generation = 0;
 
             AssetRecord<Material> newSlot;
@@ -344,7 +344,7 @@ MeshHandle AssetManager::importMesh( const std::string& name, const std::string&
 
 MeshHandle AssetManager::createMesh( const std::string&          name,
                                      const std::vector<Vertex>&  vertices,
-                                     const std::vector<uint>&    indices,
+                                     const std::vector<u32>&    indices,
                                      Graphics::PrimitiveTopology topology ) {
 
     std::scoped_lock lock( _impl->mutex );
@@ -375,7 +375,7 @@ MeshHandle AssetManager::createMesh( const std::string&          name,
     return handle;
 }
 
-MeshHandle AssetManager::createQuad( const std::string& name, uint subdivisions, bool asMeshlet ) {
+MeshHandle AssetManager::createQuad( const std::string& name, u32 subdivisions, bool asMeshlet ) {
     std::scoped_lock lock( _impl->mutex );
 
     std::string meshName = name;
@@ -390,23 +390,23 @@ MeshHandle AssetManager::createQuad( const std::string& name, uint subdivisions,
         return _impl->meshHandles[meshName];
     }
 
-    const uint  cellsPerSide    = subdivisions + 1;
-    const uint  verticesPerSide = cellsPerSide + 1;
+    const u32  cellsPerSide    = subdivisions + 1;
+    const u32  verticesPerSide = cellsPerSide + 1;
     const float step            = 1.0f / (float)cellsPerSide;
 
     const Math::Vec3 origin = { -0.5f, -0.5f, 0.0f };
 
     // 1. Use local vectors
     std::vector<Vertex> vertices;
-    std::vector<uint>   indices;
+    std::vector<u32>   indices;
 
     vertices.reserve( verticesPerSide * verticesPerSide );
     indices.reserve( cellsPerSide * cellsPerSide * 6 );
 
     // 2. Generate Vertices
-    for ( uint y = 0; y < verticesPerSide; ++y )
+    for ( u32 y = 0; y < verticesPerSide; ++y )
     {
-        for ( uint x = 0; x < verticesPerSide; ++x )
+        for ( u32 x = 0; x < verticesPerSide; ++x )
         {
             float u = x * step;
             float v = y * step;
@@ -423,14 +423,14 @@ MeshHandle AssetManager::createQuad( const std::string& name, uint subdivisions,
     }
 
     // 3. Generate Indices
-    for ( uint y = 0; y < cellsPerSide; ++y )
+    for ( u32 y = 0; y < cellsPerSide; ++y )
     {
-        for ( uint x = 0; x < cellsPerSide; ++x )
+        for ( u32 x = 0; x < cellsPerSide; ++x )
         {
-            uint bottomLeft  = y * verticesPerSide + x;
-            uint bottomRight = bottomLeft + 1;
-            uint topLeft     = ( y + 1 ) * verticesPerSide + x;
-            uint topRight    = topLeft + 1;
+            u32 bottomLeft  = y * verticesPerSide + x;
+            u32 bottomRight = bottomLeft + 1;
+            u32 topLeft     = ( y + 1 ) * verticesPerSide + x;
+            u32 topRight    = topLeft + 1;
 
             indices.push_back( bottomLeft );
             indices.push_back( bottomRight );
@@ -527,7 +527,7 @@ MeshHandle AssetManager::createCube( const std::string& name, bool asMeshlet ) {
         { { -0.5f, -0.5f, 0.5f }, { 0, -1, 0 }, { 0, 0 }, { 1, 0, 0, 1 }, { 1, 1, 1, 1 } }   // 23
     };
 
-    std::vector<uint> indices = {
+    std::vector<u32> indices = {
         0, 1, 2, 2, 3, 0, // Front
         4,
         5,
@@ -580,7 +580,7 @@ MeshHandle AssetManager::createCube( const std::string& name, bool asMeshlet ) {
 
     return handle;
 }
-MeshHandle AssetManager::createSphere( const std::string& name, uint segments, bool asMeshlet ) {
+MeshHandle AssetManager::createSphere( const std::string& name, u32 segments, bool asMeshlet ) {
     std::scoped_lock lock( _impl->mutex );
 
     std::string meshName = name;
@@ -595,13 +595,13 @@ MeshHandle AssetManager::createSphere( const std::string& name, uint segments, b
         return _impl->meshHandles[meshName];
     }
 
-    const uint  rings   = segments;
-    const uint  sectors = segments;
+    const u32  rings   = segments;
+    const u32  sectors = segments;
     const float radius  = 0.5f; // Diameter = 1.0
 
     // 1. Use local vectors
     std::vector<Vertex> vertices;
-    std::vector<uint>   indices;
+    std::vector<u32>   indices;
 
     vertices.reserve( rings * sectors );
     indices.reserve( rings * sectors * 6 );
@@ -609,9 +609,9 @@ MeshHandle AssetManager::createSphere( const std::string& name, uint segments, b
     const float R = 1.0f / (float)( rings - 1 );
     const float S = 1.0f / (float)( sectors - 1 );
 
-    for ( uint r = 0; r < rings; ++r )
+    for ( u32 r = 0; r < rings; ++r )
     {
-        for ( uint s = 0; s < sectors; ++s )
+        for ( u32 s = 0; s < sectors; ++s )
         {
             float y = Math::sin( -Math::PI_HALF + Math::PI * r * R );
             float x = Math::cos( 2 * Math::PI * s * S ) * Math::sin( Math::PI * r * R );
@@ -640,13 +640,13 @@ MeshHandle AssetManager::createSphere( const std::string& name, uint segments, b
         }
     }
 
-    for ( uint r = 0; r < rings - 1; ++r )
+    for ( u32 r = 0; r < rings - 1; ++r )
     {
-        for ( uint s = 0; s < sectors - 1; ++s )
+        for ( u32 s = 0; s < sectors - 1; ++s )
         {
-            uint curRow  = r * sectors;
-            uint nextRow = ( r + 1 ) * sectors;
-            uint nextS   = ( s + 1 );
+            u32 curRow  = r * sectors;
+            u32 nextRow = ( r + 1 ) * sectors;
+            u32 nextS   = ( s + 1 );
 
             indices.push_back( curRow + s );
             indices.push_back( nextRow + s );
@@ -709,7 +709,7 @@ bool AssetManager::isValid( MeshHandle handle ) const {
 
     return true;
 }
-uint AssetManager::getMeshCount() const {
+u32 AssetManager::getMeshCount() const {
     return _impl->meshes.size();
 }
 
@@ -787,9 +787,9 @@ TextureHandle AssetManager::importTexture( const std::string& name, const std::s
 
 TextureHandle AssetManager::createTexture( const std::string&                      name,
                                            const Extent3D&                         size,
-                                           const std::variant<std::vector<uchar>,
+                                           const std::variant<std::vector<byte>,
                                                               std::vector<float>>& pixels,
-                                           const uint                              channels,
+                                           const u32                              channels,
                                            const TextureFormat                     format,
                                            const TexturePrecision                  precision,
                                            const TextureType                       type,
@@ -830,7 +830,7 @@ bool AssetManager::isValid( TextureHandle handle ) const {
     return true;
 }
 
-uint AssetManager::getTextureCount() const {
+u32 AssetManager::getTextureCount() const {
     return _impl->textures.size();
 }
 
@@ -887,7 +887,7 @@ bool AssetManager::isValid( MaterialHandle handle ) const {
     return true;
 }
 
-uint AssetManager::getMaterialCount() const {
+u32 AssetManager::getMaterialCount() const {
     return _impl->materials.size();
 }
 
@@ -896,7 +896,7 @@ void AssetManager::notifyMaterialDirty( MaterialHandle handle, bool dirty ) {
     _impl->dirtyMaterialLUT[handle.id] = dirty;
 }
 // o(1) complexity, fast and only one wait
-std::pair<const uchar*, size_t> AssetManager::getMaterialDirtyLUT() const {
+std::pair<const byte*, size_t> AssetManager::getMaterialDirtyLUT() const {
     std::lock_guard<std::mutex> lock( _impl->dirtyMutex );
 
     if ( _impl->dirtyMaterialLUT.empty() )

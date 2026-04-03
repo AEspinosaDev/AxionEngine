@@ -121,7 +121,7 @@ void DX12Swapchain::updateImages() {
         .debugName = "Swapchain Backbuffer",
         .viewFlags = TextureViewRenderTarget };
     DX12Device::Context ctx = { .device = _device, .heapRTV = _heapRTV };
-    for ( uint i = 0; i < _desc.imageCount; ++i )
+    for ( u32 i = 0; i < _desc.imageCount; ++i )
     {
         ComPtr<ID3D12Resource> backBuffer;
         DX_CHECK( _swapchain->GetBuffer( i, IID_PPV_ARGS( &backBuffer ) ) );

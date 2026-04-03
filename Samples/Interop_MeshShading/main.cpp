@@ -41,7 +41,7 @@ struct MeshletModel {
     Graphics::BufferHandle vertexIndexBuffer;
     Graphics::BufferHandle primitiveIndexBuffer;
 
-    uint meshletCount = 0;
+    u32 meshletCount = 0;
 
     Graphics::TextureHandle texture;
     Graphics::SamplerHandle sampler;
@@ -125,7 +125,7 @@ int main( /*int argc, char* argv[]*/ ) {
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "MESH SHADING SAMPLE" } );
 
         auto       bufferingType    = Graphics::BufferingType::Double;
-        const uint FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
+        const u32 FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
         auto       rnd              = Axion::Graphics::createRenderer( wnd.get(),
                                                                        { .gfxApi        = Graphics::API::DirectX12,
                                                                          .bufferingType = bufferingType,
@@ -213,8 +213,8 @@ int main( /*int argc, char* argv[]*/ ) {
                                                  .buffer( "VertexIndexBuffer" )
                                                  .asReadOnlySSBO()
                                                  .withData( geoData->meshlets->vertexIndices.data() )
-                                                 .size( geoData->meshlets->vertexIndices.size() * sizeof( uint ) )
-                                                 .stride( sizeof( uint ) )
+                                                 .size( geoData->meshlets->vertexIndices.size() * sizeof( u32 ) )
+                                                 .stride( sizeof( u32 ) )
                                                  .create();
 
         fwPass.modelData.primitiveIndexBuffer = rnd->resources()
@@ -222,12 +222,12 @@ int main( /*int argc, char* argv[]*/ ) {
                                                     .asReadOnlySSBO()
                                                     .asRaw()
                                                     .withData( geoData->meshlets->primitiveIndices.data() )
-                                                    .size( geoData->meshlets->primitiveIndices.size() * sizeof( uchar ) )
+                                                    .size( geoData->meshlets->primitiveIndices.size() * sizeof( byte ) )
                                                     .create();
 
         // UNIFORM CONSTANT BUFFER
         std::vector<Graphics::BufferHandle> camBuffers( FRAMES_IN_FLIGHT );
-        for ( uint i = 0; i < FRAMES_IN_FLIGHT; ++i )
+        for ( u32 i = 0; i < FRAMES_IN_FLIGHT; ++i )
         {
             camBuffers[i] = rnd->resources().buffer( "CamUniformBuffer_" + std::to_string( i ) ).size( sizeof( Camera::Payload ) ).asCBO().onCPU().create();
         }

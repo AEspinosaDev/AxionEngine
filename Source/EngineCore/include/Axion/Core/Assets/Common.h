@@ -9,7 +9,7 @@ namespace Core::Assets {
  * @brief Bitmask flags to configure the mesh import process.
  * These flags control post-processing steps and additional resource loading.
  */
-enum MeshImportFlags : uint
+enum MeshImportFlags : u32
 {
     MeshImportNone            = 1 << 0,
     MeshImportLoadMaterials   = 1 << 1,
@@ -24,7 +24,7 @@ enum MeshImportFlags : uint
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( MeshImportFlags );
 
-enum TextureImportFlags : uint
+enum TextureImportFlags : u32
 {
     TextureImportNone              = 1 << 0,
     TextureImportAsLinear          = 1 << 1,
@@ -39,21 +39,21 @@ enum TextureImportFlags : uint
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( TextureImportFlags );
 
-enum class TextureType : uchar
+enum class TextureType : byte
 {
     Texture2D,
     CubeMap,
     Texture3D,
 };
 
-enum class TextureFormat : uchar
+enum class TextureFormat : byte
 {
     Gamma,  // Albedo/Diffuse (sRGB)
     Linear, // Normal Map, Roughness, Metallic (Linear)
     HDR     // Skyboxes, Lightmaps (Float)
 };
 
-enum class TexturePrecision : uchar
+enum class TexturePrecision : byte
 {
     U8,  // 8-bit unsigned (Standard)
     F16, // 16-bit float (Half HDR)
@@ -62,7 +62,7 @@ enum class TexturePrecision : uchar
 
 constexpr Graphics::Format getRecommendedGPUFormat( const TextureFormat    fmt,
                                                     const TexturePrecision prec,
-                                                    const uint             channels ) {
+                                                    const u32             channels ) {
 
     // --- FLOAT 32 (Full HDR) ---
     if ( prec == TexturePrecision::F32 )

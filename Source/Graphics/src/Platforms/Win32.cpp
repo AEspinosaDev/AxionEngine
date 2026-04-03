@@ -1,7 +1,6 @@
 #include "Win32.h"
 #include "Win32ImGuiSetup.h"
 
-
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
@@ -55,7 +54,7 @@ Win32Window::Win32Window( HINSTANCE hInstance, const Settings& settings )
         // Center the window within the screen. Clamp to 0, 0 for the top-left corner.
         windowX            = std::max<int>( 0, ( screenWidth - windowWidth ) / 2 );
         windowY            = std::max<int>( 0, ( screenHeight - windowHeight ) / 2 );
-        _settings.position = { (uint)windowX, (uint)windowY };
+        _settings.position = { (u32)windowX, (u32)windowY };
     }
 
     _hWnd = CreateWindowExW(
@@ -144,8 +143,9 @@ void Win32Window::setFullscreen( bool fullscreen ) {
 bool Win32Window::minimized() const {
     return _minimized;
 }
-void Win32Window::setTitle( const std::string& title ) {
-    ::SetWindowTextA( _hWnd, title.c_str() );
+void Win32Window::setTitle( StringView title ) {
+    _settings.name = title;
+    ::SetWindowTextA( _hWnd, _settings.name.cstr() );
 }
 
 RHI::NativeObject Win32Window::getNativeObject() {
@@ -203,7 +203,7 @@ LRESULT Win32Window::wndProcMsg( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         case WM_MBUTTONDOWN: {
             if ( guiWantsMouse )
                 return 0;
-            uint                    btn = ( msg == WM_LBUTTONDOWN ? 0 : msg == WM_RBUTTONDOWN ? 1
+            u32                    btn = ( msg == WM_LBUTTONDOWN ? 0 : msg == WM_RBUTTONDOWN ? 1
                                                                                               : 2 );
             Event::MouseButtonEvent evt( hwnd, btn, true );
             _onMouseButton.dispatch( evt );
@@ -215,7 +215,7 @@ LRESULT Win32Window::wndProcMsg( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         case WM_MBUTTONUP: {
             if ( guiWantsMouse )
                 return 0;
-            uint                    btn = ( msg == WM_LBUTTONUP ? 0 : msg == WM_RBUTTONUP ? 1
+            u32                    btn = ( msg == WM_LBUTTONUP ? 0 : msg == WM_RBUTTONUP ? 1
                                                                                           : 2 );
             Event::MouseButtonEvent evt( hwnd, btn, false );
             _onMouseButton.dispatch( evt );
@@ -245,8 +245,8 @@ LRESULT Win32Window::wndProcMsg( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             return 0;
         }
         case WM_SIZE: {
-            uint width     = LOWORD( lParam );
-            uint height    = HIWORD( lParam );
+            u32 width     = LOWORD( lParam );
+            u32 height    = HIWORD( lParam );
             _minimized     = width == 0 && height == 0 ? true : false;
             _settings.size = { width, height };
             Event::WindowResizeEvent evt( hwnd, width, height );

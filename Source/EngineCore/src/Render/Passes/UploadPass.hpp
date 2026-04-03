@@ -21,11 +21,11 @@ public:
         Graphics::RHI::FreeListAllocator* indexAllocator  = nullptr;
         Graphics::RHI::FreeListAllocator* matAllocator    = nullptr;
 
-        std::vector<Graphics::RHI::IDescriptorSet*> allPersistentSets;
+        STLW::Vector<Graphics::RHI::IDescriptorSet*> allPersistentSets;
 
-        std::vector<Graphics::TextureHandle>* mtlTextureHandles = nullptr;
+        STLW::Vector<Graphics::TextureHandle>* mtlTextureHandles = nullptr;
         GPUScene*                             gpuScene          = nullptr;
-        ulong                                 maxAllocationSize = 0;
+        u64                                 maxAllocationSize = 0;
     };
 
     void registerShaders( Graphics::IShaderRegistry& /*shaders*/ ) override { /*NO OP*/ }
@@ -49,14 +49,14 @@ public:
 private:
     void execute( const Config& data, Graphics::RenderPassContext& ctx ) {
 
-        uint totalUsedSpace = 0;
+        u32 totalUsedSpace = 0;
 
         processMeshes( data, ctx, totalUsedSpace );
         processMaterials( data, ctx, totalUsedSpace );
         processTextures( data, ctx, totalUsedSpace );
     }
 
-    void processMeshes( const Config& data, Graphics::RenderPassContext& ctx, uint& totalUsedSpace ) {
+    void processMeshes( const Config& data, Graphics::RenderPassContext& ctx, u32& totalUsedSpace ) {
 
         auto* cmd       = ctx.cmd;
         auto& scene     = *data.gpuScene;
@@ -70,11 +70,11 @@ private:
         while ( !uploadQueue.empty() )
         {
             const auto& nextUpload           = uploadQueue.front();
-            uint        requiredVerticesSize = (uint)( nextUpload.geometryData->vertices.size() * sizeof( Assets::Vertex ) );
-            uint        requiredIndicesSize  = (uint)( nextUpload.geometryData->indices.size() * sizeof( uint ) );
-            uint        totalRequiredSpace   = requiredVerticesSize + requiredIndicesSize;
+            u32        requiredVerticesSize = (u32)( nextUpload.geometryData->vertices.size() * sizeof( Assets::Vertex ) );
+            u32        requiredIndicesSize  = (u32)( nextUpload.geometryData->indices.size() * sizeof( u32 ) );
+            u32        totalRequiredSpace   = requiredVerticesSize + requiredIndicesSize;
 
-            if ( totalUsedSpace + totalRequiredSpace > (uint)data.maxAllocationSize )
+            if ( totalUsedSpace + totalRequiredSpace > (u32)data.maxAllocationSize )
                 break;
 
             auto uploadEntry = std::move( uploadQueue.front() );
@@ -87,15 +87,15 @@ private:
             if ( vertexBufferView.size > 0 )
             {
                 cmd->uploadBuffer( vb, uploadEntry.geometryData->vertices.data(), vertexBufferView.size, vertexBufferView.offset, allocator, Graphics::RHI::BarrierPolicy::None );
-                gpuMesh.vertexOffset = (uint)vertexBufferView.offset;
+                gpuMesh.vertexOffset = (u32)vertexBufferView.offset;
             }
 
             // B. Indices
-            auto indexBufferView = data.indexAllocator->allocate<uint>( uploadEntry.geometryData->indices.size() );
+            auto indexBufferView = data.indexAllocator->allocate<u32>( uploadEntry.geometryData->indices.size() );
             if ( indexBufferView.size > 0 )
             {
                 cmd->uploadBuffer( ib, uploadEntry.geometryData->indices.data(), indexBufferView.size, indexBufferView.offset, allocator, Graphics::RHI::BarrierPolicy::None );
-                gpuMesh.indexOffset = (uint)indexBufferView.offset;
+                gpuMesh.indexOffset = (u32)indexBufferView.offset;
             }
 
             gpuMesh.valid = true;
@@ -129,19 +129,19 @@ private:
         }
     }
 
-    void processMaterials( const Config& data, Graphics::RenderPassContext& ctx, uint& totalUsedSpace ) {
+    void processMaterials( const Config& data, Graphics::RenderPassContext& ctx, u32& totalUsedSpace ) {
 
         auto* cmd       = ctx.cmd;
         auto& scene     = *data.gpuScene;
         auto* allocator = ctx.transAllocator;
         auto* mtlb      = ctx.getBuffer( data.outGlobalBufferHandles.materials );
 
-        const ulong ALIGNMENT = 16;
+        const u64 ALIGNMENT = 16;
         // 1. UPLOAD QUEUE
         auto& uploadQueue = scene.pendingMaterialUploads();
         while ( !uploadQueue.empty() )
         {
-            if ( totalUsedSpace >= (uint)data.maxAllocationSize )
+            if ( totalUsedSpace >= (u32)data.maxAllocationSize )
                 break;
 
             auto uploadEntry = std::move( uploadQueue.front() );
@@ -177,11 +177,11 @@ private:
                                    allocator,
                                    Graphics::RHI::BarrierPolicy::None );
 
-                gpuMtl.bufferOffset = (uint)mtlBufferView.offset;
-                gpuMtl.payloadSize  = (uint)uploadEntry.payload.size();
+                gpuMtl.bufferOffset = (u32)mtlBufferView.offset;
+                gpuMtl.payloadSize  = (u32)uploadEntry.payload.size();
             }
 
-            totalUsedSpace += (uint)mtlBufferView.size;
+            totalUsedSpace += (u32)mtlBufferView.size;
         }
 
         // 2. DELETION QUEUE
@@ -203,7 +203,7 @@ private:
         }
     }
 
-    void processTextures( const Config& data, Graphics::RenderPassContext& ctx, uint& totalUsedSpace ) {
+    void processTextures( const Config& data, Graphics::RenderPassContext& ctx, u32& totalUsedSpace ) {
 
         auto* cmd       = ctx.cmd;
         auto& scene     = *data.gpuScene;
@@ -217,15 +217,15 @@ private:
             size_t pixelSize = 0;
             if ( nextUpload.pixels )
             {
-                if ( std::holds_alternative<std::vector<uchar>>( *nextUpload.pixels ) )
-                    pixelSize = std::get<std::vector<uchar>>( *nextUpload.pixels ).size() * sizeof( uchar );
-                else if ( std::holds_alternative<std::vector<float>>( *nextUpload.pixels ) )
-                    pixelSize = std::get<std::vector<float>>( *nextUpload.pixels ).size() * sizeof( float );
+                if ( std::holds_alternative<STLW::Vector<byte>>( *nextUpload.pixels ) )
+                    pixelSize = std::get<STLW::Vector<byte>>( *nextUpload.pixels ).size() * sizeof( byte );
+                else if ( std::holds_alternative<STLW::Vector<float>>( *nextUpload.pixels ) )
+                    pixelSize = std::get<STLW::Vector<float>>( *nextUpload.pixels ).size() * sizeof( float );
             }
 
-            uint requiredSpace = (uint)pixelSize + TEXTURE_DATA_PLACEMENT_ALIGNMENT;
+            u32 requiredSpace = (u32)pixelSize + TEXTURE_DATA_PLACEMENT_ALIGNMENT;
 
-            if ( totalUsedSpace + requiredSpace > (uint)data.maxAllocationSize )
+            if ( totalUsedSpace + requiredSpace > (u32)data.maxAllocationSize )
                 break;
 
             auto uploadEntry = std::move( uploadQueue.front() );
@@ -236,10 +236,10 @@ private:
             if ( pixelSize > 0 )
             {
                 const void* pixelData = nullptr;
-                if ( std::holds_alternative<std::vector<uchar>>( *uploadEntry.pixels ) )
-                    pixelData = std::get<std::vector<uchar>>( *uploadEntry.pixels ).data();
-                else if ( std::holds_alternative<std::vector<float>>( *uploadEntry.pixels ) )
-                    pixelData = std::get<std::vector<float>>( *uploadEntry.pixels ).data();
+                if ( std::holds_alternative<STLW::Vector<byte>>( *uploadEntry.pixels ) )
+                    pixelData = std::get<STLW::Vector<byte>>( *uploadEntry.pixels ).data();
+                else if ( std::holds_alternative<STLW::Vector<float>>( *uploadEntry.pixels ) )
+                    pixelData = std::get<STLW::Vector<float>>( *uploadEntry.pixels ).data();
 
                 if ( pixelData != nullptr )
                 {

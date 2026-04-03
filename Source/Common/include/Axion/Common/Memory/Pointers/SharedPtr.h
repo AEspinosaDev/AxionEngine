@@ -9,28 +9,28 @@ namespace Memory {
 // SharedPtr Control Policy
 template <typename T>
 struct AtomicControlPolicy {
-    std::atomic<uint> refCount;
+    std::atomic<u32> refCount;
     IAllocator*       allocator = nullptr;
     alignas( T ) unsigned char payload[sizeof( T )];
 
-    uint increment() { return refCount.fetch_add( 1, std::memory_order_relaxed ) + 1; }
-    void store( uint value = 0 ) { refCount.store( value, std::memory_order_relaxed ); }
-    uint decrement() { return refCount.fetch_sub( 1, std::memory_order_relaxed ) - 1; }
-    uint getCount() { return refCount.load( std::memory_order_relaxed ); }
+    u32 increment() { return refCount.fetch_add( 1, std::memory_order_relaxed ) + 1; }
+    void store( u32 value = 0 ) { refCount.store( value, std::memory_order_relaxed ); }
+    u32 decrement() { return refCount.fetch_sub( 1, std::memory_order_relaxed ) - 1; }
+    u32 getCount() { return refCount.load( std::memory_order_relaxed ); }
 
     T* getPayload() { return reinterpret_cast<T*>( payload ); }
 };
 
 template <typename T>
 struct ControlPolicy {
-    uint        refCount  = 0;
+    u32        refCount  = 0;
     IAllocator* allocator = nullptr;
     alignas( T ) unsigned char payload[sizeof( T )];
 
-    void store( uint value = 0 ) { refCount = value; }
-    uint increment() { return ++refCount; }
-    uint decrement() { return --refCount; }
-    uint getCount() { return refCount; }
+    void store( u32 value = 0 ) { refCount = value; }
+    u32 increment() { return ++refCount; }
+    u32 decrement() { return --refCount; }
+    u32 getCount() { return refCount; }
 
     T* getPayload() { return reinterpret_cast<T*>( payload ); }
 };
@@ -153,7 +153,7 @@ public:
     T*       get() const { return _ptr; }
     explicit operator bool() const { return _ptr != nullptr; }
 
-    uint useCount() const {
+    u32 useCount() const {
         return _controlPolicy ? _controlPolicy->getCount() : 0;
     }
 

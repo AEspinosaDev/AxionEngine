@@ -5,6 +5,7 @@
 #include "GPUScene.h"
 #include "MaterialSystem.h"
 #include "PassSystem.h"
+#include <Axion/Common/Containers/STLWrapper/String.h>
 #include <Axion/Core/Assets/Material.h>
 #include <Axion/Core/Render/IRasterizer.h>
 #include <Axion/Graphics/IRenderer.h>
@@ -12,11 +13,11 @@
 // High Level Passes
 #include "Passes/CullingPass.hpp"
 #include "Passes/DepthPass.hpp"
+#include "Passes/FXAAPass.hpp"
 #include "Passes/ForwardPass.hpp"
 #include "Passes/IndirectUploadPass.hpp"
 #include "Passes/TonemappingPass.hpp"
 #include "Passes/UploadPass.hpp"
-#include "Passes/FXAAPass.hpp"
 
 AXION_NAMESPACE_BEGIN
 
@@ -28,7 +29,7 @@ public:
     Rasterizer( Platform::Window* wnd, const RasterizerSettings& settings );
     ~Rasterizer();
 
-    void compileShaders( uint threadCount = 1 ) override;
+    void compileShaders( u32 threadCount = 1 ) override;
     void render( const Scene::Scene& scene, Scene::Entity& cameraEntity, float deltaTime = 0.0f ) override;
     void shutdown() override;
 
@@ -40,12 +41,12 @@ public:
     MemoryBudget   getMemoryBudget() const override { return _settings.memory; };
     CommonSettings getCommonSettings() const override { return _settings.common; };
 
-    ulong getCurrentFrameIndex() const override;
-    ulong getTotalFrameNumber() const override;
+    u64 getCurrentFrameIndex() const override;
+    u64 getTotalFrameNumber() const override;
 
-    const uint getTotalFramesInFlight() const override { return _framesInFlight; };
+    const u32 getTotalFramesInFlight() const override { return _framesInFlight; };
 
-    std::string toString() const override;
+    STLW::String toString() const override;
 
 private:
     void setupMaterialLibrary();
@@ -113,12 +114,12 @@ private:
         Graphics::BufferHandle           mtlBufferHandle;
         Graphics::RHI::FreeListAllocator mtlAllocator;
 
-        std::vector<Graphics::TextureHandle> textureHandles;
-        Graphics::TextureHandle              fallbackTexture2DHandle;
-        std::vector<Graphics::SamplerHandle> samplerHandles;
-        Graphics::SamplerHandle              fallbackSamplerHandle;
+        STLW::Vector<Graphics::TextureHandle> textureHandles;
+        Graphics::TextureHandle               fallbackTexture2DHandle;
+        STLW::Vector<Graphics::SamplerHandle> samplerHandles;
+        Graphics::SamplerHandle               fallbackSamplerHandle;
 
-        std::vector<FrameResources> frame;
+        STLW::Vector<FrameResources> frame;
     };
     GPUResources _res;
 
@@ -126,7 +127,7 @@ private:
 
     IndirectCommandData::Cache _indirectCommandDataCache;
 
-    uint _framesInFlight;
+    u32 _framesInFlight;
 };
 
 } // namespace Core::Render

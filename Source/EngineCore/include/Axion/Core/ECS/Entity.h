@@ -5,7 +5,7 @@ AXION_NAMESPACE_BEGIN
 
 namespace Core::ECS {
 
-using EntityID = uint;
+using EntityID = u32;
 
 // Invalid/null entity
 static const EntityID NULL_ENTITY = 0xFFFFFFFF;

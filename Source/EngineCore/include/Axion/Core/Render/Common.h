@@ -1,13 +1,15 @@
 
 #pragma once
 #include <Axion/Common/Graphics/Common.h>
+#include <Axion/Common/Containers/STLWrapper/String.h>
+#include <Axion/Common/Containers/STLWrapper/Vector.h>
 
 AXION_NAMESPACE_BEGIN
 
 namespace Core::Render {
 
 // Renderer feature flags
-enum RendererFlags : uint
+enum RendererFlags : u32
 {
     RendererNone         = 0,
     RendererEnableGUI    = 1 << 0,
@@ -23,7 +25,7 @@ enum RendererFlags : uint
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( RendererFlags )
 
-enum class TopologyType : uchar
+enum class TopologyType : byte
 {
     Triangles = 0,
     Lines     = 1,
@@ -48,7 +50,7 @@ static constexpr Graphics::PrimitiveTopology toGFXTopology( TopologyType type ) 
     }
 }
 
-enum class MaterialPassType : uchar
+enum class MaterialPassType : byte
 {
     Opaque      = 0,
     Blend       = 1,
@@ -62,7 +64,7 @@ enum class MaterialPassType : uchar
     Count
 };
 
-enum MaterialTopologyFlags : uchar
+enum MaterialTopologyFlags : byte
 {
     MaterialTopologyNone      = 0,
     MaterialTopologyTriangles = 1 << 0,
@@ -74,10 +76,10 @@ enum MaterialTopologyFlags : uchar
 AXION_ENUM_CLASS_FLAG_OPERATORS( MaterialTopologyFlags )
 
 struct MaterialArchetypePassConfig {
-    MaterialPassType                          passType;
-    std::string                               shaderPath;
-    std::vector<Graphics::Shader::EntryPoint> entryPoints;
-    std::string                               customIncludePath;
+    MaterialPassType                           passType;
+    STLW::String                               shaderPath;
+    STLW::Vector<Graphics::Shader::EntryPoint> entryPoints;
+    STLW::String                               customIncludePath;
 
     Graphics::FillMode  fillMode   = Graphics::FillMode::Solid;
     Graphics::CullMode  cullMode   = Graphics::CullMode::Front;
@@ -86,14 +88,14 @@ struct MaterialArchetypePassConfig {
     bool                depthWrite = true;
     bool                depthTest  = true;
 
-    std::string customPassAlias = "";
+    String64 customPassAlias = "";
 };
 
 struct MaterialArchetypeDesc {
-    std::string                              name;
-    std::vector<MaterialArchetypePassConfig> passConfigs;
-    MaterialTopologyFlags                    topologiesSupported = MaterialTopologyTriangles;
-    uint                                     payloadSize         = 0;
+    String64                                  name;
+    STLW::Vector<MaterialArchetypePassConfig> passConfigs;
+    MaterialTopologyFlags                     topologiesSupported = MaterialTopologyTriangles;
+    u32                                      payloadSize         = 0;
 };
 
 } // namespace Core::Render

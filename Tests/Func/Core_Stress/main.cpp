@@ -104,7 +104,7 @@ int main( /*int argc, char* argv[]*/ ) {
         float spacing  = 3.0f;
         float offset   = ( gridSize * spacing ) * 0.5f;
 
-        uint counter = 0;
+        u32 counter = 0;
         for ( int x = 0; x < gridSize; ++x ) {
             for ( int y = 0; y < gridSize; ++y ) {
                 for ( int z = 0; z < gridSize; ++z ) {

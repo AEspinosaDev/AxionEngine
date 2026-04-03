@@ -4,10 +4,10 @@
 AXION_NAMESPACE_BEGIN
 namespace Memory {
 
-inline VMemoryView VMemoryManager::virtualReserve( uint size ) {
+inline VMemoryView VMemoryManager::virtualReserve( u32 size ) {
     if ( size == 0 )
         return {};
-    uint  alignedSize = alignToPageSize( size );
+    u32  alignedSize = alignToPageSize( size );
     void* ptr         = VirtualAlloc( nullptr, alignedSize, MEM_RESERVE, PAGE_NOACCESS );
     return { ptr, ptr ? alignedSize : 0 };
 }

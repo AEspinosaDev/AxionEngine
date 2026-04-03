@@ -23,12 +23,12 @@ class IAllocator
 public:
     virtual ~IAllocator() = default;
 
-    virtual void* allocate( ulong size, ulong alignment = 16 ) = 0;
+    virtual void* allocate( u64 size, u64 alignment = 16 ) = 0;
     virtual void  free( void* ptr )                            = 0;
     virtual void  reset()                                      = 0;
 
-    virtual ulong getUsedSize() const  = 0;
-    virtual ulong getTotalSize() const = 0;
+    virtual u64 getUsedSize() const  = 0;
+    virtual u64 getTotalSize() const = 0;
 };
 
 } // namespace Memory

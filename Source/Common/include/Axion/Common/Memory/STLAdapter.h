@@ -38,7 +38,7 @@ public:
         if ( !_allocator )
             return std::allocator<T>().allocate( n );
 
-        void* ptr = _allocator->allocate( static_cast<uint>( n * sizeof( T ) ), alignof( T ) );
+        void* ptr = _allocator->allocate( static_cast<u32>( n * sizeof( T ) ), alignof( T ) );
         return static_cast<T*>( ptr );
     }
 

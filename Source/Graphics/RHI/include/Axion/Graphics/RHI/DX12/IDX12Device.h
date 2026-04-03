@@ -33,16 +33,16 @@ public:
 
     /// @brief Configuration structure for initializing the DX12 Backend.
     struct Description {
-        uint         preferredDeviceID          = UINT32_MAX;          ///<  Index of the GPU adapter to use. Set to UINT32_MAX for auto-selection (best dedicated GPU).
+        u32         preferredDeviceID          = UINT32_MAX;          ///<  Index of the GPU adapter to use. Set to UINT32_MAX for auto-selection (best dedicated GPU).
         FeatureLevel featureLevel               = FeatureLevel::_12_1; ///< Minimum hardware feature level required.
         bool         enableDebugLayer           = true;                ///< Enables the D3D12 Debug Layer (validation errors/warnings). Recommended for debug builds.
         bool         useWarp                    = false;               ///< Forces the use of the WARP software rasterizer instead of hardware.
         String64     debugName                  = "Device";
-        uint         renderTargetViewHeapSize   = 1024;  ///< Capacity of the RTV Descriptor Heap.
-        uint         depthStencilViewHeapSize   = 1024;  ///< Capacity of the DSV Descriptor Heap.
-        uint         shaderResourceViewHeapSize = 16384; ///< Capacity of the CBV/SRV/UAV Descriptor Heap.
-        uint         samplerHeapSize            = 1024;  ///< Capacity of the Sampler Descriptor Heap.
-        ulong        vramBlockSize              = 0;     ///< Preferred VRAM block size for the global allocator. 0 lets the allocator choose the default (usually 64 MB). Set to 512ull * 1024 * 1024 for high-performance AAA scenarios.
+        u32         renderTargetViewHeapSize   = 1024;  ///< Capacity of the RTV Descriptor Heap.
+        u32         depthStencilViewHeapSize   = 1024;  ///< Capacity of the DSV Descriptor Heap.
+        u32         shaderResourceViewHeapSize = 16384; ///< Capacity of the CBV/SRV/UAV Descriptor Heap.
+        u32         samplerHeapSize            = 1024;  ///< Capacity of the Sampler Descriptor Heap.
+        u64        vramBlockSize              = 0;     ///< Preferred VRAM block size for the global allocator. 0 lets the allocator choose the default (usually 64 MB). Set to 512ull * 1024 * 1024 for high-performance AAA scenarios.
         bool         enableHeapDirectlyIndexed  = false; ///< Enables SM 6.6 Dynamic Resources (Bindless) if hardware supports it.
     };
 };

@@ -6,7 +6,7 @@
  * Date:        2025
  *
  * Description:
- * Entry point for the Vertex Pulling for rasterization usage demonstration. This sample implements 
+ * Entry point for the Vertex Pulling for rasterization usage demonstration. This sample implements
  * global vertex and index buffer for all geometry in scene. 4 different geometries (same geometry for simplify) are streamed onto the global buffers
  * and their offsets are modified according to it. By the use of push constants the current mesh info is uploaded (offsets and model matrix).
  * The vertex shader doesn't have any input layout, as no VBO nor IBO are used. It directly pulls geometry data from these global buffers.
@@ -17,9 +17,9 @@
  */
 #pragma once
 #include "Axion/Common/Common.h"
+#include "Axion/Graphics/IRenderer.h"
 #include "Axion/Graphics/Passes/Utilitary.hpp"
 #include "Axion/Graphics/Platforms/IWin32.h"
-#include "Axion/Graphics/IRenderer.h"
 
 #include "cube.h"
 USING_AXION_NAMESPACE
@@ -34,25 +34,24 @@ struct Camera {
 };
 
 struct Mesh {
-    bool  loaded    = false;
+    bool loaded = false;
 
     struct Payload {
         Math::Mat4 model;
         Math::Vec4 color;
-        uint       meshOffset   = 0;
-        uint       meshIdOffset = 0;
+        u32       meshOffset   = 0;
+        u32       meshIdOffset = 0;
     };
 
     Payload payload {};
 
-    std::vector<Vertex>
-                      vertices = cubeVertices;
-    std::vector<uint> indices  = cubeIndices;
+    FixedArray<Vertex, 24> vertices = cubeVertices;
+    FixedArray<u32, 36>   indices  = cubeIndices;
 };
 
 struct UploadPass {
 
-    std::vector<Mesh>& meshes;
+    FixedArray<Mesh, 4>& meshes;
 
     Graphics::RGResourceHandle vbHandle;
     Graphics::RGResourceHandle ibHandle;
@@ -72,8 +71,8 @@ struct UploadPass {
         auto* vb = ctx.getBuffer( data.vb );
         auto* ib = ctx.getBuffer( data.ib );
 
-        static uint currentVtxOffset = 0;
-        static uint currentIdxOffset = 0;
+        static u32 currentVtxOffset = 0;
+        static u32 currentIdxOffset = 0;
 
         for ( auto& mesh : meshes )
         {
@@ -82,8 +81,8 @@ struct UploadPass {
                 mesh.payload.meshOffset   = currentVtxOffset;
                 mesh.payload.meshIdOffset = currentIdxOffset;
 
-                uint vtxSize = mesh.vertices.size() * sizeof( Vertex );
-                uint idxSize = mesh.indices.size() * sizeof( uint );
+                u32 vtxSize = mesh.vertices.size() * sizeof( Vertex );
+                u32 idxSize = mesh.indices.size() * sizeof( u32 );
 
                 ctx.cmd->uploadBuffer( vb, mesh.vertices.data(), vtxSize, currentVtxOffset, ctx.transAllocator, Graphics::RHI::BarrierPolicy::None );
                 ctx.cmd->uploadBuffer( ib, mesh.indices.data(), idxSize, currentIdxOffset, ctx.transAllocator, Graphics::RHI::BarrierPolicy::None );
@@ -100,7 +99,7 @@ struct UploadPass {
 struct ForwardPass {
     Graphics::PipelineHandle pipeline;
 
-    std::vector<Mesh>& meshes;
+    FixedArray<Mesh, 4>& meshes;
 
     Graphics::RGResourceHandle output;      // ColorBuffer
     Graphics::RGResourceHandle depthOutput; // DepthBuffer
@@ -157,7 +156,7 @@ struct ForwardPass {
             if ( mesh.loaded )
             {
                 ctx.cmd->pushConstants( 1, mesh.payload );
-                ctx.cmd->draw( (uint)mesh.indices.size() );
+                ctx.cmd->draw( (u32)mesh.indices.size() );
             }
         }
 
@@ -176,21 +175,20 @@ int main( /*int argc, char* argv[]*/ ) {
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX VERTEX PULLING SAMPLE" } );
 
         auto       bufferingType    = Graphics::BufferingType::Double;
-        const uint FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
+        const u32 FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
         auto       rnd              = Axion::Graphics::createRenderer( wnd.get(),
                                                                        { .gfxApi        = Graphics::API::DirectX12,
                                                                          .bufferingType = bufferingType,
                                                                          .presentMode   = Graphics::PresentMode::Immediate,
                                                                          .autoSync      = true } );
 
-        std::vector<Mesh> meshes;
-        meshes.resize( 4, Mesh {} );
-        std::vector<Math::Vec3> meshPositions = {
+        FixedArray<Mesh, 4>       meshes;
+        FixedArray<Math::Vec3, 4> meshPositions = {
             Math::Vec3( 0.5f, -0.5f, 0.0f ),
             Math::Vec3( -0.5f, -0.5f, 0.0f ),
             Math::Vec3( 0.5f, 0.5f, 0.0f ),
             Math::Vec3( -0.5f, 0.5f, 0.0f ) };
-        std::vector<Math::Vec4> meshColors = {
+        FixedArray<Math::Vec4, 4> meshColors = {
             Math::Vec4( 1.0f, 0.0f, 0.0f, 1.0f ),
             Math::Vec4( 0.0f, 1.0f, 0.0f, 1.0f ),
             Math::Vec4( 1.0f, 0.0f, 1.0f, 1.0f ),
@@ -224,7 +222,6 @@ int main( /*int argc, char* argv[]*/ ) {
         Axion::Graphics::Passes::BlitToBackBuffer cpypass {};
         Axion::Graphics::Passes::PresentPass      presentpass {};
 
-
         //-------------------------------------
         // Dedclaring Global Persistent Resources
         //-------------------------------------
@@ -251,7 +248,7 @@ int main( /*int argc, char* argv[]*/ ) {
 
         // UNIFORM CONSTANT BUFFER
         std::vector<Graphics::BufferHandle> camBuffers( FRAMES_IN_FLIGHT );
-        for ( uint i = 0; i < FRAMES_IN_FLIGHT; ++i )
+        for ( u32 i = 0; i < FRAMES_IN_FLIGHT; ++i )
         {
             camBuffers[i] = rnd->resources().buffer( "CamUniformBuffer_" + std::to_string( i ) ).size( sizeof( Camera::Payload ) ).asCBO().onCPU().create();
         }
@@ -314,7 +311,7 @@ int main( /*int argc, char* argv[]*/ ) {
 
                 // Update geometries:
                 bool needUpload = false;
-                uint meshId     = 0;
+                u32 meshId     = 0;
                 for ( auto& mesh : meshes )
                 {
 
@@ -323,12 +320,11 @@ int main( /*int argc, char* argv[]*/ ) {
                         needUpload = true;
                     }
                     auto model = Axion::Math::MTX::identity();
-                     model      = Axion::Math::MTX::translate( model, meshPositions[meshId] );
-                    model = Axion::Math::MTX::scale( model, 0.5 );
-                    model = Axion::Math::MTX::rotate( model, time * 1.5f, Math::Vec3( 0.0f, 1.0f, 0.0f ) );
-                    model = Axion::Math::MTX::rotate( model, time * 0.5f, Math::Vec3( 1.0f, 0.0f, 0.0f ) );
-                    model = Axion::Math::MTX::transpose( model );
-
+                    model      = Axion::Math::MTX::translate( model, meshPositions[meshId] );
+                    model      = Axion::Math::MTX::scale( model, 0.5 );
+                    model      = Axion::Math::MTX::rotate( model, time * 1.5f, Math::Vec3( 0.0f, 1.0f, 0.0f ) );
+                    model      = Axion::Math::MTX::rotate( model, time * 0.5f, Math::Vec3( 1.0f, 0.0f, 0.0f ) );
+                    model      = Axion::Math::MTX::transpose( model );
 
                     mesh.payload.model = model;
                     mesh.payload.color = meshColors[meshId];
@@ -365,8 +361,7 @@ int main( /*int argc, char* argv[]*/ ) {
 
                 builder.addPass<ForwardPass>( "ForwardPass", fwPass );
 
-              
-                 auto backbufferHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
+                auto backbufferHandle = builder.import( "Backbuffer", rnd->getCurrentBackbufferHandle() );
 
                 cpypass.inputHandle  = fwPass.output;
                 cpypass.outputHandle = backbufferHandle;

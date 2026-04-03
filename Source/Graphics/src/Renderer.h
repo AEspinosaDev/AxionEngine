@@ -25,17 +25,17 @@ public:
     virtual void            setWindow( IWindow* wnd ) override;
     virtual const Settings& getSettings() const override;
     virtual TextureHandle   getCurrentBackbufferHandle() const override;
-    virtual ulong           getTotalFrameNumber() const override { return _frameNumber; }
-    virtual const uint      getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
-    virtual ulong           getCurrentFrameIndex() const override;
+    virtual u64           getTotalFrameNumber() const override { return _frameNumber; }
+    virtual const u32      getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
+    virtual u64           getCurrentFrameIndex() const override;
 
     virtual const RHI::DeviceOwnerPtr& getDevice() const override;
-    virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( uint frameIndex ) override;
+    virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( u32 frameIndex ) override;
     virtual const RHI::IGUIBackend*    getGUIBackend() const override;
 
-    virtual bool        isHeadless() override;
-    virtual void        destroy() override;
-    virtual std::string toString() const override;
+    virtual bool         isHeadless() override;
+    virtual void         destroy() override;
+    virtual STLW::String toString() const override;
 
     virtual bool instantExecution( std::function<void( RHI::ICommandList* cmd )>& commands );
 
@@ -66,9 +66,9 @@ private:
     // GUI Backend (IMGUI)
     RHI::GUIBackendOwnerPtr _guiBackend = nullptr;
     // Query
-    uint       _currentFrame = 0;
-    const uint _FRAMES_IN_FLIGHT;
-    ulong      _frameNumber = 0;
+    u32       _currentFrame = 0;
+    const u32 _FRAMES_IN_FLIGHT;
+    u64      _frameNumber = 0;
 };
 
 } // namespace Graphics

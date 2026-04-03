@@ -31,7 +31,7 @@ public:
     SBTAllocatorOwnerPtr        createSBTAllocator( const SBTAllocatorDesc& desc ) override;
     TransientAllocatorOwnerPtr  createTransientAllocator( const TransientAllocatorDesc& desc ) override;
 
-    void executeCommandLists( const std::vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) override;
+    void executeCommandLists( const STLW::Vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) override;
     void waitForFrame( const Fence& frameFence, QueueType workingQueue ) override;
     void waitForQueue( QueueType workingQueue, QueueType dstQueue ) override;
     void queueWaitIdle( QueueType workingQueue, Fence& frameFence ) override;
@@ -53,7 +53,7 @@ public:
         ComPtr<ID3D12CommandQueue> queue;
         ComPtr<ID3D12Fence>        fence;
         HANDLE                     fenceEvent = nullptr;
-        ulong                      fenceValue = 0;
+        u64                      fenceValue = 0;
     };
 
     const Queue* getQueue( const QueueType& type ) const;
@@ -70,7 +70,7 @@ public:
         CommandListOwnerPtr _cmdList = nullptr;
         ComPtr<ID3D12Fence> _fence;
         HANDLE              _fenceEvent = nullptr;
-        ulong               _fenceValue = 0;
+        u64               _fenceValue = 0;
         mutable std::mutex  _mutex;
     };
     // Graphics API Context
@@ -130,7 +130,7 @@ private:
         D3D12_FEATURE_DATA_D3D12_OPTIONS7 options7 = {};
     };
 
-    ComPtr<IDXGIAdapter4> getGPUAdapter( uint preferredDeviceID );
+    ComPtr<IDXGIAdapter4> getGPUAdapter( u32 preferredDeviceID );
     ComPtr<ID3D12Device2> createDevice( const ComPtr<IDXGIAdapter4>& gpuAdapter );
     void                  enableDebugLayer();
     void                  checkExtensions() override;

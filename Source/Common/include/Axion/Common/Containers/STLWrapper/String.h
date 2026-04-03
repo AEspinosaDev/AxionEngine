@@ -18,7 +18,7 @@ public:
 
     String( const char* str, Memory::IAllocator* allocator )
         : Base( str, Memory::STLAdapter<char>( allocator ) ) {}
-    explicit String()
+     String()
         : Base( Memory::STLAdapter<char>( nullptr ) ) {}
 };
 

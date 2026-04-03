@@ -15,19 +15,19 @@ private:
 
 public:
     PoolAllocator() = default;
-    PoolAllocator( VMemoryArena* arena, uint arenaOffset, uint maxCapacity, uint chunkSize ) {
+    PoolAllocator( VMemoryArena* arena, u32 arenaOffset, u32 maxCapacity, u32 chunkSize ) {
         initialize( arena, arenaOffset, maxCapacity, chunkSize );
     }
     // Two-step initialization
-    void initialize( VMemoryArena* arena, uint arenaOffset, uint maxCapacity, uint chunkSize ) {
+    void initialize( VMemoryArena* arena, u32 arenaOffset, u32 maxCapacity, u32 chunkSize ) {
         _arena         = arena;
         _arenaOffset   = arenaOffset;
         _maxCapacity   = maxCapacity;
         _allocatedSize = 0;
         _freeList      = nullptr;
 
-        uint alignmentOperator = AXION_MEMORY_MINIMUM_ALIGNMENT - 1;
-        _chunkSize             = std::max( chunkSize, static_cast<uint>( sizeof( FreeNode ) ) );
+        u32 alignmentOperator = AXION_MEMORY_MINIMUM_ALIGNMENT - 1;
+        _chunkSize             = std::max( chunkSize, static_cast<u32>( sizeof( FreeNode ) ) );
         _chunkSize             = ( _chunkSize + alignmentOperator ) & ~alignmentOperator;
     }
 
@@ -35,7 +35,7 @@ public:
         reset();
     }
 
-    void* allocate( uint size, uint alignment ) override {
+    void* allocate( u32 size, u32 alignment ) override {
         AXION_UNUSED_PARAMETER( alignment );
         AXION_LOG_ASSERT( size <= _chunkSize, Logger::Module::Common, "Requested size {} exceeds pool chunk size {}", size, _chunkSize );
 
@@ -56,7 +56,7 @@ public:
             return nullptr;
         }
 
-        uint currentAbsoluteOffset = _arenaOffset + _allocatedSize;
+        u32 currentAbsoluteOffset = _arenaOffset + _allocatedSize;
 
         if ( !_arena->commitRange( currentAbsoluteOffset, _chunkSize ) )
         {
@@ -64,7 +64,7 @@ public:
             return nullptr;
         }
 
-        void* newBlock = static_cast<uchar*>( _arena->getBasePtr() ) + currentAbsoluteOffset;
+        void* newBlock = static_cast<byte*>( _arena->getBasePtr() ) + currentAbsoluteOffset;
         _allocatedSize += _chunkSize;
         _activeAllocations++;
 
@@ -96,17 +96,17 @@ public:
         this->unlock();
     }
 
-    uint getUsedSize() const override { return _allocatedSize * _activeAllocations; }
-    uint getTotalSize() const override { return _maxCapacity; }
+    u32 getUsedSize() const override { return _allocatedSize * _activeAllocations; }
+    u32 getTotalSize() const override { return _maxCapacity; }
 
 private:
     VMemoryArena* _arena;
-    const uint    _arenaOffset;
-    const uint    _maxCapacity;
+    const u32    _arenaOffset;
+    const u32    _maxCapacity;
 
-    uint _allocatedSize;
-    uint _chunkSize;
-    uint _activeAllocations = 0; // Tracks actual objects in use
+    u32 _allocatedSize;
+    u32 _chunkSize;
+    u32 _activeAllocations = 0; // Tracks actual objects in use
 
     FreeNode* _freeList;
 };

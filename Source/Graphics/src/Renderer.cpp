@@ -16,7 +16,7 @@ RendererOwnerPtr Graphics::createRenderer( IWindow* wnd, const RendererSettings&
 Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
     : _wnd( wnd )
     , _setts( settings )
-    , _FRAMES_IN_FLIGHT( static_cast<uint>( settings.bufferingType ) + 1 ) {
+    , _FRAMES_IN_FLIGHT( static_cast<u32>( settings.bufferingType ) + 1 ) {
 
     AXION_LOG_ASSERT( _wnd, Logger::Module::GFX, "Window is NULL | Renderer needs Window. If no window needed, use Headless Renderer" );
     _frameFences.resize( _FRAMES_IN_FLIGHT );
@@ -65,7 +65,7 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
         .descriptorMaxSamplers = _setts.RGMaxSamplersPerFrame,
         .sbtAllocSize          = _setts.RGAllocSBTSize,
         .transientAllocSize    = _setts.RGTransientAllocSize,
-        .resourceTTL           = (uint)_setts.GCMode,
+        .resourceTTL           = (u32)_setts.GCMode,
         .autoSync              = _setts.autoSync };
     _renderGraph.initialize( ctx, RGDesc );
 
@@ -162,7 +162,7 @@ const RHI::DeviceOwnerPtr& Renderer::getDevice() const {
     return _device;
 }
 
-RHI::IDescriptorAllocator* Renderer::getFrameDescriptorAllocator( uint frameIndex ) {
+RHI::IDescriptorAllocator* Renderer::getFrameDescriptorAllocator( u32 frameIndex ) {
     return _renderGraph.getDescriptorAllocator( frameIndex );
 }
 
@@ -174,11 +174,11 @@ TextureHandle Renderer::getCurrentBackbufferHandle() const {
     return _swapchainHandles[_currentFrame];
 }
 
-ulong Renderer::getCurrentFrameIndex() const {
+u64 Renderer::getCurrentFrameIndex() const {
     return _currentFrame;
 }
 
-std::string Renderer::toString() const {
+STLW::String Renderer::toString() const {
     // return fmt::format(
     //     "Settings:\n"
     //     "  Graphics API: {}\n"
@@ -191,12 +191,12 @@ std::string Renderer::toString() const {
     //     debugMode,
     //     presentModeToString( presentMode ),
     //     formatToString( backbufferFormat ) );
-    return fmt::format(
+    return static_cast<STLW::String>( fmt::format(
         "Renderer Settings:\n"
         "  Buffering Type: {}\n"
         "  Debug Mode: {}\n",
-        (uint)_setts.bufferingType + 1,
-        _setts.debugMode );
+        (u32)_setts.bufferingType + 1,
+        _setts.debugMode ) );
 }
 
 bool Renderer::instantExecution( std::function<void( RHI::ICommandList* cmd )>& commands ) {

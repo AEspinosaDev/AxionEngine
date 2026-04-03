@@ -9,7 +9,7 @@ class VMemoryArena
 public:
     VMemoryArena() = default;
 
-    VMemoryArena( uint capacity );
+    VMemoryArena( u32 capacity );
 
     ~VMemoryArena();
 
@@ -19,15 +19,15 @@ public:
 
     VMemoryArena& operator=( VMemoryArena&& other ) noexcept;
 
-    bool commitRange( uint offset, uint size );
-    void decommitRange( uint offset, uint size );
+    bool commitRange( u32 offset, u32 size );
+    void decommitRange( u32 offset, u32 size );
 
     inline void* getBasePtr() const { return _reservation.ptr; }
-    inline uint  getCapacity() const { return _reservation.size; }
+    inline u32  getCapacity() const { return _reservation.size; }
 
 private:
     VMemoryView _reservation;
-    uint        _pageSize = 0;
+    u32        _pageSize = 0;
 };
 
 } // namespace Memory

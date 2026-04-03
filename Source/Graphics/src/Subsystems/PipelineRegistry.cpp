@@ -59,8 +59,8 @@ PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, 
         return {};
     }
 
-    uint id = UINT32_MAX;
-    for ( uint i = 0; i < _pipelines.size(); ++i )
+    u32 id = UINT32_MAX;
+    for ( u32 i = 0; i < _pipelines.size(); ++i )
     {
         if ( !_pipelines[i].alive )
         {
@@ -71,7 +71,7 @@ PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, 
 
     if ( id == UINT32_MAX )
     {
-        id = (uint)_pipelines.size();
+        id = (u32)_pipelines.size();
         _pipelines.emplace_back();
     }
 
@@ -89,7 +89,7 @@ PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, 
     return PipelineHandle { id };
 }
 
-PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName ) {
+PipelineHandle PipelineRegistry::createGraphic( RHI::GraphicPipelineDesc& desc, StringView shaderName ) {
     auto shaderHandleOpt = _shaderReg->findShader( shaderName );
 
     if ( !shaderHandleOpt.has_value() )
@@ -180,7 +180,7 @@ PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, 
     return PipelineHandle { id };
 }
 
-PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName ) {
+PipelineHandle PipelineRegistry::createCompute( RHI::ComputePipelineDesc& desc, StringView shaderName ) {
     auto shaderHandleOpt = _shaderReg->findShader( shaderName );
 
     if ( !shaderHandleOpt.has_value() )
@@ -230,8 +230,8 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
         return {};
     }
 
-    uint id = UINT32_MAX;
-    for ( uint i = 0; i < _pipelines.size(); ++i )
+    u32 id = UINT32_MAX;
+    for ( u32 i = 0; i < _pipelines.size(); ++i )
     {
         if ( !_pipelines[i].alive )
         {
@@ -242,7 +242,7 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
 
     if ( id == UINT32_MAX )
     {
-        id = (uint)_pipelines.size();
+        id = (u32)_pipelines.size();
         _pipelines.emplace_back();
     }
 
@@ -297,8 +297,8 @@ PipelineHandle PipelineRegistry::createMesh( RHI::MeshPipelineDesc& desc, Shader
         return {};
     }
 
-    uint id = UINT32_MAX;
-    for ( uint i = 0; i < _pipelines.size(); ++i )
+    u32 id = UINT32_MAX;
+    for ( u32 i = 0; i < _pipelines.size(); ++i )
     {
         if ( !_pipelines[i].alive )
         {
@@ -309,7 +309,7 @@ PipelineHandle PipelineRegistry::createMesh( RHI::MeshPipelineDesc& desc, Shader
 
     if ( id == UINT32_MAX )
     {
-        id = (uint)_pipelines.size();
+        id = (u32)_pipelines.size();
         _pipelines.emplace_back();
     }
 
@@ -326,7 +326,7 @@ PipelineHandle PipelineRegistry::createMesh( RHI::MeshPipelineDesc& desc, Shader
 
     return PipelineHandle { id };
 }
-PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) {
+PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& desc, StringView shaderName ) {
     auto shaderHandleOpt = _shaderReg->findShader( shaderName );
 
     if ( !shaderHandleOpt.has_value() )
@@ -338,7 +338,7 @@ PipelineHandle PipelineRegistry::createRaytracing( RHI::RayTracingPipelineDesc& 
     return createRaytracing( desc, shaderHandleOpt.value() );
 }
 
-PipelineHandle PipelineRegistry::createMesh( RHI::MeshPipelineDesc& desc, const std::string& shaderName ) {
+PipelineHandle PipelineRegistry::createMesh( RHI::MeshPipelineDesc& desc, StringView shaderName ) {
     auto shaderHandleOpt = _shaderReg->findShader( shaderName );
 
     if ( !shaderHandleOpt.has_value() )
@@ -367,8 +367,8 @@ PipelineLayoutHandle PipelineRegistry::createLayout( const RHI::PipelineLayoutDe
     }
 
     // 3. Register
-    uint id = UINT32_MAX;
-    for ( uint i = 0; i < _layouts.size(); ++i )
+    u32 id = UINT32_MAX;
+    for ( u32 i = 0; i < _layouts.size(); ++i )
     {
         if ( !_layouts[i].alive )
         {
@@ -379,7 +379,7 @@ PipelineLayoutHandle PipelineRegistry::createLayout( const RHI::PipelineLayoutDe
 
     if ( id == UINT32_MAX )
     {
-        id = (uint)_layouts.size();
+        id = (u32)_layouts.size();
         _layouts.emplace_back();
     }
 
@@ -519,14 +519,14 @@ RHI::IPipelineLayout* PipelineRegistry::getLayout( PipelineLayoutHandle handle )
     return nullptr;
 }
 
-std::optional<PipelineHandle> PipelineRegistry::findPipeline( const std::string& name ) const {
+std::optional<PipelineHandle> PipelineRegistry::findPipeline( StringView name ) const {
     auto it = _nameToHandle.find( name );
     if ( it == _nameToHandle.end() )
         return std::nullopt;
     return it->second;
 }
 
-std::optional<PipelineLayoutHandle> PipelineRegistry::findLayout( const std::string& name ) const {
+std::optional<PipelineLayoutHandle> PipelineRegistry::findLayout( StringView name ) const {
     auto it = _nameToLayoutHandle.find( name );
     if ( it == _nameToLayoutHandle.end() )
         return std::nullopt;

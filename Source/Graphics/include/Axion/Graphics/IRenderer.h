@@ -30,19 +30,19 @@ public:
         PresentMode   presentMode      = PresentMode::Vsync;    ///< Presentation mode (Vsync/Immediate/Mailbox).
         Format        backbufferFormat = Format::RGBA8_UNORM;   ///< Swapchain backbuffer format.
 
-        ulong RGAllocSize           = 1024 * 1024;      ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
-        ulong RGAllocSBTSize        = 1024 * 1024;      ///< Initial memory reservation for per-frame Shader Binding Tables data (1MB default).
-        uint  RGDescriptorsPerFrame = 2048;             ///< Initial memory reservation for per-frame DescriptorSet data.
-        uint  RGMaxViewsPerFrame    = 256;              ///< Initial view count reservation for per-frame Descriptor Pools.
-        uint  RGMaxSamplersPerFrame = 128;              ///< Initial sampler count reservation for per-frame Descriptor Pools.
-        ulong RGTransientAllocSize  = 64 * 1024 * 1024; ///< Initial memory reservation for per-frame transient upload sensible data (Useful for CPU-GPU data streaming) (64MB default).
+        u64 RGAllocSize           = 1024 * 1024;      ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
+        u64 RGAllocSBTSize        = 1024 * 1024;      ///< Initial memory reservation for per-frame Shader Binding Tables data (1MB default).
+        u32  RGDescriptorsPerFrame = 2048;             ///< Initial memory reservation for per-frame DescriptorSet data.
+        u32  RGMaxViewsPerFrame    = 256;              ///< Initial view count reservation for per-frame Descriptor Pools.
+        u32  RGMaxSamplersPerFrame = 128;              ///< Initial sampler count reservation for per-frame Descriptor Pools.
+        u64 RGTransientAllocSize  = 64 * 1024 * 1024; ///< Initial memory reservation for per-frame transient upload sensible data (Useful for CPU-GPU data streaming) (64MB default).
 
-        ulong vramBlockSize = 512ull * 1024 * 1024; ///< Preferred VRAM block size for the global allocator.
+        u64 vramBlockSize = 512ull * 1024 * 1024; ///< Preferred VRAM block size for the global allocator.
 
         GCMode GCMode   = GCMode::AvgMemory; ///< Garbage Collection aggressiveness for transient resources.
         bool   autoSync = true;              ///< Automatic Barrier Insertion by RenderGraph.
 
-        uint selectedDeviceID = UINT32_MAX; ///<  Index of the GPU adapter to use. Set to UINT32_MAX for auto-selection (best dedicated GPU).
+        u32 selectedDeviceID = UINT32_MAX; ///<  Index of the GPU adapter to use. Set to UINT32_MAX for auto-selection (best dedicated GPU).
 
         bool enableGui = true; ///< Enable ImGui integration (Requires additional setup in the render loop).
     };
@@ -89,20 +89,20 @@ public:
     virtual TextureHandle getCurrentBackbufferHandle() const = 0;
 
     /// @brief Returns current frame index.
-    virtual ulong getCurrentFrameIndex() const = 0;
+    virtual u64 getCurrentFrameIndex() const = 0;
 
     /// @brief Returns frames in flight.
-    virtual const uint getTotalFramesInFlight() const = 0;
+    virtual const u32 getTotalFramesInFlight() const = 0;
 
     /// @brief Returns the total number of frames rendered since initialization.
-    virtual ulong getTotalFrameNumber() const = 0;
+    virtual u64 getTotalFrameNumber() const = 0;
 
     /// @brief Returns the low-level RHI Device. Use only for advanced/raw access.
     virtual const RHI::DeviceOwnerPtr& getDevice() const = 0;
 
     /// @brief Returns the low-level RHI DescriptorAllocator.
     /// In case persistent descriptor sets have to be created before the render loop.
-    virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( uint frameIndex ) = 0;
+    virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( u32 frameIndex ) = 0;
 
     /// @brief Returns the GUI Backend interface (e.g. ImGui). Returns nullptr if GUI integration is disabled or headless.
     virtual const RHI::IGUIBackend* getGUIBackend() const = 0;
@@ -115,7 +115,7 @@ public:
     virtual void destroy() = 0;
 
     /// @brief Returns a string representation of the renderer state/backend.
-    virtual std::string toString() const = 0;
+    virtual STLW::String toString() const = 0;
 
     /// @brief Returns true if the renderer was initialized without a window (Compute/Server mode).
     virtual bool isHeadless() = 0;

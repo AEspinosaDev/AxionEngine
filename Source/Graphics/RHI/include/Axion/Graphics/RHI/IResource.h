@@ -17,9 +17,9 @@ public:
         Extent3D         size        = { 1, 1, 1 };
         Format           format      = Format::UNKNOWN;
         TextureDimension dimension   = TextureDimension::Texture2D;
-        uint             mipLevels   = 1;
-        uint             sampleCount = 1;
-        uint             arraySize   = 1;
+        u32             mipLevels   = 1;
+        u32             sampleCount = 1;
+        u32             arraySize   = 1;
         String64         debugName   = "";
         TextureViewFlags viewFlags   = TextureViewShaderResource;
         ClearValue       clearValue  = { .color = { 0.0f, 0.0f, 0.0f, 1.0f }, .depth = { 1.0f } }; // Only if RenderTarget or DepthStencil
@@ -41,7 +41,7 @@ public:
     virtual ~ITexture()                                           = default;
     virtual const ITexture::Description& getDescription() const   = 0;
     virtual ResourceState                getCurrentState() const  = 0;
-    virtual ulong                        getDeviceAddress() const = 0;
+    virtual u64                        getDeviceAddress() const = 0;
 };
 
 typedef ITexture::Description TextureDesc;
@@ -55,8 +55,8 @@ class IBuffer : public IDeviceObject
 {
 public:
     struct Description {
-        ulong           size          = 0;
-        uint            stride        = 1; // for structured buffers
+        u64           size          = 0;
+        u32            stride        = 1; // for structured buffers
         MemoryUsage     memoryType    = MemoryUsage::GPUOnly;
         BufferUsage     usageFlags    = BufferUsage::None;
         BufferViewFlags viewFlags     = BufferViewNone;
@@ -80,18 +80,18 @@ public:
     virtual ~IBuffer()                                  = default;
     virtual const Description& getDescription() const   = 0;
     virtual ResourceState      getCurrentState() const  = 0;
-    virtual ulong              getDeviceAddress() const = 0;
+    virtual u64              getDeviceAddress() const = 0;
 
-    virtual void  copyData( const void* data, ulong size, ulong offset = 0 ) = 0;
+    virtual void  copyData( const void* data, u64 size, u64 offset = 0 ) = 0;
     virtual void* getData() const                                            = 0;
 
     template <typename T>
-    void copyData( const T& data, ulong offset = 0 ) {
+    void copyData( const T& data, u64 offset = 0 ) {
         copyData( &data, sizeof( T ), offset );
     }
     // --- Vector Helper ---
     template <typename T>
-    void copyData( const std::vector<T>& data, size_t offset = 0 ) {
+    void copyData( const STLW::Vector<T>& data, size_t offset = 0 ) {
         copyData( data.data(), data.size() * sizeof( T ), offset );
     }
 
@@ -133,10 +133,10 @@ public:
 
     virtual const Description& getDescription() const   = 0;
     virtual AccelType          getType() const          = 0;
-    virtual ulong              getDeviceAddress() const = 0;
+    virtual u64              getDeviceAddress() const = 0;
 
-    virtual ulong getUpdateScratchSize() const = 0;
-    virtual ulong getBuildScratchSize() const  = 0;
+    virtual u64 getUpdateScratchSize() const = 0;
+    virtual u64 getBuildScratchSize() const  = 0;
 };
 
 using AccelDesc = IAccel::Description;
@@ -158,7 +158,7 @@ public:
         AddressMode addressU      = AddressMode::Repeat;
         AddressMode addressV      = AddressMode::Repeat;
         AddressMode addressW      = AddressMode::Repeat;
-        uint        maxAnisotropy = 16;
+        u32        maxAnisotropy = 16;
         float       maxLOD        = 12.0;
         float       minLOD        = 0.0f;
         float       mipLODBias    = 0.0f;

@@ -10,7 +10,7 @@ template <typename LockPolicy = NoLockPolicy>
 class LinearAllocator : public IAllocator, public LockPolicy
 {
 public:
-    LinearAllocator( VMemoryArena* arena, uint arenaOffset, uint maxCapacity )
+    LinearAllocator( VMemoryArena* arena, u32 arenaOffset, u32 maxCapacity )
         : _arena( arena )
         , _ARENA_OFFSET( arenaOffset )
         , _MAX_CAPACITY( maxCapacity ) {
@@ -20,11 +20,11 @@ public:
         reset();
     }
 
-    void* allocate( uint size, uint alignment = 16 ) override {
+    void* allocate( u32 size, u32 alignment = 16 ) override {
 
         this->lock();
 
-        uint alignedOffset = Helpers::alignu( _currentOffset, alignment );
+        u32 alignedOffset = Helpers::alignu( _currentOffset, alignment );
         if ( alignedOffset + size > _MAX_CAPACITY )
         {
             this->unlock();
@@ -32,7 +32,7 @@ public:
             return nullptr;
         }
 
-        uint currentAbsoluteOffset = _ARENA_OFFSET + alignedOffset;
+        u32 currentAbsoluteOffset = _ARENA_OFFSET + alignedOffset;
 
         if ( !_arena->commitRange( currentAbsoluteOffset, size ) )
         {
@@ -40,7 +40,7 @@ public:
             return nullptr;
         }
 
-        void* newAlloc = static_cast<uchar*>( _arena->getBasePtr() ) + ( currentAbsoluteOffset );
+        void* newAlloc = static_cast<byte*>( _arena->getBasePtr() ) + ( currentAbsoluteOffset );
 
         _currentOffset = alignedOffset + size;
 
@@ -63,21 +63,21 @@ public:
         this->unlock();
     }
 
-    uint getUsedSize() const override {
+    u32 getUsedSize() const override {
         this->lock();
-        uint used = _currentOffset;
+        u32 used = _currentOffset;
         this->unlock();
         return used;
     }
 
-    uint getTotalSize() const override { return _MAX_CAPACITY; }
+    u32 getTotalSize() const override { return _MAX_CAPACITY; }
 
 private:
     VMemoryArena* _arena;
-    const uint    _ARENA_OFFSET;
-    const uint    _MAX_CAPACITY;
+    const u32    _ARENA_OFFSET;
+    const u32    _MAX_CAPACITY;
 
-    uint _currentOffset = 0;
+    u32 _currentOffset = 0;
 };
 
 using LockedLinearAllocator = LinearAllocator<MutexLockPolicy>;

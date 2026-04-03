@@ -9,15 +9,15 @@ template <typename LockPolicy = NoLockPolicy>
 class SlabAllocator : public IAllocator, public LockPolicy
 {
 public:
-    SlabAllocator( VMemoryArena* arena, uint arenaOffset, uint totalCapacity )
+    SlabAllocator( VMemoryArena* arena, u32 arenaOffset, u32 totalCapacity )
         : _arena( arena )
         , _arenaOffset( arenaOffset )
         , _maxCapacity( totalCapacity )
         , _capacityPerSlab( totalCapacity / NUM_SLABS ) {
 
-        uint chunkSizes[NUM_SLABS] = { 16, 32, 64, 128, 256, 512 };
+        u32 chunkSizes[NUM_SLABS] = { 16, 32, 64, 128, 256, 512 };
 
-        for ( uint i = 0; i < NUM_SLABS; ++i )
+        for ( u32 i = 0; i < NUM_SLABS; ++i )
             _pools[i].init( arena, arenaOffset + ( _capacityPerSlab * i ), _capacityPerSlab, chunkSizes[i] );
     }
 
@@ -25,10 +25,10 @@ public:
         reset();
     };
 
-    void* allocate( uint size, uint alignment = 16 ) override {
+    void* allocate( u32 size, u32 alignment = 16 ) override {
         this->lock();
 
-        uint poolIndex = getPoolIndex( size );
+        u32 poolIndex = getPoolIndex( size );
         if ( poolIndex < NUM_SLABS )
         {
             void* ptr = _pools[poolIndex]->allocate( size, alignment );
@@ -52,8 +52,8 @@ public:
 
         if ( ptrAddr >= baseAddr && ptrAddr < baseAddr + _maxCapacity )
         {
-            uint offset    = static_cast<uint>( ptrAddr - baseAddr );
-            uint poolIndex = offset / _capacityPerSlab;
+            u32 offset    = static_cast<u32>( ptrAddr - baseAddr );
+            u32 poolIndex = offset / _capacityPerSlab;
 
             _pools[poolIndex]->free( ptr );
         } else
@@ -71,19 +71,19 @@ public:
         this->unlock();
     }
 
-    uint getUsedSize() const override {
+    u32 getUsedSize() const override {
         this->lock();
-        uint totalUsed = 0;
+        u32 totalUsed = 0;
         for ( const auto* pool : _pools )
             totalUsed += pool->getUsedSize();
         this->unlock();
         return totalUsed;
     }
 
-    uint getTotalSize() const override { return _MAX_CAPACITY; }
+    u32 getTotalSize() const override { return _MAX_CAPACITY; }
 
 private:
-    static constexpr uint getPoolIndex( uint size ) {
+    static constexpr u32 getPoolIndex( u32 size ) {
         if ( size <= 16 )
             return 0;
         if ( size <= 32 )
@@ -100,11 +100,11 @@ private:
     }
 
     VMemoryArena* _arena;
-    uint       _arenaOffset;
-    uint       _maxCapacity;
-    uint       _capacityPerSlab;
+    u32       _arenaOffset;
+    u32       _maxCapacity;
+    u32       _capacityPerSlab;
 
-    static constexpr uint                              NUM_SLABS = 6;
+    static constexpr u32                              NUM_SLABS = 6;
     std::array<PoolAllocator<NoLockPolicy>, NUM_SLABS> _pools;
 };
 

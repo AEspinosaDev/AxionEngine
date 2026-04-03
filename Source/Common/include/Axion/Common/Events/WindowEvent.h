@@ -19,12 +19,12 @@ struct WindowEvent : public Event {
  * @brief Emitted when the window is resized.
  */
 struct WindowResizeEvent : public WindowEvent {
-    WindowResizeEvent( void* h, uint w, uint hgt )
+    WindowResizeEvent( void* h, u32 w, u32 hgt )
         : WindowEvent( h )
         , width( w )
         , height( hgt ) {}
-    uint width;
-    uint height;
+    u32 width;
+    u32 height;
 };
 
 /**

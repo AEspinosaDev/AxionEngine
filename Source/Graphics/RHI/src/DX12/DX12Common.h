@@ -1,5 +1,6 @@
 
 #pragma once
+#include "Axion/Common/Containers/String.h"
 
 // DirectX 12
 #include <wrl/client.h>
@@ -16,7 +17,11 @@ using namespace Microsoft::WRL;
 
 #include <D3D12MemAlloc.h>
 
-static void setNativeName( ID3D12Object* obj, std::string_view n ) {
+/***
+ * Utility function to set native debug names on D3D12 objects.
+ * Converts UTF-8 string to wide string and calls SetName on the object.
+ */
+static void setNativeName( ID3D12Object* obj, Axion::StringView n ) {
     if ( !obj )
         return;
     wchar_t wname[128];

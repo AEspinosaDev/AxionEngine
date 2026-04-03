@@ -20,10 +20,10 @@ struct Vertex {
 
 // Meshlet metadata matching the GPU structure (Aligned to 48 bytes)
 struct Meshlet {
-    uint vertexOffset;
-    uint vertexCount;
-    uint triangleOffset;
-    uint triangleCount;
+    u32 vertexOffset;
+    u32 vertexCount;
+    u32 triangleOffset;
+    u32 triangleCount;
 
     // Culling bounds
     float center[3];
@@ -38,13 +38,13 @@ struct Meshlet {
 // Meshlet data
 struct MeshletData {
     std::vector<Meshlet> meshlets;
-    std::vector<uint>    vertexIndices;    // Points to the original Vertex buffer
-    std::vector<uchar>   primitiveIndices; // Local indices (0-63) for triangles
+    std::vector<u32>    vertexIndices;    // Points to the original Vertex buffer
+    std::vector<byte>   primitiveIndices; // Local indices (0-63) for triangles
 };
 
 struct GeometryData {
     std::vector<Vertex> vertices;
-    std::vector<uint>   indices;
+    std::vector<u32>   indices;
     // Meshlet data is optional and only generated for meshes that meet certain criteria.
     std::unique_ptr<MeshletData> meshlets = nullptr;
 };
@@ -63,11 +63,11 @@ public:
     [[nodiscard]] const Math::BoundingSphere& getBoundingSphere() const { return _boundingSphere; }
 
     [[nodiscard]] const std::vector<Vertex>& getVertices() const { return _geoData->vertices; }
-    [[nodiscard]] const std::vector<uint>&   getIndices() const { return _geoData->indices; }
+    [[nodiscard]] const std::vector<u32>&   getIndices() const { return _geoData->indices; }
     [[nodiscard]] const MeshletData*         getMeshletData() const { return hasMeshlets() ? _geoData->meshlets.get() : nullptr; }
 
-    [[nodiscard]] uint                        getVertexCount() const { return _geoData ? (uint)_geoData->vertices.size() : 0; }
-    [[nodiscard]] uint                        getIndexCount() const { return _geoData ? (uint)_geoData->indices.size() : 0; }
+    [[nodiscard]] u32                        getVertexCount() const { return _geoData ? (u32)_geoData->vertices.size() : 0; }
+    [[nodiscard]] u32                        getIndexCount() const { return _geoData ? (u32)_geoData->indices.size() : 0; }
     [[nodiscard]] Graphics::PrimitiveTopology getTopology() const { return _topology; }
     [[nodiscard]] bool                        needsAS() const { return _needsAS; }
     [[nodiscard]] bool                        hasMeshlets() const { return _geoData && _geoData->meshlets != nullptr; }
@@ -79,7 +79,7 @@ private:
 
     explicit Mesh( std::string                 name,
                    std::vector<Vertex>&&       verts,
-                   std::vector<uint>&&         inds,
+                   std::vector<u32>&&         inds,
                    Graphics::PrimitiveTopology topology      = Graphics::PrimitiveTopology::TriangleList,
                    bool                        computeBounds = true )
         : _name( std::move( name ) )

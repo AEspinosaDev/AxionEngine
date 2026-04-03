@@ -11,7 +11,7 @@ RHI::ITexture* RenderPassContext::getTexture( RGResourceHandle handle ) const {
     return graph.getPhysicalTexture( handle );
 }
 
-RHI::IDescriptorSet* RenderPassContext::allocateSet( RHI::IPipelineLayout* layout, uint setIndex ) const {
+RHI::IDescriptorSet* RenderPassContext::allocateSet( RHI::IPipelineLayout* layout, u32 setIndex ) const {
     return descriptors->allocate( layout, setIndex );
 }
 
@@ -32,27 +32,27 @@ RGResourceHandle RenderPassBuilder::write( RGResourceHandle resource, RHI::Resou
     }
     return resource;
 }
-RenderGraphBuilder::TextureBuilder RenderGraphBuilder::texture( const std::string& name ) {
+RenderGraphBuilder::TextureBuilder RenderGraphBuilder::texture( StringView name ) {
     return TextureBuilder( *this, name );
 }
 
-RenderGraphBuilder::BufferBuilder RenderGraphBuilder::buffer( const std::string& name ) {
+RenderGraphBuilder::BufferBuilder RenderGraphBuilder::buffer( StringView name ) {
     return BufferBuilder( *this, name );
 }
 
-RGResourceHandle RenderGraphBuilder::create( const std::string& name, const RHI::TextureDesc& desc ) {
+RGResourceHandle RenderGraphBuilder::create( StringView name, const RHI::TextureDesc& desc ) {
     return _graph.createTexture( name, desc );
 }
 
-RGResourceHandle RenderGraphBuilder::create( const std::string& name, const RHI::BufferDesc& desc ) {
+RGResourceHandle RenderGraphBuilder::create( StringView name, const RHI::BufferDesc& desc ) {
     return _graph.createBuffer( name, desc );
 }
 
-RGResourceHandle RenderGraphBuilder::import( const std::string& name, TextureHandle handle ) {
+RGResourceHandle RenderGraphBuilder::import( StringView name, TextureHandle handle ) {
     return _graph.importTexture( name, handle );
 }
 
-RGResourceHandle RenderGraphBuilder::import( const std::string& name, BufferHandle handle ) {
+RGResourceHandle RenderGraphBuilder::import( StringView name, BufferHandle handle ) {
     return _graph.importBuffer( name, handle );
 }
 
@@ -71,7 +71,7 @@ void RenderGraph::initialize( const SubsystemInitContext& ctx, const RenderGraph
 
     _frameMemory.resize( desc.passDataAllocSize );
 
-    for ( uint i = 0; i < desc.framesInFlight; ++i )
+    for ( u32 i = 0; i < desc.framesInFlight; ++i )
     {
 
         // Create Descriptor Heap
@@ -93,7 +93,7 @@ void RenderGraph::initialize( const SubsystemInitContext& ctx, const RenderGraph
         {
             // Create SBT Heap
             RHI::SBTAllocatorDesc sbtAllocDesc;
-            sbtAllocDesc.sizeInBytes = static_cast<uint>( desc.sbtAllocSize );
+            sbtAllocDesc.sizeInBytes = static_cast<u32>( desc.sbtAllocSize );
             sbtAllocDesc.debugName   = "RG_SBT_Allocator_Frame_" + std::to_string( i );
 
             _sbtAllocators.push_back( _device->createSBTAllocator( sbtAllocDesc ) );
@@ -288,8 +288,8 @@ void RenderGraph::compile() {
 
 // --- Helpers Internos ---
 
-uint RenderGraph::getCurrentPassIndex() const {
-    return (uint)_passes.size(); // La próxima a insertar
+u32 RenderGraph::getCurrentPassIndex() const {
+    return (u32)_passes.size(); // La próxima a insertar
 }
 
 void RenderGraph::runGC() {
@@ -321,14 +321,14 @@ void RenderGraph::runGC() {
         }
     }
 }
-void RenderGraph::registerPass( const std::string& name, std::function<void( RenderPassContext& )> executor ) {
+void RenderGraph::registerPass( StringView name, std::function<void( RenderPassContext& )> executor ) {
     RGPass pass;
     pass.name     = name;
     pass.executor = std::move( executor );
     _passes.push_back( std::move( pass ) );
 }
 
-void RenderGraph::registerDependency( uint passIndex, RGResourceHandle resource, RHI::ResourceState requiredState, bool isWrite ) {
+void RenderGraph::registerDependency( u32 passIndex, RGResourceHandle resource, RHI::ResourceState requiredState, bool isWrite ) {
     if ( passIndex < _passes.size() )
     {
         if ( isWrite )
@@ -364,12 +364,12 @@ RHI::ITexture* RenderGraph::getPhysicalTexture( RGResourceHandle handle ) const 
         return nullptr;
 }
 
-RHI::IDescriptorAllocator* RenderGraph::getDescriptorAllocator( uint frameIndex ) {
+RHI::IDescriptorAllocator* RenderGraph::getDescriptorAllocator( u32 frameIndex ) {
     AXION_LOG_ASSERT( frameIndex < _descriptorAllocators.size(), Logger::Module::RHI, "Trying to access null RG DescritporAllocator | Invalid frame number" );
     return _descriptorAllocators[frameIndex].get();
 }
 
-void RenderGraph::setGarbageCollectionTTL( uint frames ) {
+void RenderGraph::setGarbageCollectionTTL( u32 frames ) {
     _desc.resourceTTL = frames;
 }
 
@@ -377,7 +377,7 @@ void RenderGraph::setAutoSync( bool enable ) {
     _desc.autoSync = enable;
 }
 
-RGResourceHandle RenderGraph::createTexture( const std::string& name, const RHI::TextureDesc& desc ) {
+RGResourceHandle RenderGraph::createTexture( StringView name, const RHI::TextureDesc& desc ) {
     RenderGraph::RGResource res;
     res.name           = name;
     res.desc           = desc;
@@ -388,7 +388,7 @@ RGResourceHandle RenderGraph::createTexture( const std::string& name, const RHI:
     _resources.push_back( res );
     return (RGResourceHandle)( _resources.size() - 1 );
 }
-RGResourceHandle RenderGraph::createBuffer( const std::string& name, const RHI::BufferDesc& desc ) {
+RGResourceHandle RenderGraph::createBuffer( StringView name, const RHI::BufferDesc& desc ) {
     RenderGraph::RGResource res;
     res.name           = name;
     res.desc           = desc;
@@ -399,7 +399,7 @@ RGResourceHandle RenderGraph::createBuffer( const std::string& name, const RHI::
     _resources.push_back( res );
     return (RGResourceHandle)( _resources.size() - 1 );
 }
-RGResourceHandle RenderGraph::importTexture( const std::string& name, TextureHandle handle ) {
+RGResourceHandle RenderGraph::importTexture( StringView name, TextureHandle handle ) {
     RenderGraph::RGResource res;
     res.name           = name;
     res.isImported     = true;
@@ -409,7 +409,7 @@ RGResourceHandle RenderGraph::importTexture( const std::string& name, TextureHan
     _resources.push_back( res );
     return (RGResourceHandle)( _resources.size() - 1 );
 }
-RGResourceHandle RenderGraph::importBuffer( const std::string& name, BufferHandle handle ) {
+RGResourceHandle RenderGraph::importBuffer( StringView name, BufferHandle handle ) {
     RenderGraph::RGResource res;
     res.name           = name;
     res.isImported     = true;

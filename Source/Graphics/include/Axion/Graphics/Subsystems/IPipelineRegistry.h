@@ -29,23 +29,23 @@ public:
 
     /// @brief Starts the fluent construction of a Graphic Pipeline (Rasterization).
     /// @param name Unique debug name for the pipeline.
-    virtual GraphicBuilder graphic( const std::string& name ) = 0;
+    virtual GraphicBuilder graphic( StringView name ) = 0;
 
     /// @brief Starts the fluent construction of a Compute Pipeline.
     /// @param name Unique debug name for the pipeline.
-    virtual ComputeBuilder compute( const std::string& name ) = 0;
+    virtual ComputeBuilder compute( StringView name ) = 0;
 
     /// @brief Starts the fluent construction of a Raytracing Pipeline.
     /// @param name Unique debug name for the pipeline.
-    virtual RayTracingBuilder raytracing( const std::string& name ) = 0;
+    virtual RayTracingBuilder raytracing( StringView name ) = 0;
 
     /// @brief Starts the fluent construction of a Mesh Pipeline (for mesh shading).
     /// @param name Unique debug name for the pipeline.
-    virtual MeshBuilder mesh( const std::string& name ) = 0;
+    virtual MeshBuilder mesh( StringView name ) = 0;
 
     /// @brief Starts the fluent construction of a Pipeline Layout.
     /// @param name Unique debug name for the layout.
-    virtual LayoutBuilder layout( const std::string& name ) = 0;
+    virtual LayoutBuilder layout( StringView name ) = 0;
 
     // -------------------------------------------------------------------------
     // RUNTIME ACCESS
@@ -71,16 +71,16 @@ public:
     virtual RHI::IPipelineLayout* getLayout( PipelineLayoutHandle handle ) = 0;
 
     /// @brief Looks up a pipeline handle by its debug name.
-    virtual std::optional<PipelineHandle> findPipeline( const std::string& name ) const = 0;
+    virtual std::optional<PipelineHandle> findPipeline( StringView name ) const = 0;
 
     /// @brief Destroys the pipeline resource and frees the slot.
     virtual void destroyPipeline( PipelineHandle handle ) = 0;
 
     /// @brief Returns the total number of registered pipelines.
-    virtual uint size() const = 0;
+    virtual u32 size() const = 0;
 
     /// @brief Looks up a pipeline handle by its debug name.
-    virtual std::optional<PipelineLayoutHandle> findLayout( const std::string& name ) const = 0;
+    virtual std::optional<PipelineLayoutHandle> findLayout( StringView name ) const = 0;
 
     /// @brief Destroys the pipeline layout resource and frees the slot.
     virtual void destroyLayout( PipelineLayoutHandle handle ) = 0;
@@ -93,14 +93,14 @@ protected:
     IPipelineRegistry() = default;
 
     // Internal factory methods called by Builders
-    virtual PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, ShaderHandle shaderHandle )           = 0;
-    virtual PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, ShaderHandle shaderHandle )           = 0;
-    virtual PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, ShaderHandle shaderHandle )     = 0;
-    virtual PipelineHandle createMesh( RHI::MeshPipelineDesc& desc, ShaderHandle shaderHandle )                 = 0;
-    virtual PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, const std::string& shaderName )       = 0;
-    virtual PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, const std::string& shaderName )       = 0;
-    virtual PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, const std::string& shaderName ) = 0;
-    virtual PipelineHandle createMesh( RHI::MeshPipelineDesc& desc, const std::string& shaderName )             = 0;
+    virtual PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, ShaderHandle shaderHandle )       = 0;
+    virtual PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, ShaderHandle shaderHandle )       = 0;
+    virtual PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, ShaderHandle shaderHandle ) = 0;
+    virtual PipelineHandle createMesh( RHI::MeshPipelineDesc& desc, ShaderHandle shaderHandle )             = 0;
+    virtual PipelineHandle createGraphic( RHI::GraphicPipelineDesc& desc, StringView shaderName )           = 0;
+    virtual PipelineHandle createCompute( RHI::ComputePipelineDesc& desc, StringView shaderName )           = 0;
+    virtual PipelineHandle createRaytracing( RHI::RayTracingPipelineDesc& desc, StringView shaderName )     = 0;
+    virtual PipelineHandle createMesh( RHI::MeshPipelineDesc& desc, StringView shaderName )                 = 0;
 
     virtual PipelineLayoutHandle createLayout( const RHI::PipelineLayoutDesc& desc ) = 0;
 
@@ -120,9 +120,9 @@ protected:
 class IPipelineRegistry::GraphicBuilder
 {
 public:
-    GraphicBuilder( IPipelineRegistry& reg, std::string name )
+    GraphicBuilder( IPipelineRegistry& reg, StringView name )
         : _registry( reg ) {
-        _desc.debugName = std::move( name );
+        _desc.debugName = name;
         // Default sane state
         _desc.rasterizerState   = { FillMode::Solid, CullMode::Back };
         _desc.depthStencilState = { true, true, CompareOp::Less };
@@ -131,7 +131,7 @@ public:
 
     /// @brief Sets the Shader Bundle to use (VS + PS).
     /// Looks up the shader in ShaderRegistry by name.
-    GraphicBuilder& shader( const std::string& shaderName ) {
+    GraphicBuilder& shader( StringView shaderName ) {
         _shaderName = shaderName;
         return *this;
     }
@@ -210,7 +210,7 @@ public:
 private:
     IPipelineRegistry&       _registry;
     RHI::GraphicPipelineDesc _desc;
-    std::string              _shaderName;
+    StringView               _shaderName;
     ShaderHandle             _shaderHandle;
 };
 
@@ -222,14 +222,14 @@ private:
 class IPipelineRegistry::ComputeBuilder
 {
 public:
-    ComputeBuilder( IPipelineRegistry& reg, std::string name )
+    ComputeBuilder( IPipelineRegistry& reg, StringView name )
         : _registry( reg ) {
-        _desc.debugName = std::move( name );
+        _desc.debugName = name;
     }
 
     /// @brief Sets the Compute Shader to use.
     /// Looks up the shader in ShaderRegistry by name.
-    ComputeBuilder& shader( const std::string& shaderName ) {
+    ComputeBuilder& shader( StringView shaderName ) {
         _shaderName = shaderName;
         return *this;
     }
@@ -253,7 +253,7 @@ public:
 private:
     IPipelineRegistry&       _registry;
     RHI::ComputePipelineDesc _desc;
-    std::string              _shaderName;
+    StringView               _shaderName;
     ShaderHandle             _shaderHandle;
 };
 
@@ -264,16 +264,16 @@ private:
 class IPipelineRegistry::RayTracingBuilder
 {
 public:
-    RayTracingBuilder( IPipelineRegistry& reg, std::string name )
+    RayTracingBuilder( IPipelineRegistry& reg, StringView name )
         : _registry( reg ) {
-        _desc.debugName      = std::move( name );
+        _desc.debugName      = name;
         _desc.maxDepth       = 8;
         _desc.maxPayloadSize = 256;
     }
 
     /// @brief Sets the Raytracing Shader to use.
     /// Looks up the shader in ShaderRegistry by name.
-    RayTracingBuilder& shader( const std::string& shaderName ) {
+    RayTracingBuilder& shader( StringView shaderName ) {
         _shaderName = shaderName;
         return *this;
     }
@@ -286,20 +286,20 @@ public:
     }
 
     RayTracingBuilder& defineHitGroup(
-        const std::string& groupName,
-        const std::string& closestHitImport,
-        const std::string& anyHitImport       = "",
-        const std::string& intersectionImport = "" ) {
+        StringView groupName,
+        StringView closestHitImport,
+        StringView anyHitImport       = "",
+        StringView intersectionImport = "" ) {
         _desc.hitGroups.push_back( { groupName, closestHitImport, anyHitImport, intersectionImport } );
         return *this;
     }
 
-    RayTracingBuilder& setMaxDepth( uint depth ) {
+    RayTracingBuilder& setMaxDepth( u32 depth ) {
         _desc.maxDepth = depth;
         return *this;
     }
 
-    RayTracingBuilder& setPayloadSize( uint bytes ) {
+    RayTracingBuilder& setPayloadSize( u32 bytes ) {
         _desc.maxPayloadSize = bytes;
         return *this;
     }
@@ -317,7 +317,7 @@ public:
 private:
     IPipelineRegistry&          _registry;
     RHI::RayTracingPipelineDesc _desc;
-    std::string                 _shaderName;
+    StringView                  _shaderName;
     ShaderHandle                _shaderHandle;
 };
 
@@ -328,13 +328,13 @@ private:
 class IPipelineRegistry::LayoutBuilder
 {
 public:
-    LayoutBuilder( IPipelineRegistry& reg, std::string name )
+    LayoutBuilder( IPipelineRegistry& reg, StringView name )
         : _registry( reg ) {
-        _desc.debugName = std::move( name );
+        _desc.debugName = name;
     }
 
     /// @brief Defines a descriptor set (space) with a list of bindings.
-    LayoutBuilder& addSet( std::vector<RHI::DescriptorBinding> bindings ) {
+    LayoutBuilder& addSet( STLW::Vector<RHI::DescriptorBinding> bindings ) {
         RHI::DescriptorLayoutDesc set;
         set.bindings = std::move( bindings );
         _desc.sets.push_back( std::move( set ) );
@@ -342,7 +342,7 @@ public:
     }
 
     /// @brief Configures push constants / root constants.
-    LayoutBuilder& setPushConstants( uint sizeBytes, uint registerIdx = 0, uint space = 0, RHI::ShaderStage mask = RHI::ShaderStage::All ) {
+    LayoutBuilder& setPushConstants( u32 sizeBytes, u32 registerIdx = 0, u32 space = 0, RHI::ShaderStage mask = RHI::ShaderStage::All ) {
         _desc.pushConstant.size           = sizeBytes;
         _desc.pushConstant.customRegister = registerIdx;
         _desc.pushConstant.customSpace    = space;
@@ -372,9 +372,9 @@ private:
 class IPipelineRegistry::MeshBuilder
 {
 public:
-    MeshBuilder( IPipelineRegistry& reg, std::string name )
+    MeshBuilder( IPipelineRegistry& reg, StringView name )
         : _registry( reg ) {
-        _desc.debugName = std::move( name );
+        _desc.debugName = name;
         // Default sane state
         _desc.rasterizerState   = { FillMode::Solid, CullMode::Back };
         _desc.depthStencilState = { true, true, CompareOp::Less };
@@ -383,7 +383,7 @@ public:
 
     /// @brief Sets the Shader Bundle to use (MS + PS + optional AS).
     /// Looks up the shader in ShaderRegistry by name.
-    MeshBuilder& shader( const std::string& shaderName ) {
+    MeshBuilder& shader( StringView shaderName ) {
         _shaderName = shaderName;
         return *this;
     }
@@ -460,7 +460,7 @@ public:
 private:
     IPipelineRegistry&    _registry;
     RHI::MeshPipelineDesc _desc;
-    std::string           _shaderName;
+    StringView            _shaderName;
     ShaderHandle          _shaderHandle;
 };
 

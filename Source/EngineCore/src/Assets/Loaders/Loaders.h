@@ -9,12 +9,12 @@ namespace Core::Assets::Loaders {
 
 struct MeshData {
     std::vector<Vertex> vertices;
-    std::vector<uint>   indices;
+    std::vector<u32>   indices;
 };
 
 struct ImageData {
     Extent3D size;
-    uint     channels = 0;
+    u32     channels = 0;
     bool     isHDR    = false;
 
     TexturePixels    pixels;

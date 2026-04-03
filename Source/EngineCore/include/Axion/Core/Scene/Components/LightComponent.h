@@ -7,7 +7,7 @@ namespace Core::Scene {
 
 struct LightComponent {
 
-    enum class Type : uchar
+    enum class Type : byte
     {
         Directional = 0,
         Point       = 1,

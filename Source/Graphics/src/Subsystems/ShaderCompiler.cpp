@@ -41,7 +41,7 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
             break;
     }
     // --- Fill Slang import/include paths ---
-    std::filesystem::path shaderFilePath( desc.path );
+    std::filesystem::path shaderFilePath( static_cast<std::string>( desc.path ) );
     if ( !std::filesystem::exists( shaderFilePath ) )
     {
         AXION_LOG_ERROR( Logger::Module::Shader, "Shader file not found: {}", desc.path );
@@ -51,7 +51,7 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
     std::string shaderDir  = shaderFilePath.parent_path().string();
     std::string moduleName = shaderFilePath.stem().string();
 
-    std::vector<const char*> includePtrs;
+    STLW::Vector<const char*> includePtrs;
     includePtrs.reserve( desc.includePaths.size() + 1 );
 
     includePtrs.push_back( shaderDir.c_str() );
@@ -66,7 +66,7 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
 
     // ShaderCompiler.cpp
 
-    std::vector<slang::PreprocessorMacroDesc> macros;
+    STLW::Vector<slang::PreprocessorMacroDesc> macros;
 
     if ( desc.format == Shader::NativeFormat::DXIL )
     {
@@ -77,10 +77,10 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
         macros.push_back( { "__SPIRV__", "1" } );
     }
 
-    auto preprocessorDefines = desc.preprocessorDefines.value_or( std::vector<Shader::PreprocessorDefine>() );
+    auto preprocessorDefines = desc.preprocessorDefines.value_or( STLW::Vector<Shader::PreprocessorDefine>() );
     for ( auto& macro : preprocessorDefines )
     {
-        macros.push_back( { macro.name.c_str(), macro.value.c_str() } );
+        macros.push_back( { macro.name.cstr(), macro.value.cstr() } );
     }
 
     sessionDesc.preprocessorMacros     = macros.data();
@@ -103,8 +103,8 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
         return false;
     }
 
-    std::vector<Slang::ComPtr<slang::IEntryPoint>> entryPointsKeepAlive;
-    std::vector<slang::IComponentType*>            rawComponents;
+    STLW::Vector<Slang::ComPtr<slang::IEntryPoint>> entryPointsKeepAlive;
+    STLW::Vector<slang::IComponentType*>            rawComponents;
 
     rawComponents.reserve( desc.entryPoints.size() + 1 );
     rawComponents.push_back( module.get() );
@@ -118,7 +118,7 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
     for ( const auto& epDesc : desc.entryPoints )
     {
         Slang::ComPtr<slang::IEntryPoint> entryPoint;
-        module->findEntryPointByName( epDesc.name.c_str(), entryPoint.writeRef() );
+        module->findEntryPointByName( epDesc.name.cstr(), entryPoint.writeRef() );
 
         if ( !entryPoint )
         {
@@ -195,7 +195,7 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
         }
         SLANG_RETURN_ON_FAIL( result );
 
-        std::vector<uchar> bytecode( kernelBlob->getBufferSize() );
+        STLW::Vector<byte> bytecode( kernelBlob->getBufferSize() );
         std::memcpy( bytecode.data(), kernelBlob->getBufferPointer(), bytecode.size() );
 
         ShaderType type = desc.entryPoints[i].type;
@@ -313,8 +313,8 @@ Format ShaderCompiler::slangFormatToRHI( slang::TypeReflection* type ) {
 }
 
 void ShaderCompiler::reflectParameter(
-    slang::VariableLayoutReflection*                     varLayout,
-    std::map<uint, std::vector<RHI::DescriptorBinding>>& tempSets ) {
+    slang::VariableLayoutReflection*                       varLayout,
+    STLW::Map<u32, STLW::Vector<RHI::DescriptorBinding>>& tempSets ) {
     slang::TypeReflection*      type = varLayout->getType();
     slang::TypeReflection::Kind kind = type->getKind();
 
@@ -335,8 +335,8 @@ void ShaderCompiler::reflectParameter(
 
     if ( isResource )
     {
-        uint bindingIdx = (uint)varLayout->getBindingIndex();
-        uint spaceIdx   = (uint)varLayout->getBindingSpace();
+        u32 bindingIdx = (u32)varLayout->getBindingIndex();
+        u32 spaceIdx   = (u32)varLayout->getBindingSpace();
 
         // Si Slang dice "sin binding", lo ignoramos (o es un error del shader)
         if ( bindingIdx == -1 )
@@ -346,7 +346,7 @@ void ShaderCompiler::reflectParameter(
         bindingInfo.binding   = bindingIdx;
         bindingInfo.type      = slangTypeToRHI( type ); // Tu función de mapeo
         bindingInfo.stageMask = RHI::ShaderStage::All;  // Asumimos visibilidad total
-        bindingInfo.arraySize = (uint)type->getElementCount();
+        bindingInfo.arraySize = (u32)type->getElementCount();
         if ( bindingInfo.arraySize == 0 )
             bindingInfo.arraySize = 1;
 
@@ -393,18 +393,18 @@ void ShaderCompiler::reflectParameter(
         }
     }
 }
-void ShaderCompiler::extractReflection( const std::string& name, IComponentType* program, RHI::PipelineLayoutDesc& outDesc ) {
+void ShaderCompiler::extractReflection( StringView name, IComponentType* program, RHI::PipelineLayoutDesc& outDesc ) {
 
     outDesc.sets.clear();
     outDesc.pushConstant = {};
 
     slang::ProgramLayout* slangLayout = program->getLayout();
 
-    std::map<uint, std::vector<RHI::DescriptorBinding>> tempSets;
+    STLW::Map<u32, STLW::Vector<RHI::DescriptorBinding>> tempSets;
 
-    uint paramCount = slangLayout->getParameterCount();
+    u32 paramCount = slangLayout->getParameterCount();
 
-    for ( uint i = 0; i < paramCount; ++i )
+    for ( u32 i = 0; i < paramCount; ++i )
     {
         slang::VariableLayoutReflection* varLayout = slangLayout->getParameterByIndex( i );
         slang::TypeReflection*           type      = varLayout->getType();
@@ -429,7 +429,7 @@ void ShaderCompiler::extractReflection( const std::string& name, IComponentType*
             }
         }
 
-        std::string name = varLayout->getName();
+        StringView name = varLayout->getName();
         if ( name == "PushConstants" || name == "gPush" )
         {
             isPushConstant = true;
@@ -460,10 +460,10 @@ void ShaderCompiler::extractReflection( const std::string& name, IComponentType*
             if ( sizeBytes % 4 != 0 )
                 sizeBytes += ( 4 - ( sizeBytes % 4 ) );
 
-            outDesc.pushConstant.size           = (uint)sizeBytes;
+            outDesc.pushConstant.size           = (u32)sizeBytes;
             outDesc.pushConstant.stageMask      = RHI::ShaderStage::All;
-            uint assignedRegister               = varLayout->getBindingIndex();
-            uint assignedSpace                  = varLayout->getBindingSpace();
+            u32 assignedRegister               = varLayout->getBindingIndex();
+            u32 assignedSpace                  = varLayout->getBindingSpace();
             outDesc.pushConstant.customRegister = assignedRegister;
             outDesc.pushConstant.customSpace    = assignedSpace;
 
@@ -497,20 +497,20 @@ void ShaderCompiler::extractReflection( const std::string& name, IComponentType*
         }
 
         RHI::DescriptorBinding bindingInfo;
-        bindingInfo.binding   = (uint)bindingIdx;
+        bindingInfo.binding   = (u32)bindingIdx;
         bindingInfo.type      = slangTypeToRHI( type );
         bindingInfo.stageMask = RHI::ShaderStage::All;
 
-        bindingInfo.arraySize = (uint)type->getElementCount();
+        bindingInfo.arraySize = (u32)type->getElementCount();
         if ( bindingInfo.arraySize == 0 )
             bindingInfo.arraySize = 1;
 
-        tempSets[(uint)spaceIdx].push_back( bindingInfo );
+        tempSets[(u32)spaceIdx].push_back( bindingInfo );
     }
 
     if ( !tempSets.empty() )
     {
-        uint maxSet = tempSets.rbegin()->first;
+        u32 maxSet = tempSets.rbegin()->first;
         outDesc.sets.resize( maxSet + 1 );
 
         for ( auto& [setIdx, bindings] : tempSets )
@@ -519,19 +519,20 @@ void ShaderCompiler::extractReflection( const std::string& name, IComponentType*
         }
     }
 
-    outDesc.debugName = "Shader " + name + " AutoLayout";
+    outDesc.debugName = StringView( "Autolayout Shader " );
+    outDesc.debugName = outDesc.debugName + name;
 }
-void ShaderCompiler::extractVertexAttributes( slang::IComponentType* program, std::vector<RHI::VertexAttribute>& outAttribs ) {
+void ShaderCompiler::extractVertexAttributes( slang::IComponentType* program, STLW::Vector<RHI::VertexAttribute>& outAttribs ) {
     outAttribs.clear();
     slang::ProgramLayout* layout = program->getLayout();
 
-    for ( uint i = 0; i < layout->getEntryPointCount(); ++i )
+    for ( u32 i = 0; i < layout->getEntryPointCount(); ++i )
     {
         slang::EntryPointLayout* ep = layout->getEntryPointByIndex( i );
 
         if ( ep->getStage() == SLANG_STAGE_VERTEX )
         {
-            for ( uint j = 0; j < ep->getParameterCount(); ++j )
+            for ( u32 j = 0; j < ep->getParameterCount(); ++j )
             {
                 slang::VariableLayoutReflection* paramVar = ep->getParameterByIndex( j );
 
@@ -544,8 +545,8 @@ void ShaderCompiler::extractVertexAttributes( slang::IComponentType* program, st
                 // CASO A: El input es un Struct (lo normal: struct VSInput { ... })
                 if ( type->getKind() == slang::TypeReflection::Kind::Struct )
                 {
-                    uint fieldCount = type->getFieldCount();
-                    for ( uint k = 0; k < fieldCount; ++k )
+                    u32 fieldCount = type->getFieldCount();
+                    for ( u32 k = 0; k < fieldCount; ++k )
                     {
                         slang::VariableLayoutReflection* fieldVar = typeLayout->getFieldByIndex( k );
 
@@ -554,15 +555,15 @@ void ShaderCompiler::extractVertexAttributes( slang::IComponentType* program, st
                         if ( semanticName )
                         {
                             RHI::VertexAttribute attr;
-                            attr.semanticName  = semanticName;
-                            attr.semanticIndex = (uint)fieldVar->getSemanticIndex();
+                            attr.semanticName  = StringView( semanticName );
+                            attr.semanticIndex = (u32)fieldVar->getSemanticIndex();
 
                             // ¡OJO! Slang reporta offsets relativos dentro del struct.
                             // Pero para el InputLayout, queremos el Binding (Slot) del buffer.
                             // Slang suele asignar binding al parámetro padre ('input'), no a los campos.
                             // Asumimos que todo el struct viene del Slot 0 (VBO 0).
                             // Si soportas múltiples VBOs, necesitarías atributos custom o lógica extra.
-                            attr.inputSlot = (uint)paramVar->getBindingIndex();
+                            attr.inputSlot = (u32)paramVar->getBindingIndex();
 
                             // Offset dentro del vértice
                             // getOffset(SLANG_PARAMETER_CATEGORY_VARYING_INPUT)
@@ -582,9 +583,9 @@ void ShaderCompiler::extractVertexAttributes( slang::IComponentType* program, st
                     if ( semanticName )
                     {
                         RHI::VertexAttribute attr;
-                        attr.semanticName      = semanticName;
-                        attr.semanticIndex     = (uint)paramVar->getSemanticIndex();
-                        attr.inputSlot         = (uint)paramVar->getBindingIndex();
+                        attr.semanticName      = StringView( semanticName );
+                        attr.semanticIndex     = (u32)paramVar->getSemanticIndex();
+                        attr.inputSlot         = (u32)paramVar->getBindingIndex();
                         attr.alignedByteOffset = 0; // Es el único
                         attr.format            = slangFormatToRHI( type );
                         outAttribs.push_back( attr );

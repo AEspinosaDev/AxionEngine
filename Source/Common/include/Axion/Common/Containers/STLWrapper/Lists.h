@@ -18,7 +18,7 @@ public:
 
     explicit List( Memory::IAllocator* allocator )
         : Base( Memory::STLAdapter<T>( allocator ) ) {}
-    explicit List()
+    List()
         : Base( Memory::STLAdapter<T>( nullptr ) ) {}
 };
 
@@ -32,7 +32,7 @@ public:
 
     explicit Deque( Memory::IAllocator* allocator )
         : Base( Memory::STLAdapter<T>( allocator ) ) {}
-    explicit Deque()
+    Deque()
         : Base( Memory::STLAdapter<T>( nullptr ) ) {}
 };
 
@@ -44,7 +44,7 @@ public:
     using Base::Base;
     explicit Queue( Memory::IAllocator* allocator )
         : Base( Container( allocator ) ) {}
-    explicit Queue()
+    Queue()
         : Base( Container( nullptr ) ) {}
 };
 

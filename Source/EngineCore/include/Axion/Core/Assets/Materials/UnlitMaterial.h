@@ -13,7 +13,7 @@ public:
     struct alignas( 16 ) GPUPayload {
         Math::Vec3 color;
         float      emissivePower;
-        uint       textureIndex;
+        u32       textureIndex;
         float      overrideStrength;
         float      padding[2];
     };
@@ -55,7 +55,7 @@ public:
     [[nodiscard]] TextureHandle     getColorTexture() const { return _colorTextureHandle; }
     [[nodiscard]] float             getTextureOverrideStrength() const { return _textureOverrideStrength; }
 
-    uint getPayloadSize() const override {
+    u32 getPayloadSize() const override {
         return sizeof( GPUPayload );
     };
     void writePayload( void* dest, const TextureResolver& resolver ) const override {

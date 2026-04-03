@@ -39,7 +39,7 @@ void GPUScene::reset( float dt ) {
 
 void GPUScene::processInstances( const Scene::Scene& cpuScene, const MaterialLibrary& mtlLib, bool sort, bool transpose, bool forceRaytrace ) {
 
-    ulong instanceCount = cpuScene.getRegistry().view<Scene::MeshComponent>().size();
+    u64 instanceCount = cpuScene.getRegistry().view<Scene::MeshComponent>().size();
     _instances.reserve( instanceCount );
     if ( sort )
         _sortedKeys.reserve( instanceCount );
@@ -59,8 +59,8 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, const MaterialLib
         const auto& meshComp  = meshesView.get<Scene::MeshComponent>( entity );
         const auto& transComp = meshesView.get<Scene::TransformComponent>( entity );
 
-        uint gpuMeshID     = processMesh( assets, meshComp.mesh );
-        uint gpuMaterialID = processMaterial( assets, mtlLib, mtlDirtyLUT, meshComp.material );
+        u32 gpuMeshID     = processMesh( assets, meshComp.mesh );
+        u32 gpuMaterialID = processMaterial( assets, mtlLib, mtlDirtyLUT, meshComp.material );
 
         // --- INSTANCE DATA ---
         GPUInstance instance;
@@ -78,12 +78,12 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, const MaterialLib
 
         if ( sort )
         {
-            uint topology = (uint)_meshCache.cache[gpuMeshID].aabbMax_Topology.w;
-            uint archID   = _materialCache.cache[gpuMaterialID].archetypeID;
+            u32 topology = (u32)_meshCache.cache[gpuMeshID].aabbMax_Topology.w;
+            u32 archID   = _materialCache.cache[gpuMaterialID].archetypeID;
 
             SortKey key;
             key.key                 = makeSortKey( archID, topology, gpuMeshID );
-            key.originalInstanceIdx = (uint)_instances.size() - 1;
+            key.originalInstanceIdx = (u32)_instances.size() - 1;
 
             _sortedKeys.push_back( key );
         }
@@ -98,9 +98,9 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, const MaterialLib
 #pragma region Mesh
 #pragma endregion
 
-uint GPUScene::processMesh( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::MeshHandle& cpuMeshHandle ) {
-    uint cpuAssetID    = cpuMeshHandle.id;
-    uint gpuCacheIndex = 0;
+u32 GPUScene::processMesh( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::MeshHandle& cpuMeshHandle ) {
+    u32 cpuAssetID    = cpuMeshHandle.id;
+    u32 gpuCacheIndex = 0;
 
     // Safety check: if asset ID is larger than current LUT size (rare race condition), grow
     if ( cpuAssetID >= _meshCache.assetToCacheLUT.size() )
@@ -111,7 +111,7 @@ uint GPUScene::processMesh( const Axion::Core::Assets::AssetManager* assets, con
     if ( cachedIndex != -1 )
     {
         // A. ALREADY IN CACHE
-        gpuCacheIndex = (uint)cachedIndex;
+        gpuCacheIndex = (u32)cachedIndex;
     } else
     {
         // B. NEW ALLOCATION NEEDED
@@ -123,7 +123,7 @@ uint GPUScene::processMesh( const Axion::Core::Assets::AssetManager* assets, con
         } else
         {
             // Grow vector
-            gpuCacheIndex = (uint)_meshCache.cache.size();
+            gpuCacheIndex = (u32)_meshCache.cache.size();
             _meshCache.cache.emplace_back();
         }
 
@@ -165,12 +165,12 @@ uint GPUScene::processMesh( const Axion::Core::Assets::AssetManager* assets, con
 #pragma region Material
 #pragma endregion
 
-uint GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets,
+u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets,
                                 const MaterialLibrary&                     mtlLib,
-                                std::pair<const uchar*, size_t>&           dirtyLUT,
+                                std::pair<const byte*, size_t>&           dirtyLUT,
                                 const Axion::Core::Assets::MaterialHandle& cpuMtlHandle ) {
-    uint cpuAssetID    = cpuMtlHandle.id;
-    uint gpuCacheIndex = 0;
+    u32 cpuAssetID    = cpuMtlHandle.id;
+    u32 gpuCacheIndex = 0;
 
     if ( cpuAssetID >= _materialCache.assetToCacheLUT.size() )
         _materialCache.assetToCacheLUT.resize( cpuAssetID + 1, -1 );
@@ -180,7 +180,7 @@ uint GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   asset
     if ( cachedIndex != -1 )
     {
         // A. ALREADY IN CACHE
-        gpuCacheIndex = (uint)cachedIndex;
+        gpuCacheIndex = (u32)cachedIndex;
     } else
     {
         // B. NEW ALLOCATION NEEDED
@@ -192,7 +192,7 @@ uint GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   asset
         } else
         {
             // Grow vector
-            gpuCacheIndex = (uint)_materialCache.cache.size();
+            gpuCacheIndex = (u32)_materialCache.cache.size();
             _materialCache.cache.emplace_back();
         }
 
@@ -217,9 +217,9 @@ uint GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   asset
         auto& gpuMtl      = _materialCache.cache[gpuCacheIndex];
 
         gpuMtl.payloadSize = cpuMaterial->getPayloadSize();
-        gpuMtl.archetypeID = mtlLib.getArchetypeID( std::string( cpuMaterial->getArchetypeName() ) );
+        gpuMtl.archetypeID = mtlLib.getArchetypeID( cpuMaterial->getArchetypeName() );
 
-        Assets::Material::TextureResolver resolver = [&]( const Axion::Core::Assets::TextureHandle& h ) -> uint {
+        Assets::Material::TextureResolver resolver = [&]( const Axion::Core::Assets::TextureHandle& h ) -> u32 {
             return processTexture( assets, h );
         };
 
@@ -239,12 +239,12 @@ uint GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   asset
     return gpuCacheIndex;
 }
 
-uint GPUScene::processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle ) {
+u32 GPUScene::processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle ) {
     if ( !cpuHandle.isValid() )
         return 0xFFFFFFFF;
 
-    uint cpuAssetID    = cpuHandle.id;
-    uint gpuCacheIndex = 0;
+    u32 cpuAssetID    = cpuHandle.id;
+    u32 gpuCacheIndex = 0;
 
     if ( cpuAssetID >= _textureCache.assetToCacheLUT.size() )
         _textureCache.assetToCacheLUT.resize( cpuAssetID + 1, -1 );
@@ -254,7 +254,7 @@ uint GPUScene::processTexture( const Axion::Core::Assets::AssetManager* assets, 
     if ( cachedIndex != -1 )
     {
         // A. ALREADY IN CACHE
-        gpuCacheIndex = (uint)cachedIndex;
+        gpuCacheIndex = (u32)cachedIndex;
     } else
     {
         // B. NEW ALLOCATION NEEDED
@@ -264,7 +264,7 @@ uint GPUScene::processTexture( const Axion::Core::Assets::AssetManager* assets, 
             _textureCache.freeIndexQueue.pop();
         } else
         {
-            gpuCacheIndex = (uint)_textureCache.cache.size();
+            gpuCacheIndex = (u32)_textureCache.cache.size();
             _textureCache.cache.emplace_back();
         }
 
@@ -429,7 +429,7 @@ void GPUScene::processEnvironments( const Scene::Scene& cpuScene ) {
 #pragma endregion
 
 void GPUScene::runGC() {
-    for ( ulong i = 0; i < _meshCache.cache.size(); ++i )
+    for ( u64 i = 0; i < _meshCache.cache.size(); ++i )
     {
         auto& gpuMesh = _meshCache.cache[i];
 
@@ -437,15 +437,15 @@ void GPUScene::runGC() {
         {
             if ( _currentFrameIndex - gpuMesh.lastFrameUsed > _resourceTTL )
             {
-                static const uint VERTEX_STRIDE = sizeof( Assets::Vertex );
-                static const uint INDEX_STRIDE  = sizeof( uint );
+                static const u32 VERTEX_STRIDE = sizeof( Assets::Vertex );
+                static const u32 INDEX_STRIDE  = sizeof( u32 );
 
                 _pendingMeshReleases.push( {
                     gpuMesh.vertexOffset,
                     gpuMesh.vertexCount * VERTEX_STRIDE,
                     gpuMesh.indexOffset,
                     gpuMesh.indexCount * INDEX_STRIDE,
-                    (uint)i // Cache Slot Index
+                    (u32)i // Cache Slot Index
                 } );
 
                 if ( gpuMesh.originalAssetID < _meshCache.assetToCacheLUT.size() )
@@ -453,7 +453,7 @@ void GPUScene::runGC() {
                     _meshCache.assetToCacheLUT[gpuMesh.originalAssetID] = -1;
                 }
 
-                _meshCache.freeIndexQueue.push( (uint)i );
+                _meshCache.freeIndexQueue.push( (u32)i );
 
                 gpuMesh.valid        = false;
                 gpuMesh.vertexOffset = 0;
@@ -464,7 +464,7 @@ void GPUScene::runGC() {
             }
         }
     }
-    for ( ulong i = 0; i < _materialCache.cache.size(); ++i )
+    for ( u64 i = 0; i < _materialCache.cache.size(); ++i )
     {
         auto& gpuMat = _materialCache.cache[i];
 
@@ -473,7 +473,7 @@ void GPUScene::runGC() {
             _pendingMtlReleases.push( {
                 gpuMat.bufferOffset,
                 gpuMat.payloadSize,
-                (uint)i // Cache Slot Index
+                (u32)i // Cache Slot Index
             } );
 
             if ( gpuMat.originalAssetID < _materialCache.assetToCacheLUT.size() )
@@ -481,7 +481,7 @@ void GPUScene::runGC() {
                 _materialCache.assetToCacheLUT[gpuMat.originalAssetID] = -1;
             }
 
-            _materialCache.freeIndexQueue.push( (uint)i );
+            _materialCache.freeIndexQueue.push( (u32)i );
 
             gpuMat.valid        = false;
             gpuMat.bufferOffset = 0;

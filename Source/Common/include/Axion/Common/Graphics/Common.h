@@ -1,6 +1,7 @@
 #pragma once
 #include "Axion/Common/Common.h"
 #include "Axion/Common/Math.h"
+#include "Axion/Common/Containers/String.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -10,13 +11,13 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
 
-enum class API : uint
+enum class API : u32
 {
     DirectX12,
     Vulkan,
     Invalid
 };
-enum class PlatformType : uint
+enum class PlatformType : u32
 {
     Win32,
     GLFW,
@@ -24,20 +25,20 @@ enum class PlatformType : uint
     Invalid
 };
 
-enum class PresentMode : uint
+enum class PresentMode : u32
 {
     Immediate,
     Vsync
 };
 
-enum class BufferingType : uint
+enum class BufferingType : u32
 {
     Mono   = 1,
     Double = 2,
     Triple = 3,
 };
 
-enum class Format : uchar
+enum class Format : byte
 {
     UNKNOWN,
 
@@ -241,7 +242,7 @@ constexpr size_t getFormatBytes( Format format ) {
     }
 }
 
-enum class TextureDimension : uchar
+enum class TextureDimension : byte
 {
     Unknown,
     Texture1D,
@@ -273,7 +274,7 @@ enum class AddressMode
 struct ClearValue {
     Math::Vec4 color   = { 0.0, 0.0, 0.0, 1.0 }; // RGBA for RTV/UAV
     float      depth   = 1.0f;                   // depth for DSV
-    uchar      stencil = 0;                      // stencil for DSV
+    byte      stencil = 0;                      // stencil for DSV
 
     inline bool operator==( const ClearValue o ) const {
         return color == o.color && depth == o.depth && stencil == o.stencil;
@@ -283,7 +284,7 @@ struct ClearValue {
     }
 };
 
-enum class PrimitiveTopology : uchar
+enum class PrimitiveTopology : byte
 {
     Undefined = 0,
     PointList,
@@ -295,20 +296,20 @@ enum class PrimitiveTopology : uchar
     PatchList,
 };
 
-enum class FillMode : uchar
+enum class FillMode : byte
 {
     Solid     = 0,
     Wireframe = 1
 };
 
-enum class CullMode : uchar
+enum class CullMode : byte
 {
     None  = 0,
     Front = 1,
     Back  = 2
 };
 
-enum class CompareOp : uchar
+enum class CompareOp : byte
 {
     Never        = 0,
     Less         = 1,
@@ -320,7 +321,7 @@ enum class CompareOp : uchar
     Always       = 7
 };
 
-enum class BlendFactor : uchar
+enum class BlendFactor : byte
 {
     Zero = 0,
     One,
@@ -339,7 +340,7 @@ enum class BlendFactor : uchar
     SrcAlphaSaturate
 };
 
-enum class BlendOp : uchar
+enum class BlendOp : byte
 {
     Add = 0,
     Subtract,
@@ -349,7 +350,7 @@ enum class BlendOp : uchar
 };
 
 // View type flags (bitmask)
-enum TextureViewFlags : uint
+enum TextureViewFlags : u32
 {
     TextureViewNone            = 0,
     TextureViewShaderResource  = 1 << 0, // SRV in DX12, VK_IMAGE_VIEW_TYPE_*
@@ -360,7 +361,7 @@ enum TextureViewFlags : uint
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( TextureViewFlags )
 
-enum BufferViewFlags : uint
+enum BufferViewFlags : u32
 {
     BufferViewNone            = 0,
     BufferViewShaderResource  = 1 << 0, // SRV / VK_DESCRIPTOR_TYPE_STORAGE_BUFFER/UNIFORM_TEXEL
@@ -370,7 +371,7 @@ enum BufferViewFlags : uint
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( BufferViewFlags )
 
-enum class MemoryUsage : uint
+enum class MemoryUsage : u32
 {
     Unknown    = 0,
     CPUVisible = 1 << 0, // Upload / staging
@@ -379,7 +380,7 @@ enum class MemoryUsage : uint
 };
 AXION_ENUM_CLASS_FLAG_OPERATORS( MemoryUsage )
 
-enum class BufferUsage : uint
+enum class BufferUsage : u32
 {
     None                  = 0,
     Vertex                = 1 << 0,
@@ -401,7 +402,7 @@ enum class GCMode
     HighMemory = 360  ///< Relaxed cleanup (5s), reduces allocation spikes.
 };
 
-enum class ShaderType : ushort
+enum class ShaderType : u16
 {
     None = 0x0000,
 
@@ -432,13 +433,13 @@ AXION_ENUM_CLASS_FLAG_OPERATORS( ShaderType )
 namespace Shader {
 
 struct EntryPoint {
-    std::string name; // Eg: "vsMain"
-    ShaderType  type;
+    String32   name; // Eg: "vsMain"
+    ShaderType type;
 };
 
 struct PreprocessorDefine {
-    std::string name;
-    std::string value;
+    String64 name;
+    String32 value;
 };
 
 } // namespace Shader
