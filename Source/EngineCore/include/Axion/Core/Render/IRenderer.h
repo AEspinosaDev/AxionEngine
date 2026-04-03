@@ -16,7 +16,7 @@ struct CommonSettings {
     Graphics::BufferingType bufferingType    = Graphics::BufferingType::Double;
     Graphics::Format        backbufferFormat = Graphics::Format::RGBA8_UNORM;
     Graphics::GCMode        GCMode           = Graphics::GCMode::AvgMemory;
-    u32                    selectedDeviceID = UINT32_MAX;
+    u32                     selectedDeviceID = UINT32_MAX;
 
     u32 maxMtlTextures = 8192;
     u32 maxMtlSamplers = 128;
@@ -36,9 +36,9 @@ struct MemoryBudget {
     u64 uploadBufferSize      = 128 * 1024 * 1024; ///< Initial memory reservation for per-frame transient upload buffer -for texture/accel/data streaming- (128MB default)
     u64 GPUCommandBuffersSize = 1024 * 1024;       ///< Initial memory reservation for per-frame Shader Binding Tables and Indirect Commands data (1MB default).
     u64 RGAllocSize           = 1024 * 1024;       ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
-    u32  RGDescriptorsPerFrame = 2048;              ///< Initial memory reservation for per-frame DescriptorSet data.
-    u32  RGMaxViewsPerFrame    = 8192 + 256;        ///< Initial view count reservation for per-frame Descriptor Pools.
-    u32  RGMaxSamplersPerFrame = 128 + 4;           ///< Initial sampler count reservation for per-frame Descriptor Pools.
+    u32 RGDescriptorsPerFrame = 2048;              ///< Initial memory reservation for per-frame DescriptorSet data.
+    u32 RGMaxViewsPerFrame    = 8192 + 256;        ///< Initial view count reservation for per-frame Descriptor Pools.
+    u32 RGMaxSamplersPerFrame = 128 + 4;           ///< Initial sampler count reservation for per-frame Descriptor Pools.
 };
 
 class IRenderer
@@ -46,7 +46,7 @@ class IRenderer
 public:
     virtual ~IRenderer() = default;
 
-    virtual void compileShaders( u32 threadCount = 1 )                                                   = 0;
+    virtual void compileShaders( u32 threadCount = 1 )                                                    = 0;
     virtual void render( const Scene::Scene& scene, Scene::Entity& cameraEntity, float deltaTime = 0.0f ) = 0;
     virtual void shutdown()                                                                               = 0;
 
@@ -55,8 +55,8 @@ public:
     virtual CommonSettings getCommonSettings() const = 0;
     virtual MemoryBudget   getMemoryBudget() const   = 0;
 
-    virtual u64      getCurrentFrameIndex() const   = 0;
-    virtual u64      getTotalFrameNumber() const    = 0;
+    virtual u64       getCurrentFrameIndex() const   = 0;
+    virtual u64       getTotalFrameNumber() const    = 0;
     virtual const u32 getTotalFramesInFlight() const = 0;
 
     virtual STLW::String toString() const = 0;

@@ -6,20 +6,21 @@
 #include "Axion/Core/Render/IRasterizer.h"
 #include "Axion/Core/Scene/Entity.h"
 #include "Axion/Core/Scene/Scene.h"
+#include <map>
 #include <random>
 #include <vector>
-#include <map>
+
 
 USING_AXION_NAMESPACE
 
 // Helper para gestionar el input de forma más cómoda
 struct InputState {
     std::map<Event::KeyCode, bool> keys;
-    bool rightMousePressed = false;
-    float lastMouseX = 0.0f;
-    float lastMouseY = 0.0f;
-    float yaw = 0.0f;
-    float pitch = 0.0f;
+    bool                           rightMousePressed = false;
+    float                          lastMouseX        = 0.0f;
+    float                          lastMouseY        = 0.0f;
+    float                          yaw               = 0.0f;
+    float                          pitch             = 0.0f;
 };
 
 int main( /*int argc, char* argv[]*/ ) {
@@ -30,27 +31,26 @@ int main( /*int argc, char* argv[]*/ ) {
         Logger::init( Logger::Level::Info, "CoreInitializationTest.log" );
 #endif
 
-        Core::Platform::Window wnd( {
-            .platformType = Graphics::PlatformType::Win32,
-            .name         = "100K Instances - Free Camera Test",
+        Core::Platform::Window     wnd( {
+                .platformType = Graphics::PlatformType::Win32,
+                .name         = "100K Instances - Free Camera Test",
         } );
         Core::Assets::AssetManager assets;
         Core::Scene::Scene         scene( "TestScene", &assets );
 
         Core::Render::RasterizerSettings rastDesc {};
-        rastDesc.useGPUCulling             = true;
-        rastDesc.common.name               = "TestRasterizer";
-        rastDesc.common.selectedDeviceID   = 0;
+        rastDesc.useGPUCulling           = true;
+        rastDesc.common.name             = "TestRasterizer";
+        rastDesc.common.selectedDeviceID = 0;
         rastDesc.common.flags |= Core::Render::RendererEnableFXAA;
         rastDesc.memory.volatileBufferSize = 1024 * 1024 * 64;
 
         auto rasterizer = Core::Render::createRasterizer( &wnd, rastDesc );
         rasterizer->compileShaders();
 
-        // 1. ASSETS & MATERIALS 
+        // 1. ASSETS & MATERIALS
         auto cubeHandle   = assets.mesh( "Cube" ).createCube();
         auto sphereHandle = assets.mesh( "Sphere" ).createSphere();
-        
 
         auto matGoldH = assets.material( "Gold" ).create<Core::Assets::StandardPBRMaterial>();
         auto matGold  = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matGoldH );
@@ -73,19 +73,19 @@ int main( /*int argc, char* argv[]*/ ) {
         // 2. LIGHTING
         auto envEntity = scene.createEntity( "GlobalVolume" );
         envEntity.addComponent<Core::Scene::EnvironmentComponent>();
-        auto& env = envEntity.getComponent<Core::Scene::EnvironmentComponent>();
+        auto& env       = envEntity.getComponent<Core::Scene::EnvironmentComponent>();
         env.skyColor    = { 0.5f, 0.7f, 1.0f };
         env.groundColor = { 0.2f, 0.2f, 0.25f };
         env.intensity   = 1.0f;
 
         auto sunEntity = scene.createEntity( "Sun" );
         sunEntity.addComponent<Core::Scene::LightComponent>();
-        auto& sunComp = sunEntity.getComponent<Core::Scene::LightComponent>();
-        sunComp.type           = Core::Scene::LightComponent::Type::Directional;
-        sunComp.intensity      = 10.0f; 
-        sunComp.color          = { 1.0f, 0.95f, 0.9f };
-        sunComp.useTemperature = false;
-        
+        auto& sunComp          = sunEntity.getComponent<Core::Scene::LightComponent>();
+        sunComp.setType( Core::Scene::LightComponent::Type::Directional );
+        sunComp.setIntensity( 10.0f );
+        sunComp.setColor( { 1.0f, 0.95f, 0.9f } );
+        sunComp.setUseTemperature( false );
+
         auto& sunTrans = sunEntity.getComponent<Core::Scene::TransformComponent>();
         sunTrans.lookAt( { 1.0f, -1.0f, 0.5f } );
 
@@ -105,26 +105,26 @@ int main( /*int argc, char* argv[]*/ ) {
         float offset   = ( gridSize * spacing ) * 0.5f;
 
         u32 counter = 0;
-        for ( int x = 0; x < gridSize; ++x ) {
-            for ( int y = 0; y < gridSize; ++y ) {
-                for ( int z = 0; z < gridSize; ++z ) {
+        for ( int x = 0; x < gridSize; ++x )
+        {
+            for ( int y = 0; y < gridSize; ++y )
+            {
+                for ( int z = 0; z < gridSize; ++z )
+                {
                     auto entity = scene.createEntity( "GridObj" + std::to_string( counter++ ) );
-                    
-                    entity.addComponent<Core::Scene::MeshComponent>( 
-                        meshPool[meshDist( gen )], 
-                        matPool[matDist( gen )] 
-                    );
+
+                    entity.addComponent<Core::Scene::MeshComponent>(
+                        meshPool[meshDist( gen )],
+                        matPool[matDist( gen )] );
 
                     auto& transform = entity.getComponent<Core::Scene::TransformComponent>();
-                    transform.translation = { 
-                        ( x * spacing ) - offset, 
-                        ( y * spacing ) - offset, 
-                        ( z * spacing ) - offset 
-                    };
+                    transform.setTranslation( { ( x * spacing ) - offset,
+                                                ( y * spacing ) - offset,
+                                                ( z * spacing ) - offset } );
 
                     transform.rotate( { Math::radians( rotDist( gen ) ), Math::radians( rotDist( gen ) ), 0.0f } );
                     float s = scaleDist( gen );
-                    transform.scale = { s, s, s };
+                    transform.setScale( { s, s, s } );
                 }
             }
         }
@@ -133,71 +133,73 @@ int main( /*int argc, char* argv[]*/ ) {
         // -------------------------------------------------------------------------
         auto cameraEntity = scene.createEntity( "MainCamera" );
         cameraEntity.addComponent<Core::Scene::CameraComponent>();
-        
+
         auto& camTrans = cameraEntity.getComponent<Core::Scene::TransformComponent>();
-        camTrans.position( { 0.0f, 0.0f, 100.0f } ); 
+        camTrans.position( { 0.0f, 0.0f, 100.0f } );
         camTrans.lookAt( { 0.0f, 0.0f, 0.0f } );
 
-        cameraEntity.getComponent<Core::Scene::CameraComponent>().exposureCompensation = 8.5f;
+        cameraEntity.getComponent<Core::Scene::CameraComponent>().setExposureCompensation( 8.5f );
 
         InputState input;
-        
+
         auto keySub = wnd.onKey().subscribe( [&]( const Event::KeyEvent& e ) {
             input.keys[e.keyCode] = e.pressed;
-        });
+        } );
 
         auto mouseBtnSub = wnd.onMouseButton().subscribe( [&]( const Event::MouseButtonEvent& e ) {
-            if (e.button == 1) {
+            if ( e.button == 1 )
+            {
                 input.rightMousePressed = e.pressed;
-                if(e.pressed) {
-                } else {
+                if ( e.pressed )
+                {
+                } else
+                {
                 }
             }
-        });
+        } );
 
         // Ratón (Movimiento)
         auto mouseMoveSub = wnd.onMouseMove().subscribe( [&]( const Event::MouseMoveEvent& e ) {
-            if (input.rightMousePressed) {
+            if ( input.rightMousePressed )
+            {
                 float sensitivity = 0.002f;
-                float deltaX = e.x - input.lastMouseX;
-                float deltaY = e.y - input.lastMouseY;
+                float deltaX      = e.x - input.lastMouseX;
+                float deltaY      = e.y - input.lastMouseY;
 
-                input.yaw   -= deltaX * sensitivity;
+                input.yaw -= deltaX * sensitivity;
                 input.pitch -= deltaY * sensitivity;
 
                 input.pitch = std::max( -1.5f, std::min( 1.5f, input.pitch ) );
             }
             input.lastMouseX = (float)e.x;
             input.lastMouseY = (float)e.y;
-        });
-
+        } );
 
         // BUCLE PRINCIPAL
         static auto startTime = std::chrono::high_resolution_clock::now();
         while ( !wnd.shouldClose() )
         {
-            static uint64_t frameCounter = 0;
-            static double   elapsedSeconds = 0.0;
+            static uint64_t                           frameCounter   = 0;
+            static double                             elapsedSeconds = 0.0;
             static std::chrono::high_resolution_clock clock;
-            static auto t0 = clock.now();
+            static auto                               t0 = clock.now();
 
             frameCounter++;
-            auto t1 = clock.now();
+            auto t1        = clock.now();
             auto deltaTime = t1 - t0;
-            t0 = t1;
-            
-            float dt = std::chrono::duration<float>(deltaTime).count();
+            t0             = t1;
+
+            float dt = std::chrono::duration<float>( deltaTime ).count();
 
             elapsedSeconds += dt;
-         if ( elapsedSeconds > 1.0 )
+            if ( elapsedSeconds > 1.0 )
             {
                 double fps = frameCounter / elapsedSeconds;
-                
-                wchar_t buffer[256];
-                swprintf_s( buffer, 256, L"Axion Engine | Objects: %d | FPS: %.2f | GPU: MDI Active", 
-                            gridSize * gridSize * gridSize, fps );
 
-                OutputDebugStringW( buffer ); 
+                wchar_t buffer[256];
+                swprintf_s( buffer, 256, L"Axion Engine | Objects: %d | FPS: %.2f | GPU: MDI Active", gridSize * gridSize * gridSize, fps );
+
+                OutputDebugStringW( buffer );
                 OutputDebugStringW( L"\n" );
 
                 frameCounter   = 0;
@@ -205,27 +207,35 @@ int main( /*int argc, char* argv[]*/ ) {
             }
 
             float speed = 20.0f * dt; // Unidades por segundo
-            if (input.keys[Event::KeyCode::Shift]) speed *= 4.0f; // Turbo con Shift
+            if ( input.keys[Event::KeyCode::Shift] )
+                speed *= 4.0f; // Turbo con Shift
 
-            Math::Vec3 forward = camTrans.forward(); 
+            Math::Vec3 forward = camTrans.forward();
             Math::Vec3 right   = camTrans.right();
-            Math::Vec3 up      = {0.0f, 1.0f, 0.0f}; // Global UP para movimiento más natural
+            Math::Vec3 up      = { 0.0f, 1.0f, 0.0f }; // Global UP para movimiento más natural
 
-            Math::Vec3 movement = {0.0f, 0.0f, 0.0f};
+            Math::Vec3 movement = { 0.0f, 0.0f, 0.0f };
 
-            if (input.keys[Event::KeyCode::W]) movement += forward;
-            if (input.keys[Event::KeyCode::S]) movement -= forward;
-            if (input.keys[Event::KeyCode::D]) movement += right;
-            if (input.keys[Event::KeyCode::A]) movement -= right;
-            if (input.keys[Event::KeyCode::Q]) movement += up;   // Subir
-            if (input.keys[Event::KeyCode::E]) movement -= up;   // Bajar
+            if ( input.keys[Event::KeyCode::W] )
+                movement += forward;
+            if ( input.keys[Event::KeyCode::S] )
+                movement -= forward;
+            if ( input.keys[Event::KeyCode::D] )
+                movement += right;
+            if ( input.keys[Event::KeyCode::A] )
+                movement -= right;
+            if ( input.keys[Event::KeyCode::Q] )
+                movement += up; // Subir
+            if ( input.keys[Event::KeyCode::E] )
+                movement -= up; // Bajar
 
-            if (Math::length(movement) > 0.0f) {
-                movement = Math::normalize(movement) * speed;
-                camTrans.translation += movement;
+            if ( Math::length( movement ) > 0.0f )
+            {
+                movement = Math::normalize( movement ) * speed;
+                camTrans.translate( movement );
             }
 
-            camTrans.rotate ( { input.pitch, input.yaw, 0.0f }); // Roll siempre 0
+            camTrans.rotate( { input.pitch, input.yaw, 0.0f } ); // Roll siempre 0
 
             wnd.update();
             rasterizer->render( scene, cameraEntity );

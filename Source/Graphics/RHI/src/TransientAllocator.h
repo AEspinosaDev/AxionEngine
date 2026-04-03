@@ -10,9 +10,9 @@ public:
     TransientAllocator( IDevice* device, const Description& desc );
     ~TransientAllocator();
 
-    BufferView allocateScratch( u64 size, u64 alignment ) override;
-    BufferView allocateUpload( u64 size, u64 alignment ) override;
-    void       reset() override;
+    BufferSlice allocateScratch( u64 size, u64 alignment ) override;
+    BufferSlice allocateUpload( u64 size, u64 alignment ) override;
+    void        reset() override;
 
     const Description& getDescription() const override { return _desc; }
 
@@ -24,11 +24,11 @@ public:
 private:
     Description _desc;
 
-    BufferOwnerPtr  _scratchBuffer;
-    LinearAllocator _scratchAllocator;
+    BufferOwnerPtr          _scratchBuffer;
+    BufferLinearAllocator<> _scratchAllocator;
 
-    BufferOwnerPtr  _uploadBuffer;
-    LinearAllocator _uploadAllocator;
+    BufferOwnerPtr          _uploadBuffer;
+    BufferLinearAllocator<> _uploadAllocator;
 };
 
 } // namespace Graphics::RHI

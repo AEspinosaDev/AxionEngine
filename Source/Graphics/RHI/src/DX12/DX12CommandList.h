@@ -43,7 +43,7 @@ public:
 
     void dispatch( const Extent3D& gridSize ) override;
     void dispatchMesh( const Extent3D& gridSize ) override;
-    void dispatchRays( const SBT::View& sbtView, const Extent3D& screenSize ) override;
+    void dispatchRays( const SBT::Allocation& sbtView, const Extent3D& screenSize ) override;
 
     void beginRendering( const RenderingDesc& info ) override;
     void endRendering() override;

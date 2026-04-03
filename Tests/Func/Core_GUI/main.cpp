@@ -58,7 +58,7 @@ int main( /*int argc, char* argv[]*/ ) {
         cameraEntity.addComponent<Core::Scene::CameraComponent>();
         cameraEntity.getComponent<Core::Scene::TransformComponent>().position( { 0.0f, 0.0f, 5.0f } );
         cameraEntity.getComponent<Core::Scene::TransformComponent>().lookAt( { 0.0f, 0.0f, 0.0f } );
-        cameraEntity.getComponent<Core::Scene::CameraComponent>().exposureCompensation = 5.0f;
+        cameraEntity.getComponent<Core::Scene::CameraComponent>().setExposureCompensation( 5.0f );
 
         auto sphereEntity = scene.createEntity( "Sphere" );
         sphereEntity.addComponent<Core::Scene::MeshComponent>( sphereHandle, matRedPlasticH );
@@ -72,22 +72,22 @@ int main( /*int argc, char* argv[]*/ ) {
         auto envEntity = scene.createEntity( "GlobalEnvironment" );
         envEntity.addComponent<Core::Scene::EnvironmentComponent>();
         auto& env       = envEntity.getComponent<Core::Scene::EnvironmentComponent>();
-        env.active      = true;
-        env.type        = Core::Scene::EnvironmentComponent::Type::Global;
-        env.skyType     = Core::Scene::EnvironmentComponent::SkyType::Constant;
-        env.skyColor    = { 0.1f, 0.1f, 0.5f };
-        env.groundColor = { 0.2f, 0.2f, 0.2f };
-        env.intensity   = 1.0f;
+        env.setActive( true );
+        env.setSkyType( Core::Scene::EnvironmentComponent::SkyType::Constant );
+        env.setSkyColor( { 0.1f, 0.1f, 0.5f } );
+        env.setGroundColor( { 0.2f, 0.2f, 0.2f } );
+        env.setIntensity( 1.0f );
+        
 
         // B. Directional Light (Moon / Key Light)
         auto sunEntity = scene.createEntity( "MoonLight" );
         sunEntity.addComponent<Core::Scene::LightComponent>();
         auto& sun          = sunEntity.getComponent<Core::Scene::LightComponent>();
-        sun.type           = Core::Scene::LightComponent::Type::Directional;
-        sun.intensity      = 50.0f;                // Lux (adjusted to avoid burnout without tonemapping)
-        sun.color          = { 0.8f, 0.9f, 1.0f }; // Cold Blueish White
-        sun.useTemperature = true;
-        sun.temperature    = 8000.0f;
+        sun.setType( Core::Scene::LightComponent::Type::Directional );
+        sun.setIntensity( 50.0f );                // Lux (adjusted to avoid burnout without tonemapping)
+        sun.setColor( { 0.8f, 0.9f, 1.0f } ); // Cold Blueish White
+        sun.setUseTemperature( true );
+        sun.setTemperature( 8000.0f );
         sunEntity.getComponent<Core::Scene::TransformComponent>().lookAt( { 1.0f, -1.0f, -0.5f } ); // Coming from top-left
 
         // Main Loop

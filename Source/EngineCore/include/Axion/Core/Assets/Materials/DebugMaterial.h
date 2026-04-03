@@ -27,13 +27,13 @@ public:
         std::memcpy( dest, &tempPacket, sizeof( GPUPayload ) );
     }
 
-    std::vector<TextureHandle> getTextureHandles() const override { return {}; };
+    STLW::Vector<TextureHandle> getTextureHandles() const override { return {}; };
 
 private:
     friend class AssetManager;
 
-    explicit DebugMaterial( std::string name )
-        : Material( std::move( name ) ) {}
+    explicit DebugMaterial( StringView name )
+        : Material(  name  ) {}
 };
 
 } // namespace Core::Assets

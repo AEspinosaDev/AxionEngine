@@ -68,7 +68,7 @@ public:
 
     const BufferDesc&     getDescription() const override { return _desc; }
     void                  copyData( const void* data, u64 size, u64 offset = 0 ) override;
-    void*                 getData() const override;
+    void*                 getHostAddress() const override;
     NativeObject          getNativeObject( ObjectType objectType ) override;
     ResourceState         getCurrentState() const override { return _stateTracker.getCurrentState(); }
     ResourceStateTracker& stateTracker() { return _stateTracker; };

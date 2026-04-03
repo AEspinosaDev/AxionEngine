@@ -89,7 +89,7 @@ public:
     virtual TextureHandle getCurrentBackbufferHandle() const = 0;
 
     /// @brief Returns current frame index.
-    virtual u64 getCurrentFrameIndex() const = 0;
+    virtual u32 getCurrentFrameIndex() const = 0;
 
     /// @brief Returns frames in flight.
     virtual const u32 getTotalFramesInFlight() const = 0;

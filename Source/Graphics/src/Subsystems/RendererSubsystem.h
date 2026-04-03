@@ -14,7 +14,9 @@ struct SubsystemInitContext {
     IGPUResourcePool*  pool      = nullptr;
     IPipelineRegistry* pipelines = nullptr;
     IShaderRegistry*   shaderReg = nullptr;
-    //Add slab allocator here
+    // Add slab allocator here
+
+    // Add linear allocator here
 };
 
 class RendererSubsystem

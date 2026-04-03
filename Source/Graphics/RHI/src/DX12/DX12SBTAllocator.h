@@ -13,7 +13,7 @@ public:
     DX12SBTAllocator( const SBTAllocatorDesc& desc, DX12Device::Context& ctx );
     ~DX12SBTAllocator();
 
-    SBT::View allocate( const ShaderBindingTable& sbt, IRayTracingPipeline* pip ) override;
+    SBT::Allocation allocate( const ShaderBindingTable& sbt, IRayTracingPipeline* pip ) override;
     void      reset() override;
 
     const Description& getDescription() const override { return _desc; }
@@ -26,7 +26,7 @@ private:
     SBTAllocatorDesc _desc;
 
     Memory::OwnerPtr<DX12Buffer> _buffer = nullptr;
-    LinearAllocator              _allocator;
+    BufferLinearAllocator<>      _allocator;
 };
 
 } // namespace Graphics::RHI

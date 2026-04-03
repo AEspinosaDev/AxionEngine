@@ -76,13 +76,13 @@ public:
         std::memcpy( dest, &tempPacket, sizeof( GPUPayload ) );
     }
 
-    std::vector<TextureHandle> getTextureHandles() const override { return { _colorTextureHandle }; };
+    STLW::Vector<TextureHandle> getTextureHandles() const override { return { _colorTextureHandle }; };
 
 private:
     friend class AssetManager;
 
-    explicit UnlitMaterial( std::string name )
-        : Material( std::move( name ) ) {}
+    explicit UnlitMaterial( StringView name )
+        : Material(  name  ) {}
 
     float         _emissivePower           = 1.0f;
     Math::Vec3    _color                   = { 1.0f, 1.0f, 1.0f };

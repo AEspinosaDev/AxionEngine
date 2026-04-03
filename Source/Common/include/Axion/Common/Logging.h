@@ -169,6 +169,7 @@ AXION_NAMESPACE_END
         if ( !( cond ) )                                   \
         {                                                  \
             AXION_LOG_ERROR( module, msg, ##__VA_ARGS__ ); \
+            AXION_DEBUG_BREAK();                            \
             Axion::Logger::flush();                        \
             std::abort();                                  \
         }                                                  \

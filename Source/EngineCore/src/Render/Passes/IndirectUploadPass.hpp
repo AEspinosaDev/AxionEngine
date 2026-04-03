@@ -10,7 +10,7 @@ class IndirectUploadPass : public IRenderPass
 {
 public:
     struct Config {
-        IndirectCommandData        indirectData;
+        IndirectCommandPayload        indirectData;
         Graphics::RGResourceHandle inOutIndirectBufferHandle;
         Graphics::BufferHandle     inOutIndirectTemplateBufferHandle;
     };
@@ -41,8 +41,8 @@ private:
             cmd->barrier( templateBuffer, Graphics::RHI::ResourceState::CopyDest );
 
             cmd->copyBuffer( templateBuffer,
-                             data.indirectData.commandBufferView.buffer,
-                             data.indirectData.commandBufferView.size,
+                             data.indirectData.commandBufferSlice.container,
+                             data.indirectData.commandBufferSlice.size,
                              0,
                              0,
                              Graphics::RHI::BarrierPolicy::None );
@@ -53,8 +53,8 @@ private:
         // Fast
         // GPU -> GPU
         cmd->copyBuffer( activeBuffer,
-                         data.indirectData.commandBufferView.buffer,
-                         data.indirectData.commandBufferView.size,
+                         data.indirectData.commandBufferSlice.container,
+                         data.indirectData.commandBufferSlice.size,
                          0,
                          0,
                          Graphics::RHI::BarrierPolicy::None );

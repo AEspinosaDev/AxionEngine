@@ -122,7 +122,7 @@ public:
     virtual void dispatch( const Extent3D& gridSize ) = 0;
 
     /// @brief Dispatches a Ray Tracing grid.
-    virtual void dispatchRays( const SBT::View& sbtView, const Extent3D& screenSize ) = 0;
+    virtual void dispatchRays( const SBT::Allocation& sbtView, const Extent3D& screenSize ) = 0;
 
     /// @brief Dispatches a Mesh grid (for mesh shading).
     virtual void dispatchMesh( const Extent3D& gridSize ) = 0;
@@ -155,7 +155,7 @@ public:
     template <typename T>
     void pushConstants( u32 rootIndex, const T& data, u32 offset32Bit = 0 ) {
         static_assert( sizeof( T ) % 4 == 0, "Push Constant struct size must be 4-byte aligned" );
-        auto size = sizeof( T ) / 4;
+        u64 size = sizeof( T ) / 4;
         pushConstants( rootIndex, &data, size, offset32Bit );
     }
 

@@ -37,8 +37,8 @@ struct RenderPassContext {
     RHI::ITexture* getTexture( RGResourceHandle handle ) const;
 
     RHI::IDescriptorSet* allocateSet( RHI::IPipelineLayout* layout, u32 setIndex ) const;
-    RHI::SBT::View       allocateSBT( const RHI::SBT& sbt, RHI::IRayTracingPipeline* pip ) const;
-    RHI::BufferView      uploadDynamic( const void* data, u64 size, u64 alignment = 256 ) const;
+    RHI::SBT::Allocation       allocateSBT( const RHI::SBT& sbt, RHI::IRayTracingPipeline* pip ) const;
+    BufferSlice          uploadDynamic( const void* data, u64 size, u64 alignment = 256 ) const;
 };
 
 /// @brief Helper class to declare resource usage during the Setup phase.
@@ -59,7 +59,7 @@ public:
 
 private:
     IRenderGraph& _graph;
-    u32          _passIndex;
+    u32           _passIndex;
 };
 
 /// @brief Main entry point for defining the frame graph structure.
@@ -128,14 +128,14 @@ class IRenderGraph
 public:
     struct Description {
         u32  framesInFlight;
-        u64 passDataAllocSize;
+        u64  passDataAllocSize;
         u32  desciptorSetAllocSize;
         u32  descriptorMaxViews    = 256;
         u32  descriptorMaxSamplers = 64;
-        u64 sbtAllocSize          = 0;
-        u64 transientAllocSize    = 64 * 1024 * 1024;
+        u64  sbtAllocSize          = 0;
+        u64  transientAllocSize    = 64 * 1024 * 1024;
         u32  resourceTTL;
-        bool  autoSync = true;
+        bool autoSync = true;
     };
 
     virtual ~IRenderGraph() = default;
@@ -154,7 +154,7 @@ public:
 
     virtual RHI::IBuffer*              getPhysicalBuffer( RGResourceHandle handle ) const  = 0;
     virtual RHI::ITexture*             getPhysicalTexture( RGResourceHandle handle ) const = 0;
-    virtual RHI::IDescriptorAllocator* getDescriptorAllocator( u32 frameIndex )           = 0;
+    virtual RHI::IDescriptorAllocator* getDescriptorAllocator( u32 frameIndex )            = 0;
 
     /// @brief Sets the Time-To-Live for cached transient resources.
     virtual void setGarbageCollectionTTL( u32 frames ) = 0;
@@ -170,10 +170,10 @@ protected:
     virtual RGResourceHandle importTexture( StringView name, TextureHandle handle )         = 0;
     virtual RGResourceHandle importBuffer( StringView name, BufferHandle handle )           = 0;
 
-    virtual void  registerPass( StringView name, std::function<void( RenderPassContext& )> executor )                             = 0;
+    virtual void  registerPass( StringView name, std::function<void( RenderPassContext& )> executor )                            = 0;
     virtual void  registerDependency( u32 passIndex, RGResourceHandle resource, RHI::ResourceState requiredState, bool isWrite ) = 0;
-    virtual void  storePassData( void* dataPtr, std::function<void()> destructor )                                                = 0;
-    virtual void* allocateFrameMemory( size_t size, size_t alignment )                                                            = 0;
+    virtual void  storePassData( void* dataPtr, std::function<void()> destructor )                                               = 0;
+    virtual void* allocateFrameMemory( size_t size, size_t alignment )                                                           = 0;
 
     virtual u32 getCurrentPassIndex() const = 0;
 

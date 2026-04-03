@@ -6,7 +6,6 @@
 #include "Axion/Core/Render/IRasterizer.h"
 #include "Axion/Core/Scene/Entity.h"
 #include "Axion/Core/Scene/Scene.h"
-#include <vector>
 
 USING_AXION_NAMESPACE
 
@@ -61,7 +60,6 @@ int main( /*int argc, char* argv[]*/ ) {
         matRed->setMetallic( 0.0f );  // Plastic/Dielectric
         matRed->setRoughness( 0.8f ); // Very glossy (Sharp reflections)
 
-        
         auto matChromeH = assets.material( "ChromeBlue" ).create<Core::Assets::StandardPBRMaterial>();
         auto matChrome  = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matChromeH );
         matChrome->setAlbedo( { 0.3f, 0.5f, 1.0f } ); // Light Blue Tint
@@ -83,31 +81,31 @@ int main( /*int argc, char* argv[]*/ ) {
         cameraEntity.addComponent<Core::Scene::CameraComponent>();
         cameraEntity.getComponent<Core::Scene::TransformComponent>().position( { 0.0f, 0.0f, 5.0f } );
         cameraEntity.getComponent<Core::Scene::TransformComponent>().lookAt( { 0.0f, 0.0f, 0.0f } );
-        cameraEntity.getComponent<Core::Scene::CameraComponent>().exposureCompensation = 5.0f;
+        cameraEntity.getComponent<Core::Scene::CameraComponent>().setExposureCompensation( 5.0f );
 
         // Dragon (Top Left) -> GOLD
         auto dragonEntity = scene.createEntity( "Dragon" );
         dragonEntity.addComponent<Core::Scene::MeshComponent>( dragonHandle, matGoldH );
-        dragonEntity.getComponent<Core::Scene::TransformComponent>().translation = { -1.5f, 1.5f, 0.0f };
-        dragonEntity.getComponent<Core::Scene::TransformComponent>().scale       = { 2.0f, 2.0f, 2.0f };
+        dragonEntity.getComponent<Core::Scene::TransformComponent>().setTranslation( { -1.5f, 1.5f, 0.0f } );
+        dragonEntity.getComponent<Core::Scene::TransformComponent>().setScale( { 2.0f, 2.0f, 2.0f } );
 
         // Sphere (Top Right) -> RED PLASTIC
         auto sphereEntity = scene.createEntity( "Sphere" );
         sphereEntity.addComponent<Core::Scene::MeshComponent>( sphereHandle, matRedPlasticH );
-        sphereEntity.getComponent<Core::Scene::TransformComponent>().translation = { 1.5f, 1.5f, 0.0f };
-        sphereEntity.getComponent<Core::Scene::TransformComponent>().scale       = { 0.8f, 0.8f, 0.8f };
+        sphereEntity.getComponent<Core::Scene::TransformComponent>().setTranslation( { 1.5f, 1.5f, 0.0f } );
+        sphereEntity.getComponent<Core::Scene::TransformComponent>().setScale( { 0.8f, 0.8f, 0.8f } );
 
         // Ajax (Bottom Right) -> BLUE CHROME
         auto ajaxEntity = scene.createEntity( "Ajax" );
         ajaxEntity.addComponent<Core::Scene::MeshComponent>( ajaxHandle, matChromeH );
-        ajaxEntity.getComponent<Core::Scene::TransformComponent>().translation = { 1.5f, -1.5f, 0.0f };
-        ajaxEntity.getComponent<Core::Scene::TransformComponent>().scale       = { 2.0f, 2.0f, 2.0f };
+        ajaxEntity.getComponent<Core::Scene::TransformComponent>().setTranslation( { 1.5f, -1.5f, 0.0f } );
+        ajaxEntity.getComponent<Core::Scene::TransformComponent>().setScale( { 2.0f, 2.0f, 2.0f } );
 
         // Cube (Bottom Left) -> GREY RUBBER
         auto cubeEntity = scene.createEntity( "Cube" );
         cubeEntity.addComponent<Core::Scene::MeshComponent>( cubeHandle, matRubberH );
-        cubeEntity.getComponent<Core::Scene::TransformComponent>().translation = { -1.5f, -1.5f, 0.0f };
-        cubeEntity.getComponent<Core::Scene::TransformComponent>().scale       = { 1.25f, 1.25f, 1.25f };
+        cubeEntity.getComponent<Core::Scene::TransformComponent>().setTranslation( { -1.5f, -1.5f, 0.0f } );
+        cubeEntity.getComponent<Core::Scene::TransformComponent>().setScale( { 1.25f, 1.25f, 1.25f } );
 
         // =================================================================================
         // 4. LIGHTING SETUP (ATMOSPHERE + LIGHTS)
@@ -117,29 +115,28 @@ int main( /*int argc, char* argv[]*/ ) {
         auto envEntity = scene.createEntity( "GlobalEnvironment" );
         envEntity.addComponent<Core::Scene::EnvironmentComponent>();
         auto& env       = envEntity.getComponent<Core::Scene::EnvironmentComponent>();
-        env.active      = true;
-        env.type        = Core::Scene::EnvironmentComponent::Type::Global;
-        env.skyType     = Core::Scene::EnvironmentComponent::SkyType::Constant;
-        env.skyColor    = { 0.1f, 0.1f, 0.5f };
-        env.groundColor = { 0.2f, 0.2f, 0.2f };
-        env.intensity   = 1.0f;
+        env.setActive( true );
+        env.setSkyType( Core::Scene::EnvironmentComponent::SkyType::Constant );
+        env.setSkyColor( { 0.1f, 0.1f, 0.5f } );
+        env.setGroundColor( { 0.2f, 0.2f, 0.2f } );
+        env.setIntensity( 1.0f );
 
         // B. Directional Light (Moon / Key Light)
         auto sunEntity = scene.createEntity( "MoonLight" );
         sunEntity.addComponent<Core::Scene::LightComponent>();
-        auto& sun          = sunEntity.getComponent<Core::Scene::LightComponent>();
-        sun.type           = Core::Scene::LightComponent::Type::Directional;
-        sun.intensity      = 50.0f;                // Lux (adjusted to avoid burnout without tonemapping)
-        sun.color          = { 0.8f, 0.9f, 1.0f }; // Cold Blueish White
-        sun.useTemperature = true;
-        sun.temperature    = 8000.0f;
+        auto& sun = sunEntity.getComponent<Core::Scene::LightComponent>();
+        sun.setType( Core::Scene::LightComponent::Type::Directional );
+        sun.setIntensity( 50.0f );            // Lux (adjusted to avoid burnout without tonemapping)
+        sun.setColor( { 0.8f, 0.9f, 1.0f } ); // Cold Blueish White
+        sun.setUseTemperature( true );
+        sun.setTemperature( 8000.0f );
         sunEntity.getComponent<Core::Scene::TransformComponent>().lookAt( { 1.0f, -1.0f, -0.5f } ); // Coming from top-left
 
         // Main Loop
         static auto startTime = std::chrono::high_resolution_clock::now();
         while ( !wnd.shouldClose() )
         {
-            static uint64_t                           frameCounter   = 0;
+            static u64                                frameCounter   = 0;
             static double                             elapsedSeconds = 0.0;
             static std::chrono::high_resolution_clock clock;
             static auto                               t0 = clock.now();

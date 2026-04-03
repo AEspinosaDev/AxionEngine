@@ -1,6 +1,7 @@
 #pragma once
 #include "Axion/Graphics/RHI/Common.h"
 
+
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
@@ -17,9 +18,9 @@ public:
         Extent3D         size        = { 1, 1, 1 };
         Format           format      = Format::UNKNOWN;
         TextureDimension dimension   = TextureDimension::Texture2D;
-        u32             mipLevels   = 1;
-        u32             sampleCount = 1;
-        u32             arraySize   = 1;
+        u32              mipLevels   = 1;
+        u32              sampleCount = 1;
+        u32              arraySize   = 1;
         String64         debugName   = "";
         TextureViewFlags viewFlags   = TextureViewShaderResource;
         ClearValue       clearValue  = { .color = { 0.0f, 0.0f, 0.0f, 1.0f }, .depth = { 1.0f } }; // Only if RenderTarget or DepthStencil
@@ -41,7 +42,7 @@ public:
     virtual ~ITexture()                                           = default;
     virtual const ITexture::Description& getDescription() const   = 0;
     virtual ResourceState                getCurrentState() const  = 0;
-    virtual u64                        getDeviceAddress() const = 0;
+    virtual u64                          getDeviceAddress() const = 0;
 };
 
 typedef ITexture::Description TextureDesc;
@@ -51,12 +52,17 @@ typedef ITexture::Description TextureDesc;
 
 DEFINE_OWNER_PTR_FOR_TYPE( IBuffer, Buffer )
 
+
+/**
+ * 
+ * Buffers are more flexible than textures, they can be used for vertex/index data, uniform/constant buffers, storage buffers, indirect args, etc. They can also be mapped to CPU memory for read/write access. They can have different usage flags and memory types (GPU-only, CPU-visible, etc).
+ */
 class IBuffer : public IDeviceObject
 {
 public:
     struct Description {
-        u64           size          = 0;
-        u32            stride        = 1; // for structured buffers
+        u64             size          = 0;
+        u32             stride        = 1; // for structured buffers
         MemoryUsage     memoryType    = MemoryUsage::GPUOnly;
         BufferUsage     usageFlags    = BufferUsage::None;
         BufferViewFlags viewFlags     = BufferViewNone;
@@ -77,13 +83,14 @@ public:
         }
     };
 
-    virtual ~IBuffer()                                  = default;
-    virtual const Description& getDescription() const   = 0;
-    virtual ResourceState      getCurrentState() const  = 0;
-    virtual u64              getDeviceAddress() const = 0;
+    virtual ~IBuffer()                                 = default;
+    virtual const Description& getDescription() const  = 0;
+    virtual ResourceState      getCurrentState() const = 0;
 
-    virtual void  copyData( const void* data, u64 size, u64 offset = 0 ) = 0;
-    virtual void* getData() const                                            = 0;
+    virtual u64   getDeviceAddress() const = 0;
+    virtual void* getHostAddress() const   = 0;
+
+    virtual void copyData( const void* data, u64 size, u64 offset = 0 ) = 0;
 
     template <typename T>
     void copyData( const T& data, u64 offset = 0 ) {
@@ -94,6 +101,7 @@ public:
     void copyData( const STLW::Vector<T>& data, size_t offset = 0 ) {
         copyData( data.data(), data.size() * sizeof( T ), offset );
     }
+    u64 getCapacity() const { return getDescription().size; }
 
     // Careful usage
     virtual void* map()   = 0;
@@ -133,7 +141,7 @@ public:
 
     virtual const Description& getDescription() const   = 0;
     virtual AccelType          getType() const          = 0;
-    virtual u64              getDeviceAddress() const = 0;
+    virtual u64                getDeviceAddress() const = 0;
 
     virtual u64 getUpdateScratchSize() const = 0;
     virtual u64 getBuildScratchSize() const  = 0;
@@ -158,7 +166,7 @@ public:
         AddressMode addressU      = AddressMode::Repeat;
         AddressMode addressV      = AddressMode::Repeat;
         AddressMode addressW      = AddressMode::Repeat;
-        u32        maxAnisotropy = 16;
+        u32         maxAnisotropy = 16;
         float       maxLOD        = 12.0;
         float       minLOD        = 0.0f;
         float       mipLODBias    = 0.0f;

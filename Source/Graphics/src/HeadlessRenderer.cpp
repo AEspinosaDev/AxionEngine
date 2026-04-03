@@ -149,7 +149,7 @@ IPipelineRegistry& HeadlessRenderer::pipelines() {
     return _pipelineRegistry;
 }
 
-u64 HeadlessRenderer::getCurrentFrameIndex() const {
+u32 HeadlessRenderer::getCurrentFrameIndex() const {
     return _currentFrame;
 }
 

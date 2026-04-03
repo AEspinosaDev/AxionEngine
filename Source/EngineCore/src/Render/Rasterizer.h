@@ -54,20 +54,20 @@ private:
     void registerPasses();
     void createResources();
 
-    struct TransientViews {
-        Graphics::RHI::BufferView frameView;
-        Graphics::RHI::BufferView meshesView;
-        Graphics::RHI::BufferView mtlView;
-        Graphics::RHI::BufferView instancesView;
-        Graphics::RHI::BufferView lightsView;
-        Graphics::RHI::BufferView envsView;
-        Graphics::RHI::BufferView redirectView;
+    struct TransientPayload {
+        Graphics::BufferSlice frameSlice;
+        Graphics::BufferSlice meshesSlice;
+        Graphics::BufferSlice mtlSlice;
+        Graphics::BufferSlice instancesSlice;
+        Graphics::BufferSlice lightsSlice;
+        Graphics::BufferSlice envsSlice;
+        Graphics::BufferSlice redirectSlice;
     };
 
-    TransientViews      uploadTransientData( Graphics::RHI::LinearAllocator& currentUBOAlloc,
-                                             Graphics::RHI::LinearAllocator& currentSSBOAlloc );
-    IndirectCommandData uploadIndirectCommandData( Graphics::RHI::LinearAllocator& currentSSBOAlloc,
-                                                   Graphics::RHI::LinearAllocator& currentIndirectAlloc );
+    TransientPayload       uploadTransientData( Graphics::BufferLinearAllocator<>& currentUBOAlloc,
+                                                Graphics::BufferLinearAllocator<>& currentSSBOAlloc );
+    IndirectCommandPayload uploadIndirectCommandData( Graphics::BufferLinearAllocator<>& currentSSBOAlloc,
+                                                      Graphics::BufferLinearAllocator<>& currentIndirectAlloc );
 
     Platform::Window*  _window = nullptr;
     RasterizerSettings _settings;
@@ -87,32 +87,32 @@ private:
     GPUScene _gpuScene;
 
     struct FrameResources {
-        Graphics::BufferHandle         uboBufferHandle;
-        Graphics::RHI::LinearAllocator uboAllocator;
+        Graphics::BufferHandle            uboBufferHandle;
+        Graphics::BufferLinearAllocator<> uboAllocator;
 
-        Graphics::BufferHandle         ssboBufferHandle;
-        Graphics::RHI::LinearAllocator ssboAllocator;
+        Graphics::BufferHandle            ssboBufferHandle;
+        Graphics::BufferLinearAllocator<> ssboAllocator;
 
         // Indirect Rendering
-        Graphics::BufferHandle         indirectStagingBufferHandle;
-        Graphics::RHI::LinearAllocator indirectAllocator;
-        Graphics::BufferHandle         indirectTemplateBufferHandle;
-        Graphics::BufferHandle         indirectBufferHandle;
-        Graphics::BufferHandle         culledInstanceBufferHandle;
+        Graphics::BufferHandle            indirectStagingBufferHandle;
+        Graphics::BufferLinearAllocator<> indirectAllocator;
+        Graphics::BufferHandle            indirectTemplateBufferHandle;
+        Graphics::BufferHandle            indirectBufferHandle;
+        Graphics::BufferHandle            culledInstanceBufferHandle;
 
         // Persistent Descriptor Set
         Graphics::RHI::IDescriptorSet* persistentDescriptorSetPtr = nullptr;
     };
     struct GPUResources {
         // Resource Handles
-        Graphics::BufferHandle           vertexBufferHandle;
-        Graphics::RHI::FreeListAllocator vertexAllocator;
+        Graphics::BufferHandle               vertexBufferHandle;
+        Graphics::BufferGPUFreeListAllocator vertexAllocator;
 
-        Graphics::BufferHandle           indexBufferHandle;
-        Graphics::RHI::FreeListAllocator indexAllocator;
+        Graphics::BufferHandle               indexBufferHandle;
+        Graphics::BufferGPUFreeListAllocator indexAllocator;
 
-        Graphics::BufferHandle           mtlBufferHandle;
-        Graphics::RHI::FreeListAllocator mtlAllocator;
+        Graphics::BufferHandle               mtlBufferHandle;
+        Graphics::BufferGPUFreeListAllocator mtlAllocator;
 
         STLW::Vector<Graphics::TextureHandle> textureHandles;
         Graphics::TextureHandle               fallbackTexture2DHandle;
@@ -125,7 +125,7 @@ private:
 
     Graphics::RendererOwnerPtr _rnd = nullptr;
 
-    IndirectCommandData::Cache _indirectCommandDataCache;
+    IndirectCommandPayload::Cache _indirectCommandDataCache;
 
     u32 _framesInFlight;
 };

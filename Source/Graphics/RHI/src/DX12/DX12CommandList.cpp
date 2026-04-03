@@ -194,7 +194,7 @@ void DX12CommandList::uploadBuffer( IBuffer* dst, const void* data, u64 size, u6
     // Copy to staging buffer
     memcpy( mem.cpuAddress, data, size );
 
-    copyBuffer( dst, mem.buffer, size, dstOffset, mem.offset, barrierPolicy );
+    copyBuffer( dst, mem.container, size, dstOffset, mem.offset, barrierPolicy );
 }
 
 void DX12CommandList::uploadTexture( ITexture* dst, const void* data, ITransientAllocator* allocator, u32 mipSlice, u32 arraySlice, BarrierPolicy barrierPolicy ) {
@@ -252,10 +252,10 @@ void DX12CommandList::uploadTexture( ITexture* dst, const void* data, ITransient
     if ( barrierPolicy == BarrierPolicy::Auto )
     {
         barrier( dst, Graphics::RHI::ResourceState::CopyDest );
-        barrier( mem.buffer, Graphics::RHI::ResourceState::CopySource );
+        barrier( mem.container, Graphics::RHI::ResourceState::CopySource );
     }
 
-    CD3DX12_TEXTURE_COPY_LOCATION srcLocation( mem.buffer->getNativeObject( ObjectTypes::DX12_Resource ), footprint );
+    CD3DX12_TEXTURE_COPY_LOCATION srcLocation( mem.container->getNativeObject( ObjectTypes::DX12_Resource ), footprint );
     CD3DX12_TEXTURE_COPY_LOCATION dstLocation( d3dRes, subresourceIndex );
     srcLocation.PlacedFootprint.Offset += mem.offset;
 
@@ -608,7 +608,7 @@ void DX12CommandList::dispatchMesh( const Extent3D& gridSize ) {
     _cmdList6->DispatchMesh( gridSize.width, gridSize.height, gridSize.depth );
 }
 
-void DX12CommandList::dispatchRays( const SBT::View& sbtView, const Extent3D& screenSize ) {
+void DX12CommandList::dispatchRays( const SBT::Allocation& sbtView, const Extent3D& screenSize ) {
     AXION_LOG_ASSERT( _bindPoint == PipelineBindPoint::RTX, Logger::Module::RHI, "Dispatch called without Raytracing Pipeline" );
     if ( !_cmdList4 )
     {

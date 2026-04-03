@@ -374,7 +374,7 @@ void DX12Buffer::copyData( const void* data, u64 size, u64 offset ) {
     }
 }
 
-void* DX12Buffer::getData() const {
+void* DX12Buffer::getHostAddress() const {
     return _mappedPtr;
 }
 

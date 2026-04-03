@@ -16,15 +16,15 @@ struct IndirectDrawBatch {
     u32 drawCount;
 };
 
-struct IndirectCommandData {
-    Graphics::RHI::BufferView       commandBufferView;
-    Graphics::RHI::BufferView       batchMapView;
+struct IndirectCommandPayload {
+    Graphics::BufferSlice      commandBufferSlice;
+    Graphics::BufferSlice      batchMapSlice;
     STLW::Vector<IndirectDrawBatch> batches;
     bool                            dirty = true;
 
     struct Cache {
         STLW::Vector<Graphics::RHI::DrawIndexedIndirectCommand> commands;
-        STLW::Vector<u32>                                      batchMap;
+        STLW::Vector<u32>                                       batchMap;
     };
 };
 

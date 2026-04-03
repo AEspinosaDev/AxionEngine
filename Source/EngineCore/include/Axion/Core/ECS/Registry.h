@@ -1,12 +1,11 @@
 #pragma once
+#include <Axion/Common/Containers/STLWrapper/Maps.h>
+#include <Axion/Common/Memory/Pointers/OwnerPtr.h>
 #include <Axion/Core/ECS/Entity.h>
 #include <Axion/Core/ECS/MultiView.hpp>
 #include <Axion/Core/ECS/SparseSet.hpp>
-#include <memory>
-#include <typeindex>
-#include <unordered_map>
-#include <vector>
 #include <type_traits>
+#include <typeindex>
 
 AXION_NAMESPACE_BEGIN
 
@@ -21,8 +20,10 @@ public:
     EntityID createEntity() { return _entityCounter++; }
 
     void destroyEntity( EntityID entity ) {
-        for ( auto& [type, pool] : _pools ) {
-            if ( pool->has( entity ) ) pool->remove( entity );
+        for ( auto& [type, pool] : _pools )
+        {
+            if ( pool->has( entity ) )
+                pool->remove( entity );
         }
     }
 
@@ -50,10 +51,11 @@ public:
     }
 
     template <typename T>
-    const std::vector<T>& view() const {
+    const STLW::Vector<T>& view() const {
         const auto* pool = getPool<T>();
-        if ( !pool ) {
-            static const std::vector<T> empty;
+        if ( !pool )
+        {
+            static const STLW::Vector<T> empty;
             return empty;
         }
         return pool->getData();
@@ -67,35 +69,38 @@ public:
     }
 
     void clear() {
-        for ( auto& [type, pool] : _pools ) pool->clear();
+        for ( auto& [type, pool] : _pools )
+            pool->clear();
         _entityCounter = 0;
     }
 
 private:
-    template<typename T>
+    template <typename T>
     using RawType = std::remove_const_t<T>;
 
-    // 1. MUTABLE GETTER 
+    // 1. MUTABLE GETTER
     template <typename T>
     Pool<RawType<T>>* ensurePool() {
         std::type_index typeIdx = std::type_index( typeid( RawType<T> ) );
-        if ( _pools.find( typeIdx ) == _pools.end() ) {
-            _pools[typeIdx] = std::make_unique<Pool<RawType<T>>>();
+        if ( _pools.find( typeIdx ) == _pools.end() )
+        {
+            _pools[typeIdx] = Memory::makeOwned<Pool<RawType<T>>>();
         }
         return static_cast<Pool<RawType<T>>*>( _pools[typeIdx].get() );
     }
 
-    // 2. CONST GETTER 
+    // 2. CONST GETTER
     template <typename T>
     const Pool<RawType<T>>* getPool() const {
         std::type_index typeIdx = std::type_index( typeid( RawType<T> ) );
-        auto it = _pools.find( typeIdx );
-        if ( it == _pools.end() ) return nullptr;
+        auto            it      = _pools.find( typeIdx );
+        if ( it == _pools.end() )
+            return nullptr;
         return static_cast<const Pool<RawType<T>>*>( it->second.get() );
     }
 
-    EntityID _entityCounter = 0;
-    std::unordered_map<std::type_index, std::unique_ptr<IPool>> _pools;
+    EntityID                                                     _entityCounter = 0;
+    STLW::UnorderedMap<std::type_index, Memory::OwnerPtr<IPool>> _pools;
 };
 
 } // namespace Core::ECS

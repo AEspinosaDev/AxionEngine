@@ -87,8 +87,6 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
                 break;
                 // case GraphicsAPI::Vulkan:
                 //     break;
-                // default:
-                //     break;
         }
         AXION_LOG_ASSERT( _guiBackend, Logger::Module::Core, "GUI Backend is not initialized in Renderer" );
     }
@@ -174,7 +172,7 @@ TextureHandle Renderer::getCurrentBackbufferHandle() const {
     return _swapchainHandles[_currentFrame];
 }
 
-u64 Renderer::getCurrentFrameIndex() const {
+u32 Renderer::getCurrentFrameIndex() const {
     return _currentFrame;
 }
 

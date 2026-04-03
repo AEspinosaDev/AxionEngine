@@ -59,8 +59,8 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, const MaterialLib
         const auto& meshComp  = meshesView.get<Scene::MeshComponent>( entity );
         const auto& transComp = meshesView.get<Scene::TransformComponent>( entity );
 
-        u32 gpuMeshID     = processMesh( assets, meshComp.mesh );
-        u32 gpuMaterialID = processMaterial( assets, mtlLib, mtlDirtyLUT, meshComp.material );
+        u32 gpuMeshID     = processMesh( assets, meshComp.getMesh() );
+        u32 gpuMaterialID = processMaterial( assets, mtlLib, mtlDirtyLUT, meshComp.getMaterial() );
 
         // --- INSTANCE DATA ---
         GPUInstance instance;
@@ -71,8 +71,8 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, const MaterialLib
 
         instance.meshID     = gpuMeshID;
         instance.materialID = gpuMaterialID;
-        instance.active     = meshComp.visible;
-        instance.raytraced  = meshComp.raytraced || forceRaytrace ? 1 : 0;
+        instance.active     = meshComp.isVisible();
+        instance.raytraced  = meshComp.isRaytraced() || forceRaytrace ? 1 : 0;
 
         _instances.push_back( instance );
 
@@ -166,9 +166,9 @@ u32 GPUScene::processMesh( const Axion::Core::Assets::AssetManager* assets, cons
 #pragma endregion
 
 u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets,
-                                const MaterialLibrary&                     mtlLib,
-                                std::pair<const byte*, size_t>&           dirtyLUT,
-                                const Axion::Core::Assets::MaterialHandle& cpuMtlHandle ) {
+                               const MaterialLibrary&                     mtlLib,
+                               std::pair<const byte*, size_t>&            dirtyLUT,
+                               const Axion::Core::Assets::MaterialHandle& cpuMtlHandle ) {
     u32 cpuAssetID    = cpuMtlHandle.id;
     u32 gpuCacheIndex = 0;
 
@@ -313,22 +313,22 @@ void GPUScene::processLights( const Scene::Scene& cpuScene ) {
         const auto& transComp = lightView.get<Scene::TransformComponent>( entity );
 
         GPULight light;
-        if ( !lightComp.active )
+        if ( !lightComp.isActive() )
             continue;
 
-        light.pos_Intensity = Math::Vec4( transComp.translation, lightComp.intensity );
-        light.dir_Type      = Math::Vec4( transComp.forward(), (float)lightComp.type );
+        light.pos_Intensity = Math::Vec4( transComp.getTranslation(), lightComp.getIntensity() );
+        light.dir_Type      = Math::Vec4( transComp.forward(), (float)lightComp.getType() );
 
-        light.settings = { Math::radians( lightComp.innerAngle * 0.5f ),
-                           Math::radians( lightComp.outerAngle * 0.5f ),
+        light.settings = { Math::radians( lightComp.getInnerAngle() * 0.5f ),
+                           Math::radians( lightComp.getOuterAngle() * 0.5f ),
                            0.0f,
-                           lightComp.active ? 1.0f : 0.0f };
+                           lightComp.isActive() ? 1.0f : 0.0f };
 
-        Math::Vec3 finalColor = lightComp.color;
+        Math::Vec3 finalColor = lightComp.getColor();
 
-        if ( lightComp.useTemperature )
+        if ( lightComp.usesTemperature() )
         {
-            Math::Vec3 kelvinColor = Axion::Math::kelvinToRGB( lightComp.temperature );
+            Math::Vec3 kelvinColor = Axion::Math::kelvinToRGB( lightComp.getTemperature() );
             finalColor             = finalColor * kelvinColor;
         }
 
@@ -336,7 +336,7 @@ void GPUScene::processLights( const Scene::Scene& cpuScene ) {
             finalColor.x,
             finalColor.y,
             finalColor.z,
-            lightComp.range };
+            lightComp.getRange() };
 
         _lights.push_back( light );
     }
@@ -373,13 +373,13 @@ void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolu
         }
 
         _frame.camPos_Time = Math::Vec4(
-            transComp.translation.x,
-            transComp.translation.y,
-            transComp.translation.z,
+            transComp.getTranslation().x,
+            transComp.getTranslation().y,
+            transComp.getTranslation().z,
             _accumulatedTime );
 
-        float nearPlane = camComp.nearPlane;
-        float farPlane  = camComp.farPlane;
+        float nearPlane = camComp.getNearPlane();
+        float farPlane  = camComp.getFarPlane();
         _frame.res_Clip = Math::Vec4(
             (float)resolution.width,
             (float)resolution.height,
@@ -414,12 +414,12 @@ void GPUScene::processEnvironments( const Scene::Scene& cpuScene ) {
         const auto& envComp   = envView.get<Scene::EnvironmentComponent>( entity );
         const auto& transComp = envView.get<Scene::TransformComponent>( entity );
 
-        if ( !envComp.active )
+        if ( !envComp.isActive() )
             continue;
 
-        env.groundColor_Type   = Math::Vec4( envComp.groundColor, (float)envComp.type );
-        env.skyColor_Intensity = Math::Vec4( envComp.skyColor, envComp.intensity );
-        env.rotation_BlendDist = Math::Vec4( transComp.rotation.x, transComp.rotation.y, transComp.rotation.z, envComp.blendDistance );
+        env.groundColor_Type   = Math::Vec4( envComp.getGroundColor(), (float)envComp.getType() );
+        env.skyColor_Intensity = Math::Vec4( envComp.getSkyColor(), envComp.getIntensity() );
+        env.rotation_BlendDist = Math::Vec4( transComp.getRotation().x, transComp.getRotation().y, transComp.getRotation().z, envComp.getBlendDistance() );
 
         _environments.push_back( env );
     }
@@ -468,27 +468,30 @@ void GPUScene::runGC() {
     {
         auto& gpuMat = _materialCache.cache[i];
 
-        if ( _currentFrameIndex - gpuMat.lastFrameUsed > _resourceTTL )
+        if ( gpuMat.valid )
         {
-            _pendingMtlReleases.push( {
-                gpuMat.bufferOffset,
-                gpuMat.payloadSize,
-                (u32)i // Cache Slot Index
-            } );
-
-            if ( gpuMat.originalAssetID < _materialCache.assetToCacheLUT.size() )
+            if ( _currentFrameIndex - gpuMat.lastFrameUsed > _resourceTTL )
             {
-                _materialCache.assetToCacheLUT[gpuMat.originalAssetID] = -1;
+                _pendingMtlReleases.push( {
+                    gpuMat.bufferOffset,
+                    gpuMat.payloadSize,
+                    (u32)i // Cache Slot Index
+                } );
+
+                if ( gpuMat.originalAssetID < _materialCache.assetToCacheLUT.size() )
+                {
+                    _materialCache.assetToCacheLUT[gpuMat.originalAssetID] = -1;
+                }
+
+                _materialCache.freeIndexQueue.push( (u32)i );
+
+                gpuMat.valid        = false;
+                gpuMat.bufferOffset = 0;
+                gpuMat.payloadSize  = 0;
+                gpuMat.archetypeID  = 0;
+
+                AXION_LOG_INFO( Logger::Module::Core, "GC: Recycled material slot {}", i );
             }
-
-            _materialCache.freeIndexQueue.push( (u32)i );
-
-            gpuMat.valid        = false;
-            gpuMat.bufferOffset = 0;
-            gpuMat.payloadSize  = 0;
-            gpuMat.archetypeID  = 0;
-
-            AXION_LOG_INFO( Logger::Module::Core, "GC: Recycled material slot {}", i );
         }
     }
 }

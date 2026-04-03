@@ -25,9 +25,9 @@ public:
     virtual void            setWindow( IWindow* wnd ) override;
     virtual const Settings& getSettings() const override;
     virtual TextureHandle   getCurrentBackbufferHandle() const override;
-    virtual u64           getTotalFrameNumber() const override { return _frameNumber; }
-    virtual const u32      getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
-    virtual u64           getCurrentFrameIndex() const override;
+    virtual u64             getTotalFrameNumber() const override { return _frameNumber; }
+    virtual const u32       getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
+    virtual u32             getCurrentFrameIndex() const override;
 
     virtual const RHI::DeviceOwnerPtr& getDevice() const override;
     virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( u32 frameIndex ) override;
@@ -68,7 +68,7 @@ private:
     // Query
     u32       _currentFrame = 0;
     const u32 _FRAMES_IN_FLIGHT;
-    u64      _frameNumber = 0;
+    u64       _frameNumber = 0;
 };
 
 } // namespace Graphics

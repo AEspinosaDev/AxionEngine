@@ -9,7 +9,8 @@
 #include "Axion/Common/Logging.h"
 #include "Axion/Common/Math.h"
 #include "Axion/Common/Memory/Pointers/OwnerPtr.h"
-
+#include <Axion/Common/Memory/Allocators/SubAllocators/FreeListSubAllocator.h>
+#include <Axion/Common/Memory/Allocators/SubAllocators/LinearSubAllocator.h>
 
 #define ALIGN( _size, _alignment ) ( ( ( _size ) + ( _alignment ) - 1 ) & ~( ( _alignment ) - 1 ) )
 #define TEXTURE_DATA_PLACEMENT_ALIGNMENT ( 512 )
@@ -17,6 +18,41 @@
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
+
+////////////////////////////////////////////////////////////////////////
+// Device Buffer Sub Allocator
+////////////////////////////////////////////////////////////////////////
+
+namespace RHI {
+class IBuffer;
+}
+
+/**
+ * A memory slice allocated from a larger buffer, used for sub-allocations within the RHI.
+ * This struct abstracts the details of the underlying buffer and provides necessary information for both CPU and GPU access.
+ */
+using BufferSlice = Memory::SubAllocation<RHI::IBuffer>;
+/** @brief Free-list allocator for persistent buffer data without thread synchronization. */
+template <typename VisibilityPolicy = Memory::VisibilityShared>
+using BufferFreeListAllocator = Memory::FreeListSubAllocator<RHI::IBuffer, VisibilityPolicy, Memory::NoLockPolicy>;
+
+/** @brief Free-list allocator for persistent, device-local (GPU-only) buffer data without thread synchronization. */
+using BufferGPUFreeListAllocator = Memory::FreeListSubAllocator<RHI::IBuffer, Memory::VisibilityDeviceOnly, Memory::NoLockPolicy>;
+
+/** @brief Thread-safe free-list allocator for persistent buffer data. */
+template <typename VisibilityPolicy = Memory::VisibilityShared>
+using LockedBufferFreeListAllocator = Memory::FreeListSubAllocator<RHI::IBuffer, VisibilityPolicy, Memory::MutexLockPolicy>;
+
+/** @brief Linear allocator for transient buffer data without thread synchronization. Ideal for per-frame allocations. */
+template <typename VisibilityPolicy = Memory::VisibilityShared>
+using BufferLinearAllocator = Memory::LinearSubAllocator<RHI::IBuffer, VisibilityPolicy, Memory::NoLockPolicy>;
+
+/** @brief Linear allocator for transient, device-local (GPU-only) buffer data without thread synchronization. */
+using BufferGPULinearAllocator = Memory::LinearSubAllocator<RHI::IBuffer, Memory::VisibilityDeviceOnly, Memory::NoLockPolicy>;
+
+/** @brief Thread-safe linear allocator for transient buffer data. */
+template <typename VisibilityPolicy = Memory::VisibilityShared>
+using LockedBufferLinearAllocator = Memory::LinearSubAllocator<RHI::IBuffer, VisibilityPolicy, Memory::MutexLockPolicy>;
 
 ////////////////////////////////////////////////////////////////////////
 // RHI Reserved Definitions
@@ -30,7 +66,7 @@ struct DrawIndexedIndirectCommand {
     u32 indexCount;    ///< Number of indexes to draw
     u32 instanceCount; ///< Number of instances to draw
     u32 firstIndex;    ///< Offset in IndexBuffer (elements, not bytes)
-    int  vertexOffset;  ///< Offset in VertexBuffer
+    int vertexOffset;  ///< Offset in VertexBuffer
     u32 firstInstance; ///< ID as base
 
     u32 _padding[2];
@@ -210,8 +246,8 @@ struct RenderingAttachment {
 
 struct RenderingDesc {
     STLW::Vector<RenderingAttachment> colorAttachments;
-    RenderingAttachment              depthStencilAttachment;
-    Extent2D                         renderArea;
+    RenderingAttachment               depthStencilAttachment;
+    Extent2D                          renderArea;
 };
 
 enum class PipelineBindPoint : byte
@@ -258,11 +294,11 @@ enum class AccelPrimitive : u32
 // Description for a single geometry piece (Mesh) inside a BLAS
 struct AccelGeometryDesc {
     AccelPrimitive primitiveType;
-    u64          vertexBufferAddress;
-    u64          indexBufferAddress; //(optional)
-    u32           vertexCount;
-    u32           indexCount;
-    u32           vertexStride; // Stride in bytes
+    u64            vertexBufferAddress;
+    u64            indexBufferAddress; //(optional)
+    u32            vertexCount;
+    u32            indexCount;
+    u32            vertexStride; // Stride in bytes
     Format         vertexFormat;
     bool           isOpaque; // Optimization flag: no any-hit shader needed
 
@@ -284,11 +320,11 @@ struct AccelGeometryDesc {
 // Description for an instance inside a TLAS
 struct AccelInstanceDesc {
     Math::Mat4         transform;
-    u32               instanceID;          // Custom ID to access in shader (gl_InstanceCustomIndex)
-    u32               instanceMask = 0xFF; // Visibility mask (0xFF usually)
-    u32               hitGroupIndex;       // Offset in the Shader Binding Table
+    u32                instanceID;          // Custom ID to access in shader (gl_InstanceCustomIndex)
+    u32                instanceMask = 0xFF; // Visibility mask (0xFF usually)
+    u32                hitGroupIndex;       // Offset in the Shader Binding Table
     AccelInstanceFlags flags;               // Instance specific flags
-    u64              blasDeviceAddress;   // The address of the BLAS this instance represents
+    u64                blasDeviceAddress;   // The address of the BLAS this instance represents
 
     bool operator==( const AccelInstanceDesc& other ) const {
         return instanceID == other.instanceID &&
@@ -358,7 +394,7 @@ constexpr ObjectType VK_ImageCreateInfo          = 0x00020015;
 }; // namespace ObjectTypes
 
 struct NativeObject {
-    u64 integer;
+    u64   integer;
     void* pointer;
 
     NativeObject( u64 i )

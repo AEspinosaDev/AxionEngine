@@ -46,6 +46,9 @@ public:
     bool operator!=( StringView other ) const {
         return !( StringView( *this ) == other );
     }
+    bool operator<( StringView other ) const {
+        return StringView( *this ) < other;
+    }
 
     FixedString& operator+=( StringView view ) {
         u32 currentLen     = size();

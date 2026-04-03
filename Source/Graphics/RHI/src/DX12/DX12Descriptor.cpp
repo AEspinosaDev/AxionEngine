@@ -56,7 +56,7 @@ D3D12_CPU_DESCRIPTOR_HANDLE DX12DescriptorHeap::allocateCPU() {
 
 D3D12_GPU_DESCRIPTOR_HANDLE DX12DescriptorHeap::getGPU( D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle ) const {
     AXION_LOG_ASSERT( _type == Type::CBV_SRV_UAV, Logger::Module::RHI, "FATAL | This can only be used with CBV_SRV_UAV Type Heaps" );
-    u32                        offset = static_cast<u32>( ( cpuHandle.ptr - _baseCPU.ptr ) / _descriptorSize );
+    u32                         offset = static_cast<u32>( ( cpuHandle.ptr - _baseCPU.ptr ) / _descriptorSize );
     D3D12_GPU_DESCRIPTOR_HANDLE gpu    = { _baseGPU.ptr + offset * _descriptorSize };
     return gpu;
 }
@@ -98,7 +98,7 @@ void DX12DescriptorSet::attach( u32 binding, IBuffer* buf, ResourceState binding
     D3D12_CPU_DESCRIPTOR_HANDLE dest = _views.startCPU;
     dest.ptr += binding * _views.handleSize;
 
-    D3D12_CPU_DESCRIPTOR_HANDLE src;
+    D3D12_CPU_DESCRIPTOR_HANDLE src {};
     switch ( bindingState )
     {
         case ResourceState::UnorderedAccess:
@@ -184,7 +184,7 @@ void DX12DescriptorSet::attachDynamic( u32 binding, IBuffer* buf, u64 offset, u6
                 srvDesc.Format                     = DXGI_FORMAT_R32_TYPELESS;
                 srvDesc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_RAW;
                 srvDesc.Buffer.FirstElement        = offset / 4;
-                srvDesc.Buffer.NumElements         = range / 4;
+                srvDesc.Buffer.NumElements         = static_cast<UINT>( range ) / 4;
                 srvDesc.Buffer.StructureByteStride = 0;
             } else
             {
@@ -196,7 +196,7 @@ void DX12DescriptorSet::attachDynamic( u32 binding, IBuffer* buf, u64 offset, u6
                 // IMPORTANT: In DX12, FirstElement is index-based, not byte-based for Structured.
                 // Constraint: offset must be a multiple of stride.
                 srvDesc.Buffer.FirstElement = offset / finalStride;
-                srvDesc.Buffer.NumElements  = range / finalStride;
+                srvDesc.Buffer.NumElements  = static_cast<UINT>( range ) / finalStride;
             }
 
             _device->CreateShaderResourceView( d3dRes, &srvDesc, destHandle );
@@ -215,7 +215,7 @@ void DX12DescriptorSet::attachDynamic( u32 binding, IBuffer* buf, u64 offset, u6
                 uavDesc.Format                     = DXGI_FORMAT_R32_TYPELESS;
                 uavDesc.Buffer.Flags               = D3D12_BUFFER_UAV_FLAG_RAW;
                 uavDesc.Buffer.FirstElement        = offset / 4;
-                uavDesc.Buffer.NumElements         = range / 4;
+                uavDesc.Buffer.NumElements         = static_cast<UINT>( range ) / 4;
                 uavDesc.Buffer.StructureByteStride = 0;
             } else
             {
@@ -223,7 +223,7 @@ void DX12DescriptorSet::attachDynamic( u32 binding, IBuffer* buf, u64 offset, u6
                 uavDesc.Buffer.Flags               = D3D12_BUFFER_UAV_FLAG_NONE;
                 uavDesc.Buffer.StructureByteStride = finalStride;
                 uavDesc.Buffer.FirstElement        = offset / finalStride;
-                uavDesc.Buffer.NumElements         = range / finalStride;
+                uavDesc.Buffer.NumElements         = static_cast<UINT>( range ) / finalStride;
             }
 
             _device->CreateUnorderedAccessView( d3dRes, nullptr, &uavDesc, destHandle );
@@ -236,8 +236,8 @@ void DX12DescriptorSet::attachDynamic( u32 binding, IBuffer* buf, u64 offset, u6
     }
 }
 
-void DX12DescriptorSet::attachBufferView( u32 binding, const BufferView& bufferView, ResourceState bindingState ) {
-    attachDynamic( binding, bufferView.buffer, bufferView.offset, bufferView.size, bufferView.stride, bindingState );
+void DX12DescriptorSet::attachBufferSlice( u32 binding, const BufferSlice& bufferSlice, ResourceState bindingState ) {
+    attachDynamic( binding, bufferSlice.container, bufferSlice.offset, bufferSlice.size, bufferSlice.stride, bindingState );
 }
 
 void DX12DescriptorSet::attachBindless( u32 binding, u32 arrayIndex, ITexture* tex, ResourceState bindingState ) {

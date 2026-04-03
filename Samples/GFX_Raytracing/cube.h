@@ -84,3 +84,4 @@ Axion::FixedArray<u32, 36> cubeIndices = {
     23,
     20 // Bottom
 };
+

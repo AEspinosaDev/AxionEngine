@@ -1,23 +1,23 @@
+#include <Axion/Common/Containers/STLWrapper/Maps.h>
 #include <Axion/Common/Logging.h>
 #include <Axion/Core/Assets/AssetManager.h>
 #include <Axion/Core/Assets/Material.h>
-#include <map>
+
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Assets {
 
-static std::map<std::string, GlobalMaterialRegistry::SetupCallback>& getRegistryInternal() {
-    static std::map<std::string, GlobalMaterialRegistry::SetupCallback> registry;
+static STLW::Map<String64, GlobalMaterialRegistry::SetupCallback>& getRegistryInternal() {
+    static STLW::Map<String64, GlobalMaterialRegistry::SetupCallback> registry;
     return registry;
 }
 
-void GlobalMaterialRegistry::registerMaterial( std::string_view name, SetupCallback callback ) 
-{
-    getRegistryInternal()[std::string(name)] = callback;
+void GlobalMaterialRegistry::registerMaterial( StringView name, SetupCallback callback ) {
+    getRegistryInternal()[String64( name )] = callback;
     AXION_LOG_INFO( Logger::Module::Core, "[PRE-EXECUTION MSG] REGISTERED MATERIAL CLASS: {}", name );
 }
 
-void GlobalMaterialRegistry::enumerate( std::function<void( const std::string& name, SetupCallback callback )> visitor ) {
+void GlobalMaterialRegistry::enumerate( std::function<void( StringView name, SetupCallback callback )> visitor ) {
     auto& reg = getRegistryInternal();
     for ( const auto& [name, callback] : reg )
     {

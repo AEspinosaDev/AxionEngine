@@ -25,15 +25,16 @@ struct IndexEqual {
     }
 };
 
-bool loadOBJ( const std::string& filepath, MeshData& outMesh, MeshImportFlags flags ) {
+bool loadOBJ( const STLW::String& filepath, MeshData& outMesh, MeshImportFlags flags ) {
 
-    tinyobj::attrib_t                attrib;
+    tinyobj::attrib_t attrib;
+    // Memory unhandled here, tinyobjloader uses std::vector internally. For large models, consider implementing a custom allocator and modifying tinyobjloader to use it.
     std::vector<tinyobj::shape_t>    shapes;
     std::vector<tinyobj::material_t> materials;
     std::string                      warn, err;
 
     // Fetch materials
-    std::string baseDir = filepath.substr( 0, filepath.find_last_of( "/\\" ) + 1 );
+    STLW::String baseDir = filepath.substr( 0, filepath.find_last_of( "/\\" ) + 1 );
 
     const char* mtlSearchPath         = baseDir.c_str();
     bool        shouldImportMaterials = ( flags & MeshImportLoadMaterials );

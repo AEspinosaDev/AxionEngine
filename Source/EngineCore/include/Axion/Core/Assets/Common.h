@@ -1,6 +1,7 @@
 #pragma once
 #include <Axion/Common/Graphics/Common.h>
 
+
 AXION_NAMESPACE_BEGIN
 
 namespace Core::Assets {
@@ -62,7 +63,7 @@ enum class TexturePrecision : byte
 
 constexpr Graphics::Format getRecommendedGPUFormat( const TextureFormat    fmt,
                                                     const TexturePrecision prec,
-                                                    const u32             channels ) {
+                                                    const u32              channels ) {
 
     // --- FLOAT 32 (Full HDR) ---
     if ( prec == TexturePrecision::F32 )

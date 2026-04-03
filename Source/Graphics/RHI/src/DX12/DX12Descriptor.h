@@ -62,7 +62,7 @@ public:
     void attach( u32 binding, ISampler* samp ) override;
     void attach( u32 binding, IAccel* accel ) override;
     void attachDynamic( u32 binding, IBuffer* buf, u64 offset, u64 range, u32 stride, ResourceState bindingState ) override;
-    void attachBufferView( u32 binding, const BufferView& bufferView, ResourceState bindingState ) override;
+    void attachBufferSlice( u32 binding, const BufferSlice& bufferSlice, ResourceState bindingState ) override;
 
     void attachBindless( u32 binding, u32 arrayIndex, ITexture* tex, ResourceState bindingState ) override;
     void attachBindlessArray( u32 binding, u32 startArrayIndex, const STLW::Vector<ITexture*>& textures, ResourceState bindingState ) override;

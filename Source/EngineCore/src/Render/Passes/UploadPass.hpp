@@ -17,15 +17,15 @@ public:
     struct Config {
         GlobalBufferHandles outGlobalBufferHandles;
 
-        Graphics::RHI::FreeListAllocator* vertexAllocator = nullptr;
-        Graphics::RHI::FreeListAllocator* indexAllocator  = nullptr;
-        Graphics::RHI::FreeListAllocator* matAllocator    = nullptr;
+        Graphics::BufferGPUFreeListAllocator* vertexAllocator = nullptr;
+        Graphics::BufferGPUFreeListAllocator* indexAllocator  = nullptr;
+        Graphics::BufferGPUFreeListAllocator* matAllocator    = nullptr;
 
         STLW::Vector<Graphics::RHI::IDescriptorSet*> allPersistentSets;
 
         STLW::Vector<Graphics::TextureHandle>* mtlTextureHandles = nullptr;
-        GPUScene*                             gpuScene          = nullptr;
-        u64                                 maxAllocationSize = 0;
+        GPUScene*                              gpuScene          = nullptr;
+        u64                                    maxAllocationSize = 0;
     };
 
     void registerShaders( Graphics::IShaderRegistry& /*shaders*/ ) override { /*NO OP*/ }
@@ -70,9 +70,9 @@ private:
         while ( !uploadQueue.empty() )
         {
             const auto& nextUpload           = uploadQueue.front();
-            u32        requiredVerticesSize = (u32)( nextUpload.geometryData->vertices.size() * sizeof( Assets::Vertex ) );
-            u32        requiredIndicesSize  = (u32)( nextUpload.geometryData->indices.size() * sizeof( u32 ) );
-            u32        totalRequiredSpace   = requiredVerticesSize + requiredIndicesSize;
+            u32         requiredVerticesSize = (u32)( nextUpload.geometryData->vertices.size() * sizeof( Assets::Vertex ) );
+            u32         requiredIndicesSize  = (u32)( nextUpload.geometryData->indices.size() * sizeof( u32 ) );
+            u32         totalRequiredSpace   = requiredVerticesSize + requiredIndicesSize;
 
             if ( totalUsedSpace + totalRequiredSpace > (u32)data.maxAllocationSize )
                 break;
@@ -83,19 +83,19 @@ private:
             auto& gpuMesh = scene.meshes()[uploadEntry.GPUMeshID];
 
             // A. Vertices
-            auto vertexBufferView = data.vertexAllocator->allocate<Assets::Vertex>( uploadEntry.geometryData->vertices.size() );
-            if ( vertexBufferView.size > 0 )
+            auto vertexBufferSlice = data.vertexAllocator->allocate<Assets::Vertex>( uploadEntry.geometryData->vertices.size() );
+            if ( vertexBufferSlice.size > 0 )
             {
-                cmd->uploadBuffer( vb, uploadEntry.geometryData->vertices.data(), vertexBufferView.size, vertexBufferView.offset, allocator, Graphics::RHI::BarrierPolicy::None );
-                gpuMesh.vertexOffset = (u32)vertexBufferView.offset;
+                cmd->uploadBuffer( vb, uploadEntry.geometryData->vertices.data(), vertexBufferSlice.size, vertexBufferSlice.offset, allocator, Graphics::RHI::BarrierPolicy::None );
+                gpuMesh.vertexOffset = (u32)vertexBufferSlice.offset;
             }
 
             // B. Indices
-            auto indexBufferView = data.indexAllocator->allocate<u32>( uploadEntry.geometryData->indices.size() );
-            if ( indexBufferView.size > 0 )
+            auto indexBufferSlice = data.indexAllocator->allocate<u32>( uploadEntry.geometryData->indices.size() );
+            if ( indexBufferSlice.size > 0 )
             {
-                cmd->uploadBuffer( ib, uploadEntry.geometryData->indices.data(), indexBufferView.size, indexBufferView.offset, allocator, Graphics::RHI::BarrierPolicy::None );
-                gpuMesh.indexOffset = (u32)indexBufferView.offset;
+                cmd->uploadBuffer( ib, uploadEntry.geometryData->indices.data(), indexBufferSlice.size, indexBufferSlice.offset, allocator, Graphics::RHI::BarrierPolicy::None );
+                gpuMesh.indexOffset = (u32)indexBufferSlice.offset;
             }
 
             gpuMesh.valid = true;
@@ -111,20 +111,20 @@ private:
 
             if ( deletionEntry.vertexSize > 0 )
             {
-                Graphics::RHI::BufferView vView;
-                vView.buffer = vb;
-                vView.offset = deletionEntry.vertexOffset;
-                vView.size   = deletionEntry.vertexSize;
-                data.vertexAllocator->free( vView );
+                Graphics::BufferSlice vSlice;
+                vSlice.container = vb;
+                vSlice.offset    = deletionEntry.vertexOffset;
+                vSlice.size      = deletionEntry.vertexSize;
+                data.vertexAllocator->free( vSlice );
             }
 
             if ( deletionEntry.indexSize > 0 )
             {
-                Graphics::RHI::BufferView iView;
-                iView.buffer = ib;
-                iView.offset = deletionEntry.indexOffset;
-                iView.size   = deletionEntry.indexSize;
-                data.indexAllocator->free( iView );
+                Graphics::BufferSlice iSlice;
+                iSlice.container = ib;
+                iSlice.offset    = deletionEntry.indexOffset;
+                iSlice.size      = deletionEntry.indexSize;
+                data.indexAllocator->free( iSlice );
             }
         }
     }
@@ -156,12 +156,12 @@ private:
             // pero Free+Alloc evita fragmentación si el tamaño cambia.
             if ( gpuMtl.bufferOffset != 0 ) // Asumiendo que 0 es null/inválido
             {
-                Graphics::RHI::BufferView oldView;
-                oldView.buffer = mtlb;
-                oldView.offset = gpuMtl.bufferOffset;
-                oldView.size   = gpuMtl.payloadSize; // Usamos el tamaño viejo guardado en GPU struct
+                Graphics::BufferSlice oldSlice;
+                oldSlice.container = mtlb;
+                oldSlice.offset    = gpuMtl.bufferOffset;
+                oldSlice.size      = gpuMtl.payloadSize; // Usamos el tamaño viejo guardado en GPU struct
 
-                data.matAllocator->free( oldView );
+                data.matAllocator->free( oldSlice );
 
                 gpuMtl.bufferOffset = 0;
             }
@@ -193,10 +193,10 @@ private:
 
             if ( deletionEntry.payloadSize > 0 )
             {
-                Graphics::RHI::BufferView mView;
-                mView.buffer = mtlb;
-                mView.offset = deletionEntry.bufferOffset;
-                mView.size   = deletionEntry.payloadSize;
+                Graphics::BufferSlice mView;
+                mView.container = mtlb;
+                mView.offset    = deletionEntry.bufferOffset;
+                mView.size      = deletionEntry.payloadSize;
 
                 data.matAllocator->free( mView );
             }

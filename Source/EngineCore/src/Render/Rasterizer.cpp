@@ -102,10 +102,37 @@ void Rasterizer::compileShaders( u32 threadCount ) {
 
 void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity, float deltaTime ) {
 
-    // Early Exit
+    // Early Exit Logic
     if ( !cameraEntity.hasComponent<Scene::CameraComponent>() || scene.getRegistry().view<Scene::MeshComponent>().empty() )
     {
         AXION_LOG_WARN_ONCE( Logger::Module::Core, "Scene [{}] given to Rasterizer [{}] is empty or Camera is missing.", scene.getName(), _settings.common.name );
+
+        _rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
+            Graphics::RGResourceHandle backbufferHandle = builder.import( "BackbufferRT", _rnd->getCurrentBackbufferHandle() );
+
+            struct PassData {
+                Graphics::RGResourceHandle target;
+            };
+
+            builder.addPass<PassData>( "ClearPass", [&]( Graphics::RenderPassBuilder& pb, PassData& data ) { data.target = pb.write( backbufferHandle, Graphics::RHI::ResourceState::RenderTarget ); },
+
+                                       [&]( const PassData& data, Graphics::RenderPassContext& ctx ) {
+                    
+                auto* tex = ctx.getTexture( data.target );
+                
+                ctx.cmd->barrier( tex, Graphics::RHI::ResourceState::RenderTarget );
+                ctx.cmd->clearTexture( tex, Graphics::ClearValue { .color = { 0.0f, 0.0f, 0.0f, 0.0f } } ); } );
+
+            if ( _settings.common.flags & RendererEnableGUI )
+            {
+                _guipass.guiBackend   = _rnd->getGUIBackend();
+                _guipass.outputHandle = backbufferHandle;
+                builder.addPass( "GUIPass", _guipass );
+            }
+
+            _presentpass.inoutHandle = backbufferHandle;
+            builder.addPass( "PresentPass", _presentpass );
+        } );
         return;
     }
 
@@ -127,10 +154,10 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
     currentFrameRes.ssboAllocator.reset();
     currentFrameRes.indirectAllocator.reset();
 
-    auto transientViews  = uploadTransientData( currentFrameRes.uboAllocator,
-                                               currentFrameRes.ssboAllocator );
-    auto indirectCmdData = uploadIndirectCommandData( currentFrameRes.ssboAllocator,
-                                                      currentFrameRes.indirectAllocator );
+    auto transientPayload   = uploadTransientData( currentFrameRes.uboAllocator,
+                                                 currentFrameRes.ssboAllocator );
+    auto indirectCmdPayload = uploadIndirectCommandData( currentFrameRes.ssboAllocator,
+                                                         currentFrameRes.indirectAllocator );
 
     _rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
         auto rtExtent = _window->getSettings().size.to3D();
@@ -165,19 +192,19 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
             IndirectUploadPass::Config indUpConfig;
             indUpConfig.inOutIndirectBufferHandle         = builder.import( "IndirectCommandBuffer", currentFrameRes.indirectBufferHandle );
             indUpConfig.inOutIndirectTemplateBufferHandle = currentFrameRes.indirectTemplateBufferHandle;
-            indUpConfig.indirectData                      = indirectCmdData;
+            indUpConfig.indirectData                      = indirectCmdPayload;
 
             _passes.getPass<IndirectUploadPass>()->addToGraph( builder, indUpConfig );
 
             cullConfig.outIndirectBufferHandle       = indUpConfig.inOutIndirectBufferHandle;
             cullConfig.outCulledRedirectBufferHandle = builder.import( "IndirectCulledInstanceBuffer", currentFrameRes.culledInstanceBufferHandle );
 
-            cullConfig.inFrameView       = transientViews.frameView;
-            cullConfig.inMeshesView      = transientViews.meshesView;
-            cullConfig.inInstancesView   = transientViews.instancesView;
-            cullConfig.inRedirectionView = transientViews.redirectView;
+            cullConfig.inFrameSlice       = transientPayload.frameSlice;
+            cullConfig.inMeshesSlice      = transientPayload.meshesSlice;
+            cullConfig.inInstancesSlice   = transientPayload.instancesSlice;
+            cullConfig.inRedirectionSlice = transientPayload.redirectSlice;
 
-            cullConfig.indirectData = indirectCmdData;
+            cullConfig.indirectData = indirectCmdPayload;
 
             cullConfig.instanceCount = (u32)_gpuScene.instances().size();
 
@@ -201,15 +228,15 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         dpConfig.matLib          = &_mtlLib;
         dpConfig.matLayoutHandle = _globalMtlLayoutHandle;
 
-        dpConfig.inFrameView       = transientViews.frameView;
-        dpConfig.inMeshesView      = transientViews.meshesView;
-        dpConfig.inMaterialsView   = transientViews.mtlView;
-        dpConfig.inInstancesView   = transientViews.instancesView;
-        dpConfig.inLightsView      = transientViews.lightsView;
-        dpConfig.inEnvsView        = transientViews.envsView;
-        dpConfig.inRedirectionView = transientViews.redirectView;
+        dpConfig.inFrameSlice       = transientPayload.frameSlice;
+        dpConfig.inMeshesSlice      = transientPayload.meshesSlice;
+        dpConfig.inMaterialsSlice   = transientPayload.mtlSlice;
+        dpConfig.inInstancesSlice   = transientPayload.instancesSlice;
+        dpConfig.inLightsSlice      = transientPayload.lightsSlice;
+        dpConfig.inEnvsSlice        = transientPayload.envsSlice;
+        dpConfig.inRedirectionSlice = transientPayload.redirectSlice;
 
-        dpConfig.indirectData                 = indirectCmdData;
+        dpConfig.indirectData                 = indirectCmdPayload;
         dpConfig.inIndirectBufferHandle       = cullConfig.outIndirectBufferHandle;
         dpConfig.inCulledRedirectBufferHandle = cullConfig.outCulledRedirectBufferHandle;
         dpConfig.useGPUCulling                = _settings.useGPUCulling;
@@ -238,15 +265,15 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         fwConfig.matLayoutHandle = _globalMtlLayoutHandle;
         fwConfig.gpuScene        = &_gpuScene;
 
-        fwConfig.inFrameView       = transientViews.frameView;
-        fwConfig.inMeshesView      = transientViews.meshesView;
-        fwConfig.inMaterialsView   = transientViews.mtlView;
-        fwConfig.inInstancesView   = transientViews.instancesView;
-        fwConfig.inLightsView      = transientViews.lightsView;
-        fwConfig.inEnvsView        = transientViews.envsView;
-        fwConfig.inRedirectionView = transientViews.redirectView;
+        fwConfig.inFrameSlice       = transientPayload.frameSlice;
+        fwConfig.inMeshesSlice      = transientPayload.meshesSlice;
+        fwConfig.inMaterialsSlice   = transientPayload.mtlSlice;
+        fwConfig.inInstancesSlice   = transientPayload.instancesSlice;
+        fwConfig.inLightsSlice      = transientPayload.lightsSlice;
+        fwConfig.inEnvsSlice        = transientPayload.envsSlice;
+        fwConfig.inRedirectionSlice = transientPayload.redirectSlice;
 
-        fwConfig.indirectData                 = indirectCmdData;
+        fwConfig.indirectData                 = indirectCmdPayload;
         fwConfig.inIndirectBufferHandle       = cullConfig.outIndirectBufferHandle;
         fwConfig.inCulledRedirectBufferHandle = cullConfig.outCulledRedirectBufferHandle;
         fwConfig.useGPUCulling                = _settings.useGPUCulling;
@@ -370,9 +397,9 @@ void Rasterizer::setupMaterialLibrary() {
 void Rasterizer::registerMaterials() {
 
     Assets::GlobalMaterialRegistry::enumerate(
-        [&]( const std::string& name, Assets::GlobalMaterialRegistry::SetupCallback setupFunc ) {
+        [&]( StringView name, Assets::GlobalMaterialRegistry::SetupCallback setupFunc ) {
+            AXION_UNUSED_PARAMETER( name );
             MaterialArchetypeDesc desc;
-
             setupFunc( desc );
 
             _mtlLib.registerArchetype( desc );
@@ -408,7 +435,7 @@ void Rasterizer::createResources() {
                                   .onGPU()
                                   .asRaw()
                                   .create();
-    _res.vertexAllocator = Graphics::RHI::FreeListAllocator( r.getBuffer( _res.vertexBufferHandle ) );
+    _res.vertexAllocator = Graphics::BufferGPUFreeListAllocator( r.getBuffer( _res.vertexBufferHandle ) );
 
     _res.indexBufferHandle = r.buffer( "GlobalIndexBuffer" )
                                  .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
@@ -418,7 +445,7 @@ void Rasterizer::createResources() {
                                  .asRaw()
                                  .asIBO()
                                  .create();
-    _res.indexAllocator = Graphics::RHI::FreeListAllocator( r.getBuffer( _res.indexBufferHandle ) );
+    _res.indexAllocator = Graphics::BufferGPUFreeListAllocator( r.getBuffer( _res.indexBufferHandle ) );
 
     _res.mtlBufferHandle = r.buffer( "GlobalMaterialBuffer" )
                                .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
@@ -427,12 +454,12 @@ void Rasterizer::createResources() {
                                .onGPU()
                                .asRaw()
                                .create();
-    _res.mtlAllocator = Graphics::RHI::FreeListAllocator( r.getBuffer( _res.mtlBufferHandle ) );
+    _res.mtlAllocator = Graphics::BufferGPUFreeListAllocator( r.getBuffer( _res.mtlBufferHandle ) );
 
     //------------------------- B. Fallback Resources -------------------
 
     STLW::Array<byte, 4> fallbackPixels = { 255, 0, 255, 255 };
-    _res.fallbackTexture2DHandle         = r.texture( "FallbackTexture2D" )
+    _res.fallbackTexture2DHandle        = r.texture( "FallbackTexture2D" )
                                        .format( Graphics::Format::RGBA8_UNORM )
                                        .extent( { 1, 1, 1 } )
                                        .withData( fallbackPixels.data() )
@@ -454,7 +481,7 @@ void Rasterizer::createResources() {
                                             .create();
         auto* uboBuffer = r.getBuffer( _res.frame[i].uboBufferHandle );
         uboBuffer->map();
-        _res.frame[i].uboAllocator = Graphics::RHI::LinearAllocator( uboBuffer );
+        _res.frame[i].uboAllocator = Graphics::BufferLinearAllocator<>( uboBuffer );
 
         _res.frame[i].ssboBufferHandle = r.buffer( "GlobalSSBO_" + std::to_string( i ) )
                                              .size( _settings.memory.volatileBufferSize )
@@ -463,7 +490,7 @@ void Rasterizer::createResources() {
 
         auto* ssboBuffer = r.getBuffer( _res.frame[i].ssboBufferHandle );
         ssboBuffer->map();
-        _res.frame[i].ssboAllocator = Graphics::RHI::LinearAllocator( ssboBuffer );
+        _res.frame[i].ssboAllocator = Graphics::BufferLinearAllocator<>( ssboBuffer );
 
         // ----------------------- D. PER-FRAME INDIRECT RENDERING BUFFERS (Volatile) -------------------
         _res.frame[i].indirectStagingBufferHandle = r.buffer( "IndirectStagingCommandBuffer_" + std::to_string( i ) )
@@ -472,7 +499,7 @@ void Rasterizer::createResources() {
                                                         .create();
         auto* indBuffer = r.getBuffer( _res.frame[i].indirectStagingBufferHandle );
         indBuffer->map();
-        _res.frame[i].indirectAllocator = Graphics::RHI::LinearAllocator( indBuffer );
+        _res.frame[i].indirectAllocator = Graphics::BufferLinearAllocator<>( indBuffer );
 
         _res.frame[i].indirectBufferHandle = r.buffer( "IndirectCommandBuffer_" + std::to_string( i ) )
                                                  .size( _settings.memory.GPUCommandBuffersSize )
@@ -514,9 +541,9 @@ void Rasterizer::createResources() {
 #pragma endregion
 #pragma region CPU-GPU Uploads
 
-Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::LinearAllocator& currentUBOAlloc,
-                                                            Graphics::RHI::LinearAllocator& currentSSBOAlloc ) {
-    TransientViews views;
+Rasterizer::TransientPayload Rasterizer::uploadTransientData( Graphics::BufferLinearAllocator<>& currentUBOAlloc,
+                                                              Graphics::BufferLinearAllocator<>& currentSSBOAlloc ) {
+    TransientPayload payload;
 
     // (D3D12/Vulkan)
     const u32 CBV_ALIGNMENT = 256;
@@ -527,13 +554,13 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
     {
         const auto& frameData = _gpuScene.frame();
 
-        views.frameView = currentUBOAlloc.allocate( sizeof( GPUFrame ), CBV_ALIGNMENT );
+        payload.frameSlice = currentUBOAlloc.allocate( sizeof( GPUFrame ), CBV_ALIGNMENT );
 
-        if ( views.frameView.isValid() )
+        if ( payload.frameSlice.isValid() )
         {
-            memcpy( views.frameView.cpuAddress, &frameData, sizeof( GPUFrame ) );
-            views.frameView.stride = sizeof( GPUFrame );
-            views.frameView.count  = 1;
+            memcpy( payload.frameSlice.cpuAddress, &frameData, sizeof( GPUFrame ) );
+            payload.frameSlice.stride = sizeof( GPUFrame );
+            payload.frameSlice.count  = 1;
         }
     }
 
@@ -545,19 +572,19 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
 
         if ( !meshes.empty() )
         {
-            views.meshesView = currentSSBOAlloc.allocate<GPUMesh>( meshes.size() );
+            payload.meshesSlice = currentSSBOAlloc.allocate<GPUMesh>( meshes.size() );
 
-            if ( views.meshesView.isValid() )
+            if ( payload.meshesSlice.isValid() )
             {
-                memcpy( views.meshesView.cpuAddress, meshes.data(), views.meshesView.size );
+                memcpy( payload.meshesSlice.cpuAddress, meshes.data(), payload.meshesSlice.size );
             }
         } else
         {
             // Dummy
-            views.meshesView       = currentSSBOAlloc.allocate<GPUMesh>( 1 );
-            views.meshesView.count = 0; // Empty
-            if ( views.meshesView.cpuAddress )
-                memset( views.meshesView.cpuAddress, 0, views.meshesView.size );
+            payload.meshesSlice       = currentSSBOAlloc.allocate<GPUMesh>( 1 );
+            payload.meshesSlice.count = 0; // Empty
+            if ( payload.meshesSlice.cpuAddress )
+                memset( payload.meshesSlice.cpuAddress, 0, payload.meshesSlice.size );
         }
     }
 
@@ -569,19 +596,19 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
 
         if ( !mtls.empty() )
         {
-            views.mtlView = currentSSBOAlloc.allocate<GPUMaterial>( mtls.size() );
+            payload.mtlSlice = currentSSBOAlloc.allocate<GPUMaterial>( mtls.size() );
 
-            if ( views.mtlView.isValid() )
+            if ( payload.mtlSlice.isValid() )
             {
-                memcpy( views.mtlView.cpuAddress, mtls.data(), views.mtlView.size );
+                memcpy( payload.mtlSlice.cpuAddress, mtls.data(), payload.mtlSlice.size );
             }
         } else
         {
             // DUMMY
-            views.mtlView       = currentSSBOAlloc.allocate<GPUMaterial>( 1 );
-            views.mtlView.count = 0;
-            if ( views.mtlView.cpuAddress )
-                memset( views.mtlView.cpuAddress, 0, views.mtlView.size );
+            payload.mtlSlice       = currentSSBOAlloc.allocate<GPUMaterial>( 1 );
+            payload.mtlSlice.count = 0;
+            if ( payload.mtlSlice.cpuAddress )
+                memset( payload.mtlSlice.cpuAddress, 0, payload.mtlSlice.size );
         }
     }
     // =================================================================================
@@ -592,19 +619,19 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
 
         if ( !instances.empty() )
         {
-            views.instancesView = currentSSBOAlloc.allocate<GPUInstance>( instances.size() );
+            payload.instancesSlice = currentSSBOAlloc.allocate<GPUInstance>( instances.size() );
 
-            if ( views.instancesView.isValid() )
+            if ( payload.instancesSlice.isValid() )
             {
-                memcpy( views.instancesView.cpuAddress, instances.data(), views.instancesView.size );
+                memcpy( payload.instancesSlice.cpuAddress, instances.data(), payload.instancesSlice.size );
             }
         } else
         {
             // DUMMY
-            views.instancesView       = currentSSBOAlloc.allocate<GPUInstance>( 1 );
-            views.instancesView.count = 0;
-            if ( views.instancesView.cpuAddress )
-                memset( views.instancesView.cpuAddress, 0, views.instancesView.size );
+            payload.instancesSlice       = currentSSBOAlloc.allocate<GPUInstance>( 1 );
+            payload.instancesSlice.count = 0;
+            if ( payload.instancesSlice.cpuAddress )
+                memset( payload.instancesSlice.cpuAddress, 0, payload.instancesSlice.size );
         }
     }
 
@@ -616,19 +643,19 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
 
         if ( !lights.empty() )
         {
-            views.lightsView = currentSSBOAlloc.allocate<GPULight>( lights.size() );
+            payload.lightsSlice = currentSSBOAlloc.allocate<GPULight>( lights.size() );
 
-            if ( views.lightsView.isValid() )
+            if ( payload.lightsSlice.isValid() )
             {
-                memcpy( views.lightsView.cpuAddress, lights.data(), views.lightsView.size );
+                memcpy( payload.lightsSlice.cpuAddress, lights.data(), payload.lightsSlice.size );
             }
         } else
         {
             // DUMMY
-            views.lightsView       = currentSSBOAlloc.allocate<GPULight>( 1 );
-            views.lightsView.count = 0;
-            if ( views.lightsView.cpuAddress )
-                memset( views.lightsView.cpuAddress, 0, views.lightsView.size );
+            payload.lightsSlice       = currentSSBOAlloc.allocate<GPULight>( 1 );
+            payload.lightsSlice.count = 0;
+            if ( payload.lightsSlice.cpuAddress )
+                memset( payload.lightsSlice.cpuAddress, 0, payload.lightsSlice.size );
         }
     }
     // =================================================================================
@@ -639,19 +666,19 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
 
         if ( !envs.empty() )
         {
-            views.envsView = currentSSBOAlloc.allocate<GPUEnvironment>( envs.size() );
+            payload.envsSlice = currentSSBOAlloc.allocate<GPUEnvironment>( envs.size() );
 
-            if ( views.envsView.isValid() )
+            if ( payload.envsSlice.isValid() )
             {
-                memcpy( views.envsView.cpuAddress, envs.data(), views.envsView.size );
+                memcpy( payload.envsSlice.cpuAddress, envs.data(), payload.envsSlice.size );
             }
         } else
         {
             // DUMMY
-            views.envsView       = currentSSBOAlloc.allocate<GPUEnvironment>( 1 );
-            views.envsView.count = 0;
-            if ( views.envsView.cpuAddress )
-                memset( views.envsView.cpuAddress, 0, views.envsView.size );
+            payload.envsSlice       = currentSSBOAlloc.allocate<GPUEnvironment>( 1 );
+            payload.envsSlice.count = 0;
+            if ( payload.envsSlice.cpuAddress )
+                memset( payload.envsSlice.cpuAddress, 0, payload.envsSlice.size );
         }
     }
 
@@ -663,11 +690,11 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
 
         if ( !sortedKeys.empty() )
         {
-            views.redirectView = currentSSBOAlloc.allocate<u32>( sortedKeys.size() );
+            payload.redirectSlice = currentSSBOAlloc.allocate<u32>( sortedKeys.size() );
 
-            if ( views.redirectView.isValid() )
+            if ( payload.redirectSlice.isValid() )
             {
-                auto* redirectPtr = (u32*)views.redirectView.cpuAddress;
+                auto* redirectPtr = (u32*)payload.redirectSlice.cpuAddress;
 
                 for ( size_t i = 0; i < sortedKeys.size(); ++i )
                 {
@@ -676,26 +703,26 @@ Rasterizer::TransientViews Rasterizer::uploadTransientData( Graphics::RHI::Linea
             }
         } else
         {
-            views.redirectView       = currentSSBOAlloc.allocate<u32>( 1 );
-            views.redirectView.count = 0;
-            if ( views.redirectView.cpuAddress )
-                memset( views.redirectView.cpuAddress, 0, views.redirectView.size );
+            payload.redirectSlice       = currentSSBOAlloc.allocate<u32>( 1 );
+            payload.redirectSlice.count = 0;
+            if ( payload.redirectSlice.cpuAddress )
+                memset( payload.redirectSlice.cpuAddress, 0, payload.redirectSlice.size );
         }
     }
 
-    return views;
+    return payload;
 }
 
-IndirectCommandData Rasterizer::uploadIndirectCommandData(
-    Graphics::RHI::LinearAllocator& currentSSBOAlloc,
-    Graphics::RHI::LinearAllocator& currentIndirectAlloc ) {
+IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
+    Graphics::BufferLinearAllocator<>& currentSSBOAlloc,
+    Graphics::BufferLinearAllocator<>& currentIndirectAlloc ) {
     const auto& sortedKeys = _gpuScene.getSortedKeys();
     const auto& instances  = _gpuScene.instances();
     const auto& meshes     = _gpuScene.meshes();
 
-    IndirectCommandData indirectData;
+    IndirectCommandPayload payload;
     if ( sortedKeys.empty() )
-        return indirectData;
+        return payload;
 
     // 1. ALLOCATIONS
     // =================================================================================
@@ -706,12 +733,12 @@ IndirectCommandData Rasterizer::uploadIndirectCommandData(
     auto cmdAlloc = currentIndirectAlloc.allocate<Graphics::RHI::DrawIndexedIndirectCommand>( maxPossibleCommands );
 
     if ( !cmdAlloc.isValid() )
-        return indirectData;
+        return payload;
 
     auto*      cmdPtr       = (Graphics::RHI::DrawIndexedIndirectCommand*)cmdAlloc.cpuAddress;
     const auto RHI_CMD_SIZE = sizeof( Graphics::RHI::DrawIndexedIndirectCommand );
 
-    indirectData.batches.reserve( _mtlLib.getArchetypesCount() ); // Optimistic
+    payload.batches.reserve( _mtlLib.getArchetypesCount() ); // Optimistic
 
     // 2. LOOP
     // =================================================================================
@@ -729,8 +756,8 @@ IndirectCommandData Rasterizer::uploadIndirectCommandData(
     u32 cmdsInCurrentArch    = 0;
     u32 archBatchStartCmdIdx = 0;
 
-    u32*                     indirectCmdMapPtr = nullptr;
-    Graphics::RHI::BufferView cmdMapAlloc {};
+    u32*                  indirectCmdMapPtr = nullptr;
+    Graphics::BufferSlice cmdMapAlloc {};
     if ( _settings.useGPUCulling )
     {
         cmdMapAlloc       = currentSSBOAlloc.allocate<u32>( instances.size() );
@@ -767,17 +794,17 @@ IndirectCommandData Rasterizer::uploadIndirectCommandData(
             batchStartOffsetInRedirect = (u32)i;
 
             // Update Trackers
-            currentMeshID    = meshID;
+            currentMeshID   = meshID;
             u32 originalIdx = sortedKeys[i].originalInstanceIdx;
-            lastMesh         = meshes[instances[originalIdx].meshID];
+            lastMesh        = meshes[instances[originalIdx].meshID];
         }
 
         if ( arch != currentArch || topo != currentTopo )
         {
-            indirectData.batches.push_back( { .archetypeID  = currentArch,
-                                              .topologyID   = currentTopo,
-                                              .bufferOffset = (u32)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
-                                              .drawCount    = cmdsInCurrentArch } );
+            payload.batches.push_back( { .archetypeID  = currentArch,
+                                         .topologyID   = currentTopo,
+                                         .bufferOffset = (u32)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
+                                         .drawCount    = cmdsInCurrentArch } );
 
             currentArch          = arch;
             currentTopo          = topo;
@@ -812,24 +839,24 @@ IndirectCommandData Rasterizer::uploadIndirectCommandData(
     // Último Render Batch
     if ( cmdsInCurrentArch > 0 )
     {
-        indirectData.batches.push_back( { .archetypeID  = currentArch,
-                                          .topologyID   = currentTopo,
-                                          .bufferOffset = (u32)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
-                                          .drawCount    = cmdsInCurrentArch } );
+        payload.batches.push_back( { .archetypeID  = currentArch,
+                                     .topologyID   = currentTopo,
+                                     .bufferOffset = (u32)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
+                                     .drawCount    = cmdsInCurrentArch } );
     }
 
     // 4. Finish
     // =================================================================================
 
-    indirectData.commandBufferView      = cmdAlloc;
-    indirectData.commandBufferView.size = cmdWriteIdx * RHI_CMD_SIZE;
-    indirectData.batchMapView           = cmdMapAlloc;
+    payload.commandBufferSlice      = cmdAlloc;
+    payload.commandBufferSlice.size = cmdWriteIdx * RHI_CMD_SIZE;
+    payload.batchMapSlice           = cmdMapAlloc;
 
     if ( !_settings.useGPUCulling )
-        return indirectData;
+        return payload;
 
 #ifdef AXION_DEBUG
-    indirectData.dirty = true;
+    payload.dirty = true;
 
 #else
     size_t currentCmdCount = cmdWriteIdx;
@@ -866,7 +893,7 @@ IndirectCommandData Rasterizer::uploadIndirectCommandData(
 
 #endif
 
-    return indirectData;
+    return payload;
 }
 } // namespace Core::Render
 

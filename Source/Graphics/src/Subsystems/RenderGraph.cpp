@@ -15,7 +15,7 @@ RHI::IDescriptorSet* RenderPassContext::allocateSet( RHI::IPipelineLayout* layou
     return descriptors->allocate( layout, setIndex );
 }
 
-RHI::SBT::View RenderPassContext::allocateSBT( const RHI::SBT& sbt, RHI::IRayTracingPipeline* pip ) const {
+RHI::SBT::Allocation RenderPassContext::allocateSBT( const RHI::SBT& sbt, RHI::IRayTracingPipeline* pip ) const {
     return sbtAllocator->allocate( sbt, pip );
 }
 RGResourceHandle RenderPassBuilder::read( RGResourceHandle resource, RHI::ResourceState requiredState ) {

@@ -6,7 +6,7 @@ AXION_NAMESPACE_BEGIN
 
 namespace Core::Scene {
 
-Scene::Scene( const std::string& name, Assets::AssetManager* assets )
+Scene::Scene( StringView name, Assets::AssetManager* assets )
     : _name( name )
     , _assets( assets ) {
     AXION_LOG_INFO( Logger::Module::Core, "Scene [{}] Created Succesfully", _name );
@@ -15,14 +15,14 @@ Scene::~Scene() {
     AXION_LOG_INFO( Logger::Module::Core, "Destroying Scene [{}]", _name );
 }
 
-Entity Scene::createEntity( const std::string& name ) {
+Entity Scene::createEntity( StringView name ) {
 
     ECS::EntityID id     = _registry.createEntity();
     Entity        entity = { id, this };
 
     entity.addComponent<TransformComponent>();
     auto& tag = entity.addComponent<TagComponent>();
-    tag.tag   = name.empty() ? "Entity" : name;
+    tag.setTag( name.empty() ? "Entity" : name );
 
     AXION_LOG_INFO( Logger::Module::Core, "Created Entity [{}] ID: {}", name, id );
 

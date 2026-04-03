@@ -72,6 +72,19 @@ public:
         return *this;
     }
 
+    bool operator==( std::nullptr_t ) const {
+        return _ptr == nullptr;
+    }
+    bool operator!=( std::nullptr_t ) const {
+        return _ptr != nullptr;
+    }
+    bool operator==( const OwnerPtr& other ) const {
+        return _ptr == other._ptr;
+    }
+    bool operator!=( const OwnerPtr& other ) const {
+        return _ptr != other._ptr;
+    }
+
     T*       operator->() const { return _ptr; }
     T&       operator*() const { return *_ptr; }
     T*       get() const { return _ptr; }

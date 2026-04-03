@@ -135,13 +135,13 @@ public:
         std::memcpy( dest, &p, sizeof( GPUPayload ) );
     }
 
-    std::vector<TextureHandle> getTextureHandles() const override { return { _albedoMapHandle, _normalMapHandle, _armMapHandle, _emissiveMapHandle}; };
+    STLW::Vector<TextureHandle> getTextureHandles() const override { return { _albedoMapHandle, _normalMapHandle, _armMapHandle, _emissiveMapHandle}; };
 
 private:
     friend class AssetManager;
 
-    explicit StandardPBRMaterial( std::string name )
-        : Material( std::move( name ) ) {}
+    explicit StandardPBRMaterial( StringView name )
+        : Material(  name  ) {}
 
     Math::Vec3 _albedo      = { 0.5f, 0.5f, 0.5f };
     Math::Vec3 _emissive    = { 0.0f, 0.0f, 0.0f };

@@ -5,7 +5,7 @@ AXION_NAMESPACE_BEGIN
 
 namespace Core::Assets::Loaders {
 
-bool loadImage( const std::string& filepath, ImageData& outImage, TextureImportFlags flags ) {
+bool loadImage( const STLW::String& filepath, ImageData& outImage, TextureImportFlags flags ) {
 
     int w, h, c;
     

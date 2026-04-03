@@ -31,8 +31,8 @@ DX12SBTAllocator::~DX12SBTAllocator() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 SBT Allocator [{}]", _desc.debugName );
 }
 
-SBT::View DX12SBTAllocator::allocate( const ShaderBindingTable& sbt, IRayTracingPipeline* pip ) {
-    SBT::View view = {};
+SBT::Allocation DX12SBTAllocator::allocate( const ShaderBindingTable& sbt, IRayTracingPipeline* pip ) {
+    SBT::Allocation view = {};
 
     if ( !pip )
     {

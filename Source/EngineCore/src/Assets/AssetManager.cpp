@@ -1,10 +1,11 @@
 #include "Axion/Core/Assets/AssetManager.h"
+#include "Axion/Common/Containers/STLWrapper/Lists.h"
+#include "Axion/Common/Containers/STLWrapper/Maps.h"
 #include "Axion/Common/Logging.h"
 #include "Loaders/Loaders.h"
 #include <cmath>
 #include <filesystem>
 #include <mutex>
-#include <queue>
 
 AXION_NAMESPACE_BEGIN
 
@@ -14,9 +15,9 @@ namespace Core::Assets {
 
 template <typename T>
 struct AssetRecord {
-    std::unique_ptr<T> asset      = nullptr;
-    u16             generation = 0;
-    bool               active     = false;
+    Memory::OwnerPtr<T> asset      = nullptr;
+    u16                 generation = 0;
+    bool                active     = false;
 };
 
 struct AssetManager::Impl {
@@ -24,23 +25,23 @@ struct AssetManager::Impl {
     Impl() {}
     ~Impl() {}
 
-    std::vector<AssetRecord<Mesh>>              meshes;
-    std::unordered_map<std::string, MeshHandle> meshHandles;
-    std::queue<u32>                            meshFreeIndices;
+    STLW::Vector<AssetRecord<Mesh>>          meshes;
+    STLW::UnorderedMap<String64, MeshHandle> meshHandles;
+    STLW::Queue<u32>                         meshFreeIndices;
 
-    std::vector<AssetRecord<Texture>>              textures;
-    std::unordered_map<std::string, TextureHandle> textureHandles;
-    std::queue<u32>                               textureFreeIndices;
+    STLW::Vector<AssetRecord<Texture>>          textures;
+    STLW::UnorderedMap<String64, TextureHandle> textureHandles;
+    STLW::Queue<u32>                            textureFreeIndices;
 
-    std::vector<AssetRecord<Material>>              materials;
-    std::unordered_map<std::string, MaterialHandle> materialHandles;
-    std::queue<u32>                                materialFreeIndices;
-    std::vector<byte>                              dirtyMaterialLUT;
+    STLW::Vector<AssetRecord<Material>>          materials;
+    STLW::UnorderedMap<String64, MaterialHandle> materialHandles;
+    STLW::Queue<u32>                             materialFreeIndices;
+    STLW::Vector<byte>                           dirtyMaterialLUT;
 
     std::mutex mutex;
     std::mutex dirtyMutex;
 
-    MeshHandle addMesh( Mesh&& mesh, const std::string& key = "" ) {
+    MeshHandle addMesh( Mesh&& mesh, StringView key = "" ) {
 
         u32 id         = UINT32_MAX;
         u32 generation = 0;
@@ -52,7 +53,7 @@ struct AssetManager::Impl {
 
             auto& slot  = meshes[id];
             slot.active = true;
-            slot.asset  = std::make_unique<Mesh>( std::move( mesh ) ); // Overwrite old data
+            slot.asset  = Memory::makeOwned<Mesh>( std::move( mesh ) ); // Overwrite old data
 
             generation = slot.generation;
         } else
@@ -61,7 +62,7 @@ struct AssetManager::Impl {
             generation = 0;
 
             AssetRecord<Mesh> newSlot;
-            newSlot.asset      = std::make_unique<Mesh>( std::move( mesh ) );
+            newSlot.asset      = Memory::makeOwned<Mesh>( std::move( mesh ) );
             newSlot.generation = 0;
             newSlot.active     = true;
 
@@ -108,7 +109,7 @@ struct AssetManager::Impl {
 
         AXION_LOG_INFO( Logger::Module::Core, "Deleted Mesh ID: {} [{}]", handle.id, deletedName );
     }
-    TextureHandle addTexture( Texture&& texture, const std::string& key = "" ) {
+    TextureHandle addTexture( Texture&& texture, StringView key = "" ) {
 
         u32 id         = UINT32_MAX;
         u32 generation = 0;
@@ -120,7 +121,7 @@ struct AssetManager::Impl {
 
             auto& slot  = textures[id];
             slot.active = true;
-            slot.asset  = std::make_unique<Texture>( std::move( texture ) ); // Overwrite old data
+            slot.asset  = Memory::makeOwned<Texture>( std::move( texture ) ); // Overwrite old data
 
             generation = slot.generation;
         } else
@@ -129,7 +130,7 @@ struct AssetManager::Impl {
             generation = 0;
 
             AssetRecord<Texture> newSlot;
-            newSlot.asset      = std::make_unique<Texture>( std::move( texture ) );
+            newSlot.asset      = Memory::makeOwned<Texture>( std::move( texture ) );
             newSlot.generation = 0;
             newSlot.active     = true;
 
@@ -177,7 +178,7 @@ struct AssetManager::Impl {
         AXION_LOG_INFO( Logger::Module::Core, "Deleted Texture ID: {} [{}]", handle.id, deletedName );
     }
 
-    MaterialHandle addMaterial( std::unique_ptr<Material> mat, const std::string& key = "" ) {
+    MaterialHandle addMaterial( Memory::OwnerPtr<Material> mat, StringView key = "" ) {
         u32 id         = UINT32_MAX;
         u32 generation = 0;
 
@@ -247,7 +248,7 @@ struct AssetManager::Impl {
 };
 
 AssetManager::AssetManager()
-    : _impl( std::make_unique<Impl>() ) {
+    : _impl( Memory::makeOwned<Impl>() ) {
     AXION_LOG_INFO( Logger::Module::Core, "Asset Manager Created Succesfully" );
 }
 
@@ -258,10 +259,10 @@ AssetManager::~AssetManager() {
 #pragma endregion
 #pragma region Mesh
 
-MeshHandle AssetManager::importMesh( const std::string& name, const std::string& filepath, MeshImportFlags flags ) {
+MeshHandle AssetManager::importMesh( StringView name, StringView filepath, MeshImportFlags flags ) {
     std::scoped_lock lock( _impl->mutex );
 
-    std::string meshName = name;
+    StringView meshName = name;
     if ( meshName.empty() )
     {
         AXION_LOG_ERROR( Logger::Module::Core, "Invalid Mesh name, returning invalid Handle" );
@@ -281,7 +282,7 @@ MeshHandle AssetManager::importMesh( const std::string& name, const std::string&
         return MeshHandle();
     }
 
-    std::string extension = path.extension().string();
+    STLW::String extension = (STLW::String)path.extension().string();
     std::transform( extension.begin(), extension.end(), extension.begin(), ::tolower );
 
     Loaders::MeshData meshData;
@@ -289,7 +290,7 @@ MeshHandle AssetManager::importMesh( const std::string& name, const std::string&
 
     if ( extension == ".obj" )
     {
-        success = Loaders::loadOBJ( filepath, meshData, flags );
+        success = Loaders::loadOBJ( STLW::String( filepath ), meshData, flags );
     } else if ( extension == ".ply" )
     {
         // TODO: Implement loadPLY in Loaders.h/cpp
@@ -342,13 +343,13 @@ MeshHandle AssetManager::importMesh( const std::string& name, const std::string&
     return handle;
 }
 
-MeshHandle AssetManager::createMesh( const std::string&          name,
-                                     const std::vector<Vertex>&  vertices,
-                                     const std::vector<u32>&    indices,
+MeshHandle AssetManager::createMesh( StringView                  name,
+                                     const STLW::Vector<Vertex>& vertices,
+                                     const STLW::Vector<u32>&    indices,
                                      Graphics::PrimitiveTopology topology ) {
 
     std::scoped_lock lock( _impl->mutex );
-    std::string      meshName = name;
+    String64         meshName = name;
     if ( meshName.empty() )
     {
         AXION_LOG_ERROR( Logger::Module::Core, "Invalid Mesh name, returning invalid Handle" );
@@ -375,10 +376,10 @@ MeshHandle AssetManager::createMesh( const std::string&          name,
     return handle;
 }
 
-MeshHandle AssetManager::createQuad( const std::string& name, u32 subdivisions, bool asMeshlet ) {
+MeshHandle AssetManager::createQuad( StringView name, u32 subdivisions, bool asMeshlet ) {
     std::scoped_lock lock( _impl->mutex );
 
-    std::string meshName = name;
+    String64 meshName = name;
     if ( meshName.empty() )
     {
         meshName = "__internal_quad_subdiv_" + std::to_string( subdivisions );
@@ -390,15 +391,15 @@ MeshHandle AssetManager::createQuad( const std::string& name, u32 subdivisions, 
         return _impl->meshHandles[meshName];
     }
 
-    const u32  cellsPerSide    = subdivisions + 1;
-    const u32  verticesPerSide = cellsPerSide + 1;
+    const u32   cellsPerSide    = subdivisions + 1;
+    const u32   verticesPerSide = cellsPerSide + 1;
     const float step            = 1.0f / (float)cellsPerSide;
 
     const Math::Vec3 origin = { -0.5f, -0.5f, 0.0f };
 
     // 1. Use local vectors
-    std::vector<Vertex> vertices;
-    std::vector<u32>   indices;
+    STLW::Vector<Vertex> vertices;
+    STLW::Vector<u32>    indices;
 
     vertices.reserve( verticesPerSide * verticesPerSide );
     indices.reserve( cellsPerSide * cellsPerSide * 6 );
@@ -442,7 +443,7 @@ MeshHandle AssetManager::createQuad( const std::string& name, u32 subdivisions, 
         }
     }
 
-    std::vector<Vertex> vertsCopy = vertices; // Copy for the meshlets function if needed
+    STLW::Vector<Vertex> vertsCopy = vertices; // Copy for the meshlets function if needed
 
     Mesh mesh = asMeshlet
                     ? Mesh( meshName, std::move( vertices ), Assets::Loaders::cookMeshlets( vertsCopy, indices ), Graphics::PrimitiveTopology::TriangleList, false )
@@ -460,11 +461,11 @@ MeshHandle AssetManager::createQuad( const std::string& name, u32 subdivisions, 
     return handle;
 }
 
-MeshHandle AssetManager::createCube( const std::string& name, bool asMeshlet ) {
+MeshHandle AssetManager::createCube( StringView name, bool asMeshlet ) {
 
     std::scoped_lock lock( _impl->mutex );
 
-    std::string meshName = name;
+    String64 meshName = name;
     if ( meshName.empty() )
     {
         meshName = "__internal_cube";
@@ -477,7 +478,7 @@ MeshHandle AssetManager::createCube( const std::string& name, bool asMeshlet ) {
     }
 
     // 1. Use local vectors instead of directly accessing uninitialized _geoData
-    std::vector<Vertex> vertices = {
+    STLW::Vector<Vertex> vertices = {
         // ------------------------------------------------------------------
         // FRONT FACE (Z+) -> Normal (0, 0, 1) | Tangent (1, 0, 0)
         // ------------------------------------------------------------------
@@ -527,7 +528,7 @@ MeshHandle AssetManager::createCube( const std::string& name, bool asMeshlet ) {
         { { -0.5f, -0.5f, 0.5f }, { 0, -1, 0 }, { 0, 0 }, { 1, 0, 0, 1 }, { 1, 1, 1, 1 } }   // 23
     };
 
-    std::vector<u32> indices = {
+    STLW::Vector<u32> indices = {
         0, 1, 2, 2, 3, 0, // Front
         4,
         5,
@@ -562,7 +563,7 @@ MeshHandle AssetManager::createCube( const std::string& name, bool asMeshlet ) {
     };
 
     // 2. Safely construct the Mesh
-    std::vector<Vertex> vertsCopy = vertices;
+    STLW::Vector<Vertex> vertsCopy = vertices;
 
     Mesh mesh = asMeshlet
                     ? Mesh( meshName, std::move( vertices ), Assets::Loaders::cookMeshlets( vertsCopy, indices ), Graphics::PrimitiveTopology::TriangleList, false )
@@ -580,10 +581,10 @@ MeshHandle AssetManager::createCube( const std::string& name, bool asMeshlet ) {
 
     return handle;
 }
-MeshHandle AssetManager::createSphere( const std::string& name, u32 segments, bool asMeshlet ) {
+MeshHandle AssetManager::createSphere( StringView name, u32 segments, bool asMeshlet ) {
     std::scoped_lock lock( _impl->mutex );
 
-    std::string meshName = name;
+    String64 meshName = name;
     if ( meshName.empty() )
     {
         meshName = "__internal_sphere_seg_" + std::to_string( segments );
@@ -595,13 +596,13 @@ MeshHandle AssetManager::createSphere( const std::string& name, u32 segments, bo
         return _impl->meshHandles[meshName];
     }
 
-    const u32  rings   = segments;
-    const u32  sectors = segments;
+    const u32   rings   = segments;
+    const u32   sectors = segments;
     const float radius  = 0.5f; // Diameter = 1.0
 
     // 1. Use local vectors
-    std::vector<Vertex> vertices;
-    std::vector<u32>   indices;
+    STLW::Vector<Vertex> vertices;
+    STLW::Vector<u32>    indices;
 
     vertices.reserve( rings * sectors );
     indices.reserve( rings * sectors * 6 );
@@ -658,15 +659,15 @@ MeshHandle AssetManager::createSphere( const std::string& name, u32 segments, bo
         }
     }
 
-    std::vector<Vertex> vertsCopy = vertices;
-    
-    Mesh mesh = asMeshlet 
-        ? Mesh( meshName, std::move( vertices ), Assets::Loaders::cookMeshlets( vertsCopy, indices ), Graphics::PrimitiveTopology::TriangleList, false )
-        : Mesh( meshName, std::move( vertices ), std::move( indices ), Graphics::PrimitiveTopology::TriangleList, false );
+    STLW::Vector<Vertex> vertsCopy = vertices;
+
+    Mesh mesh = asMeshlet
+                    ? Mesh( meshName, std::move( vertices ), Assets::Loaders::cookMeshlets( vertsCopy, indices ), Graphics::PrimitiveTopology::TriangleList, false )
+                    : Mesh( meshName, std::move( vertices ), std::move( indices ), Graphics::PrimitiveTopology::TriangleList, false );
 
     mesh._aabb.min              = { -radius, -radius, -radius };
-    mesh._aabb.max              = {  radius,  radius,  radius };
-    mesh._boundingSphere.center = {  0.0f,  0.0f,  0.0f };
+    mesh._aabb.max              = { radius, radius, radius };
+    mesh._boundingSphere.center = { 0.0f, 0.0f, 0.0f };
     mesh._boundingSphere.radius = radius;
 
     auto handle = _impl->addMesh( std::move( mesh ), meshName );
@@ -716,10 +717,10 @@ u32 AssetManager::getMeshCount() const {
 #pragma endregion
 #pragma region Texture
 
-TextureHandle AssetManager::importTexture( const std::string& name, const std::string& filepath, TextureImportFlags flags ) {
+TextureHandle AssetManager::importTexture( StringView name, StringView filepath, TextureImportFlags flags ) {
     std::scoped_lock lock( _impl->mutex );
 
-    std::string textureName = name;
+    String64 textureName = name;
     if ( textureName.empty() )
     {
         AXION_LOG_ERROR( Logger::Module::Core, "Invalid Texture name." );
@@ -739,7 +740,7 @@ TextureHandle AssetManager::importTexture( const std::string& name, const std::s
     }
 
     Loaders::ImageData imageData;
-    if ( !Loaders::loadImage( filepath, imageData, flags ) )
+    if ( !Loaders::loadImage( STLW::String( filepath ), imageData, flags ) )
     {
         AXION_LOG_ERROR( Logger::Module::Core, "Failed to import texture [{}] from [{}]", textureName, filepath );
         return TextureHandle();
@@ -785,15 +786,23 @@ TextureHandle AssetManager::importTexture( const std::string& name, const std::s
     return handle;
 }
 
-TextureHandle AssetManager::createTexture( const std::string&                      name,
-                                           const Extent3D&                         size,
-                                           const std::variant<std::vector<byte>,
-                                                              std::vector<float>>& pixels,
-                                           const u32                              channels,
-                                           const TextureFormat                     format,
-                                           const TexturePrecision                  precision,
-                                           const TextureType                       type,
-                                           const SamplerDesc&                      samplerDesc ) {
+TextureHandle AssetManager::createTexture( StringView                               name,
+                                           const Extent3D&                          size,
+                                           const std::variant<STLW::Vector<byte>,
+                                                              STLW::Vector<float>>& pixels,
+                                           const u32                                channels,
+                                           const TextureFormat                      format,
+                                           const TexturePrecision                   precision,
+                                           const TextureType                        type,
+                                           const SamplerDesc&                       samplerDesc ) {
+    AXION_UNUSED_PARAMETER( name );
+    AXION_UNUSED_PARAMETER( size );
+    AXION_UNUSED_PARAMETER( pixels );
+    AXION_UNUSED_PARAMETER( channels );
+    AXION_UNUSED_PARAMETER( format );
+    AXION_UNUSED_PARAMETER( precision );
+    AXION_UNUSED_PARAMETER( type );
+    AXION_UNUSED_PARAMETER( samplerDesc );
     return TextureHandle();
 }
 
@@ -836,11 +845,11 @@ u32 AssetManager::getTextureCount() const {
 
 #pragma endregion
 #pragma region Material
-MaterialHandle AssetManager::createMaterialAux( const std::string& name, Material* rawPtr ) {
+MaterialHandle AssetManager::createMaterialAux( StringView name, Material* rawPtr ) {
     if ( !rawPtr )
         return {};
 
-    std::unique_ptr<Material> matPtr( rawPtr );
+    Memory::OwnerPtr<Material> matPtr( rawPtr );
 
     std::scoped_lock lock( _impl->mutex );
 
@@ -909,15 +918,15 @@ std::pair<const byte*, size_t> AssetManager::getMaterialDirtyLUT() const {
 
 #pragma region Entry
 
-AssetManager::MeshBuilder AssetManager::mesh( const std::string& name ) {
+AssetManager::MeshBuilder AssetManager::mesh( StringView name ) {
     return AssetManager::MeshBuilder( *this, name );
 }
 
-AssetManager::TextureBuilder AssetManager::texture( const std::string& name ) {
+AssetManager::TextureBuilder AssetManager::texture( StringView name ) {
     return AssetManager::TextureBuilder( *this, name );
 }
 
-AssetManager::MaterialBuilder AssetManager::material( const std::string& name ) {
+AssetManager::MaterialBuilder AssetManager::material( StringView name ) {
     return AssetManager::MaterialBuilder( *this, name );
 }
 } // namespace Core::Assets

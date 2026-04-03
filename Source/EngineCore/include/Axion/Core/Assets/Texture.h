@@ -19,20 +19,20 @@ public:
         Graphics::Filter      filter      = Graphics::Filter::Linear;
         Graphics::AddressMode addressMode = Graphics::AddressMode::Repeat;
         bool                  anisotropic = true;
-        byte                 mipLevels   = 1;
+        byte                  mipLevels   = 1;
     };
 
     Texture()                     = delete;
     Texture( const Texture& )     = delete;
     Texture( Texture&& ) noexcept = default;
 
-    [[nodiscard]] const std::string& getName() const { return _name; }
-    [[nodiscard]] Extent3D           getSize() const { return _size; }
-    [[nodiscard]] u32               getChannels() const { return _channels; }
-    [[nodiscard]] bool               isHDR() const { return _isHDR; }
-    [[nodiscard]] TextureType        getType() const { return _type; }
-    [[nodiscard]] TextureFormat      getFormat() const { return _format; }
-    [[nodiscard]] TexturePrecision   getPrecision() const { return _precision; }
+    [[nodiscard]] const String64&  getName() const { return _name; }
+    [[nodiscard]] Extent3D         getSize() const { return _size; }
+    [[nodiscard]] u32              getChannels() const { return _channels; }
+    [[nodiscard]] bool             isHDR() const { return _isHDR; }
+    [[nodiscard]] TextureType      getType() const { return _type; }
+    [[nodiscard]] TextureFormat    getFormat() const { return _format; }
+    [[nodiscard]] TexturePrecision getPrecision() const { return _precision; }
 
     [[nodiscard]] Graphics::Format getGPUFormat() const { return _gpuFormat; }
 
@@ -51,7 +51,7 @@ public:
                            *_pixels );
     }
 
-    [[nodiscard]] size_t getSizeBytes() const {
+    [[nodiscard]] u64 getSizeBytes() const {
         return _sizeBytes;
     }
 
@@ -61,11 +61,11 @@ public:
 private:
     friend class AssetManager;
 
-    Texture( std::string name )
-        : _name( std::move( name ) ) {}
+    Texture( StringView name )
+        : _name( name ) {}
 
     AXION_FORCE_INLINE void setData( Extent3D&&       size,
-                                     u32             c,
+                                     u32              c,
                                      bool             hdr,
                                      TexturePixels&&  data,
                                      TextureFormat    fmt,
@@ -88,9 +88,9 @@ private:
         return std::get<STLW::Vector<unsigned char>>( *_pixels ).size() * sizeof( unsigned char );
     }
 
-    std::string      _name;
+    String64         _name;
     Extent3D         _size;
-    u32             _channels  = 0;
+    u32              _channels  = 0;
     bool             _isHDR     = false;
     TextureType      _type      = TextureType::Texture2D;
     TextureFormat    _format    = TextureFormat::Gamma;
@@ -101,7 +101,7 @@ private:
     SamplerDescription _samplerDesc;
 
     std::shared_ptr<TexturePixels> _pixels;
-    size_t                         _sizeBytes = 0;
+    u64                            _sizeBytes = 0;
 };
 
 typedef Texture::SamplerDescription SamplerDesc;

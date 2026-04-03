@@ -5,7 +5,7 @@
 #include "Axion/Graphics/Handle.h"
 #include "GPUObjects.h"
 #include "MaterialSystem.h"
-#include "queue"
+#include <Axion/Common/Containers/STLWrapper/Lists.h>
 #include <span>
 
 AXION_NAMESPACE_BEGIN
@@ -55,16 +55,16 @@ public:
     STLW::Vector<GPUTexture>& textures() { return _textureCache.cache; }
 
     // Command Queues consumption
-    std::queue<PendingMeshUpload>&     pendingMeshUploads() { return _pendingMeshUploads; }
-    std::queue<PendingMeshFree>&       pendingMeshReleases() { return _pendingMeshReleases; }
-    std::queue<PendingMaterialUpload>& pendingMaterialUploads() { return _pendingMtlUploads; }
-    std::queue<PendingMaterialFree>&   pendingMaterialReleases() { return _pendingMtlReleases; }
-    std::queue<PendingTextureUpload>&  pendingTextureUploads() { return _pendingTextureUploads; }
-    std::queue<u32>&                  pendingTextureReleases() { return _pendingTextureReleases; }
+    STLW::Queue<PendingMeshUpload>&     pendingMeshUploads() { return _pendingMeshUploads; }
+    STLW::Queue<PendingMeshFree>&       pendingMeshReleases() { return _pendingMeshReleases; }
+    STLW::Queue<PendingMaterialUpload>& pendingMaterialUploads() { return _pendingMtlUploads; }
+    STLW::Queue<PendingMaterialFree>&   pendingMaterialReleases() { return _pendingMtlReleases; }
+    STLW::Queue<PendingTextureUpload>&  pendingTextureUploads() { return _pendingTextureUploads; }
+    STLW::Queue<u32>&                   pendingTextureReleases() { return _pendingTextureReleases; }
 
     struct SortKey {
         u64 key;
-        u32  originalInstanceIdx;
+        u32 originalInstanceIdx;
 
         void unpack( u32& archID, u32& topology, u32& meshID ) const {
             archID   = (u32)( ( key >> 48 ) & 0xFFFF );
@@ -103,12 +103,12 @@ private:
                            bool                   sort,
                            bool                   transpose,
                            bool                   forceRaytrace );
-    u32 processMesh( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::MeshHandle& cpuMeshHandle );
-    u32 processMaterial( const Axion::Core::Assets::AssetManager*   assets,
+    u32  processMesh( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::MeshHandle& cpuMeshHandle );
+    u32  processMaterial( const Axion::Core::Assets::AssetManager*   assets,
                           const MaterialLibrary&                     mtlLib,
-                          std::pair<const byte*, size_t>&           dirtyLUT,
+                          std::pair<const byte*, size_t>&            dirtyLUT,
                           const Axion::Core::Assets::MaterialHandle& cpuMtlHandle );
-    u32 processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle );
+    u32  processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle );
 
     void processLights( const Scene::Scene& cpuScene );
     void processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose );
@@ -137,7 +137,7 @@ private:
         // The slot container. Indices here are stable until GC.
         STLW::Vector<T> cache;
         // Slots that were freed and can be reused.
-        std::queue<u64> freeIndexQueue;
+        STLW::Queue<u64> freeIndexQueue;
         // O(1) Look-Up Table mapping [CPU_AssetID] -> [GPU_CacheSlot]
         STLW::Vector<int> assetToCacheLUT;
     };
@@ -146,17 +146,17 @@ private:
     GPUCache<GPUTexture>  _textureCache;
 
     // -- Communication Queues --
-    std::queue<PendingMeshUpload>     _pendingMeshUploads;
-    std::queue<PendingMeshFree>       _pendingMeshReleases;
-    std::queue<PendingMaterialUpload> _pendingMtlUploads;
-    std::queue<PendingMaterialFree>   _pendingMtlReleases;
-    std::queue<PendingTextureUpload>  _pendingTextureUploads;
-    std::queue<u32>                  _pendingTextureReleases;
+    STLW::Queue<PendingMeshUpload>     _pendingMeshUploads;
+    STLW::Queue<PendingMeshFree>       _pendingMeshReleases;
+    STLW::Queue<PendingMaterialUpload> _pendingMtlUploads;
+    STLW::Queue<PendingMaterialFree>   _pendingMtlReleases;
+    STLW::Queue<PendingTextureUpload>  _pendingTextureUploads;
+    STLW::Queue<u32>                   _pendingTextureReleases;
 
     // -- State --
     bool  _forceRaytrace     = false;
     float _accumulatedTime   = 0.0f;
-    u32  _currentFrameIndex = 0;
+    u32   _currentFrameIndex = 0;
 
     u32 _resourceTTL = (u32)Graphics::GCMode::AvgMemory;
 };

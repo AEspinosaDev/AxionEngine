@@ -15,7 +15,11 @@
 #undef max
 #endif
 
+#define AXION_DEBUG_BREAK() __debugbreak()
+
 #elif defined( __linux__ )
+
+#define AXION_DEBUG_BREAK() __builtin_trap()
 
 #else
 #error "Platform not supported!"

@@ -34,11 +34,11 @@ TransientAllocator::~TransientAllocator() {
         _uploadBuffer->unmap();
 }
 
-BufferView TransientAllocator::allocateScratch( u64 size, u64 alignment ) {
+BufferSlice TransientAllocator::allocateScratch( u64 size, u64 alignment ) {
     return _scratchAllocator.allocate( size, alignment );
 }
 
-BufferView TransientAllocator::allocateUpload( u64 size, u64 alignment ) {
+BufferSlice TransientAllocator::allocateUpload( u64 size, u64 alignment ) {
     return _uploadAllocator.allocate( size, alignment );
 }
 

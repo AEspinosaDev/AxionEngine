@@ -34,15 +34,15 @@ public:
 
     /// @brief Starts the fluent construction of a CPU Mesh.
     /// @param name Debug name for the resource.
-    MeshBuilder mesh( const std::string& name );
+    MeshBuilder mesh( StringView name );
 
     /// @brief Starts the fluent construction of a CPU Texture.
     /// @param name Debug name for the resource.
-    TextureBuilder texture( const std::string& name );
+    TextureBuilder texture( StringView name );
 
     /// @brief Starts the fluent construction of a CPU Material.
     /// @param name Debug name for the resource.
-    MaterialBuilder material( const std::string& name );
+    MaterialBuilder material( StringView name );
 
     // -------------------------------------------------------------------------
     // RUNTIME ACCESS
@@ -101,26 +101,26 @@ public:
     std::pair<const byte*, size_t> getMaterialDirtyLUT() const;
 
 private:
-    MeshHandle    importMesh( const std::string& name, const std::string& filepath, MeshImportFlags flags );
-    MeshHandle    createMesh( const std::string&          name,
-                              const std::vector<Vertex>&  vertices,
-                              const std::vector<u32>&     indices  = {},
+    MeshHandle    importMesh( StringView name, StringView filepath, MeshImportFlags flags );
+    MeshHandle    createMesh( StringView                  name,
+                              const STLW::Vector<Vertex>& vertices,
+                              const STLW::Vector<u32>&    indices  = {},
                               Graphics::PrimitiveTopology topology = Graphics::PrimitiveTopology::TriangleList );
-    MeshHandle    createQuad( const std::string& name, u32 subdivisions = 0, bool asMeshlet = false );
-    MeshHandle    createCube( const std::string& name, bool asMeshlet = false );
-    MeshHandle    createSphere( const std::string& name, u32 segments = 32, bool asMeshlet = false );
-    TextureHandle importTexture( const std::string& name, const std::string& filepath, TextureImportFlags flags );
-    TextureHandle createTexture( const std::string&                                         name,
-                                 const Extent3D&                                            size,
-                                 const std::variant<std::vector<byte>, std::vector<float>>& pixels,
-                                 const u32                                                  channels,
-                                 const TextureFormat                                        format,
-                                 const TexturePrecision                                     precision,
-                                 const TextureType                                          type,
-                                 const SamplerDesc&                                         samplerDesc = {} );
+    MeshHandle    createQuad( StringView name, u32 subdivisions = 0, bool asMeshlet = false );
+    MeshHandle    createCube( StringView name, bool asMeshlet = false );
+    MeshHandle    createSphere( StringView name, u32 segments = 32, bool asMeshlet = false );
+    TextureHandle importTexture( StringView name, StringView filepath, TextureImportFlags flags );
+    TextureHandle createTexture( StringView                                                   name,
+                                 const Extent3D&                                              size,
+                                 const std::variant<STLW::Vector<byte>, STLW::Vector<float>>& pixels,
+                                 const u32                                                    channels,
+                                 const TextureFormat                                          format,
+                                 const TexturePrecision                                       precision,
+                                 const TextureType                                            type,
+                                 const SamplerDesc&                                           samplerDesc = {} );
 
     template <typename T, typename... Args>
-    MaterialHandle createMaterial( const std::string& name, Args&&... args ) {
+    MaterialHandle createMaterial( StringView name, Args&&... args ) {
         static_assert( std::is_base_of<Material, T>::value,
                        "AssetManager: The type T must derive from Core::Assets::Material" );
 
@@ -128,10 +128,10 @@ private:
 
         return createMaterialAux( name, newMat );
     }
-    MaterialHandle createMaterialAux( const std::string& name, Material* rawPtr );
+    MaterialHandle createMaterialAux( StringView name, Material* rawPtr );
 
     struct Impl;
-    std::unique_ptr<Impl> _impl;
+    Memory::OwnerPtr<Impl> _impl = nullptr;
 
     friend class MeshBuilder;
     friend class TextureBuilder;
@@ -146,13 +146,13 @@ private:
 class AssetManager::MeshBuilder
 {
 public:
-    MeshBuilder( AssetManager& m, std::string n )
+    MeshBuilder( AssetManager& m, StringView n )
         : _manager( m )
         , _name( std::move( n ) ) {}
 
     /// @brief Imports a mesh from a file on disk (OBJ, GLTF, etc).
-    MeshHandle import( const std::string& path,
-                       MeshImportFlags    flags = MeshImportComputeBounds | MeshImportComputeTangents ) {
+    MeshHandle import( StringView      path,
+                       MeshImportFlags flags = MeshImportComputeBounds | MeshImportComputeTangents ) {
         if ( _asMeshlet )
             flags |= MeshImportAsMeshlet;
         return _manager.importMesh( _name, path, flags );
@@ -174,7 +174,7 @@ public:
     }
 
     /// @brief Creates a mesh from raw vertex and index data.
-    MeshHandle create( const std::vector<Vertex>& vertices, const std::vector<u32>& indices = {} ) {
+    MeshHandle create( const STLW::Vector<Vertex>& vertices, const STLW::Vector<u32>& indices = {} ) {
         return _manager.createMesh( _name, vertices, indices );
     }
 
@@ -186,7 +186,7 @@ public:
 
 private:
     AssetManager& _manager;
-    std::string   _name;
+    StringView    _name;
     bool          _asMeshlet = false;
 };
 
@@ -194,7 +194,7 @@ private:
 class AssetManager::MaterialBuilder
 {
 public:
-    MaterialBuilder( AssetManager& m, std::string n )
+    MaterialBuilder( AssetManager& m, StringView n )
         : _manager( m )
         , _name( std::move( n ) ) {}
 
@@ -206,14 +206,14 @@ public:
 
 private:
     AssetManager& _manager;
-    std::string   _name;
+    StringView    _name;
 };
 
 /// @brief Fluent builder for configuring and creating Textures.
 class AssetManager::TextureBuilder
 {
 public:
-    TextureBuilder( AssetManager& m, std::string n )
+    TextureBuilder( AssetManager& m, StringView n )
         : _manager( m )
         , _name( std::move( n ) ) {}
 
@@ -245,21 +245,21 @@ public:
     // --- Finalizers ---
 
     /// @brief Finalizes and imports texture from a file on disk.
-    TextureHandle import( const std::string& path,
+    TextureHandle import( StringView         path,
                           TextureImportFlags flags = TextureImportAsGamma | TextureImportForce4Channels ) {
         return _manager.importTexture( _name, path, flags );
     }
 
     /// @brief Finalizes and creates a texture from raw memory data.
-    TextureHandle create( const Extent3D&                                            size,
-                          const std::variant<std::vector<byte>, std::vector<float>>& pixels,
-                          u32                                                        channels ) {
+    TextureHandle create( const Extent3D&                                              size,
+                          const std::variant<STLW::Vector<byte>, STLW::Vector<float>>& pixels,
+                          u32                                                          channels ) {
         return _manager.createTexture( _name, size, pixels, channels, _fmt, _prec, _type, _sampler );
     }
 
 private:
     AssetManager& _manager;
-    std::string   _name;
+    StringView    _name;
 
     TextureType      _type    = TextureType::Texture2D;
     TextureFormat    _fmt     = TextureFormat::Gamma;

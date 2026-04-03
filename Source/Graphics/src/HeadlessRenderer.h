@@ -25,15 +25,15 @@ public:
     virtual void            setWindow( IWindow* /*wnd*/ ) override;
     virtual const Settings& getSettings() const override;
     virtual TextureHandle   getCurrentBackbufferHandle() const override { return TextureHandle { UINT32_MAX }; };
-    virtual u64           getTotalFrameNumber() const override { return _frameNumber; };
-    virtual const u32      getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
-    virtual u64           getCurrentFrameIndex() const override;
+    virtual u64             getTotalFrameNumber() const override { return _frameNumber; };
+    virtual const u32       getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
+    virtual u32             getCurrentFrameIndex() const override;
 
     virtual IGPUResourcePool&  resources() override;
     virtual IShaderRegistry&   shaders() override;
     virtual IPipelineRegistry& pipelines() override;
 
-    virtual const RHI::DeviceOwnerPtr&      getDevice() const override;
+    virtual const RHI::DeviceOwnerPtr& getDevice() const override;
     virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( u32 frameIndex ) override;
     virtual const RHI::IGUIBackend*    getGUIBackend() const override;
 
@@ -46,9 +46,9 @@ public:
 private:
     RendererSettings _setts;
     // RHI -- GPU
-    RHI::DeviceOwnerPtr          _device      = nullptr;
-    RHI::CommandListOwnerPtr     _commandList = nullptr;
-    std::vector<RHI::Fence> _frameFences;
+    RHI::DeviceOwnerPtr      _device      = nullptr;
+    RHI::CommandListOwnerPtr _commandList = nullptr;
+    std::vector<RHI::Fence>  _frameFences;
     // SUBSYSTEMS
     GPUResourcePool  _resourcePool;   // GPU Resources
     ShaderRegistry   _shaderRegistry; // Pipelines & shaders
@@ -57,7 +57,7 @@ private:
     // Query
     u32       _currentFrame = 0;
     const u32 _FRAMES_IN_FLIGHT;
-    u64      _frameNumber = 0;
+    u64       _frameNumber = 0;
 };
 
 } // namespace Graphics
