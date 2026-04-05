@@ -1,7 +1,6 @@
 #pragma once
 #include "Axion/Graphics/RHI/Common.h"
 #include "Axion/Graphics/RHI/ICommandList.h"
-#include "Axion/Graphics/RHI/Memory.h"
 #include "Axion/Graphics/RHI/IPipeline.h"
 #include "Axion/Graphics/RHI/IResource.h"
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
@@ -70,9 +69,6 @@ public:
 
     /// @brief Creates an allocator for Shader Binding Tables (Raytracing).
     virtual SBTAllocatorOwnerPtr createSBTAllocator( const SBTAllocatorDesc& desc ) = 0;
-
-    /// @brief Creates a transient linear allocator for per-frame dynamic uploads.
-    virtual TransientAllocatorOwnerPtr createTransientAllocator( const TransientAllocatorDesc& desc ) = 0;
 
     // -------------------------------------------------------------------------
     // SUBMISSION & SYNCHRONIZATION

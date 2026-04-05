@@ -1,5 +1,5 @@
 #pragma once
-#include "Axion/Graphics/RHI/Memory.h"
+#include "Axion/Graphics/RHI/Common.h"
 
 AXION_NAMESPACE_BEGIN
 

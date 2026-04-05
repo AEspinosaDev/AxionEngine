@@ -26,7 +26,7 @@ public:
     struct Description {
         Extent2D    size;                         ///< Dimensions of the swapchain images.
         Format      format = Format::RGBA8_UNORM; ///< Color format of the swapchain images.
-        u32        imageCount;                   ///< Number of backbuffers/images.
+        u32         imageCount;                   ///< Number of backbuffers/images.
         PresentMode presentMode;                  ///< Presentation mode (e.g., immediate, vsync, mailbox, etc.).
         bool        tearingSupported = false;     ///< Whether tearing is supported on this platform.
         String64    debugName        = "Swapchain";
@@ -73,7 +73,7 @@ public:
      *
      * @return Copy of the vector of swapchain images.
      */
-    virtual STLW::Vector<TextureOwnerPtr> releaseImages() = 0;
+    virtual SmallVector<TextureOwnerPtr, 3> releaseImages() = 0;
 
     /**
      * @brief Reconfigures the swapchain with new description.

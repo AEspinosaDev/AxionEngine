@@ -5,19 +5,6 @@ AXION_NAMESPACE_BEGIN
 
 namespace Memory {
 
-// Lock Policies
-// ----------------------------
-struct NoLockPolicy {
-    void lock() {}
-    void unlock() {}
-};
-
-struct MutexLockPolicy {
-    mutable std::mutex _mtx;
-    void               lock() { _mtx.lock(); }
-    void               unlock() { _mtx.unlock(); }
-};
-
 class IAllocator
 {
 public:

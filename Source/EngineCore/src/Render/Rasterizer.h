@@ -1,14 +1,15 @@
 #pragma once
 #include "Axion/Graphics/Passes/Utilitary.hpp"
-#include "Axion/Graphics/RHI/Memory.h"
+#include <Axion/Common/Containers/STLWrapper/String.h>
+#include <Axion/Common/Memory/VMemoryArena.h>
+#include <Axion/Core/Assets/Material.h>
+#include <Axion/Core/Render/IRasterizer.h>
+#include <Axion/Graphics/IRenderer.h>
+
 #include "DrawIndirect.h"
 #include "GPUScene.h"
 #include "MaterialSystem.h"
 #include "PassSystem.h"
-#include <Axion/Common/Containers/STLWrapper/String.h>
-#include <Axion/Core/Assets/Material.h>
-#include <Axion/Core/Render/IRasterizer.h>
-#include <Axion/Graphics/IRenderer.h>
 
 // High Level Passes
 #include "Passes/CullingPass.hpp"
@@ -44,7 +45,7 @@ public:
     u64 getCurrentFrameIndex() const override;
     u64 getTotalFrameNumber() const override;
 
-    const u32 getTotalFramesInFlight() const override { return _framesInFlight; };
+    const u32 getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
 
     STLW::String toString() const override;
 
@@ -53,6 +54,8 @@ private:
     void registerMaterials();
     void registerPasses();
     void createResources();
+
+    Graphics::IRenderer::MemoryBudget convertMemoryBudget();
 
     struct TransientPayload {
         Graphics::BufferSlice frameSlice;
@@ -71,6 +74,9 @@ private:
 
     Platform::Window*  _window = nullptr;
     RasterizerSettings _settings;
+
+    // Memory Management
+    // Memory::VMemoryArena _memoryArena;
 
     // Passes
     PassManager _passes;
@@ -114,12 +120,12 @@ private:
         Graphics::BufferHandle               mtlBufferHandle;
         Graphics::BufferGPUFreeListAllocator mtlAllocator;
 
-        STLW::Vector<Graphics::TextureHandle> textureHandles;
-        Graphics::TextureHandle               fallbackTexture2DHandle;
-        STLW::Vector<Graphics::SamplerHandle> samplerHandles;
-        Graphics::SamplerHandle               fallbackSamplerHandle;
+        Vector<Graphics::TextureHandle> textureHandles;
+        Graphics::TextureHandle         fallbackTexture2DHandle;
+        Vector<Graphics::SamplerHandle> samplerHandles;
+        Graphics::SamplerHandle         fallbackSamplerHandle;
 
-        STLW::Vector<FrameResources> frame;
+        SmallVector<FrameResources, 3> frame;
     };
     GPUResources _res;
 
@@ -127,7 +133,7 @@ private:
 
     IndirectCommandPayload::Cache _indirectCommandDataCache;
 
-    u32 _framesInFlight;
+    const u32 _FRAMES_IN_FLIGHT;
 };
 
 } // namespace Core::Render

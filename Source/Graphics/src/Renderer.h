@@ -47,9 +47,9 @@ private:
 
     RendererSettings _setts;
     // RHI -- GPU
-    RHI::DeviceOwnerPtr      _device      = nullptr;
-    RHI::CommandListOwnerPtr _commandList = nullptr;
-    std::vector<RHI::Fence>  _frameFences;
+    RHI::DeviceOwnerPtr        _device      = nullptr;
+    RHI::CommandListOwnerPtr   _commandList = nullptr;
+    SmallVector<RHI::Fence, 3> _frameFences;
 
     // SUBSYSTEMS
     GPUResourcePool  _resourcePool;   // GPU Resources
@@ -58,11 +58,12 @@ private:
     RenderGraph      _renderGraph; // Render Graph
 
     // Window Related
-    IWindow*                                                                        _wnd            = nullptr;
-    std::unique_ptr<Event::EventDispatcher<Event::WindowResizeEvent>::Subscription> _resizeCbHandle = nullptr;
-    bool                                                                            _pendingResize  = false;
-    RHI::SwapchainOwnerPtr                                                          _swapchain      = nullptr;
-    std::vector<TextureHandle>                                                      _swapchainHandles;
+    IWindow* _wnd                                 = nullptr;
+    using ResizeCallback                          = Memory::OwnerPtr<Event::EventDispatcher<Event::WindowResizeEvent>::Subscription>;
+    ResizeCallback                _resizeCbHandle = nullptr;
+    bool                          _pendingResize  = false;
+    RHI::SwapchainOwnerPtr        _swapchain      = nullptr;
+    SmallVector<TextureHandle, 3> _swapchainHandles;
     // GUI Backend (IMGUI)
     RHI::GUIBackendOwnerPtr _guiBackend = nullptr;
     // Query

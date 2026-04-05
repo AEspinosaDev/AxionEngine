@@ -33,6 +33,8 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
+#include <mutex>
+
 // ---------------------------------------------------------------------------
 // Handle MACRO Definitions
 // ---------------------------------------------------------------------------
@@ -93,6 +95,15 @@
     AXION_DISABLE_COPY( TypeName )              \
     AXION_DISABLE_MOVE( TypeName )
 
+#define AXION_ENABLE_COPY( TypeName )                          \
+    TypeName( const TypeName& ) noexcept            = default; \
+    TypeName& operator=( const TypeName& ) noexcept = default;
+
+// Disables the move constructor and move assignment operator
+#define AXION_ENABLE_MOVE( TypeName )                     \
+    TypeName( TypeName&& ) noexcept            = default; \
+    TypeName& operator=( TypeName&& ) noexcept = default;
+
 // ---------------------------------------------------------------------------
 // Handle Data Definitions
 // ---------------------------------------------------------------------------
@@ -109,6 +120,11 @@ using s64 = int64_t;
 using s32 = int32_t;
 using s16 = int16_t;
 using s8  = int8_t;
+
+#define GIGABYTES( x ) ( ( x ) * 1024 * 1024 * 1024 )
+#define MBYTES( x ) ( ( x ) * 1024 * 1024 )
+#define KBYTES( x ) ( ( x ) * 1024 )
+#define BYTES( x ) ( ( x ) )
 
 AXION_NAMESPACE_BEGIN
 
@@ -158,6 +174,20 @@ struct Position2D {
     inline bool operator!=( const Position2D& o ) const {
         return x != o.x && y != o.y;
     }
+};
+// ----------------------------
+// GENERAL POLICIES
+// ----------------------------
+
+struct NoLockPolicy {
+    void lock() {}
+    void unlock() {}
+};
+
+struct MutexLockPolicy {
+    mutable std::mutex _mtx;
+    void               lock() { _mtx.lock(); }
+    void               unlock() { _mtx.unlock(); }
 };
 
 AXION_NAMESPACE_END

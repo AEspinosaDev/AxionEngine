@@ -3,9 +3,8 @@
 #include "Axion/Graphics/RHI/Common.h"
 #include "Axion/Graphics/RHI/IPipeline.h"
 #include "Axion/Graphics/RHI/IResource.h"
-#include "Axion/Graphics/RHI/Memory.h"
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
-
+#include "Axion/Graphics/RHI/TransientDataAllocator.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -21,7 +20,7 @@ public:
     /// @brief Configuration descriptor for creating a Command List.
     struct Description {
         QueueType queueType;     ///< The queue type this list will be submitted to (Graphics, Compute, Copy).
-        u32      numFrames = 1; ///< Number of internal buffers for frame-in-flight rotation.
+        u32       numFrames = 1; ///< Number of internal buffers for frame-in-flight rotation.
         String64  debugName = "";
     };
 
@@ -78,12 +77,12 @@ public:
     /// @brief Uploads CPU data to a GPU buffer using a Transient Allocator (Staging).
     /// @param allocator The frame-transient allocator to allocate upload memory from.
     /// @param barrierPolicy If Auto, transitions dst to CopyDest.
-    virtual void uploadBuffer( IBuffer* dst, const void* data, u64 size, u64 dstOffset, ITransientAllocator* allocator, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) = 0;
+    virtual void uploadBuffer( IBuffer* dst, const void* data, u64 size, u64 dstOffset, TransientDataAllocator& allocator, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) = 0;
 
     /// @brief Uploads CPU pixel data to a Texture using a Transient Allocator (Staging).
     /// Automatically handles row-pitch alignment and padding requirements.
     /// @param allocator The frame-transient allocator to allocate upload memory from.
-    virtual void uploadTexture( ITexture* dst, const void* data, ITransientAllocator* allocator, u32 mipSlice = 0, u32 arraySlice = 0, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) = 0;
+    virtual void uploadTexture( ITexture* dst, const void* data, TransientDataAllocator& allocator, u32 mipSlice = 0, u32 arraySlice = 0, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) = 0;
 
     // -------------------------------------------------------------------------
     // RAYTRACING ACCELERATION STRUCTURES
@@ -91,11 +90,11 @@ public:
 
     /// @brief Updates an existing AS (Refit). Faster than build, but topology must match.
     /// Uses the allocator for scratch memory and instance uploads.
-    virtual void updateAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) = 0;
+    virtual void updateAccel( IAccel* accel, const AccelDesc& newDesc, TransientDataAllocator& allocator ) = 0;
 
     /// @brief Builds an AS from scratch.
     /// Uses the allocator for scratch memory and instance uploads.
-    virtual void buildAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) = 0;
+    virtual void buildAccel( IAccel* accel, const AccelDesc& newDesc, TransientDataAllocator& allocator ) = 0;
 
     // -------------------------------------------------------------------------
     // PIPELINE & BINDING
@@ -138,17 +137,17 @@ public:
     virtual void drawIndexed( u32 indexCount,
                               u32 instanceCount = 1,
                               u32 firstIndex    = 0,
-                              int  vertexOffset  = 0,
+                              int vertexOffset  = 0,
                               u32 firstInstance = 0 ) = 0;
 
     virtual void bindVertexBuffer( u32 slot, IBuffer* buffer ) = 0;
-    virtual void bindIndexBuffer( IBuffer* buffer )             = 0;
+    virtual void bindIndexBuffer( IBuffer* buffer )            = 0;
 
     virtual void drawIndexedIndirect( IBuffer* indirectBuffer,
-                                      u64    bufferOffset,
-                                      u32     maxDrawCount,
+                                      u64      bufferOffset,
+                                      u32      maxDrawCount,
                                       IBuffer* countBuffer       = nullptr,
-                                      u64    countBufferOffset = 0 ) = 0;
+                                      u64      countBufferOffset = 0 ) = 0;
 
     /// @brief Pushes 32-bit constants directly to the pipeline (Root Constants).
     /// @tparam T The struct type to push. Must be 4-byte aligned.

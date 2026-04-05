@@ -1,5 +1,4 @@
 #pragma once
-#include "Axion/Graphics/RHI/Memory.h"
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
 #include "DX12Resource.h"
 

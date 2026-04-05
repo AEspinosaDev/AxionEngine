@@ -22,6 +22,16 @@ HeadlessRenderer::HeadlessRenderer( const RendererSettings& settings )
 
     _frameFences.resize( _FRAMES_IN_FLIGHT );
 
+    AXION_LOG_ASSERT( _setts.RGmaxAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.host.maxPersistentAlloc,
+                      Logger::Module::RHI,
+                      "RenderGraph persistent allocation exceeds Host memory budget." );
+    AXION_LOG_ASSERT( _setts.RGmaxSBTAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.device.maxUploadAlloc,
+                      Logger::Module::RHI,
+                      "SBT allocation exceeds Device Upload budget." );
+    AXION_LOG_ASSERT( _setts.RGmaxSBTAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.device.maxUploadAlloc,
+                      Logger::Module::RHI,
+                      "Transient allocation exceeds Device Upload budget." );
+
     // Per Graphics API Device Creation
     switch ( _setts.gfxApi )
     {
@@ -55,12 +65,12 @@ HeadlessRenderer::HeadlessRenderer( const RendererSettings& settings )
 
     RenderGraphDesc RGDesc = {
         .framesInFlight        = _FRAMES_IN_FLIGHT,
-        .passDataAllocSize     = _setts.RGAllocSize,
-        .desciptorSetAllocSize = _setts.RGDescriptorsPerFrame,
-        .descriptorMaxViews    = _setts.RGMaxViewsPerFrame,
-        .descriptorMaxSamplers = _setts.RGMaxSamplersPerFrame,
-        .sbtAllocSize          = _setts.RGAllocSBTSize,
-        .transientAllocSize    = _setts.RGTransientAllocSize,
+        .passDataAllocSize     = _setts.RGmaxAlloc,
+        .desciptorSetAllocSize = _setts.RGmaxDescriptorsPerFrame,
+        .descriptorMaxViews    = _setts.RGmaxViewsPerFrame,
+        .descriptorMaxSamplers = _setts.RGmaxSamplersPerFrame,
+        .sbtAllocSize          = _setts.RGmaxSBTAlloc,
+        .transientAllocSize    = _setts.RGmaxTransientAlloc,
         .resourceTTL           = (u32)_setts.GCMode,
         .autoSync              = _setts.autoSync };
     _renderGraph.initialize( ctx, RGDesc );

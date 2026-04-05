@@ -8,7 +8,7 @@
 #include "Axion/Core/Scene/Entity.h"
 #include "Axion/Core/Scene/Scene.h"
 
-#include <vector>
+#include "Axion/Common/Containers/SmallVector.h"
 
 USING_AXION_NAMESPACE
 
@@ -27,7 +27,6 @@ int main( /*int argc, char* argv[]*/ ) {
 
         Core::Render::RasterizerSettings rastDesc {};
         rastDesc.common.name             = "MyRasterizer";
-        rastDesc.useGPUCulling           = true;
         rastDesc.common.selectedDeviceID = 0;
         rastDesc.common.flags |= Core::Render::RendererEnableGUI | Core::Render::RendererEnableFXAA;
 
@@ -71,20 +70,19 @@ int main( /*int argc, char* argv[]*/ ) {
         // A. Global Constant Ambient
         auto envEntity = scene.createEntity( "GlobalEnvironment" );
         envEntity.addComponent<Core::Scene::EnvironmentComponent>();
-        auto& env       = envEntity.getComponent<Core::Scene::EnvironmentComponent>();
+        auto& env = envEntity.getComponent<Core::Scene::EnvironmentComponent>();
         env.setActive( true );
         env.setSkyType( Core::Scene::EnvironmentComponent::SkyType::Constant );
         env.setSkyColor( { 0.1f, 0.1f, 0.5f } );
         env.setGroundColor( { 0.2f, 0.2f, 0.2f } );
         env.setIntensity( 1.0f );
-        
 
         // B. Directional Light (Moon / Key Light)
         auto sunEntity = scene.createEntity( "MoonLight" );
         sunEntity.addComponent<Core::Scene::LightComponent>();
-        auto& sun          = sunEntity.getComponent<Core::Scene::LightComponent>();
+        auto& sun = sunEntity.getComponent<Core::Scene::LightComponent>();
         sun.setType( Core::Scene::LightComponent::Type::Directional );
-        sun.setIntensity( 50.0f );                // Lux (adjusted to avoid burnout without tonemapping)
+        sun.setIntensity( 50.0f );            // Lux (adjusted to avoid burnout without tonemapping)
         sun.setColor( { 0.8f, 0.9f, 1.0f } ); // Cold Blueish White
         sun.setUseTemperature( true );
         sun.setTemperature( 8000.0f );

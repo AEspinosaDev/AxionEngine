@@ -28,10 +28,10 @@ public:
     void copyBuffer( IBuffer* dst, IBuffer* src, u64 numBytes, u64 dstOffset = 0, u64 srcOffset = 0, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
     void copyTexture( ITexture* dst, ITexture* src, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
 
-    void uploadBuffer( IBuffer* dst, const void* data, u64 size, u64 dstOffset, ITransientAllocator* allocator, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
-    void uploadTexture( ITexture* dst, const void* data, ITransientAllocator* allocator, u32 mipSlice = 0, u32 arraySlice = 0, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
-    void updateAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) override;
-    void buildAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) override;
+    void uploadBuffer( IBuffer* dst, const void* data, u64 size, u64 dstOffset, TransientDataAllocator& allocator, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
+    void uploadTexture( ITexture* dst, const void* data, TransientDataAllocator& allocator, u32 mipSlice = 0, u32 arraySlice = 0, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
+    void updateAccel( IAccel* accel, const AccelDesc& newDesc, TransientDataAllocator& allocator ) override;
+    void buildAccel( IAccel* accel, const AccelDesc& newDesc, TransientDataAllocator& allocator ) override;
 
     void bindComputePipeline( IComputePipeline* pipeline ) override;
     void bindGraphicPipeline( IGraphicPipeline* pipeline ) override;
@@ -72,7 +72,7 @@ private:
     bool validateUpdateCompatibility( const IAccel* accel, const AccelDesc& newDesc );
 
     ComPtr<ID3D12GraphicsCommandList>            _cmdList;
-    STLW::Vector<ComPtr<ID3D12CommandAllocator>> _cmdAllocators;
+    SmallVector<ComPtr<ID3D12CommandAllocator>, 3> _cmdAllocators;
 
     u32            _currentFrame = 0;
     CommandListDesc _desc;

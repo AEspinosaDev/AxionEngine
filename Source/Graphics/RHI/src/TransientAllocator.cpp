@@ -1,18 +1,29 @@
-#include "TransientAllocator.h"
+#include <Axion/Graphics/RHI/TransientDataAllocator.h>
+#include <Axion/Graphics/RHI/IDevice.h>
 
 AXION_NAMESPACE_BEGIN
 namespace Graphics::RHI {
 
-TransientAllocator::TransientAllocator( IDevice* device, const Description& desc )
-    : _desc( desc ) {
+TransientDataAllocator::TransientDataAllocator( IDevice* device, const Description& desc ){
+    initialize( device, desc );
+}
+
+void TransientDataAllocator::initialize( IDevice* device, const Description& desc ) {
+    if( _initialized )
+    {
+        AXION_LOG_WARN( Logger::Module::RHI, "TransientDataAllocator [{}] is already initialized.", _desc.debugName );
+        return;
+    }
+    _desc = desc;
+
     // 1. SCRATCH (GPU Only / UAV)
     {
-        BufferDesc bDesc  = {};
-        bDesc.size        = desc.scratchSize;
-        bDesc.memoryType  = MemoryUsage::GPUOnly;
-        bDesc.viewFlags   = BufferViewUnorderedAccess;
-        bDesc.debugName   = desc.debugName + "_ScratchBuffer";
-        _scratchBuffer    = device->createBuffer( bDesc );
+        BufferDesc bDesc = {};
+        bDesc.size       = desc.scratchSize;
+        bDesc.memoryType = MemoryUsage::GPUOnly;
+        bDesc.viewFlags  = BufferViewUnorderedAccess;
+        bDesc.debugName  = desc.debugName + "_ScratchBuffer";
+        _scratchBuffer   = device->createBuffer( bDesc );
         _scratchAllocator.initialize( _scratchBuffer.get() );
     }
 
@@ -27,35 +38,32 @@ TransientAllocator::TransientAllocator( IDevice* device, const Description& desc
         _uploadBuffer->map();
         _uploadAllocator.initialize( _uploadBuffer.get() );
     }
+    _initialized = true;
 }
 
-TransientAllocator::~TransientAllocator() {
+TransientDataAllocator::~TransientDataAllocator() {
     if ( _uploadBuffer )
         _uploadBuffer->unmap();
 }
 
-BufferSlice TransientAllocator::allocateScratch( u64 size, u64 alignment ) {
+BufferSlice TransientDataAllocator::allocateScratch( u64 size, u64 alignment ) {
     return _scratchAllocator.allocate( size, alignment );
 }
 
-BufferSlice TransientAllocator::allocateUpload( u64 size, u64 alignment ) {
+BufferSlice TransientDataAllocator::allocateUpload( u64 size, u64 alignment ) {
     return _uploadAllocator.allocate( size, alignment );
 }
 
-void TransientAllocator::reset() {
+void TransientDataAllocator::reset() {
     _scratchAllocator.reset();
     _uploadAllocator.reset();
 }
 
-void TransientAllocator::setDebugName( StringView name ) {
+void TransientDataAllocator::setDebugName( StringView name ) {
 }
 
-StringView TransientAllocator::getDebugName() const {
+StringView TransientDataAllocator::getDebugName() const {
     return StringView();
-}
-
-STLW::String TransientAllocator::toString() const {
-    return STLW::String();
 }
 
 } // namespace Graphics::RHI

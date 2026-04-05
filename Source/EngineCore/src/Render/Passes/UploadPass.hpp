@@ -21,11 +21,11 @@ public:
         Graphics::BufferGPUFreeListAllocator* indexAllocator  = nullptr;
         Graphics::BufferGPUFreeListAllocator* matAllocator    = nullptr;
 
-        STLW::Vector<Graphics::RHI::IDescriptorSet*> allPersistentSets;
+        SmallVector<Graphics::RHI::IDescriptorSet*, 2> allPersistentSets;
 
-        STLW::Vector<Graphics::TextureHandle>* mtlTextureHandles = nullptr;
-        GPUScene*                              gpuScene          = nullptr;
-        u64                                    maxAllocationSize = 0;
+        Vector<Graphics::TextureHandle>* mtlTextureHandles = nullptr;
+        GPUScene*                        gpuScene          = nullptr;
+        u64                              maxAllocationSize = 0;
     };
 
     void registerShaders( Graphics::IShaderRegistry& /*shaders*/ ) override { /*NO OP*/ }
@@ -86,7 +86,7 @@ private:
             auto vertexBufferSlice = data.vertexAllocator->allocate<Assets::Vertex>( uploadEntry.geometryData->vertices.size() );
             if ( vertexBufferSlice.size > 0 )
             {
-                cmd->uploadBuffer( vb, uploadEntry.geometryData->vertices.data(), vertexBufferSlice.size, vertexBufferSlice.offset, allocator, Graphics::RHI::BarrierPolicy::None );
+                cmd->uploadBuffer( vb, uploadEntry.geometryData->vertices.data(), vertexBufferSlice.size, vertexBufferSlice.offset, *allocator, Graphics::RHI::BarrierPolicy::None );
                 gpuMesh.vertexOffset = (u32)vertexBufferSlice.offset;
             }
 
@@ -94,7 +94,7 @@ private:
             auto indexBufferSlice = data.indexAllocator->allocate<u32>( uploadEntry.geometryData->indices.size() );
             if ( indexBufferSlice.size > 0 )
             {
-                cmd->uploadBuffer( ib, uploadEntry.geometryData->indices.data(), indexBufferSlice.size, indexBufferSlice.offset, allocator, Graphics::RHI::BarrierPolicy::None );
+                cmd->uploadBuffer( ib, uploadEntry.geometryData->indices.data(), indexBufferSlice.size, indexBufferSlice.offset, *allocator, Graphics::RHI::BarrierPolicy::None );
                 gpuMesh.indexOffset = (u32)indexBufferSlice.offset;
             }
 
@@ -174,7 +174,7 @@ private:
                                    uploadEntry.payload.data(),
                                    mtlBufferView.size,
                                    mtlBufferView.offset,
-                                   allocator,
+                                   *allocator,
                                    Graphics::RHI::BarrierPolicy::None );
 
                 gpuMtl.bufferOffset = (u32)mtlBufferView.offset;
@@ -253,7 +253,7 @@ private:
 
                     // Upload
                     cmd->barrier( tex, Graphics::RHI::ResourceState::CopyDest );
-                    cmd->uploadTexture( tex, pixelData, allocator, 0, 0, Graphics::RHI::BarrierPolicy::None );
+                    cmd->uploadTexture( tex, pixelData, *allocator, 0, 0, Graphics::RHI::BarrierPolicy::None );
                     cmd->barrier( tex, Graphics::RHI::ResourceState::ShaderResource );
 
                     gpuTex.slot = uploadEntry.slot;

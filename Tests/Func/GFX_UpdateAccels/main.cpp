@@ -64,9 +64,9 @@ struct RTXPass {
         Graphics::RHI::AccelDesc newDesc = accel->getDescription();
         newDesc.instances                = { currInst };
         if ( shouldUpdate )
-            ctx.cmd->updateAccel( accel, newDesc, ctx.transAllocator );
+            ctx.cmd->updateAccel( accel, newDesc, *ctx.transAllocator );
         else
-            ctx.cmd->buildAccel( accel, newDesc, ctx.transAllocator );
+            ctx.cmd->buildAccel( accel, newDesc, *ctx.transAllocator );
 
         ctx.cmd->bindRaytracingPipeline( pso );
 

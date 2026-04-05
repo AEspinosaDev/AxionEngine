@@ -27,7 +27,7 @@ void ResourceStateTracker::reset() {
 }
 
 void ResourceStateTracker::setState( ResourceState newState, u32 mip, u32 layer ) {
-    if ( _subresourceStates.empty() )
+    if ( _subresourceStates.isEmpty() )
         _subresourceStates.resize( _miplevels * _arrayLayers, ResourceState::Undefined );
 
     uint32_t idx            = layer * _miplevels + mip;
@@ -35,7 +35,7 @@ void ResourceStateTracker::setState( ResourceState newState, u32 mip, u32 layer 
 }
 
 ResourceState ResourceStateTracker::getState( u32 mip, u32 layer ) const {
-    if ( _subresourceStates.empty() )
+    if ( _subresourceStates.isEmpty() )
         return _globalState;
 
     uint32_t idx = layer * _miplevels + mip;

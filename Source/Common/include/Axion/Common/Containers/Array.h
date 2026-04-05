@@ -60,8 +60,4 @@ private:
     T _data[N] {};
 };
 
-
-template <typename T, u64 N = 16>
-using SmallFixedArray = FixedArray<T, N>;
-
 AXION_NAMESPACE_END

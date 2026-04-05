@@ -74,7 +74,7 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, const MaterialLib
         instance.active     = meshComp.isVisible();
         instance.raytraced  = meshComp.isRaytraced() || forceRaytrace ? 1 : 0;
 
-        _instances.push_back( instance );
+        _instances.pushBack( instance );
 
         if ( sort )
         {
@@ -85,7 +85,7 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, const MaterialLib
             key.key                 = makeSortKey( archID, topology, gpuMeshID );
             key.originalInstanceIdx = (u32)_instances.size() - 1;
 
-            _sortedKeys.push_back( key );
+            _sortedKeys.pushBack( key );
         }
     }
 
@@ -118,7 +118,7 @@ u32 GPUScene::processMesh( const Axion::Core::Assets::AssetManager* assets, cons
         if ( !_meshCache.freeIndexQueue.empty() )
         {
             // Recycle slot
-            gpuCacheIndex = _meshCache.freeIndexQueue.front();
+            gpuCacheIndex = (u32)_meshCache.freeIndexQueue.front();
             _meshCache.freeIndexQueue.pop();
         } else
         {
@@ -187,7 +187,7 @@ u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets
         if ( !_materialCache.freeIndexQueue.empty() )
         {
             // Recycle slot
-            gpuCacheIndex = _materialCache.freeIndexQueue.front();
+            gpuCacheIndex = (u32)_materialCache.freeIndexQueue.front();
             _materialCache.freeIndexQueue.pop();
         } else
         {
@@ -260,7 +260,7 @@ u32 GPUScene::processTexture( const Axion::Core::Assets::AssetManager* assets, c
         // B. NEW ALLOCATION NEEDED
         if ( !_textureCache.freeIndexQueue.empty() )
         {
-            gpuCacheIndex = _textureCache.freeIndexQueue.front();
+            gpuCacheIndex = (u32)_textureCache.freeIndexQueue.front();
             _textureCache.freeIndexQueue.pop();
         } else
         {
@@ -338,7 +338,7 @@ void GPUScene::processLights( const Scene::Scene& cpuScene ) {
             finalColor.z,
             lightComp.getRange() };
 
-        _lights.push_back( light );
+        _lights.pushBack( light );
     }
 }
 
@@ -421,7 +421,7 @@ void GPUScene::processEnvironments( const Scene::Scene& cpuScene ) {
         env.skyColor_Intensity = Math::Vec4( envComp.getSkyColor(), envComp.getIntensity() );
         env.rotation_BlendDist = Math::Vec4( transComp.getRotation().x, transComp.getRotation().y, transComp.getRotation().z, envComp.getBlendDistance() );
 
-        _environments.push_back( env );
+        _environments.pushBack( env );
     }
 }
 

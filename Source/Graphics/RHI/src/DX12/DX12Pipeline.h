@@ -15,9 +15,9 @@ public:
     ~DX12PipelineLayout() override;
 
     const Description& getDescription() const override { return _desc; }
-    u32               getViewCount( u32 setIndex ) const override;
-    u32               getSamplerCount( u32 setIndex ) const override;
-    u32               getAccelCount( u32 setIndex ) const override;
+    u32                getViewCount( u32 setIndex ) const override;
+    u32                getSamplerCount( u32 setIndex ) const override;
+    u32                getAccelCount( u32 setIndex ) const override;
     NativeObject       getNativeObject( ObjectType objectType ) override;
     void               setDebugName( StringView name ) override;
     StringView         getDebugName() const override;
@@ -34,7 +34,7 @@ public:
 private:
     void                           buildRootSignature( const ComPtr<ID3D12Device2>& device );
     void                           buildIndirectCommandSignature( const ComPtr<ID3D12Device2>& device );
-    static D3D12_SHADER_VISIBILITY getShaderVisibility( const STLW::Vector<DescriptorBinding>& bindings );
+    static D3D12_SHADER_VISIBILITY getShaderVisibility( const SmallVector<DescriptorBinding>& bindings );
 
     PipelineLayoutDesc          _desc;
     ComPtr<ID3D12RootSignature> _rootSignature;
@@ -44,11 +44,11 @@ private:
     ComPtr<ID3D12CommandSignature> _drawIndexedIndirectSignature;
     ComPtr<ID3D12CommandSignature> _dispatchIndirectSignature;
 
-    STLW::Vector<u32> _viewCountPerSet;
-    STLW::Vector<u32> _samplerCountPerSet;
-    STLW::Vector<u32> _accelCountPerSet;
+    SmallVector<u32, 4> _viewCountPerSet;
+    SmallVector<u32, 4> _samplerCountPerSet;
+    SmallVector<u32, 4> _accelCountPerSet;
 
-    STLW::Vector<std::pair<int, int>> _rootIndexMap;
+    SmallVector<std::pair<int, int>, 4> _rootIndexMap;
 };
 
 DEFINE_OWNER_PTR_FOR_TYPE( DX12GraphicPipeline, DX12GraphicPipeline )

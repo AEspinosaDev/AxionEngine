@@ -400,7 +400,7 @@ void ShaderCompiler::extractReflection( StringView name, IComponentType* program
 
     slang::ProgramLayout* slangLayout = program->getLayout();
 
-    STLW::Map<u32, STLW::Vector<RHI::DescriptorBinding>> tempSets;
+    STLW::Map<u32, SmallVector<RHI::DescriptorBinding>> tempSets;
 
     u32 paramCount = slangLayout->getParameterCount();
 
@@ -505,7 +505,7 @@ void ShaderCompiler::extractReflection( StringView name, IComponentType* program
         if ( bindingInfo.arraySize == 0 )
             bindingInfo.arraySize = 1;
 
-        tempSets[(u32)spaceIdx].push_back( bindingInfo );
+        tempSets[(u32)spaceIdx].pushBack( bindingInfo );
     }
 
     if ( !tempSets.empty() )

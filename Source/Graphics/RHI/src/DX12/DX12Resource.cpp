@@ -33,10 +33,18 @@ DX12Texture::DX12Texture( const TextureDesc& desc, DX12Device::Context& ctx, con
             break;
     }
 
+    D3D12MA::ALLOCATION_DESC allocDesc = {};
+    allocDesc.CustomPool               = ctx.defaultPools[(u64)DX12Device::MemoryPoolType::Textures].Get();
     if ( desc.viewFlags & TextureViewRenderTarget )
+    {
+        allocDesc.CustomPool = ctx.defaultPools[(u64)DX12Device::MemoryPoolType::RenderTargets].Get();
         dx12Desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+    }
     if ( desc.viewFlags & TextureViewDepthStencil )
+    {
+        allocDesc.CustomPool = ctx.defaultPools[(u64)DX12Device::MemoryPoolType::RenderTargets].Get();
         dx12Desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+    }
     if ( desc.viewFlags & TextureViewUnorderedAccess )
         dx12Desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
@@ -62,9 +70,6 @@ DX12Texture::DX12Texture( const TextureDesc& desc, DX12Device::Context& ctx, con
         }
         pClearVal = &clearVal;
     }
-
-    D3D12MA::ALLOCATION_DESC allocDesc = {};
-    allocDesc.HeapType                 = D3D12_HEAP_TYPE_DEFAULT;
 
     DX_CHECK( ctx.allocator->CreateResource(
         &allocDesc,
@@ -204,7 +209,7 @@ void DX12Texture::uploadInitialData( DX12Device::Context& ctx, const void* initi
 
     // Copy initial data into padded upload memory
     byte*       mapped      = (byte*)staging.map();
-    size_t       pixelStride = getFormatBytes( _desc.format );
+    size_t      pixelStride = getFormatBytes( _desc.format );
     const byte* src         = (const byte*)initialData;
 
     for ( u32 row = 0; row < numRows; ++row )
@@ -282,17 +287,19 @@ DX12Buffer::DX12Buffer( const BufferDesc&    desc,
                         const void*          initialData )
     : _desc( desc ) {
 
-    ResourceState         initialState;
-    D3D12_HEAP_PROPERTIES heapProps {};
+    ResourceState            initialState;
+    D3D12MA::ALLOCATION_DESC allocDesc = {};
+
     switch ( desc.memoryType )
     {
         case MemoryUsage::CPUVisible:
-            initialState = ResourceState::GeneralRead;
-            heapProps    = CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_UPLOAD );
+            initialState         = ResourceState::GeneralRead;
+            allocDesc.CustomPool = ctx.defaultPools[(u64)DX12Device::MemoryPoolType::Upload].Get();
             break;
         case MemoryUsage::Readback:
-            initialState = ResourceState::CopyDest;
-            heapProps    = CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_READBACK );
+            initialState         = ResourceState::CopyDest;
+            allocDesc.HeapType   = D3D12_HEAP_TYPE_READBACK;
+            allocDesc.CustomPool = nullptr;
             break;
         default:
             if ( ( desc.usageFlags & BufferUsage::AccelerationStructure ) != BufferUsage::None )
@@ -301,7 +308,7 @@ DX12Buffer::DX12Buffer( const BufferDesc&    desc,
                 initialState = ResourceState::IndirectArgument;
             else
                 initialState = ResourceState::Common;
-            heapProps = CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_DEFAULT );
+            allocDesc.CustomPool = ctx.defaultPools[(u64)DX12Device::MemoryPoolType::Buffers].Get();
             break;
     }
 
@@ -315,8 +322,6 @@ DX12Buffer::DX12Buffer( const BufferDesc&    desc,
 
     auto resourceDesc = CD3DX12_RESOURCE_DESC::Buffer( desc.size, flags );
 
-    D3D12MA::ALLOCATION_DESC allocDesc = {};
-    allocDesc.HeapType                 = heapProps.Type;
 
     DX_CHECK( ctx.allocator->CreateResource(
         &allocDesc,
@@ -363,7 +368,7 @@ void DX12Buffer::unmap() {
 void DX12Buffer::copyData( const void* data, u64 size, u64 offset ) {
     AXION_LOG_ASSERT( offset + size <= _desc.size, Logger::Module::RHI, "Buffer [{}] overflow!", _desc.debugName );
 
-    bool   alreadyMapped = ( _mappedPtr != nullptr );
+    bool  alreadyMapped = ( _mappedPtr != nullptr );
     byte* dstPtr        = static_cast<byte*>( this->map() );
 
     if ( dstPtr )

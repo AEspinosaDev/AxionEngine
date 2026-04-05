@@ -24,7 +24,6 @@ int main( /*int argc, char* argv[]*/ ) {
 
         Core::Render::RasterizerSettings rastDesc {};
         rastDesc.common.name             = "MyRasterizer";
-        rastDesc.useGPUCulling           = true;
         rastDesc.common.selectedDeviceID = 0;
         rastDesc.common.flags |= Core::Render::RendererEnableFXAA;
 
@@ -114,7 +113,7 @@ int main( /*int argc, char* argv[]*/ ) {
         // A. Global Constant Ambient
         auto envEntity = scene.createEntity( "GlobalEnvironment" );
         envEntity.addComponent<Core::Scene::EnvironmentComponent>();
-        auto& env       = envEntity.getComponent<Core::Scene::EnvironmentComponent>();
+        auto& env = envEntity.getComponent<Core::Scene::EnvironmentComponent>();
         env.setActive( true );
         env.setSkyType( Core::Scene::EnvironmentComponent::SkyType::Constant );
         env.setSkyColor( { 0.1f, 0.1f, 0.5f } );

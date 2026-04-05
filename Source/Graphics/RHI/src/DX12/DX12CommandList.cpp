@@ -176,14 +176,14 @@ void DX12CommandList::copyTexture( ITexture* dst, ITexture* src, BarrierPolicy b
     _cmdList->CopyResource( dst->getNativeObject( ObjectTypes::DX12_Resource ), src->getNativeObject( ObjectTypes::DX12_Resource ) );
 }
 
-void DX12CommandList::uploadBuffer( IBuffer* dst, const void* data, u64 size, u64 dstOffset, ITransientAllocator* allocator, BarrierPolicy barrierPolicy ) {
-    if ( !dst || !data || size == 0 || !allocator )
+void DX12CommandList::uploadBuffer( IBuffer* dst, const void* data, u64 size, u64 dstOffset, TransientDataAllocator& allocator, BarrierPolicy barrierPolicy ) {
+    if ( !dst || !data || size == 0  )
     {
         AXION_LOG_ERROR( Logger::Module::RHI, "Invalid arguments for uploadBuffer" );
         return;
     }
 
-    auto mem = allocator->allocateUpload( size, 256 );
+    auto mem = allocator.allocateUpload( size, 256 );
 
     if ( !mem.isValid() )
     {
@@ -197,8 +197,8 @@ void DX12CommandList::uploadBuffer( IBuffer* dst, const void* data, u64 size, u6
     copyBuffer( dst, mem.container, size, dstOffset, mem.offset, barrierPolicy );
 }
 
-void DX12CommandList::uploadTexture( ITexture* dst, const void* data, ITransientAllocator* allocator, u32 mipSlice, u32 arraySlice, BarrierPolicy barrierPolicy ) {
-    if ( !dst || !data || !allocator )
+void DX12CommandList::uploadTexture( ITexture* dst, const void* data, TransientDataAllocator& allocator, u32 mipSlice, u32 arraySlice, BarrierPolicy barrierPolicy ) {
+    if ( !dst || !data  )
     {
         AXION_LOG_ERROR( Logger::Module::RHI, "Invalid arguments for uploadTexture" );
         return;
@@ -227,7 +227,7 @@ void DX12CommandList::uploadTexture( ITexture* dst, const void* data, ITransient
                                    &rowSizeInBytes,
                                    &totalBytesRequired );
 
-    auto mem = allocator->allocateUpload( totalBytesRequired, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
+    auto mem = allocator.allocateUpload( totalBytesRequired, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
 
     if ( !mem.isValid() )
     {
@@ -262,10 +262,10 @@ void DX12CommandList::uploadTexture( ITexture* dst, const void* data, ITransient
     _cmdList->CopyTextureRegion( &dstLocation, 0, 0, 0, &srcLocation, nullptr );
 }
 
-void DX12CommandList::updateAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) {
+void DX12CommandList::updateAccel( IAccel* accel, const AccelDesc& newDesc, TransientDataAllocator& allocator ) {
     auto* dxAccel = static_cast<DX12Accel*>( accel );
 
-    if ( !dxAccel || !allocator )
+    if ( !dxAccel  )
     {
         AXION_LOG_ERROR( Logger::Module::RHI, "Invalid arguments for updateAccel" );
         return;
@@ -291,7 +291,7 @@ void DX12CommandList::updateAccel( IAccel* accel, const AccelDesc& newDesc, ITra
     {
         u32 instanceDataSize = (u32)( newDesc.instances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
 
-        auto instanceMem = allocator->allocateUpload( instanceDataSize, 16 );
+        auto instanceMem = allocator.allocateUpload( instanceDataSize, 16 );
 
         if ( !instanceMem.isValid() )
         {
@@ -311,7 +311,7 @@ void DX12CommandList::updateAccel( IAccel* accel, const AccelDesc& newDesc, ITra
 
     u64 scratchSize = dxAccel->getUpdateScratchSize();
 
-    auto scratchMem = allocator->allocateScratch( scratchSize, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT );
+    auto scratchMem = allocator.allocateScratch( scratchSize, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT );
 
     if ( !scratchMem.isValid() )
     {
@@ -336,10 +336,10 @@ void DX12CommandList::updateAccel( IAccel* accel, const AccelDesc& newDesc, ITra
     _cmdList4->ResourceBarrier( 1, &barrierAfter );
 }
 
-void DX12CommandList::buildAccel( IAccel* accel, const AccelDesc& newDesc, ITransientAllocator* allocator ) {
+void DX12CommandList::buildAccel( IAccel* accel, const AccelDesc& newDesc, TransientDataAllocator& allocator ) {
     auto* dxAccel = static_cast<DX12Accel*>( accel );
 
-    if ( !dxAccel || !allocator )
+    if ( !dxAccel  )
     {
         AXION_LOG_ERROR( Logger::Module::RHI, "Invalid arguments for buildAccel" );
         return;
@@ -353,7 +353,7 @@ void DX12CommandList::buildAccel( IAccel* accel, const AccelDesc& newDesc, ITran
     {
         u32 instanceDataSize = (u32)( newDesc.instances.size() * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
 
-        auto instanceMem = allocator->allocateUpload( instanceDataSize, 16 );
+        auto instanceMem = allocator.allocateUpload( instanceDataSize, 16 );
 
         if ( !instanceMem.isValid() )
         {
@@ -373,7 +373,7 @@ void DX12CommandList::buildAccel( IAccel* accel, const AccelDesc& newDesc, ITran
 
     u64 scratchSize = dxAccel->getBuildScratchSize();
 
-    auto scratchMem = allocator->allocateScratch( scratchSize, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT );
+    auto scratchMem = allocator.allocateScratch( scratchSize, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT );
 
     if ( !scratchMem.isValid() )
     {

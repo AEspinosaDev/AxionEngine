@@ -47,7 +47,7 @@ DX12Swapchain::DX12Swapchain( const HWND                     hwnd,
     DX_CHECK( swapChain1.As( &_swapchain ) );
 
     // Descriptor heap
-    _heapRTV.init( _device.Get(), DX12DescriptorHeap::Type::RTV, _desc.imageCount );
+    _heapRTV.initialize( _device.Get(), DX12DescriptorHeap::Type::RTV, _desc.imageCount );
 
     // Create backbuffers
     updateImages();
@@ -63,7 +63,7 @@ const ISwapchain::Description& DX12Swapchain::getDescription() {
     return _desc;
 }
 
-STLW::Vector<TextureOwnerPtr> DX12Swapchain::releaseImages() {
+SmallVector<TextureOwnerPtr, 3> DX12Swapchain::releaseImages() {
     return std::move( _swapImages );
 }
 
