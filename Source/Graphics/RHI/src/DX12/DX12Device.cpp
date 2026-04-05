@@ -11,7 +11,6 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 
-
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
@@ -26,47 +25,35 @@ DX12Device::DX12Device( const IDX12Device::Description& desc ) {
 
     if ( desc.enableDebugLayer )
         enableDebugLayer();
-
+    //---------------------
     // Initializing Context
+    //---------------------
     {
 
         _ctx.adapter = getGPUAdapter( desc.preferredDeviceID );
 
         _ctx.device = createDevice( _ctx.adapter );
 
-      
         setNativeName( _ctx.device.Get(), desc.debugName );
         checkExtensions();
 
+        // Default Qeueues
         _ctx.primaryQueue = createCommandQueue( QueueType::Graphics, "Graphics Queue" );
         _ctx.computeQueue = createCommandQueue( QueueType::Compute, "Compute Queue" );
         _ctx.copyQueue    = createCommandQueue( QueueType::Transfer, "Copy Queue" );
 
-        _ctx.heapSRV.init( _ctx.device.Get(), DX12DescriptorHeap::Type::CBV_SRV_UAV, desc.shaderResourceViewHeapSize );
-        _ctx.heapRTV.init( _ctx.device.Get(), DX12DescriptorHeap::Type::RTV, desc.renderTargetViewHeapSize );
-        _ctx.heapDSV.init( _ctx.device.Get(), DX12DescriptorHeap::Type::DSV, desc.depthStencilViewHeapSize );
-        _ctx.heapSamplers.init( _ctx.device.Get(), DX12DescriptorHeap::Type::Sampler, desc.samplerHeapSize );
+        // Default global desc heaps
+        _ctx.heapSRV.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::CBV_SRV_UAV, desc.shaderResourceViewHeapSize );
+        _ctx.heapRTV.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::RTV, desc.renderTargetViewHeapSize );
+        _ctx.heapDSV.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::DSV, desc.depthStencilViewHeapSize );
+        _ctx.heapSamplers.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::Sampler, desc.samplerHeapSize );
 
-        _ctx.uploadContext.init( _ctx.device );
+        // Memory Allocator and Pools
+        createMasterAllocator( );
+        createDefaultMemoryPools( );
 
-        D3D12MA::ALLOCATOR_DESC allocatorDesc = {};
-        allocatorDesc.pDevice                 = _ctx.device.Get();
-        allocatorDesc.pAdapter                = _ctx.adapter.Get();
-
-        allocatorDesc.PreferredBlockSize = desc.vramBlockSize;
-
-        allocatorDesc.Flags = static_cast<D3D12MA::ALLOCATOR_FLAGS>(
-            D3D12MA::ALLOCATOR_FLAG_MSAA_TEXTURES_ALWAYS_COMMITTED |
-            D3D12MA::ALLOCATOR_FLAG_DEFAULT_POOLS_NOT_ZEROED );
-
-        D3D12MA::Allocator* rawAllocator = nullptr;
-        HRESULT             hr           = D3D12MA::CreateAllocator( &allocatorDesc, &rawAllocator );
-        if ( FAILED( hr ) )
-        {
-            AXION_LOG_ERROR( Logger::Module::RHI, "Failed to create D3D12MA Global VRAM Allocator for DX12 Device [{}]", desc.debugName );
-            throw AxionException( "Failed to create D3D12MA Global VRAM Allocator for DX12 Device" );
-        }
-        _ctx.allocator.Attach( rawAllocator );
+        // Upload subcontext
+        _ctx.uploadContext.initialize( _ctx.device );
     }
 
     _initialized = true;
@@ -335,7 +322,7 @@ ComPtr<IDXGIAdapter4> DX12Device::getGPUAdapter( u32 preferredDeviceID ) {
         }
         narrowName[i] = '\0'; // Ensure null termination
 
-        _gpuAdapterName = StringView(narrowName);
+        _gpuAdapterName = StringView( narrowName );
 
         AXION_LOG_INFO( Logger::Module::RHI, "DX12 Device [{}]: GPU Selected: {} (VRAM: {} MB)", _desc.debugName, _gpuAdapterName, desc.DedicatedVideoMemory / ( 1024 * 1024 ) );
     } else
@@ -443,7 +430,7 @@ API DX12Device::getGraphicsAPI() {
     return API::DirectX12;
 }
 
-Memory::OwnerPtr<DX12Device::Queue> DX12Device::createCommandQueue( const QueueType& type, const std::string& name ) {
+Memory::OwnerPtr<DX12Device::Queue> DX12Device::createCommandQueue( const QueueType& type, StringView name ) {
     auto q = Memory::makeOwned<DX12Device::Queue>();
 
     D3D12_COMMAND_QUEUE_DESC desc = {};
@@ -464,9 +451,10 @@ Memory::OwnerPtr<DX12Device::Queue> DX12Device::createCommandQueue( const QueueT
 
     q->fenceValue = 0;
 
-    q->queue->SetName( std::wstring( name.begin(), name.end() ).c_str() );
-    std::string fenceName = name + " Fence";
-    q->fence->SetName( std::wstring( fenceName.begin(), fenceName.end() ).c_str() );
+    setNativeName( q->queue.Get(), name );
+    String64 fenceName( name );
+    fenceName += " Fence";
+    setNativeName( q->fence.Get(), fenceName );
 
     return q;
 }
@@ -575,7 +563,7 @@ DX12Device::Queue* DX12Device::getQueueRW( const QueueType& type ) {
     return const_cast<DX12Device::Queue*>( constThis->getQueue( type ) );
 }
 
-void DX12Device::UploadContext::init( const ComPtr<ID3D12Device2>& device ) {
+void DX12Device::UploadContext::initialize( const ComPtr<ID3D12Device2>& device ) {
 
     _cmdList = Memory::makeOwned<DX12CommandList>(
         device,
@@ -637,6 +625,99 @@ void DX12Device::UploadContext::oneTimeSubmit( const Memory::OwnerPtr<Queue>& up
         DX_CHECK( _fence->SetEventOnCompletion( _fenceValue, _fenceEvent ) );
         WaitForSingleObject( _fenceEvent, INFINITE );
     }
+}
+
+void DX12Device::createMasterAllocator() {
+
+    D3D12MA::ALLOCATOR_DESC allocatorDesc = {};
+    allocatorDesc.pDevice                 = _ctx.device.Get();
+    allocatorDesc.pAdapter                = _ctx.adapter.Get();
+
+    allocatorDesc.PreferredBlockSize = 0;
+
+    allocatorDesc.Flags = static_cast<D3D12MA::ALLOCATOR_FLAGS>(
+        D3D12MA::ALLOCATOR_FLAG_MSAA_TEXTURES_ALWAYS_COMMITTED |
+        D3D12MA::ALLOCATOR_FLAG_DEFAULT_POOLS_NOT_ZEROED );
+
+    D3D12MA::Allocator* rawAllocator = nullptr;
+    HRESULT             hr           = D3D12MA::CreateAllocator( &allocatorDesc, &rawAllocator );
+    if ( FAILED( hr ) )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "Failed to create D3D12MA Global VRAM Allocator for DX12 Device [{}]", _desc.debugName );
+        throw AxionException( "Failed to create D3D12MA Global VRAM Allocator for DX12 Device" );
+    }
+    _ctx.allocator.Attach( rawAllocator );
+}
+
+void DX12Device::createDefaultMemoryPools() {
+
+    D3D12_HEAP_PROPERTIES deviceOnlyHeapProps = {};
+    deviceOnlyHeapProps.Type                  = D3D12_HEAP_TYPE_DEFAULT;
+
+    D3D12_HEAP_PROPERTIES uploadHeapProps = {};
+    uploadHeapProps.Type                  = D3D12_HEAP_TYPE_UPLOAD;
+
+    u32 maxBlockCount = _desc.strictMemoryCap ? 1 : 0;
+
+    // Render Targets & Depth Stencil (VRAM)
+    D3D12MA::POOL_DESC rtPoolDesc = {};
+    rtPoolDesc.HeapProperties     = deviceOnlyHeapProps;
+    rtPoolDesc.HeapFlags          = D3D12_HEAP_FLAG_ALLOW_ONLY_RT_DS_TEXTURES;
+    rtPoolDesc.BlockSize          = _desc.maxRenderTargetAlloc;
+    rtPoolDesc.MaxBlockCount      = maxBlockCount;
+
+    D3D12MA::Pool* rawRtPool = nullptr;
+    if ( FAILED( _ctx.allocator->CreatePool( &rtPoolDesc, &rawRtPool ) ) )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "DX12 Device [{}] failed to create RenderTarget Memory Pool", _desc.debugName );
+        throw AxionException( "Failed to create Render Target Pool" );
+    }
+    _ctx.defaultPools[(u64)MemoryPoolType::RenderTargets].Attach( rawRtPool );
+
+    // Textures / SRV / UAV  (VRAM)
+    D3D12MA::POOL_DESC texPoolDesc = {};
+    texPoolDesc.HeapProperties     = deviceOnlyHeapProps;
+    texPoolDesc.HeapFlags          = D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES;
+    texPoolDesc.BlockSize          = _desc.maxTextureAlloc;
+    texPoolDesc.MaxBlockCount      = maxBlockCount;
+
+    D3D12MA::Pool* rawTexPool = nullptr;
+    if ( FAILED( _ctx.allocator->CreatePool( &texPoolDesc, &rawTexPool ) ) )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "DX12 Device [{}] failed to create Texture Memory Pool", _desc.debugName );
+        throw AxionException( "Failed to create Texture Pool" );
+    }
+    _ctx.defaultPools[(u64)MemoryPoolType::Textures].Attach( rawTexPool );
+
+    // General Purpose Buffers (VRAM) ---
+    D3D12MA::POOL_DESC bufPoolDesc = {};
+    bufPoolDesc.HeapProperties     = deviceOnlyHeapProps;
+    bufPoolDesc.HeapFlags          = D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS;
+    bufPoolDesc.BlockSize          = _desc.maxBufferAlloc;
+    bufPoolDesc.MaxBlockCount      = maxBlockCount;
+
+    D3D12MA::Pool* rawBufPool = nullptr;
+    if ( FAILED( _ctx.allocator->CreatePool( &bufPoolDesc, &rawBufPool ) ) )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "DX12 Device [{}] failed to create Buffer Memory Pool", _desc.debugName );
+        throw AxionException( "Failed to create General Buffer Pool" );
+    }
+    _ctx.defaultPools[(u64)MemoryPoolType::Buffers].Attach( rawBufPool );
+
+    // Upload Buffers (CPU Visible RAM mapped to GPU) ---
+    D3D12MA::POOL_DESC uploadPoolDesc = {};
+    uploadPoolDesc.HeapProperties     = uploadHeapProps;
+    uploadPoolDesc.HeapFlags          = D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS;
+    uploadPoolDesc.BlockSize          = _desc.maxBufferAlloc;
+    uploadPoolDesc.MaxBlockCount      = maxBlockCount;
+
+    D3D12MA::Pool* rawUploadPool = nullptr;
+    if ( FAILED( _ctx.allocator->CreatePool( &uploadPoolDesc, &rawUploadPool ) ) )
+    {
+        AXION_LOG_ERROR( Logger::Module::RHI, "DX12 Device [{}] failed to create Upload Buffer Memory Pool", _desc.debugName );
+        throw AxionException( "Failed to create Upload Buffer Pool" );
+    }
+    _ctx.defaultPools[(u64)MemoryPoolType::Upload].Attach( rawUploadPool );
 }
 
 } // namespace Graphics::RHI

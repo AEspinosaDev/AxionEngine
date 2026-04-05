@@ -21,8 +21,8 @@ class TransientDataAllocator
 {
 public:
     struct Description {
-        u64      scratchSize = 64 * 1024 * 1024;
-        u64      uploadSize  = 64 * 1024 * 1024;
+        u64      scratchSize = MBYTES( 64 );
+        u64      uploadSize  = MBYTES( 64 );
         String64 debugName;
     };
 
@@ -30,9 +30,7 @@ public:
     TransientDataAllocator( IDevice* device, const Description& desc );
     ~TransientDataAllocator();
 
-    TransientDataAllocator( TransientDataAllocator&& ) noexcept            = default;
-    TransientDataAllocator& operator=( TransientDataAllocator&& ) noexcept = default;
-
+    AXION_ENABLE_MOVE( TransientDataAllocator )
     AXION_DISABLE_COPY( TransientDataAllocator )
 
     void initialize( IDevice* device, const Description& desc );

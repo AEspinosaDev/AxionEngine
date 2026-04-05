@@ -6,7 +6,7 @@
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
-void DX12DescriptorHeap::init( ID3D12Device* device, Type type, u32 numDescriptors, bool shaderVisible ) {
+void DX12DescriptorHeap::initialize( ID3D12Device* device, Type type, u32 numDescriptors, bool shaderVisible ) {
 
     _capacity = numDescriptors;
     _type     = type;
@@ -443,10 +443,10 @@ DX12DescriptorAllocator::DX12DescriptorAllocator( ID3D12Device*                 
     : _device( device )
     , _desc( desc ) {
 
-    _viewHeap.init( device, DX12DescriptorHeap::Type::CBV_SRV_UAV, _desc.numViews, true );
+    _viewHeap.initialize( device, DX12DescriptorHeap::Type::CBV_SRV_UAV, _desc.numViews, true );
     _viewHandleSize = device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 
-    _samplerHeap.init( device, DX12DescriptorHeap::Type::Sampler, _desc.numSamplers, true );
+    _samplerHeap.initialize( device, DX12DescriptorHeap::Type::Sampler, _desc.numSamplers, true );
     _samplerHandleSize = device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER );
 
     _setPool.reserve( _desc.numDescriptors );

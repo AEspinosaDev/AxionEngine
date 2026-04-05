@@ -18,7 +18,7 @@ public:
         Sampler
     };
 
-    void init( ID3D12Device* device, Type type, u32 numDescriptors, bool shaderVisible = false );
+    void initialize( ID3D12Device* device, Type type, u32 numDescriptors, bool shaderVisible = false );
     void reset();
 
     D3D12_CPU_DESCRIPTOR_HANDLE allocateCPU();

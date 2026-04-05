@@ -1,6 +1,7 @@
 #pragma once
 // Axion Common Module
 #include "Axion/Common/Common.h"
+#include "Axion/Common/Containers/Array.h"
 #include "Axion/Common/Containers/STLWrapper/Maps.h"
 #include "Axion/Common/Containers/STLWrapper/String.h"
 #include "Axion/Common/Containers/STLWrapper/Vector.h"
@@ -13,6 +14,7 @@
 #include "Axion/Common/Memory/Pointers/OwnerPtr.h"
 #include <Axion/Common/Memory/Allocators/SubAllocators/FreeListSubAllocator.h>
 #include <Axion/Common/Memory/Allocators/SubAllocators/LinearSubAllocator.h>
+
 
 #define ALIGN( _size, _alignment ) ( ( ( _size ) + ( _alignment ) - 1 ) & ~( ( _alignment ) - 1 ) )
 #define TEXTURE_DATA_PLACEMENT_ALIGNMENT ( 512 )

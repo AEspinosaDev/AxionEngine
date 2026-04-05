@@ -47,7 +47,7 @@ DX12Swapchain::DX12Swapchain( const HWND                     hwnd,
     DX_CHECK( swapChain1.As( &_swapchain ) );
 
     // Descriptor heap
-    _heapRTV.init( _device.Get(), DX12DescriptorHeap::Type::RTV, _desc.imageCount );
+    _heapRTV.initialize( _device.Get(), DX12DescriptorHeap::Type::RTV, _desc.imageCount );
 
     // Create backbuffers
     updateImages();

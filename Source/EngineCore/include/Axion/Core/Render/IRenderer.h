@@ -18,28 +18,9 @@ struct CommonSettings {
     Graphics::GCMode        GCMode           = Graphics::GCMode::AvgMemory;
     u32                     selectedDeviceID = UINT32_MAX;
 
-    u32 maxMtlTextures = 8192;
-    u32 maxMtlSamplers = 128;
-
-    RendererFlags flags = RendererEnableDebug;
-    // #ifdef AXION_DEBUG
-    //     RendererFlags flags = RendererEnableDebug;
-    // #else
-    //     RendererFlags flags = RendererNone;
-    // #endif
+    RendererFlags flags = RendererEnableDebug | RendererEnableGPUCulling;
 };
 
-struct MemoryBudget {
-    u64 geometryBufferSize    = 512 * 1024 * 1024; ///< Initial memory reservation persistent static geometry buffer -Vertex/Index- (512MB default)
-    u64 materialBufferSize    = 16 * 1024 * 1024;  ///< Initial memory reservation persistent static material buffer (16MB default)
-    u64 volatileBufferSize    = 16 * 1024 * 1024;  ///< Initial memory reservation for per-frame volatile buffer -Enough for UBOs, Transforms, Lights, GUI, etc- (16MB default)
-    u64 uploadBufferSize      = 128 * 1024 * 1024; ///< Initial memory reservation for per-frame transient upload buffer -for texture/accel/data streaming- (128MB default)
-    u64 GPUCommandBuffersSize = 1024 * 1024;       ///< Initial memory reservation for per-frame Shader Binding Tables and Indirect Commands data (1MB default).
-    u64 RGAllocSize           = 1024 * 1024;       ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
-    u32 RGDescriptorsPerFrame = 2048;              ///< Initial memory reservation for per-frame DescriptorSet data.
-    u32 RGMaxViewsPerFrame    = 8192 + 256;        ///< Initial view count reservation for per-frame Descriptor Pools.
-    u32 RGMaxSamplersPerFrame = 128 + 4;           ///< Initial sampler count reservation for per-frame Descriptor Pools.
-};
 
 class IRenderer
 {

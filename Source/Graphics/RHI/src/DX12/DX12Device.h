@@ -42,17 +42,17 @@ public:
     FormatSupport queryFormatSupport( Format format ) const override;
     API           getGraphicsAPI() override;
 
-    NativeObject     getNativeObject( ObjectType objectType ) override;
-    void             setDebugName( std::string_view name ) override;
-    std::string_view getDebugName() const override;
-    STLW::String     toString() const override;
+    NativeObject getNativeObject( ObjectType objectType ) override;
+    void         setDebugName( StringView name ) override;
+    StringView   getDebugName() const override;
+    STLW::String toString() const override;
 
     // Internal Queue Definition
     struct Queue {
         ComPtr<ID3D12CommandQueue> queue;
         ComPtr<ID3D12Fence>        fence;
         HANDLE                     fenceEvent = nullptr;
-        u64                      fenceValue = 0;
+        u64                        fenceValue = 0;
     };
 
     const Queue* getQueue( const QueueType& type ) const;
@@ -61,7 +61,7 @@ public:
     class UploadContext
     {
     public:
-        void init( const ComPtr<ID3D12Device2>& device );
+        void initialize( const ComPtr<ID3D12Device2>& device );
         void oneTimeSubmitRaw( const Memory::OwnerPtr<Queue>& uploadQueue, const std::function<void( const ComPtr<ID3D12GraphicsCommandList>& )>& commands );
         void oneTimeSubmit( const Memory::OwnerPtr<Queue>& uploadQueue, const std::function<void( ICommandList* )>& commands );
 
@@ -69,8 +69,17 @@ public:
         CommandListOwnerPtr _cmdList = nullptr;
         ComPtr<ID3D12Fence> _fence;
         HANDLE              _fenceEvent = nullptr;
-        u64               _fenceValue = 0;
+        u64                 _fenceValue = 0;
         mutable std::mutex  _mutex;
+    };
+
+    enum class MemoryPoolType
+    {
+        Textures      = 0,
+        Buffers       = 1,
+        RenderTargets = 2,
+        Upload        = 3,
+        Count         = 4
     };
     // Graphics API Context
     struct Context {
@@ -78,8 +87,9 @@ public:
         ComPtr<IDXGIAdapter4> adapter;
         ComPtr<ID3D12Device2> device;
 
-        // VM Allocator
-        ComPtr<D3D12MA::Allocator> allocator;
+        // Master VRAM Allocator
+        ComPtr<D3D12MA::Allocator>                                    allocator;
+        FixedArray<ComPtr<D3D12MA::Pool>, (u64)MemoryPoolType::Count> defaultPools;
 
         // Command Queues
         Memory::OwnerPtr<Queue> primaryQueue;
@@ -134,7 +144,10 @@ private:
     void                  enableDebugLayer();
     void                  checkExtensions() override;
 
-    Memory::OwnerPtr<Queue> createCommandQueue( const QueueType& type, const std::string& name );
+    Memory::OwnerPtr<Queue> createCommandQueue( const QueueType& type, StringView name );
+
+    void createMasterAllocator();
+    void createDefaultMemoryPools();
 
     Queue* getQueueRW( const QueueType& type );
 

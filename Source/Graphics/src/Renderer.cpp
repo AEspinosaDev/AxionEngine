@@ -21,13 +21,30 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
     AXION_LOG_ASSERT( _wnd, Logger::Module::GFX, "Window is NULL | Renderer needs Window. If no window needed, use Headless Renderer" );
     _frameFences.resize( _FRAMES_IN_FLIGHT );
 
+    AXION_LOG_ASSERT( _setts.RGmaxAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.host.maxPersistentAlloc,
+                      Logger::Module::GFX,
+                      "RenderGraph persistent allocation exceeds Host memory budget." );
+    AXION_LOG_ASSERT( _setts.RGmaxSBTAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.device.maxUploadAlloc,
+                      Logger::Module::GFX,
+                      "SBT allocation exceeds Device Upload budget." );
+    AXION_LOG_ASSERT( _setts.RGmaxSBTAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.device.maxUploadAlloc,
+                      Logger::Module::GFX,
+                      "Transient allocation exceeds Device Upload budget." );
+
+    // -------------------------------
     // Per Graphics API Device Creation
+    // -------------------------------
     switch ( _setts.gfxApi )
     {
         case API::DirectX12:
             RHI::DX12DeviceDesc desc {
-                .preferredDeviceID = _setts.selectedDeviceID,
-                .enableDebugLayer  = _setts.debugMode,
+                .preferredDeviceID    = _setts.selectedDeviceID,
+                .enableDebugLayer     = _setts.debugMode,
+                .maxTextureAlloc      = _setts.memory.device.maxTextureAlloc,
+                .maxBufferAlloc       = _setts.memory.device.maxBufferAlloc,
+                .maxRenderTargetAlloc = _setts.memory.device.maxRenderTargetAlloc,
+                .maxUploadAlloc       = _setts.memory.device.maxUploadAlloc,
+                .strictMemoryCap      = true
             };
             _device = RHI::createDX12Device( desc );
             break;
@@ -59,12 +76,12 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
 
     RenderGraphDesc RGDesc = {
         .framesInFlight        = _FRAMES_IN_FLIGHT,
-        .passDataAllocSize     = _setts.RGAllocSize,
-        .desciptorSetAllocSize = _setts.RGDescriptorsPerFrame,
-        .descriptorMaxViews    = _setts.RGMaxViewsPerFrame,
-        .descriptorMaxSamplers = _setts.RGMaxSamplersPerFrame,
-        .sbtAllocSize          = _setts.RGAllocSBTSize,
-        .transientAllocSize    = _setts.RGTransientAllocSize,
+        .passDataAllocSize     = _setts.RGmaxAlloc,
+        .desciptorSetAllocSize = _setts.RGmaxDescriptorsPerFrame,
+        .descriptorMaxViews    = _setts.RGmaxViewsPerFrame,
+        .descriptorMaxSamplers = _setts.RGmaxSamplersPerFrame,
+        .sbtAllocSize          = _setts.RGmaxSBTAlloc,
+        .transientAllocSize    = _setts.RGmaxTransientAlloc,
         .resourceTTL           = (u32)_setts.GCMode,
         .autoSync              = _setts.autoSync };
     _renderGraph.initialize( ctx, RGDesc );
@@ -189,12 +206,29 @@ STLW::String Renderer::toString() const {
     //     debugMode,
     //     presentModeToString( presentMode ),
     //     formatToString( backbufferFormat ) );
+    const u64 totalVRAM = _setts.memory.device.maxTextureAlloc +
+                          _setts.memory.device.maxBufferAlloc +
+                          _setts.memory.device.maxRenderTargetAlloc;
+
+    const u64 totalUpload = _setts.memory.device.maxUploadAlloc;
+
+    const u64 totalHostRAM = _setts.memory.host.maxPersistentAlloc +
+                             ( _setts.memory.host.maxTransientAllocPerFrame * _FRAMES_IN_FLIGHT );
+
     return static_cast<STLW::String>( fmt::format(
         "Renderer Settings:\n"
         "  Buffering Type: {}\n"
-        "  Debug Mode: {}\n",
+        "  Debug Mode: {}\n"
+        "  --- Memory Budgets ---\n"
+        "  Dedicated VRAM (Textures, Buffers, RTs): {} MB\n"
+        "  Mapped Upload Memory (PCIe): {} MB\n"
+        "  Host RAM (Persistent + Transient x {}): {} MB\n",
         (u32)_setts.bufferingType + 1,
-        _setts.debugMode ) );
+        _setts.debugMode,
+        totalVRAM / ( 1024 * 1024 ),
+        totalUpload / ( 1024 * 1024 ),
+        _FRAMES_IN_FLIGHT,
+        totalHostRAM / ( 1024 * 1024 ) ) );
 }
 
 bool Renderer::instantExecution( std::function<void( RHI::ICommandList* cmd )>& commands ) {
@@ -237,7 +271,7 @@ void Renderer::generateSwapchainHandles() {
     for ( size_t i = 0; i < images.size(); ++i )
     {
         auto handle = _resourcePool.registerExternalTexture( std::move( images[i] ), "Backbuffer_" + std::to_string( i ) );
-        _swapchainHandles.push_back( handle );
+        _swapchainHandles.pushBack( handle );
     }
 }
 

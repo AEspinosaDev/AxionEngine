@@ -22,6 +22,22 @@ DEFINE_OWNER_PTR_FOR_TYPE( IRenderer, Renderer )
 class IRenderer
 {
 public:
+    struct MemoryBudget {
+        struct Device {
+            u64 maxTextureAlloc      = GIGABYTES( 1ull ); ///< Logical cap for loaded textures VRAM Pool (SRV, UAV).
+            u64 maxBufferAlloc       = MBYTES( 512 );     ///< Logical cap for loaded buffers VRAM Pool (CBV, SRV, UAV).
+            u64 maxRenderTargetAlloc = MBYTES( 256 );     ///< Logical cap for render tartgets VRAM Pool (RTV, DSV).
+            u64 maxUploadAlloc       = MBYTES( 256 );     ///< Logical cap for CPU visible data Pool.
+        };
+        struct Host {
+            u64 maxPersistentAlloc        = MBYTES( 64 ); ///< Memory reservation for persistent data allocations.
+            u64 maxTransientAllocPerFrame = MBYTES( 16 ); ///< Memory reservation for transient data allocations per frame.
+        };
+
+        Device device {};
+        Host   host {};
+    };
+
     /// @brief Configuration settings for initializing the renderer.
     struct Settings {
         API           gfxApi           = API::DirectX12;        ///< Underlying Graphics API backend.
@@ -30,14 +46,16 @@ public:
         PresentMode   presentMode      = PresentMode::Vsync;    ///< Presentation mode (Vsync/Immediate/Mailbox).
         Format        backbufferFormat = Format::RGBA8_UNORM;   ///< Swapchain backbuffer format.
 
-        u64 RGAllocSize           = 1024 * 1024;      ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
-        u64 RGAllocSBTSize        = 1024 * 1024;      ///< Initial memory reservation for per-frame Shader Binding Tables data (1MB default).
-        u32  RGDescriptorsPerFrame = 2048;             ///< Initial memory reservation for per-frame DescriptorSet data.
-        u32  RGMaxViewsPerFrame    = 256;              ///< Initial view count reservation for per-frame Descriptor Pools.
-        u32  RGMaxSamplersPerFrame = 128;              ///< Initial sampler count reservation for per-frame Descriptor Pools.
-        u64 RGTransientAllocSize  = 64 * 1024 * 1024; ///< Initial memory reservation for per-frame transient upload sensible data (Useful for CPU-GPU data streaming) (64MB default).
+        // General Memory Budgeting
+        MemoryBudget memory = {}; ///< Custom memory budget configuration.
 
-        u64 vramBlockSize = 512ull * 1024 * 1024; ///< Preferred VRAM block size for the global allocator.
+        // Render graph budget (Must be below memory budget general limits)
+        u64 RGmaxAlloc               = KBYTES( 1024 ); ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
+        u64 RGmaxSBTAlloc            = KBYTES( 1024 ); ///< Initial memory reservation for per-frame Shader Binding Tables data (1MB default).
+        u64 RGmaxTransientAlloc      = MBYTES( 64 );   ///< Initial memory reservation for per-frame transient upload sensible data (Useful for CPU-GPU data streaming) (64MB default).
+        u32 RGmaxDescriptorsPerFrame = 2048;           ///< Initial memory reservation for per-frame DescriptorSet data.
+        u32 RGmaxViewsPerFrame       = 256;            ///< Initial view count reservation for per-frame Descriptor Pools.
+        u32 RGmaxSamplersPerFrame    = 128;            ///< Initial sampler count reservation for per-frame Descriptor Pools.
 
         GCMode GCMode   = GCMode::AvgMemory; ///< Garbage Collection aggressiveness for transient resources.
         bool   autoSync = true;              ///< Automatic Barrier Insertion by RenderGraph.

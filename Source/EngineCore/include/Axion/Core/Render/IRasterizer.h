@@ -11,7 +11,6 @@ class IRasterizer : public IRenderer
 {
 public:
     struct Settings {
-        bool             useGPUCulling = true;
         Graphics::Format depthFormat   = Graphics::Format::D32;
 
         CommonSettings common {};

@@ -27,7 +27,6 @@ int main( /*int argc, char* argv[]*/ ) {
 
         Core::Render::RasterizerSettings rastDesc {};
         rastDesc.common.name             = "MyRasterizer";
-        rastDesc.useGPUCulling           = true;
         rastDesc.common.selectedDeviceID = 0;
         rastDesc.common.flags |= Core::Render::RendererEnableGUI | Core::Render::RendererEnableFXAA;
 

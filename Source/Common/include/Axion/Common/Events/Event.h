@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "Axion/Common/Common.h"
+#include "Axion/Common/Memory/Pointers/OwnerPtr.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -73,11 +74,11 @@ public:
      * @brief Subscribe to the event.
      * @return A unique_ptr to a Subscription that will automatically unsubscribe.
      */
-    std::unique_ptr<Subscription> subscribe(Callback callback) {
+    Memory::OwnerPtr<Subscription> subscribe(Callback callback) {
         std::lock_guard<std::mutex> lock(_mutex);
         const size_t id = ++_nextId;
         _subscribers.emplace_back(id, std::move(callback));
-        return std::make_unique<Subscription>(this, id);
+        return Memory::makeOwned<Subscription>(this, id);
     }
 
     /**
