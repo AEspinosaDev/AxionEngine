@@ -80,14 +80,14 @@ void RenderGraph::initialize( const SubsystemInitContext& ctx, const RenderGraph
         allocDesc.numSamplers    = desc.descriptorMaxSamplers;
         allocDesc.numViews       = desc.descriptorMaxViews;
         allocDesc.debugName      = "RG_Desc_Allocator_Frame_" + std::to_string( i );
-        _descriptorAllocators.push_back( _device->createDescriptorAllocator( allocDesc ) );
+        _descriptorAllocators.pushBack( _device->createDescriptorAllocator( allocDesc ) );
 
         // Create Transient Heap
-        RHI::TransientAllocatorDesc transDesc;
+        RHI::TransientDataAllocatorDesc transDesc;
         transDesc.scratchSize = desc.transientAllocSize;
         transDesc.uploadSize  = desc.transientAllocSize;
         transDesc.debugName   = "RG_Transient_Allocator_Frame_" + std::to_string( i );
-        _transientAllocators.push_back( _device->createTransientAllocator( transDesc ) );
+        _transientAllocators.pushBack( { _device, transDesc } );
 
         if ( desc.sbtAllocSize > 0 )
         {
@@ -96,7 +96,7 @@ void RenderGraph::initialize( const SubsystemInitContext& ctx, const RenderGraph
             sbtAllocDesc.sizeInBytes = static_cast<u32>( desc.sbtAllocSize );
             sbtAllocDesc.debugName   = "RG_SBT_Allocator_Frame_" + std::to_string( i );
 
-            _sbtAllocators.push_back( _device->createSBTAllocator( sbtAllocDesc ) );
+            _sbtAllocators.pushBack( _device->createSBTAllocator( sbtAllocDesc ) );
         }
     }
     AXION_LOG_INFO( Logger::Module::GFX, "RenderGraph Subsystem Initialized Succesfully" );
@@ -151,7 +151,7 @@ void RenderGraph::execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) 
     currentAllocator->reset();
     auto* currentSBTAllocator = _sbtAllocators[cmd->getCurrentFrame()].get();
     currentSBTAllocator->reset();
-    auto* currentTransAllocatopr = _transientAllocators[cmd->getCurrentFrame()].get();
+    auto* currentTransAllocatopr = &_transientAllocators[cmd->getCurrentFrame()];
     currentTransAllocatopr->reset();
 
     reset();

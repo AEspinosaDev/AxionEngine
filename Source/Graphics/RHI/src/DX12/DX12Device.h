@@ -29,7 +29,6 @@ public:
 
     DescriptorAllocatorOwnerPtr createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) override;
     SBTAllocatorOwnerPtr        createSBTAllocator( const SBTAllocatorDesc& desc ) override;
-    TransientAllocatorOwnerPtr  createTransientAllocator( const TransientAllocatorDesc& desc ) override;
 
     void executeCommandLists( const STLW::Vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) override;
     void waitForFrame( const Fence& frameFence, QueueType workingQueue ) override;

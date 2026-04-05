@@ -1,7 +1,8 @@
 #pragma once
-#include <Axion/Common/Memory/Pointers/OwnerPtr.h>
 #include "Axion/Graphics/RHI/ICommandList.h"
 #include "Axion/Graphics/RHI/IDevice.h"
+#include <Axion/Common/Memory/Pointers/OwnerPtr.h>
+
 
 AXION_NAMESPACE_BEGIN
 
@@ -15,7 +16,7 @@ public:
     struct Description {
         PlatformType platform           = PlatformType::Win32;
         Format       backbufferFormat   = Format::RGBA8_UNORM;
-        u32         framesInFlight     = 2;
+        u32          framesInFlight     = 2;
         int          configFlags        = 0;
         void*        nativeWindowHandle = nullptr;
     };

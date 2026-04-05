@@ -4,7 +4,9 @@
 #include "Axion/Common/Containers/STLWrapper/Maps.h"
 #include "Axion/Common/Containers/STLWrapper/String.h"
 #include "Axion/Common/Containers/STLWrapper/Vector.h"
+#include "Axion/Common/Containers/SmallVector.h"
 #include "Axion/Common/Containers/String.h"
+#include "Axion/Common/Containers/Vector.h"
 #include "Axion/Common/Graphics/Common.h"
 #include "Axion/Common/Logging.h"
 #include "Axion/Common/Math.h"
@@ -34,25 +36,25 @@ class IBuffer;
 using BufferSlice = Memory::SubAllocation<RHI::IBuffer>;
 /** @brief Free-list allocator for persistent buffer data without thread synchronization. */
 template <typename VisibilityPolicy = Memory::VisibilityShared>
-using BufferFreeListAllocator = Memory::FreeListSubAllocator<RHI::IBuffer, VisibilityPolicy, Memory::NoLockPolicy>;
+using BufferFreeListAllocator = Memory::FreeListSubAllocator<RHI::IBuffer, VisibilityPolicy, NoLockPolicy>;
 
 /** @brief Free-list allocator for persistent, device-local (GPU-only) buffer data without thread synchronization. */
-using BufferGPUFreeListAllocator = Memory::FreeListSubAllocator<RHI::IBuffer, Memory::VisibilityDeviceOnly, Memory::NoLockPolicy>;
+using BufferGPUFreeListAllocator = Memory::FreeListSubAllocator<RHI::IBuffer, Memory::VisibilityDeviceOnly, NoLockPolicy>;
 
 /** @brief Thread-safe free-list allocator for persistent buffer data. */
 template <typename VisibilityPolicy = Memory::VisibilityShared>
-using LockedBufferFreeListAllocator = Memory::FreeListSubAllocator<RHI::IBuffer, VisibilityPolicy, Memory::MutexLockPolicy>;
+using LockedBufferFreeListAllocator = Memory::FreeListSubAllocator<RHI::IBuffer, VisibilityPolicy, MutexLockPolicy>;
 
 /** @brief Linear allocator for transient buffer data without thread synchronization. Ideal for per-frame allocations. */
 template <typename VisibilityPolicy = Memory::VisibilityShared>
-using BufferLinearAllocator = Memory::LinearSubAllocator<RHI::IBuffer, VisibilityPolicy, Memory::NoLockPolicy>;
+using BufferLinearAllocator = Memory::LinearSubAllocator<RHI::IBuffer, VisibilityPolicy, NoLockPolicy>;
 
 /** @brief Linear allocator for transient, device-local (GPU-only) buffer data without thread synchronization. */
-using BufferGPULinearAllocator = Memory::LinearSubAllocator<RHI::IBuffer, Memory::VisibilityDeviceOnly, Memory::NoLockPolicy>;
+using BufferGPULinearAllocator = Memory::LinearSubAllocator<RHI::IBuffer, Memory::VisibilityDeviceOnly, NoLockPolicy>;
 
 /** @brief Thread-safe linear allocator for transient buffer data. */
 template <typename VisibilityPolicy = Memory::VisibilityShared>
-using LockedBufferLinearAllocator = Memory::LinearSubAllocator<RHI::IBuffer, VisibilityPolicy, Memory::MutexLockPolicy>;
+using LockedBufferLinearAllocator = Memory::LinearSubAllocator<RHI::IBuffer, VisibilityPolicy, MutexLockPolicy>;
 
 ////////////////////////////////////////////////////////////////////////
 // RHI Reserved Definitions

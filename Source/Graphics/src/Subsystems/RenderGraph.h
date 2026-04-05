@@ -44,11 +44,11 @@ private:
 
     void compile();
 
-    IGPUResourcePool*                              _pool      = nullptr;
-    IPipelineRegistry*                             _pipelines = nullptr;
-    STLW::Vector<RHI::DescriptorAllocatorOwnerPtr> _descriptorAllocators;
-    STLW::Vector<RHI::SBTAllocatorOwnerPtr>        _sbtAllocators;
-    STLW::Vector<RHI::TransientAllocatorOwnerPtr>  _transientAllocators;
+    IGPUResourcePool*                                _pool      = nullptr;
+    IPipelineRegistry*                               _pipelines = nullptr;
+    SmallVector<RHI::DescriptorAllocatorOwnerPtr, 3> _descriptorAllocators;
+    SmallVector<RHI::SBTAllocatorOwnerPtr, 3>        _sbtAllocators;
+    SmallVector<RHI::TransientDataAllocator, 3>      _transientAllocators;
 
     RenderGraphDesc _desc;
 
@@ -90,7 +90,7 @@ private:
     STLW::Vector<std::function<void()>> _passDataCleanup;
 
     STLW::Vector<byte> _frameMemory;
-    size_t              _frameOffset = 0;
+    size_t             _frameOffset = 0;
 
     //--------------------------
     // CACHED DATA
@@ -99,9 +99,9 @@ private:
     struct TextureDescHash {
         std::size_t operator()( const RHI::TextureDesc& d ) const {
             std::size_t h = 0;
-            Helpers::hashCombine( h, std::hash<uint32_t> {}( d.size.width ) );
-            Helpers::hashCombine( h, std::hash<uint32_t> {}( d.size.height ) );
-            Helpers::hashCombine( h, std::hash<uint32_t> {}( d.size.depth ) );
+            Helpers::hashCombine( h, std::hash<u32> {}( d.size.width ) );
+            Helpers::hashCombine( h, std::hash<u32> {}( d.size.height ) );
+            Helpers::hashCombine( h, std::hash<u32> {}( d.size.depth ) );
             Helpers::hashCombine( h, std::hash<int> {}( (int)d.format ) );
             Helpers::hashCombine( h, std::hash<int> {}( (int)d.viewFlags ) );
             return h;
@@ -120,16 +120,16 @@ private:
 
     struct CachedBuffer {
         BufferHandle handle;
-        uint32_t     lastUsedFrame;
+        u32          lastUsedFrame;
     };
 
     struct CachedTexture {
         TextureHandle handle;
-        uint32_t      lastUsedFrame;
+        u32           lastUsedFrame;
     };
 
-    std::unordered_multimap<RHI::TextureDesc, CachedTexture, TextureDescHash> _textureCache;
-    std::unordered_multimap<RHI::BufferDesc, CachedBuffer, BufferDescHash>    _bufferCache;
+    STLW::UnorderedMultimap<RHI::TextureDesc, CachedTexture, TextureDescHash> _textureCache;
+    STLW::UnorderedMultimap<RHI::BufferDesc, CachedBuffer, BufferDescHash>    _bufferCache;
 
     u32 _frameCounter = 0;
 };

@@ -25,10 +25,10 @@ private:
     ResourceState _globalState = ResourceState::Undefined;
     bool          _initialized = false;
 
-    std::vector<ResourceState> _subresourceStates;
-    u32                       _miplevels   = 1;
-    u32                       _arrayLayers = 1;
+    Vector<ResourceState> _subresourceStates;
+    u32                   _miplevels   = 1;
+    u32                   _arrayLayers = 1;
 };
 
-} // namespace RHI
+} // namespace Graphics::RHI
 AXION_NAMESPACE_END

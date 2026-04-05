@@ -179,7 +179,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         upConfig.mtlTextureHandles = &_res.textureHandles;
 
         for ( u32 i = 0; i < _framesInFlight; ++i )
-            upConfig.allPersistentSets.push_back( _res.frame[i].persistentDescriptorSetPtr );
+            upConfig.allPersistentSets.pushBack( _res.frame[i].persistentDescriptorSetPtr );
 
         _passes.getPass<UploadPass>()->addToGraph( builder, upConfig );
 
@@ -617,7 +617,7 @@ Rasterizer::TransientPayload Rasterizer::uploadTransientData( Graphics::BufferLi
     {
         const auto& instances = _gpuScene.instances();
 
-        if ( !instances.empty() )
+        if ( !instances.isEmpty() )
         {
             payload.instancesSlice = currentSSBOAlloc.allocate<GPUInstance>( instances.size() );
 
@@ -641,7 +641,7 @@ Rasterizer::TransientPayload Rasterizer::uploadTransientData( Graphics::BufferLi
     {
         const auto& lights = _gpuScene.lights();
 
-        if ( !lights.empty() )
+        if ( !lights.isEmpty() )
         {
             payload.lightsSlice = currentSSBOAlloc.allocate<GPULight>( lights.size() );
 
@@ -664,7 +664,7 @@ Rasterizer::TransientPayload Rasterizer::uploadTransientData( Graphics::BufferLi
     {
         const auto& envs = _gpuScene.environments();
 
-        if ( !envs.empty() )
+        if ( !envs.isEmpty() )
         {
             payload.envsSlice = currentSSBOAlloc.allocate<GPUEnvironment>( envs.size() );
 
@@ -688,7 +688,7 @@ Rasterizer::TransientPayload Rasterizer::uploadTransientData( Graphics::BufferLi
     {
         const auto& sortedKeys = _gpuScene.getSortedKeys();
 
-        if ( !sortedKeys.empty() )
+        if ( !sortedKeys.isEmpty() )
         {
             payload.redirectSlice = currentSSBOAlloc.allocate<u32>( sortedKeys.size() );
 
@@ -721,7 +721,7 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
     const auto& meshes     = _gpuScene.meshes();
 
     IndirectCommandPayload payload;
-    if ( sortedKeys.empty() )
+    if ( sortedKeys.isEmpty() )
         return payload;
 
     // 1. ALLOCATIONS
@@ -884,11 +884,11 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
         _indirectCommandDataCache.batchMap.assign( indirectCmdMapPtr, indirectCmdMapPtr + currentMapCount );
 
         //  CPU->GPU
-        indirectData.dirty = true;
+        payload.dirty = true;
     } else
     {
         // CPU->GPU
-        indirectData.dirty = false;
+        payload.dirty = false;
     }
 
 #endif

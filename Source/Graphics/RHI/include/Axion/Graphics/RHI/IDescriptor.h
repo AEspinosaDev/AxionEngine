@@ -2,7 +2,6 @@
 #include "Axion/Common/Math.h"
 #include "Axion/Graphics/RHI/Common.h"
 #include "Axion/Graphics/RHI/IResource.h"
-#include "Axion/Graphics/RHI/Memory.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -18,7 +17,7 @@ struct DescriptorBinding {
 };
 
 struct DescriptorLayoutDesc {
-    STLW::Vector<DescriptorBinding> bindings;
+    SmallVector<DescriptorBinding> bindings;
 };
 
 DEFINE_OWNER_PTR_FOR_TYPE( IDescriptorSet, DescriptorSet )

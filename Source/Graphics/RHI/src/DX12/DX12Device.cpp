@@ -11,7 +11,6 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 
-#include "../TransientAllocator.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -145,10 +144,6 @@ DescriptorAllocatorOwnerPtr DX12Device::createDescriptorAllocator( const Descrip
 
 SBTAllocatorOwnerPtr DX12Device::createSBTAllocator( const SBTAllocatorDesc& desc ) {
     return Memory::makeOwned<DX12SBTAllocator>( desc, _ctx );
-}
-
-TransientAllocatorOwnerPtr DX12Device::createTransientAllocator( const TransientAllocatorDesc& desc ) {
-    return Memory::makeOwned<TransientAllocator>( this, desc );
 }
 void DX12Device::executeCommandLists( const STLW::Vector<ICommandList*>& lists, QueueType workingQueue, Fence& frameFence ) {
     STLW::Vector<ID3D12CommandList*> nativeLists;

@@ -10,7 +10,6 @@
 #include <random>
 #include <vector>
 
-
 USING_AXION_NAMESPACE
 
 // Helper para gestionar el input de forma más cómoda
@@ -73,14 +72,14 @@ int main( /*int argc, char* argv[]*/ ) {
         // 2. LIGHTING
         auto envEntity = scene.createEntity( "GlobalVolume" );
         envEntity.addComponent<Core::Scene::EnvironmentComponent>();
-        auto& env       = envEntity.getComponent<Core::Scene::EnvironmentComponent>();
-        env.skyColor    = { 0.5f, 0.7f, 1.0f };
-        env.groundColor = { 0.2f, 0.2f, 0.25f };
-        env.intensity   = 1.0f;
+        auto& env = envEntity.getComponent<Core::Scene::EnvironmentComponent>();
+        env.setSkyColor( { 0.5f, 0.7f, 1.0f } );
+        env.setGroundColor( { 0.2f, 0.2f, 0.25f } );
+        env.setIntensity( 1.0f );
 
         auto sunEntity = scene.createEntity( "Sun" );
         sunEntity.addComponent<Core::Scene::LightComponent>();
-        auto& sunComp          = sunEntity.getComponent<Core::Scene::LightComponent>();
+        auto& sunComp = sunEntity.getComponent<Core::Scene::LightComponent>();
         sunComp.setType( Core::Scene::LightComponent::Type::Directional );
         sunComp.setIntensity( 10.0f );
         sunComp.setColor( { 1.0f, 0.95f, 0.9f } );

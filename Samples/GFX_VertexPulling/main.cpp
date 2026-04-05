@@ -84,8 +84,8 @@ struct UploadPass {
                 u32 vtxSize = mesh.vertices.size() * sizeof( Vertex );
                 u32 idxSize = mesh.indices.size() * sizeof( u32 );
 
-                ctx.cmd->uploadBuffer( vb, mesh.vertices.data(), vtxSize, currentVtxOffset, ctx.transAllocator, Graphics::RHI::BarrierPolicy::None );
-                ctx.cmd->uploadBuffer( ib, mesh.indices.data(), idxSize, currentIdxOffset, ctx.transAllocator, Graphics::RHI::BarrierPolicy::None );
+                ctx.cmd->uploadBuffer( vb, mesh.vertices.data(), vtxSize, currentVtxOffset, *ctx.transAllocator, Graphics::RHI::BarrierPolicy::None );
+                ctx.cmd->uploadBuffer( ib, mesh.indices.data(), idxSize, currentIdxOffset, *ctx.transAllocator, Graphics::RHI::BarrierPolicy::None );
 
                 currentVtxOffset += vtxSize;
                 currentIdxOffset += idxSize;

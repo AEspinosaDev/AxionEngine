@@ -42,10 +42,10 @@ public:
 
     // -- Read-Write Accessors for the Renderer --
     // The Renderer consumes these vectors to fill the Volatile Allocators (LinearAllocators)
-    GPUFrame&                     frame() { return _frame; }
-    STLW::Vector<GPUInstance>&    instances() { return _instances; }
-    STLW::Vector<GPULight>&       lights() { return _lights; }
-    STLW::Vector<GPUEnvironment>& environments() { return _environments; }
+    GPUFrame&               frame() { return _frame; }
+    Vector<GPUInstance>&    instances() { return _instances; }
+    Vector<GPULight>&       lights() { return _lights; }
+    Vector<GPUEnvironment>& environments() { return _environments; }
 
     // Persistent cache access (Used to bind SRVs for geometry)
     STLW::Vector<GPUMesh>& meshes() { return _meshCache.cache; }
@@ -73,7 +73,7 @@ public:
         }
     };
 
-    const STLW::Vector<SortKey>& getSortedKeys() const { return _sortedKeys; }
+    const Vector<SortKey>& getSortedKeys() const { return _sortedKeys; }
 
     // Query
     bool hasPendingUploads() const;
@@ -124,12 +124,12 @@ private:
     }
 
     // -- Transient Data (Cleared every frame) --
-    GPUFrame                     _frame;
-    STLW::Vector<GPUInstance>    _instances;
-    STLW::Vector<GPULight>       _lights;
-    STLW::Vector<GPUEnvironment> _environments;
+    GPUFrame               _frame;
+    Vector<GPUInstance>    _instances;
+    Vector<GPULight>       _lights;
+    Vector<GPUEnvironment> _environments;
 
-    STLW::Vector<SortKey> _sortedKeys;
+    Vector<SortKey> _sortedKeys;
 
     // -- Persistent Data Cache --
     template <typename T>

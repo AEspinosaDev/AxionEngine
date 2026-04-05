@@ -63,7 +63,7 @@ const ISwapchain::Description& DX12Swapchain::getDescription() {
     return _desc;
 }
 
-STLW::Vector<TextureOwnerPtr> DX12Swapchain::releaseImages() {
+SmallVector<TextureOwnerPtr, 3> DX12Swapchain::releaseImages() {
     return std::move( _swapImages );
 }
 

@@ -33,6 +33,8 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
+#include <mutex>
+
 // ---------------------------------------------------------------------------
 // Handle MACRO Definitions
 // ---------------------------------------------------------------------------
@@ -158,6 +160,21 @@ struct Position2D {
     inline bool operator!=( const Position2D& o ) const {
         return x != o.x && y != o.y;
     }
+};
+// ----------------------------
+// GENERAL POLICIES
+// ----------------------------
+
+
+struct NoLockPolicy {
+    void lock() {}
+    void unlock() {}
+};
+
+struct MutexLockPolicy {
+    mutable std::mutex _mtx;
+    void               lock() { _mtx.lock(); }
+    void               unlock() { _mtx.unlock(); }
 };
 
 AXION_NAMESPACE_END

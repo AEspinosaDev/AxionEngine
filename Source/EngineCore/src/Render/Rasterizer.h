@@ -1,6 +1,5 @@
 #pragma once
 #include "Axion/Graphics/Passes/Utilitary.hpp"
-#include "Axion/Graphics/RHI/Memory.h"
 #include "DrawIndirect.h"
 #include "GPUScene.h"
 #include "MaterialSystem.h"
@@ -114,12 +113,12 @@ private:
         Graphics::BufferHandle               mtlBufferHandle;
         Graphics::BufferGPUFreeListAllocator mtlAllocator;
 
-        STLW::Vector<Graphics::TextureHandle> textureHandles;
-        Graphics::TextureHandle               fallbackTexture2DHandle;
-        STLW::Vector<Graphics::SamplerHandle> samplerHandles;
-        Graphics::SamplerHandle               fallbackSamplerHandle;
+        Vector<Graphics::TextureHandle> textureHandles;
+        Graphics::TextureHandle         fallbackTexture2DHandle;
+        Vector<Graphics::SamplerHandle> samplerHandles;
+        Graphics::SamplerHandle         fallbackSamplerHandle;
 
-        STLW::Vector<FrameResources> frame;
+        SmallVector<FrameResources, 3> frame;
     };
     GPUResources _res;
 

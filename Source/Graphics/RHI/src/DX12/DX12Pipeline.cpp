@@ -57,8 +57,8 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
     STLW::Vector<CD3DX12_DESCRIPTOR_RANGE1> allRanges;
 
     struct TableInfo {
-        u32                    startIdx;
-        u32                    count;
+        u32                     startIdx;
+        u32                     count;
         D3D12_SHADER_VISIBILITY visibility;
         int*                    rootIndexMapTarget; // Puntero al entero donde guardaremos el índice final
     };
@@ -221,7 +221,7 @@ void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Devic
 
         DX_CHECK( device->CreateCommandSignature( &csDesc, _rootSignature.Get(), IID_PPV_ARGS( &_drawIndexedIndirectSignature ) ) );
 
-        setNativeName( _drawIndexedIndirectSignature.Get(),_desc.debugName + " DrawIndirectSig" );
+        setNativeName( _drawIndexedIndirectSignature.Get(), _desc.debugName + " DrawIndirectSig" );
     }
 
     {
@@ -235,11 +235,11 @@ void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Devic
 
         DX_CHECK( device->CreateCommandSignature( &csDesc, _rootSignature.Get(), IID_PPV_ARGS( &_dispatchIndirectSignature ) ) );
 
-        setNativeName( _dispatchIndirectSignature.Get(),_desc.debugName + " DispatchIndirectSig" );
+        setNativeName( _dispatchIndirectSignature.Get(), _desc.debugName + " DispatchIndirectSig" );
     }
 }
 
-D3D12_SHADER_VISIBILITY DX12PipelineLayout::getShaderVisibility( const STLW::Vector<DescriptorBinding>& bindings ) {
+D3D12_SHADER_VISIBILITY DX12PipelineLayout::getShaderVisibility( const SmallVector<DescriptorBinding>& bindings ) {
     ShaderStage mask = ShaderStage::None;
     for ( auto& b : bindings )
         mask |= b.stageMask;

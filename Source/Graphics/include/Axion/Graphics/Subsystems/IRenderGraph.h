@@ -1,6 +1,6 @@
 #pragma once
 #include "Axion/Graphics/RHI/ICommandList.h"
-#include "Axion/Graphics/RHI/Memory.h"
+#include "Axion/Graphics/RHI/TransientDataAllocator.h"
 #include "Axion/Graphics/ResourceBuilders.h"
 #include "Axion/Graphics/Subsystems/IGPUResourcePool.h"
 #include "Axion/Graphics/Subsystems/IPipelineRegistry.h"
@@ -21,10 +21,10 @@ const RGResourceHandle RG_INVALID_HANDLE = UINT32_MAX;
 /// @brief Context passed to the execution lambda of a render pass.
 /// Provides access to physical resources and command recording.
 struct RenderPassContext {
-    RHI::ICommandList*         cmd;            ///< Command list for recording GPU commands.
-    RHI::IDescriptorAllocator* descriptors;    ///< Descriptor Allocate to register GPU visible DescriptorSets.
-    RHI::ISBTAllocator*        sbtAllocator;   ///< SBT AllocatOR to register GPU visible Shader Groups for RTX.
-    RHI::ITransientAllocator*  transAllocator; ///< Transient Resource AllocatOR to upload data.
+    RHI::ICommandList*           cmd;            ///< Command list for recording GPU commands.
+    RHI::IDescriptorAllocator*   descriptors;    ///< Descriptor Allocate to register GPU visible DescriptorSets.
+    RHI::ISBTAllocator*          sbtAllocator;   ///< SBT AllocatOR to register GPU visible Shader Groups for RTX.
+    RHI::TransientDataAllocator* transAllocator; ///< Transient Resource AllocatOR to upload data.
 
     const IRenderGraph& graph;     ///< Reference to the graph for handle resolution.
     IPipelineRegistry&  pipelines; ///< Access to compiled PSOs.
@@ -37,7 +37,7 @@ struct RenderPassContext {
     RHI::ITexture* getTexture( RGResourceHandle handle ) const;
 
     RHI::IDescriptorSet* allocateSet( RHI::IPipelineLayout* layout, u32 setIndex ) const;
-    RHI::SBT::Allocation       allocateSBT( const RHI::SBT& sbt, RHI::IRayTracingPipeline* pip ) const;
+    RHI::SBT::Allocation allocateSBT( const RHI::SBT& sbt, RHI::IRayTracingPipeline* pip ) const;
     BufferSlice          uploadDynamic( const void* data, u64 size, u64 alignment = 256 ) const;
 };
 
