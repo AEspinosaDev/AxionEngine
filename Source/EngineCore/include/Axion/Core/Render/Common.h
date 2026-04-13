@@ -134,6 +134,7 @@ struct MemoryBudget {
     Device device {};
     Host   host {};
     Shared shared {};
+    bool   strictVRAM = false; ///< If memory request surpass the limits on the GPU, strict mode doesnt let device allocate new memory
 
     static MemoryBudget configureBudget( u64                     totalRamBudget,
                                          u64                     totalVramBudget,
@@ -191,7 +192,6 @@ struct MemoryBudget {
         return budget;
     }
 };
-
 
 } // namespace Core::Render
 

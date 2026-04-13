@@ -194,6 +194,7 @@ u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets
             // Grow vector
             gpuCacheIndex = (u32)_materialCache.cache.size();
             _materialCache.cache.emplace_back();
+            _materialToTextureMap.emplace_back();
         }
 
         // Register in LUT immediately
@@ -216,11 +217,17 @@ u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets
         auto* cpuMaterial = assets->getMaterialBase( cpuMtlHandle );
         auto& gpuMtl      = _materialCache.cache[gpuCacheIndex];
 
+        // Reset textures in this material
+        for ( u32 oldTexGpuHandle : _materialToTextureMap[gpuCacheIndex] )
+            if ( _textureCache.cache[oldTexGpuHandle].refCount > 0 )
+                _textureCache.cache[oldTexGpuHandle].refCount--;
+        _materialToTextureMap[gpuCacheIndex].clear();
+
         gpuMtl.payloadSize = cpuMaterial->getPayloadSize();
         gpuMtl.archetypeID = mtlLib.getArchetypeID( cpuMaterial->getArchetypeName() );
 
         Assets::Material::TextureResolver resolver = [&]( const Axion::Core::Assets::TextureHandle& h ) -> u32 {
-            return processTexture( assets, h );
+            return processTexture( assets, h, gpuCacheIndex );
         };
 
         PendingMaterialUpload entry;
@@ -239,7 +246,9 @@ u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets
     return gpuCacheIndex;
 }
 
-u32 GPUScene::processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle ) {
+u32 GPUScene::processTexture( const Axion::Core::Assets::AssetManager*  assets,
+                              const Axion::Core::Assets::TextureHandle& cpuHandle,
+                              u32                                       materialGpuCacheIndex ) {
     if ( !cpuHandle.isValid() )
         return 0xFFFFFFFF;
 
@@ -275,8 +284,10 @@ u32 GPUScene::processTexture( const Axion::Core::Assets::AssetManager* assets, c
         // _textureCache.cache[gpuCacheIndex].slot            = gpuCacheIndex;
     }
 
-    auto& gpuTex         = _textureCache.cache[gpuCacheIndex];
-    gpuTex.lastFrameUsed = _currentFrameIndex;
+    auto& gpuTex = _textureCache.cache[gpuCacheIndex];
+
+    gpuTex.refCount++;
+    _materialToTextureMap[materialGpuCacheIndex].pushBack( gpuCacheIndex );
 
     if ( !gpuTex.valid )
     {
@@ -477,6 +488,34 @@ void GPUScene::runGC() {
                     gpuMat.payloadSize,
                     (u32)i // Cache Slot Index
                 } );
+
+                // Check textures inside material
+                for ( u32 textureGpuHandle : _materialToTextureMap[i] )
+                {
+                    _textureCache.cache[textureGpuHandle].refCount--;
+                    // If no more materials owning this texture, prepare to destroy it
+                    if ( _textureCache.cache[textureGpuHandle].refCount == 0 )
+                    {
+                        _pendingTextureReleases.push( textureGpuHandle );
+
+                        auto& gpuTex = _textureCache.cache[textureGpuHandle];
+
+                        if ( gpuTex.originalAssetID < _textureCache.assetToCacheLUT.size() )
+                        {
+                            _textureCache.assetToCacheLUT[gpuTex.originalAssetID] = -1;
+                        }
+
+                        _textureCache.freeIndexQueue.push( (u32)textureGpuHandle );
+
+                        gpuTex.valid           = false;
+                        gpuTex.refCount        = 0;
+                        gpuTex.originalAssetID = 0;
+
+                        AXION_LOG_INFO( Logger::Module::Core, "GC: Recycled texture slot {}", textureGpuHandle );
+                    }
+                }
+
+                _materialToTextureMap[i].clear();
 
                 if ( gpuMat.originalAssetID < _materialCache.assetToCacheLUT.size() )
                 {

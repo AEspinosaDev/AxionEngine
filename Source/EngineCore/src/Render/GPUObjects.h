@@ -14,10 +14,10 @@ namespace Core::Render {
 struct GPUInstance {
     Math::Mat4 modelMatrix;  // 64 bytes
     Math::Mat4 normalMatrix; // 64 bytes
-    u32       meshID;       // 4 bytes
-    u32       materialID;   // 4 bytes
-    u32       active;       // 4 bytes
-    u32       raytraced;    // 4 bytes
+    u32        meshID;       // 4 bytes
+    u32        materialID;   // 4 bytes
+    u32        active;       // 4 bytes
+    u32        raytraced;    // 4 bytes
 
     // Total: 144 bytes. (Multiple of 4, OK for StructuredBuffer).
 };
@@ -25,10 +25,10 @@ struct GPUInstance {
 struct GPUEnvironment {
     Math::Vec4 skyColor_Intensity;
     Math::Vec4 groundColor_Type;
-    u32       colorCubeMapID   = 0xFFFFFFFF;
-    u32       irradianceMapID  = 0xFFFFFFFF;
-    u32       prefilteredMapID = 0xFFFFFFFF;
-    u32       brdfLUTID        = 0xFFFFFFFF;
+    u32        colorCubeMapID   = 0xFFFFFFFF;
+    u32        irradianceMapID  = 0xFFFFFFFF;
+    u32        prefilteredMapID = 0xFFFFFFFF;
+    u32        brdfLUTID        = 0xFFFFFFFF;
     Math::Vec4 rotation_BlendDist;
     Math::Vec4 procSettings;
 };
@@ -101,7 +101,7 @@ struct GPUTexture {
     u32 slot;
 
     u32 valid;
-    u32 lastFrameUsed;
+    u32 refCount = 0; //No lastFrameUsed here, only owner marterial ref count. As textures are dependent to materials to exist
     u32 originalAssetID;
 };
 
@@ -113,7 +113,7 @@ struct GPUTexture {
 
 // Order: "Please upload this raw CPU data to VRAM and tell me the offsets"
 struct PendingMeshUpload {
-    u32                                  GPUMeshID;    // Destination Slot in _meshCache
+    u32                                   GPUMeshID;    // Destination Slot in _meshCache
     std::shared_ptr<Assets::GeometryData> geometryData; // Optional meshlet data for AS-capable meshes
 };
 
@@ -140,7 +140,7 @@ struct PendingMaterialFree {
 };
 
 struct PendingTextureUpload {
-    u32                                   slot;
+    u32                                    slot;
     std::shared_ptr<Assets::TexturePixels> pixels;
     Graphics::Format                       format;
     Extent3D                               extent;
