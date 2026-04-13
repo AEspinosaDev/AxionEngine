@@ -194,18 +194,7 @@ u32 Renderer::getCurrentFrameIndex() const {
 }
 
 STLW::String Renderer::toString() const {
-    // return fmt::format(
-    //     "Settings:\n"
-    //     "  Graphics API: {}\n"
-    //     "  Buffering Type: {}\n"
-    //     "  Debug Mode: {}\n"
-    //     "  Present Mode: {}\n"
-    //     "  Output Format: {}",
-    //     gfxApiToString( gfxApi ),
-    //     bufferingTypeToString( bufferingType ),
-    //     debugMode,
-    //     presentModeToString( presentMode ),
-    //     formatToString( backbufferFormat ) );
+   
     const u64 totalVRAM = _setts.memory.device.maxTextureAlloc +
                           _setts.memory.device.maxBufferAlloc +
                           _setts.memory.device.maxRenderTargetAlloc;

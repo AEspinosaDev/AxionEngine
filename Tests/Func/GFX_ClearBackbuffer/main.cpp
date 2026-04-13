@@ -70,6 +70,7 @@ int main( /*int argc, char* argv[]*/ ) {
 
     } catch ( const std::exception& e )
     {
+        AXION_UNUSED_PARAMETER(e);
         return EXIT_FAILURE;
     }
 #ifdef AXION_DEBUG

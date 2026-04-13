@@ -965,6 +965,8 @@ Graphics::IRenderer::MemoryBudget Rasterizer::convertMemoryBudget() {
     lowLevelBudget.host.maxPersistentAlloc        = _settings.memory.host.maxPersistentAlloc / 2;
     lowLevelBudget.host.maxTransientAllocPerFrame = _settings.memory.host.maxTransientAllocPerFrame / 2;
 
+    lowLevelBudget.device.strict = _settings.memory.strictVRAM;
+
     return lowLevelBudget;
 }
 

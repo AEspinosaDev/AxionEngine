@@ -108,7 +108,7 @@ private:
                           const MaterialLibrary&                     mtlLib,
                           std::pair<const byte*, size_t>&            dirtyLUT,
                           const Axion::Core::Assets::MaterialHandle& cpuMtlHandle );
-    u32  processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle );
+    u32  processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle, u32 materialGpuCacheIndex );
 
     void processLights( const Scene::Scene& cpuScene );
     void processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose );
@@ -144,6 +144,9 @@ private:
     GPUCache<GPUMesh>     _meshCache;
     GPUCache<GPUMaterial> _materialCache;
     GPUCache<GPUTexture>  _textureCache;
+
+    constexpr static u64                               MAX_STACK_TEXTURES = 6ull;
+    STLW::Vector<SmallVector<u32, MAX_STACK_TEXTURES>> _materialToTextureMap;
 
     // -- Communication Queues --
     STLW::Queue<PendingMeshUpload>     _pendingMeshUploads;

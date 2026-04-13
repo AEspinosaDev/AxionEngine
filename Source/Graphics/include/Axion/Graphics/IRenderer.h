@@ -24,14 +24,16 @@ class IRenderer
 public:
     struct MemoryBudget {
         struct Device {
-            u64 maxTextureAlloc      = GIGABYTES( 1ull ); ///< Logical cap for loaded textures VRAM Pool (SRV, UAV).
-            u64 maxBufferAlloc       = MBYTES( 512 );     ///< Logical cap for loaded buffers VRAM Pool (CBV, SRV, UAV).
-            u64 maxRenderTargetAlloc = MBYTES( 256 );     ///< Logical cap for render tartgets VRAM Pool (RTV, DSV).
-            u64 maxUploadAlloc       = MBYTES( 256 );     ///< Logical cap for CPU visible data Pool.
+            u64  maxTextureAlloc      = GIGABYTES( 1ull ); ///< Logical cap for loaded textures VRAM Pool (SRV, UAV).
+            u64  maxBufferAlloc       = MBYTES( 512 );     ///< Logical cap for loaded buffers VRAM Pool (CBV, SRV, UAV).
+            u64  maxRenderTargetAlloc = MBYTES( 256 );     ///< Logical cap for render tartgets VRAM Pool (RTV, DSV).
+            u64  maxUploadAlloc       = MBYTES( 256 );     ///< Logical cap for CPU visible data Pool.
+            bool strict               = false;             ///< If memory request surpass the limits, strict mode doesnt let device allocate new memory
         };
         struct Host {
-            u64 maxPersistentAlloc        = MBYTES( 64 ); ///< Memory reservation for persistent data allocations.
-            u64 maxTransientAllocPerFrame = MBYTES( 16 ); ///< Memory reservation for transient data allocations per frame.
+            u64  maxPersistentAlloc        = MBYTES( 64 ); ///< Memory reservation for persistent data allocations.
+            u64  maxTransientAllocPerFrame = MBYTES( 16 ); ///< Memory reservation for transient data allocations per frame.
+            bool useOS                     = true;         ///< Strict mode use optimized custom allocators instead of OS,
         };
 
         Device device {};
