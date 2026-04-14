@@ -131,6 +131,18 @@ int main( /*int argc, char* argv[]*/ ) {
         sun.setTemperature( 8000.0f );
         sunEntity.getComponent<Core::Scene::TransformComponent>().lookAt( { 1.0f, -1.0f, -0.5f } ); // Coming from top-left
 
+        auto evnt = wnd.onKey().subscribe( [&scene, &cubeEntity, &matRubberH, &cubeHandle]( const Event::KeyEvent& e ) {
+            if ( e.keyCode == Event::KeyCode::D && e.pressed )
+                scene.destroyEntity( cubeEntity );
+            if ( e.keyCode == Event::KeyCode::A && e.pressed )
+            {
+                cubeEntity = scene.createEntity( "Cube" );
+                cubeEntity.addComponent<Core::Scene::MeshComponent>( cubeHandle, matRubberH );
+                cubeEntity.getComponent<Core::Scene::TransformComponent>().setTranslation( { -1.5f, -1.5f, 0.0f } );
+                cubeEntity.getComponent<Core::Scene::TransformComponent>().setScale( { 1.25f, 1.25f, 1.25f } );
+            }
+        } );
+
         // Main Loop
         static auto startTime = std::chrono::high_resolution_clock::now();
         while ( !wnd.shouldClose() )

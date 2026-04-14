@@ -209,6 +209,7 @@ private:
         auto& scene     = *data.gpuScene;
         auto* allocator = ctx.transAllocator;
 
+        // 1. Upload Queue
         auto& uploadQueue = scene.pendingTextureUploads();
         while ( !uploadQueue.empty() )
         {
@@ -266,6 +267,24 @@ private:
                     }
                 }
             }
+        }
+        // 2. DELETION QUEUE
+        auto& deletionQueue = scene.pendingTextureReleases();
+        while ( !deletionQueue.empty() )
+        {
+            auto deletionEntry = std::move( deletionQueue.front() );
+            deletionQueue.pop();
+            
+            //Textures are always save to destroy here as its lifetime is bound bt TTL, and is always bigger than the frame in flight number
+            ctx.resources.destroyTexture( ( *data.mtlTextureHandles )[deletionEntry] );
+            
+            ( *data.mtlTextureHandles )[deletionEntry] = Graphics::TextureHandle();
+
+            // // Update bindless slots
+            // for ( auto* pSet : data.allPersistentSets )
+            // {
+            //     pSet->attachBindless( 3, deletionEntry, tex, Graphics::RHI::ResourceState::ShaderResource );
+            // }
         }
     }
 };

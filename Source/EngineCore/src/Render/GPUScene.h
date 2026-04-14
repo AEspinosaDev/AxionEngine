@@ -21,6 +21,7 @@ enum GPUSceneUpdateFlags : u32
     GPUSceneForgetCache       = 1 << 3, // Force a full cache rebuild (useful for level reload)
     GPUSceneSortInstances     = 1 << 4, // Instances will be sorted by material archetype, primitive and distance if needed
 };
+
 AXION_ENUM_CLASS_FLAG_OPERATORS( GPUSceneUpdateFlags );
 
 // -----------------------------------------------------------------------------

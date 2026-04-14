@@ -177,6 +177,13 @@ u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets
 
     int cachedIndex = _materialCache.assetToCacheLUT[cpuAssetID];
 
+    // --- UPDATE LOGIC ---
+    bool isDirty = false;
+    if ( cpuAssetID < dirtyLUT.second )
+    {
+        isDirty = ( dirtyLUT.first[cpuAssetID] != 0 );
+    }
+
     if ( cachedIndex != -1 )
     {
         // A. ALREADY IN CACHE
@@ -184,6 +191,7 @@ u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets
     } else
     {
         // B. NEW ALLOCATION NEEDED
+        isDirty = true;
         if ( !_materialCache.freeIndexQueue.empty() )
         {
             // Recycle slot
@@ -204,12 +212,6 @@ u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets
         _materialCache.cache[gpuCacheIndex].valid           = true;
     }
 
-    // --- UPDATE LOGIC ---
-    bool isDirty = false;
-    if ( cpuAssetID < dirtyLUT.second )
-    {
-        isDirty = ( dirtyLUT.first[cpuAssetID] != 0 );
-    }
 
     if ( isDirty )
     {

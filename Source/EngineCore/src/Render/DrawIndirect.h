@@ -17,8 +17,8 @@ struct IndirectDrawBatch {
 };
 
 struct IndirectCommandPayload {
-    Graphics::BufferSlice      commandBufferSlice;
-    Graphics::BufferSlice      batchMapSlice;
+    Graphics::BufferSlice           commandBufferSlice;
+    Graphics::BufferSlice           batchMapSlice;
     STLW::Vector<IndirectDrawBatch> batches;
     bool                            dirty = true;
 

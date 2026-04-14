@@ -41,6 +41,9 @@ private:
     ECS::Registry         _registry;
     Assets::AssetManager* _assets;
 
+    //For handle hierarchy between entities
+    STLW::Vector<ECS::EntityID> _depthSortedEntities;
+    
     friend class Entity;
 };
 
