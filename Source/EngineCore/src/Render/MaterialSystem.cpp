@@ -7,9 +7,8 @@ MaterialLibrary::ArchetypeBuilder MaterialLibrary::beginMaterial( StringView nam
     return MaterialLibrary::ArchetypeBuilder( *this, name );
 }
 
-void MaterialLibrary::init( Graphics::API api, MaterialPassSupportFlags defaultPassSupportFlags ) {
+void MaterialLibrary::init( Graphics::API api ) {
     _api                     = api;
-    _defaultPassSupportFlags = defaultPassSupportFlags;
 
     _initialized = true;
 }
@@ -18,9 +17,11 @@ void MaterialLibrary::setTargetLayout( Graphics::PipelineLayoutHandle globalLayo
     _globalLayoutHandle = globalLayout;
 }
 
-void MaterialLibrary::setPassFormats( MaterialPassType passType, const MaterialPassProfile& profile ) {
+void MaterialLibrary::setPassProfile( MaterialPassType passType, const MaterialPassProfile& profile ) {
     _passProfiles[(size_t)passType] = profile;
+    _defaultPassSupportFlags |= passTypeToFlags( passType );
 }
+
 
 u32 MaterialLibrary::getArchetypeID( StringView name ) const {
     if ( auto it = _archetypeLookup.find( name ); it != _archetypeLookup.end() )
@@ -152,6 +153,8 @@ void MaterialLibrary::createPipelines( Graphics::IPipelineRegistry& pipelines ) 
     }
 }
 
+#pragma region Default Passes
+
 void MaterialLibrary::enforceDefaultPasses( MaterialArchetypeDesc& desc ) {
 
     MaterialPassSupportFlags currentArchSupportedPasses = MaterialPassSupportNone;
@@ -162,16 +165,30 @@ void MaterialLibrary::enforceDefaultPasses( MaterialArchetypeDesc& desc ) {
     {
         const auto& pass = desc.passConfigs[i];
 
-        if ( pass.passType == MaterialPassType::Opaque )
+        switch ( pass.passType )
         {
-            currentArchSupportedPasses |= MaterialPassSupportOpaque;
-            opaquePassIndex = i;
+            case MaterialPassType::Opaque:
+                currentArchSupportedPasses |= MaterialPassSupportOpaque;
+                opaquePassIndex = i;
+                break;
+            case MaterialPassType::Depth:
+                currentArchSupportedPasses |= MaterialPassSupportDepth;
+                break;
+            case MaterialPassType::Shadow:
+                currentArchSupportedPasses |= MaterialPassSupportShadow;
+                break;
         }
-        if ( pass.passType == MaterialPassType::Depth )
-            currentArchSupportedPasses |= MaterialPassSupportDepth;
-        if ( pass.passType == MaterialPassType::Shadow )
-            currentArchSupportedPasses |= MaterialPassSupportShadow;
     }
+
+    // Subscribe DEPTH pass to this archetype
+    setDefaultDepthPass( desc, currentArchSupportedPasses, opaquePassIndex );
+    // Subscribe SHADOW pass to this archetype
+    setDefaultShadowPass( desc, currentArchSupportedPasses );
+    // Subscribe VIZ pass to this archetype
+    setDefaultVisibilityPass( desc, currentArchSupportedPasses );
+}
+
+void MaterialLibrary::setDefaultDepthPass( MaterialArchetypeDesc& desc, MaterialPassSupportFlags currentArchSupportedPasses, size_t opaquePassIndex ) {
 
     bool globalDepthEnabled = ( _defaultPassSupportFlags & MaterialPassSupportDepth );
     bool isOpaque           = ( currentArchSupportedPasses & MaterialPassSupportOpaque );
@@ -181,7 +198,7 @@ void MaterialLibrary::enforceDefaultPasses( MaterialArchetypeDesc& desc ) {
     {
         MaterialArchetypePassConfig defaultDepthPass;
         defaultDepthPass.passType        = MaterialPassType::Depth;
-        defaultDepthPass.customPassAlias = StringView("Global_Depth");
+        defaultDepthPass.customPassAlias = StringView( "Global_Depth" );
 
         defaultDepthPass.shaderPath  = AXION_SHADER_DIR "/Slang/Preprocess/DepthOnly.slang";
         defaultDepthPass.entryPoints = { { "vsDepth", Graphics::ShaderType::Vertex } };
@@ -191,6 +208,7 @@ void MaterialLibrary::enforceDefaultPasses( MaterialArchetypeDesc& desc ) {
         hasDepth = true;
     }
 
+    // If has depth, deactivate depth writes from Opaque pass
     if ( hasDepth && isOpaque && opaquePassIndex != -1 )
     {
         auto& opaquePass = desc.passConfigs[opaquePassIndex];
@@ -198,23 +216,37 @@ void MaterialLibrary::enforceDefaultPasses( MaterialArchetypeDesc& desc ) {
         opaquePass.depthWrite = false;
         opaquePass.depthOp    = Graphics::CompareOp::LessEqual;
     }
-
-    // bool globalShadowEnabled = ( _defaultPassSupportFlags & MaterialPassSupportShadow );
-    // bool hasShadow           = ( currentArchSupportedPasses & MaterialPassSupportShadow );
-
-    // if ( globalShadowEnabled && isOpaque && !hasShadow )
-    // {
-    //     MaterialArchetypePassConfig defaultShadowPass;
-    //     defaultShadowPass.passType = MaterialPassType::Shadow;
-
-    //     defaultShadowPass.customPassAlias = "Global_Shadow";
-
-    //     defaultShadowPass.shaderPath = AXION_SHADER_DIR "/Slang/System/ShadowCaster.slang";
-    //     defaultShadowPass.entryPoints = { { "vertexMain", Graphics::ShaderType::Vertex } };
-
-    //     desc.passConfigs.push_back( defaultShadowPass );
-    // }
 }
+
+void MaterialLibrary::setDefaultShadowPass( MaterialArchetypeDesc& desc, MaterialPassSupportFlags currentArchSupportedPasses ) {
+    AXION_UNUSED_PARAMETER( desc );
+
+    bool globalShadowEnabled = ( _defaultPassSupportFlags & MaterialPassSupportShadow );
+    bool hasShadow           = ( currentArchSupportedPasses & MaterialPassSupportShadow );
+
+    // TBD
+
+}
+
+void MaterialLibrary::setDefaultVisibilityPass( MaterialArchetypeDesc& desc, MaterialPassSupportFlags currentArchSupportedPasses ) {
+
+    bool globalVisEnabled = ( _defaultPassSupportFlags & MaterialPassSupportVisibility );
+    bool isOpaque         = ( currentArchSupportedPasses & MaterialPassSupportOpaque );
+
+    if ( globalVisEnabled )
+    {
+        MaterialArchetypePassConfig defaultDepthPass;
+        defaultDepthPass.passType        = MaterialPassType::Visibility;
+        defaultDepthPass.customPassAlias = StringView( "Global_Vis" );
+
+        defaultDepthPass.shaderPath  = AXION_SHADER_DIR "/Slang/Preprocess/Vis.slang";
+        defaultDepthPass.entryPoints = { { "vsVis", Graphics::ShaderType::Vertex },
+                                         { "psVis", Graphics::ShaderType::Pixel } };
+
+        desc.passConfigs.push_back( defaultDepthPass );
+    }
+}
+#pragma endregion
 
 std::string MaterialLibrary::toString( MaterialPassType type ) {
     switch ( type )
@@ -265,6 +297,40 @@ MaterialTopologyFlags MaterialLibrary::topologyToFlags( TopologyType type ) {
             return MaterialTopologyNone;
         default:
             return MaterialTopologyTriangles;
+    }
+}
+MaterialPassSupportFlags MaterialLibrary::passTypeToFlags( MaterialPassType type ) {
+    switch ( type )
+    {
+        case MaterialPassType::Opaque:
+            return MaterialPassSupportOpaque;
+            
+        case MaterialPassType::Blend:
+            return MaterialPassSupportTranslucent;
+            
+        case MaterialPassType::Depth:
+            return MaterialPassSupportDepth;
+            
+        case MaterialPassType::Shadow:
+            return MaterialPassSupportShadow;
+            
+        case MaterialPassType::Raytracing:
+            return MaterialPassSupportRaytracing;
+            
+        case MaterialPassType::Wireframe:
+            return MaterialPassSupportWireframe;
+            
+        case MaterialPassType::Visibility:
+            return MaterialPassSupportVisibility;
+
+        // Systemic or compute passes that do not require explicit material permutation flags
+        case MaterialPassType::Geometry:
+        case MaterialPassType::Composition:
+        case MaterialPassType::VisibilityResolve:
+            return MaterialPassSupportNone;
+
+        default:
+            return MaterialPassSupportNone;
     }
 }
 

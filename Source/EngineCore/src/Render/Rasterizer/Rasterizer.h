@@ -1,24 +1,27 @@
 #pragma once
-#include "Axion/Graphics/Passes/Utilitary.hpp"
+#include <Axion/Graphics/Passes/Utilitary.hpp>
 #include <Axion/Common/Containers/STLWrapper/String.h>
 #include <Axion/Common/Memory/VMemoryArena.h>
 #include <Axion/Core/Assets/Material.h>
 #include <Axion/Core/Render/IRasterizer.h>
 #include <Axion/Graphics/IRenderer.h>
 
-#include "DrawIndirect.h"
-#include "GPUScene.h"
-#include "MaterialSystem.h"
-#include "PassSystem.h"
+// Private 
+// -------------------
+
+// Systems
+#include <Render/DrawIndirect.h>
+#include <Render/GPUScene.h>
+#include <Render/MaterialSystem.h>
+#include <Render/PassSystem.h>
 
 // High Level Passes
-#include "Passes/CullingPass.hpp"
-#include "Passes/DepthPass.hpp"
-#include "Passes/FXAAPass.hpp"
-#include "Passes/ForwardPass.hpp"
-#include "Passes/IndirectUploadPass.hpp"
-#include "Passes/TonemappingPass.hpp"
-#include "Passes/UploadPass.hpp"
+#include <Render/Passes/CullingPass.hpp>
+#include <Render/Passes/VisPass.hpp>
+#include <Render/Passes/FXAAPass.hpp>
+#include <Render/Passes/IndirectUploadPass.hpp>
+#include <Render/Passes/TonemappingPass.hpp>
+#include <Render/Passes/UploadPass.hpp>
 
 AXION_NAMESPACE_BEGIN
 

@@ -53,14 +53,16 @@ static constexpr Graphics::PrimitiveTopology toGFXTopology( TopologyType type ) 
 
 enum class MaterialPassType : byte
 {
-    Opaque      = 0,
-    Blend       = 1,
-    Geometry    = 2,
-    Composition = 3,
-    Depth       = 4,
-    Shadow      = 5,
-    Raytracing  = 6,
-    Wireframe   = 7,
+    Opaque            = 0,
+    Blend             = 1,
+    Geometry          = 2,
+    Composition       = 3,
+    Depth             = 4,
+    Shadow            = 5,
+    Raytracing        = 6,
+    Wireframe         = 7,
+    Visibility        = 8,
+    VisibilityResolve = 9,
 
     Count
 };

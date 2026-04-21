@@ -224,7 +224,7 @@ private:
                     pixelSize = std::get<STLW::Vector<float>>( *nextUpload.pixels ).size() * sizeof( float );
             }
 
-            u32 requiredSpace = (u32)pixelSize + TEXTURE_DATA_PLACEMENT_ALIGNMENT;
+            u32 requiredSpace = (u32)pixelSize + AXION_TEXTURE_DATA_PLACEMENT_ALIGNMENT;
 
             if ( totalUsedSpace + requiredSpace > (u32)data.maxAllocationSize )
                 break;

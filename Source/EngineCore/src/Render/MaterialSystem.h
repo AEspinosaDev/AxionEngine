@@ -1,14 +1,17 @@
 #pragma once
+#include "Axion/Common/Containers/STLWrapper/Array.h"
+#include "Axion/Common/Containers/STLWrapper/Maps.h"
 #include "Axion/Core/Render/Common.h"
 #include "Axion/Graphics/Subsystems/IPipelineRegistry.h"
 #include "Axion/Graphics/Subsystems/IShaderRegistry.h"
-#include "Axion/Common/Containers/STLWrapper/Maps.h"
-#include "Axion/Common/Containers/STLWrapper/Array.h"
 
 AXION_NAMESPACE_BEGIN
 
 namespace Core::Render {
 
+/**
+ * Struct that defines a material
+ */
 struct MaterialArchetype {
 
     MaterialArchetypeDesc desc {};
@@ -26,12 +29,16 @@ struct MaterialArchetype {
     }
 };
 
+/**
+ * Description of a pass per pixel format
+ */
 struct MaterialPassProfile {
     STLW::Vector<Graphics::Format> renderTargetFormats;
     Graphics::Format               depthTargetFormat = Graphics::Format::D32;
 };
+using MaterialPassProfileMap = SmallVector<MaterialPassProfile, (size_t)MaterialPassType::Count>;
 
-enum MaterialPassSupportFlags : byte
+enum MaterialPassSupportFlags : u32
 {
     MaterialPassSupportNone        = 1 << 0,
     MaterialPassSupportOpaque      = 1 << 1,
@@ -41,7 +48,8 @@ enum MaterialPassSupportFlags : byte
     MaterialPassSupportVoxel       = 1 << 5,
     MaterialPassSupportWireframe   = 1 << 6,
     MaterialPassSupportRaytracing  = 1 << 7,
-    MaterialPassSupportCount       = 1 << 8,
+    MaterialPassSupportVisibility  = 1 << 8,
+    MaterialPassSupportCount       = 1 << 9,
 };
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( MaterialPassSupportFlags )
@@ -54,39 +62,47 @@ public:
     ArchetypeBuilder beginMaterial( StringView name );
     void             registerArchetype( const MaterialArchetypeDesc& desc );
 
-    void init( Graphics::API api, MaterialPassSupportFlags defaultPassSupportFlags = MaterialPassSupportNone );
+    void init( Graphics::API api );
 
     void setTargetLayout( Graphics::PipelineLayoutHandle globalLayout );
 
-    void setPassFormats( MaterialPassType passType, const MaterialPassProfile& profile );
+    void setPassProfile( MaterialPassType passType, const MaterialPassProfile& profile );
 
     void registerShaders( Graphics::IShaderRegistry& shaders );
 
     void createPipelines( Graphics::IPipelineRegistry& pipelines );
 
     AXION_FORCE_INLINE const STLW::Vector<MaterialArchetype>& getArchetypesRaw() const { return _archetypes; }
-    AXION_FORCE_INLINE u64                                  getArchetypesCount() const { return _archetypes.size(); }
+    AXION_FORCE_INLINE u64                                    getArchetypesCount() const { return _archetypes.size(); }
     AXION_FORCE_INLINE bool                                   isInitialized() const { return _initialized; }
 
     u32 getArchetypeID( StringView name ) const;
 
 private:
+    // Default Engine Passes
+    // --------------------------------------------------
+    MaterialPassSupportFlags _defaultPassSupportFlags;
+
     void enforceDefaultPasses( MaterialArchetypeDesc& desc );
+    void setDefaultDepthPass( MaterialArchetypeDesc& desc, MaterialPassSupportFlags currentArchSupportedPasses, size_t opaquePassIndex );
+    void setDefaultShadowPass( MaterialArchetypeDesc& desc, MaterialPassSupportFlags currentArchSupportedPasses );
+    void setDefaultVisibilityPass( MaterialArchetypeDesc& desc, MaterialPassSupportFlags currentArchSupportedPasses );
+    // --------------------------------------------------
 
-    std::string           toString( MaterialPassType type );
-    std::string           toString( TopologyType type );
-    MaterialTopologyFlags topologyToFlags( TopologyType type );
+    std::string              toString( MaterialPassType type );
+    std::string              toString( TopologyType type );
+    MaterialTopologyFlags    topologyToFlags( TopologyType type );
+    MaterialPassSupportFlags passTypeToFlags( MaterialPassType type );
 
-    STLW::Vector<MaterialArchetype>       _archetypes;
+    STLW::Vector<MaterialArchetype>   _archetypes;
     STLW::UnorderedMap<String64, u32> _archetypeLookup;
 
-    STLW::Array<MaterialPassProfile, (size_t)MaterialPassType::Count> _passProfiles;
+    MaterialPassProfileMap _passProfiles;
 
     Graphics::PipelineLayoutHandle _globalLayoutHandle; // Global Shader Contract
 
-    Graphics::API            _api;
-    bool                     _initialized = false;
-    MaterialPassSupportFlags _defaultPassSupportFlags;
+    Graphics::API _api;
+    bool          _initialized = false;
 
     friend class ArchetypeBuilder;
 };

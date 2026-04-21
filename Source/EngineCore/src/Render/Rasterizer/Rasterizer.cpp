@@ -238,44 +238,52 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         }
 
         //----------------------------
-        // C. Depth Pre-Pass
+        // C. Vis Pre-Pass
         //----------------------------
 
-        DepthPrePass::Config dpConfig;
-        dpConfig.outDepthHandle = builder.texture( "DepthRT" )
-                                      .asDepthStencil()
-                                      .format( Graphics::Format::D32 )
-                                      .extent( rtExtent )
-                                      .create();
-        dpConfig.inGlobalBufferHandles = {
-            .vertex   = upConfig.outGlobalBufferHandles.vertex,
-            .index    = upConfig.outGlobalBufferHandles.index,
-            .material = upConfig.outGlobalBufferHandles.materials },
-        dpConfig.matLib          = &_mtlLib;
-        dpConfig.matLayoutHandle = _globalMtlLayoutHandle;
+        VisPass::Config visConfig;
+        visConfig.outVisHandle = builder.texture( "VisRTO" )
+                                    .asDepthStencil()
+                                    .format( Graphics::Format::RG32_UINT )
+                                    .extent( rtExtent )
+                                    .create();
+        visConfig.outVelocityHandle = builder.texture( "VelocityRTO" )
+                                          .asDepthStencil()
+                                          .format( Graphics::Format::RG16_FLOAT )
+                                          .extent( rtExtent )
+                                          .create();
+        visConfig.outDepthHandle = builder.texture( "DepthRTO" )
+                                       .asDepthStencil()
+                                       .format( Graphics::Format::D32 )
+                                       .extent( rtExtent )
+                                       .create();
 
-        dpConfig.inFrameSlice       = transientPayload.frameSlice;
-        dpConfig.inMeshesSlice      = transientPayload.meshesSlice;
-        dpConfig.inMaterialsSlice   = transientPayload.mtlSlice;
-        dpConfig.inInstancesSlice   = transientPayload.instancesSlice;
-        dpConfig.inLightsSlice      = transientPayload.lightsSlice;
-        dpConfig.inEnvsSlice        = transientPayload.envsSlice;
-        dpConfig.inRedirectionSlice = transientPayload.redirectSlice;
+        visConfig.inGlobalBufferHandles = {
+            .vertex = upConfig.outGlobalBufferHandles.vertex,
+            .index  = upConfig.outGlobalBufferHandles.index,
+        },
+        visConfig.matLib          = &_mtlLib;
+        visConfig.matLayoutHandle = _globalMtlLayoutHandle;
 
-        dpConfig.indirectData                 = indirectCmdPayload;
-        dpConfig.inIndirectBufferHandle       = cullConfig.outIndirectBufferHandle;
-        dpConfig.inCulledRedirectBufferHandle = cullConfig.outCulledRedirectBufferHandle;
-        dpConfig.useGPUCulling                = useGPUCulling;
+        visConfig.inFrameSlice       = transientPayload.frameSlice;
+        visConfig.inMeshesSlice      = transientPayload.meshesSlice;
+        visConfig.inInstancesSlice   = transientPayload.instancesSlice;
+        visConfig.inRedirectionSlice = transientPayload.redirectSlice;
 
-        dpConfig.persistentDescriptorSet = currentFrameRes.persistentDescriptorSetPtr;
+        visConfig.indirectData                 = indirectCmdPayload;
+        visConfig.inIndirectBufferHandle       = cullConfig.outIndirectBufferHandle;
+        visConfig.inCulledRedirectBufferHandle = cullConfig.outCulledRedirectBufferHandle;
+        visConfig.useGPUCulling                = useGPUCulling;
 
-        _passes.getPass<DepthPrePass>()->addToGraph( builder, dpConfig );
+        visConfig.persistentDescriptorSet = currentFrameRes.persistentDescriptorSetPtr;
+
+        _passes.getPass<VisPass>()->addToGraph( builder, visConfig );
 
         //----------------------------
-        // D. Forward
+        // D. Resolve Vis
         //----------------------------
         ForwardPass::Config fwConfig;
-        fwConfig.outColorHandle = builder.texture( "ColorRT" )
+        fwConfig.outColorHandle = builder.texture( "ColorRTO" )
                                       .asRenderTarget()
                                       .asStorage()
                                       .format( Graphics::Format::RGBA16_FLOAT )
@@ -316,7 +324,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         float                   exposureFactor = 1.0f / ( 1.2f * std::pow( 2.0f, ev100 ) );
         tmConfig.exposure                      = exposureFactor;
         tmConfig.inputHandle                   = fwConfig.outColorHandle;
-        tmConfig.outputHandle                  = builder.texture( "ToneMappedRT" )
+        tmConfig.outputHandle                  = builder.texture( "ToneMappedRTO" )
                                     .format( _settings.common.backbufferFormat )
                                     .extent( rtExtent )
                                     .asStorage()
@@ -334,7 +342,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         {
             FXAAPass::Config fxaaConfig;
             fxaaConfig.inputHandle  = tmConfig.outputHandle;
-            fxaaConfig.outputHandle = builder.texture( "FxaaRT" )
+            fxaaConfig.outputHandle = builder.texture( "FxaaRTO" )
                                           .format( _settings.common.backbufferFormat )
                                           .extent( rtExtent )
                                           .asStorage()
@@ -349,7 +357,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         // F. Blit
         //----------------------------
 
-        Graphics::RGResourceHandle backbufferHandle = builder.import( "BackbufferRT", _rnd->getCurrentBackbufferHandle() );
+        Graphics::RGResourceHandle backbufferHandle = builder.import( "BackbufferRTO", _rnd->getCurrentBackbufferHandle() );
 
         _cpypass.inputHandle  = currentBlitInput;
         _cpypass.outputHandle = backbufferHandle;
@@ -378,7 +386,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
 void Rasterizer::setupMaterialLibrary() {
 
-    _mtlLib.init( _settings.common.gfxApi, MaterialPassSupportDepth );
+    _mtlLib.init( _settings.common.gfxApi );
 
     // Global Layout (BINDLESS CONTRACT)
     _globalMtlLayoutHandle = _rnd->pipelines().layout( "Global_Material_Layout" )
@@ -394,7 +402,7 @@ void Rasterizer::setupMaterialLibrary() {
                                  .addSet( {
                                      { 0, Graphics::RHI::DescriptorType::UniformBuffer, Graphics::RHI::ShaderStage::All, 1 },         // Frame
                                      { 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Meshes
-                                     { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Materials
+                                     { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Material Metadata
                                      { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Instances
                                      { 3, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Lights
                                      { 4, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Environments
@@ -408,15 +416,16 @@ void Rasterizer::setupMaterialLibrary() {
     _mtlLib.setTargetLayout( _globalMtlLayoutHandle );
 
     // Standard opaque pass
-    _mtlLib.setPassFormats( MaterialPassType::Opaque,
+    _mtlLib.setPassProfile( MaterialPassType::Opaque,
                             MaterialPassProfile {
                                 .renderTargetFormats = { Graphics::Format::RGBA16_FLOAT },
                                 .depthTargetFormat   = _settings.depthFormat,
                             } );
-    // Depth pre-pass
-    _mtlLib.setPassFormats( MaterialPassType::Depth,
+    // Visibility pre-pass
+    _mtlLib.setPassProfile( MaterialPassType::Visibility,
                             MaterialPassProfile {
-                                .depthTargetFormat = _settings.depthFormat,
+                                .renderTargetFormats = { Graphics::Format::RG32_UINT, Graphics::Format::RG16_FLOAT },
+                                .depthTargetFormat   = _settings.depthFormat,
                             } );
 }
 
@@ -443,8 +452,10 @@ void Rasterizer::registerPasses() {
     _passes.registerPass<UploadPass>();
     _passes.registerPass<IndirectUploadPass>();
     _passes.registerPass<CullingPass>();
-    _passes.registerPass<DepthPrePass>();
-    _passes.registerPass<ForwardPass>();
+    _passes.registerPass<VisPass>();
+    // TBD
+    //  _passes.registerPass<BinningPass>();
+    //  _passes.registerPass<ResolveVisPass>();
     _passes.registerPass<ToneMappingPass>();
     _passes.registerPass<FXAAPass>();
 }

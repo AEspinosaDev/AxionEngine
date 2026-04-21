@@ -17,7 +17,7 @@
 
 
 #define ALIGN( _size, _alignment ) ( ( ( _size ) + ( _alignment ) - 1 ) & ~( ( _alignment ) - 1 ) )
-#define TEXTURE_DATA_PLACEMENT_ALIGNMENT ( 512 )
+#define AXION_TEXTURE_DATA_PLACEMENT_ALIGNMENT ( 512 )
 
 AXION_NAMESPACE_BEGIN
 
