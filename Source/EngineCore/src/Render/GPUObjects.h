@@ -1,5 +1,5 @@
 #pragma once
-#include "Axion/Common/Math.h"
+#include <Axion/Common/Math.h>
 
 AXION_NAMESPACE_BEGIN
 

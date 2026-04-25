@@ -1,27 +1,28 @@
 #pragma once
-#include <Axion/Graphics/Passes/Utilitary.hpp>
 #include <Axion/Common/Containers/STLWrapper/String.h>
 #include <Axion/Common/Memory/VMemoryArena.h>
 #include <Axion/Core/Assets/Material.h>
 #include <Axion/Core/Render/IRasterizer.h>
 #include <Axion/Graphics/IRenderer.h>
+#include <Axion/Graphics/Passes/Utilitary.hpp>
 
-// Private 
+// Private
 // -------------------
-
-// Systems
+#include <Render/Rasterizer/RasterizerConfig.h>
 #include <Render/DrawIndirect.h>
+
+//Modules
 #include <Render/GPUScene.h>
-#include <Render/MaterialSystem.h>
-#include <Render/PassSystem.h>
+#include <Render/MaterialLibrary.h>
+#include <Render/PassManager.h>
 
 // High Level Passes
 #include <Render/Passes/CullingPass.hpp>
-#include <Render/Passes/VisPass.hpp>
 #include <Render/Passes/FXAAPass.hpp>
 #include <Render/Passes/IndirectUploadPass.hpp>
 #include <Render/Passes/TonemappingPass.hpp>
 #include <Render/Passes/UploadPass.hpp>
+#include <Render/Passes/VisPass.hpp>
 
 AXION_NAMESPACE_BEGIN
 
@@ -51,6 +52,8 @@ public:
     const u32 getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
 
     STLW::String toString() const override;
+
+    
 
 private:
     void setupMaterialLibrary();
@@ -89,8 +92,8 @@ private:
     Axion::Graphics::Passes::PresentPass      _presentpass {};
 
     // Material Library & Global Shader Contract
-    MaterialLibrary                _mtlLib;
-    Graphics::PipelineLayoutHandle _globalMtlLayoutHandle;
+    MaterialLibrary<(u32)MaterialPassPermutation::Count> _mtlLib;
+    Graphics::PipelineLayoutHandle                       _globalMtlLayoutHandle;
 
     // Graphics & GPU Resources Logic and Handles
     GPUScene _gpuScene;

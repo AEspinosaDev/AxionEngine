@@ -3,9 +3,11 @@
 #include "Axion/Core/Scene/Entity.h"
 #include "Axion/Core/Scene/Scene.h"
 #include "Axion/Graphics/Handle.h"
-#include "GPUObjects.h"
-#include "MaterialSystem.h"
 #include <Axion/Common/Containers/STLWrapper/Lists.h>
+
+#include <Render/GPUObjects.h>
+#include <Render/MaterialLibrary.h>
+
 #include <span>
 
 AXION_NAMESPACE_BEGIN

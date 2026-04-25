@@ -26,86 +26,11 @@ enum RendererFlags : u32
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( RendererFlags )
 
-enum class TopologyType : byte
-{
-    Triangles = 0,
-    Lines     = 1,
-    Points    = 2,
-    Meshlets  = 3,
-    Count
-};
-
-static constexpr Graphics::PrimitiveTopology toGFXTopology( TopologyType type ) {
-    switch ( type )
-    {
-        case TopologyType::Triangles:
-            return Graphics::PrimitiveTopology::TriangleList;
-        case TopologyType::Lines:
-            return Graphics::PrimitiveTopology::LineList;
-        case TopologyType::Points:
-            return Graphics::PrimitiveTopology::PointList;
-        case TopologyType::Meshlets:
-            return Graphics::PrimitiveTopology::TriangleList;
-        default:
-            return Graphics::PrimitiveTopology::TriangleList;
-    }
-}
-
-enum class MaterialPassType : byte
-{
-    Opaque            = 0,
-    Blend             = 1,
-    Geometry          = 2,
-    Composition       = 3,
-    Depth             = 4,
-    Shadow            = 5,
-    Raytracing        = 6,
-    Wireframe         = 7,
-    Visibility        = 8,
-    VisibilityResolve = 9,
-
-    Count
-};
-
-enum MaterialTopologyFlags : byte
-{
-    MaterialTopologyNone      = 0,
-    MaterialTopologyTriangles = 1 << 0,
-    MaterialTopologyLines     = 1 << 1,
-    MaterialTopologyPoints    = 1 << 2,
-    MaterialTopologyMeshlets  = 1 << 3,
-};
-
-AXION_ENUM_CLASS_FLAG_OPERATORS( MaterialTopologyFlags )
-
-struct MaterialArchetypePassConfig {
-    MaterialPassType                           passType;
-    STLW::String                               shaderPath;
-    STLW::Vector<Graphics::Shader::EntryPoint> entryPoints;
-    STLW::String                               customIncludePath;
-
-    Graphics::FillMode  fillMode   = Graphics::FillMode::Solid;
-    Graphics::CullMode  cullMode   = Graphics::CullMode::Front;
-    Graphics::BlendOp   blendOp    = Graphics::BlendOp::Add;
-    Graphics::CompareOp depthOp    = Graphics::CompareOp::LessEqual;
-    bool                depthWrite = true;
-    bool                depthTest  = true;
-
-    String64 customPassAlias = "";
-};
-
 struct MaterialArchetypeDesc {
-    String64                                  name;
-    STLW::Vector<MaterialArchetypePassConfig> passConfigs;
-    MaterialTopologyFlags                     topologiesSupported = MaterialTopologyTriangles;
-    u32                                       payloadSize         = 0;
-};
-
-enum class MemoryBudgetPreset : byte
-{
-    Balanced,    // Balanced memory distribution for typical use cases (Action/RTS games might need a different ratio)
-    AssetHeavy,  // More memory for assets, less for per-frame dynamic data (Good for open-world games with lots of assets)
-    DynamicHeavy // Less memory for assets, more for per-frame dynamic data (Good for action games with lots of dynamic effects and streaming)
+    String64                       name;
+    STLW::String                   archetypeShaderPath;
+    Graphics::TopologySupportFlags topologiesSupported = Graphics::TopologySupportTriangleStrip;
+    u32                            payloadSize         = 0;
 };
 
 /**
@@ -119,9 +44,6 @@ struct MemoryBudget {
         u64 maxMaterialAlloc     = MBYTES( 16 );      ///< Memory reservation persistent static material buffer (16MB default)
         u64 maxRenderTargetAlloc = MBYTES( 512 );     ///< Logical cap for G-Buffers, Depth Stencil, and Shadow Maps.
         u64 maxRaytracingAlloc   = MBYTES( 256 );     ///< Memory reservation for BVH structures (TLAS/BLAS) if applicable.
-
-        u32 maxMtlTextures = 8192;
-        u32 maxMtlSamplers = 128;
     };
     struct Host {
         u64 maxPersistentAlloc        = MBYTES( 256 ); ///< Memory reservation for persistent data allocations.
@@ -138,14 +60,21 @@ struct MemoryBudget {
     Shared shared {};
     bool   strictVRAM = false; ///< If memory request surpass the limits on the GPU, strict mode doesnt let device allocate new memory
 
+    enum class Preset : byte
+    {
+        Balanced,    // Balanced memory distribution for typical use cases (Action/RTS games might need a different ratio)
+        AssetHeavy,  // More memory for assets, less for per-frame dynamic data (Good for open-world games with lots of assets)
+        DynamicHeavy // Less memory for assets, more for per-frame dynamic data (Good for action games with lots of dynamic effects and streaming)
+    };
+
     static MemoryBudget configureBudget( u64                     totalRamBudget,
                                          u64                     totalVramBudget,
-                                         MemoryBudgetPreset      preset        = MemoryBudgetPreset::Balanced,
+                                         Preset                  preset        = Preset::Balanced,
                                          Graphics::BufferingType bufferingType = Graphics::BufferingType::Double ) {
         MemoryBudget budget;
 
         budget.shared.maxConstantAllocPerFrame = MBYTES( 16 );
-        budget.shared.maxUploadAllocPerFrame   = ( preset == MemoryBudgetPreset::AssetHeavy ) ? MBYTES( 256 ) : MBYTES( 128 );
+        budget.shared.maxUploadAllocPerFrame   = ( preset == Preset::AssetHeavy ) ? MBYTES( 256 ) : MBYTES( 128 );
 
         budget.device.maxMaterialAlloc   = MBYTES( 16 );
         budget.shared.maxExecutableAlloc = KBYTES( 1024 );
@@ -154,7 +83,7 @@ struct MemoryBudget {
 
         switch ( preset )
         {
-            case MemoryBudgetPreset::Balanced:
+            case Preset::Balanced:
                 // RAM Distribution
                 budget.host.maxPersistentAlloc        = ( totalRamBudget * 80 ) / 100;
                 budget.host.maxTransientAllocPerFrame = ( ( totalRamBudget * 20 ) / 100 ) / static_cast<u32>( bufferingType );
@@ -166,7 +95,7 @@ struct MemoryBudget {
                 budget.device.maxTextureAlloc      = ( availableVram * 35 ) / 100; // 35% Textures
                 break;
 
-            case MemoryBudgetPreset::AssetHeavy:
+            case Preset::AssetHeavy:
                 // RAM Distribution
                 budget.host.maxPersistentAlloc        = ( totalRamBudget * 90 ) / 100;
                 budget.host.maxTransientAllocPerFrame = ( ( totalRamBudget * 10 ) / 100 ) / static_cast<u32>( bufferingType );
@@ -178,7 +107,7 @@ struct MemoryBudget {
                 budget.device.maxTextureAlloc      = ( availableVram * 50 ) / 100; // 50% Textures
                 break;
 
-            case MemoryBudgetPreset::DynamicHeavy:
+            case Preset::DynamicHeavy:
                 // RAM Distribution
                 budget.host.maxPersistentAlloc        = ( totalRamBudget * 70 ) / 100;
                 budget.host.maxTransientAllocPerFrame = ( ( totalRamBudget * 30 ) / 100 ) / static_cast<u32>( bufferingType );

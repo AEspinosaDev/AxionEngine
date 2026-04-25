@@ -1,40 +1,23 @@
 // MaterialCommon.slang
-#include "Defines.slang"
-#include "Scene.slang"
+#include "GlobalLayouts.slang"
 
 // -----------------------------------------------------------
-// GLOBAL RESOURCES (Bindless Contract)
+// GLOBAL DEFINITIONS
 // -----------------------------------------------------------
 
-// Space 0: Persistent (Mega Buffers)
-public ByteAddressBuffer gGlobalVertices : register( t0, space0 );
-public ByteAddressBuffer gGlobalIndices : register( t1, space0 );
-public ByteAddressBuffer gGlobalMaterials : register( t2, space0 );
-public Texture2D         gTextures[] : register( t3, space0 );
-public SamplerState      gSamplers[] : register( s0, space0 );
-
-// Space 1: Transient Hot (Per-Frame)
-public ConstantBuffer<FrameData>      gFrame : register( b0, space1 );
-public StructuredBuffer<MeshData>     gMeshes : register( t0, space1 );
-public StructuredBuffer<MaterialData> gMaterials : register( t1, space1 );
-public StructuredBuffer<InstanceData> gInstances : register( t2, space1 );
-public StructuredBuffer<LightData>    gLights : register( t3, space1 );
-public StructuredBuffer<EnvData>      gEnvs : register( t4, space1 );
-public StructuredBuffer<uint>         gInstanceRedirection : register( t5, space1 );
-
-// Space 2: Push Constants
-public struct PushConstant {
-    public uint baseInstanceID; // Software Instance ID (Usually set by the renderer)
-};
-
-PUSH_CONSTANT( PushConstant, gPush, b0, space2 );
+public static const uint INVALID_TEX_ID  = 0xFFFFFFFF;
+public static const uint INVALID_SAMPLER = 0xFFFFFFFF;
 
 // -----------------------------------------------------------
 // HELPER FUNCTIONS
 // -----------------------------------------------------------
 
-public InstanceData getInstanceData( uint hwInstanceID ) {
-    return gInstances[gInstanceRedirection[gPush.baseInstanceID + hwInstanceID]];
+public uint getRedirectedInstanceID( uint hwInstanceID ) {
+    return gInstanceRedirection[gPush.baseInstanceID + hwInstanceID];
+}
+
+public InstanceData getInstanceData( uint instanceID ) {
+    return gInstances[instanceID];
 }
 
 public MeshData getMeshData( uint meshID ) {

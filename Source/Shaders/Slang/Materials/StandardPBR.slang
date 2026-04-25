@@ -1,6 +1,7 @@
 // Materials/StandardPBR.slang
 #include "MaterialCommon.slang"
 #include "CookTorranceBRDF.slang"
+#include "IMaterial.slang"
 
 struct StandardPBRPayload {
     // Chunk 0
@@ -47,116 +48,98 @@ struct StandardPBRPayload {
     }
 };
 
-struct VSInput {
-    uint vertexID : SV_VertexID;
-    uint instanceID : SV_InstanceID;
-};
+struct StandardPBRMaterial : IMaterial {
+    StandardPBRPayload payload;
 
-struct VSOutput {
-    float4               position : SV_Position;
-    float2               uv : TEXCOORD0;
-    float3               normal : NORMAL;
-    float3               worldPos : TEXCOORD1;
-    nointerpolation uint materialID : DATA0;
-};
-
-[shader( "vertex" )]
-VSOutput vsForward( VSInput input ) {
-    InstanceData instance = getInstanceData( input.instanceID );
-    MeshData     mesh     = getMeshData( instance.meshID );
-
-    // Vertex fetch
-    CanonVertex v        = CanonVertex.fromIndex( input.vertexID, mesh.vertexOffset );
-    float3      localPos = v.position;
-    float3      localNrm = v.normal;
-    float2      uv       = v.uv;
-
-    float4 worldPos = mul( instance.modelMatrix, float4( localPos, 1.0 ) );
-    float3 worldNrm = normalize( mul( (float3x3)instance.modelMatrix, localNrm ) );
-
-    VSOutput output;
-    output.position   = mul( gFrame.viewProj, worldPos );
-    output.worldPos   = worldPos.xyz;
-    output.normal     = worldNrm;
-    output.uv         = uv;
-    output.materialID = instance.materialID;
-
-    return output;
-}
-
-[shader( "fragment" )]
-float4 psForward( VSOutput input )
-    : SV_Target {
-
-    // Load Material
-    MaterialData       materialHeader = getMaterialData( input.materialID );
-    StandardPBRPayload mat            = StandardPBRPayload.load( materialHeader.bufferOffset );
-
-    float3 albedo    = mat.albedoFactor;
-    float  roughness = mat.roughnessFactor;
-    float  metallic  = mat.metallicFactor;
-
-    //Texture Fetch
-    SamplerState defaultSampler = gSamplers[0];
-    const uint INVALID_TEX = 0xFFFFFFFF;
-    if ( mat.albedoTexIndex != INVALID_TEX )
-    {
-        float4 albedoSample = gTextures[mat.albedoTexIndex].Sample( defaultSampler, input.uv );
-        albedo = albedoSample.rgb;
+    [mutating]
+    void init( uint materialID ) {
+        MaterialData header = getMaterialData( materialID );
+        payload             = StandardPBRPayload.load( header.bufferOffset );
     }
 
-    // 3. Initialize BSDF
-    float3 viewDir = gFrame.getCameraPos() - input.worldPos;
+    float3 computeWPO( SurfaceData surface ) {
+        return float3( 0.0 ); // TBD: Parallax Mapping
+    }
 
-    CookTorranceBRDF brdf = CookTorranceBRDF.create( albedo, roughness, metallic );
+    float3 evalColor( SurfaceData surface ) {
 
-    // Light Loop
-    float3 lo = float3( 0.0 );
+        float3 albedo    = payload.albedoFactor;
+        float  roughness = payload.roughnessFactor;
+        float  metallic  = payload.metallicFactor;
 
-    float3 V = normalize( viewDir );
-    float3 N = normalize( input.normal );
+        // Texture Fetch
+        SamplerState defaultSampler = gSamplers[0];
 
-    uint lightCount = gFrame.getLightCount();
-    for ( uint i = 0; i < lightCount; ++i )
-    {
-        LightData light = gLights[i];
-
-        if ( !light.isActive )
-            continue;
-
-        float3 L        = 0.0f;
-        float3 radiance = evalLight( light, input.worldPos, L );
-
-        if ( any( radiance > 0.0001 ) )
+        if ( payload.albedoTexIndex != INVALID_TEX_ID )
         {
-            lo += brdf.eval( L, V, N ) * radiance;
+            float4 albedoSample = gTextures[payload.albedoTexIndex].Sample( defaultSampler, surface.uv );
+            albedo              = albedoSample.rgb;
         }
-    }
 
-    // Ambient / Emissive
-    float3 ambient = float3( 0.0 );
+        // Initialize BSDF
+        float3           viewDir = gFrame.getCameraPos() - surface.worldPos;
+        CookTorranceBRDF brdf    = CookTorranceBRDF.create( albedo, roughness, metallic );
 
-    uint envCount = gFrame.getEnvCount();
-    for ( uint i = 0; i < envCount; ++i )
-    {
-        EnvData env           = gEnvs[i];
-        float3  envIrradiance = evalEnviroment( env, N );
+        // Light Loop
+        float3 lo = float3( 0.0 );
 
-        float3 kD_ambient     = ( 1.0 - metallic );
-        float3 ambientDiffuse = kD_ambient * albedo * envIrradiance * mat.aoStrength;
+        float3 N = normalize( surface.shNormal );
 
-        float3 ambientSpecular = float3( 0.0 );
-
-        if ( metallic > 0.01 )
+        uint lightCount = gFrame.getLightCount();
+        for ( uint i = 0; i < lightCount; ++i )
         {
-            float reflectionDim = 1.0 / ( 1.0 + roughness * 8.0 );
+            LightData light = gLights[i];
 
-            ambientSpecular = env.skyColor * env.groundColor * albedo * reflectionDim;
+            if ( !light.isActive )
+                continue;
+
+            float3 L        = 0.0f;
+            float3 radiance = evalLight( light, surface.worldPos, L );
+
+            if ( any( radiance > 0.0001 ) )
+            {
+                lo += brdf.eval( L, surface.V, N ) * radiance;
+            }
         }
-        ambient += ambientDiffuse + ambientSpecular;
+
+        // Ambient / Emissive
+        float3 ambient = float3( 0.0 );
+
+        uint envCount = gFrame.getEnvCount();
+        for ( uint i = 0; i < envCount; ++i )
+        {
+            EnvData env           = gEnvs[i];
+            float3  envIrradiance = evalEnviroment( env, N );
+
+            float3 kD_ambient     = ( 1.0 - metallic );
+            float3 ambientDiffuse = kD_ambient * albedo * envIrradiance * payload.aoStrength;
+
+            float3 ambientSpecular = float3( 0.0 );
+
+            if ( metallic > 0.01 )
+            {
+                float reflectionDim = 1.0 / ( 1.0 + roughness * 8.0 );
+
+                ambientSpecular = env.skyColor * env.groundColor * albedo * reflectionDim;
+            }
+            ambient += ambientDiffuse + ambientSpecular;
+        }
+
+        float3 color = lo + ambient + payload.emissiveFactor;
+
+        return color;
+    }
+    float evalOpacity( SurfaceData surface ) {
+        // Ejemplo simple: solo comprobamos alfa si hay textura
+        if ( payload.albedoTexIndex != 0xFFFFFFFF )
+        {
+            return gTextures[payload.albedoTexIndex].Sample( gSamplers[0], surface.uv ).a;
+        }
+        return 1.0;
     }
 
-    float3 color = lo + ambient + mat.emissiveFactor;
-
-    return float4( color, 1.0 );
-}
+    float3 sampleDirection( SurfaceData surface, float2 rnd, out float3 L, out float pdf ) {
+        // TBD
+    };
+    float evalPdf( SurfaceData surface, float3 L ) {};
+};

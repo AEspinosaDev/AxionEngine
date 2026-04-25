@@ -1,5 +1,5 @@
 
-#include "Rasterizer.h"
+#include <Render/Rasterizer/Rasterizer.h>
 
 AXION_NAMESPACE_BEGIN
 
@@ -10,9 +10,6 @@ RendererOwnerPtr createRasterizer( Platform::Window* wnd, const RasterizerSettin
     return Memory::makeOwned<Rasterizer>( wnd, settings );
 }
 
-constexpr u64 RASTERIZER_VOLATILE_VIEWS_PER_FRAME    = 256;
-constexpr u64 RASTERIZER_VOLATILE_SAMPLERS_PER_FRAME = 12;
-constexpr u64 GLOBAL_UBO_SIZE                        = 1024;
 
 Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& settings )
     : _window( wnd )
@@ -243,12 +240,12 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
         VisPass::Config visConfig;
         visConfig.outVisHandle = builder.texture( "VisRTO" )
-                                    .asDepthStencil()
-                                    .format( Graphics::Format::RG32_UINT )
-                                    .extent( rtExtent )
-                                    .create();
+                                     .asRenderTarget()
+                                     .format( Graphics::Format::RG32_UINT )
+                                     .extent( rtExtent )
+                                     .create();
         visConfig.outVelocityHandle = builder.texture( "VelocityRTO" )
-                                          .asDepthStencil()
+                                          .asRenderTarget()
                                           .format( Graphics::Format::RG16_FLOAT )
                                           .extent( rtExtent )
                                           .create();
@@ -388,45 +385,7 @@ void Rasterizer::setupMaterialLibrary() {
 
     _mtlLib.init( _settings.common.gfxApi );
 
-    // Global Layout (BINDLESS CONTRACT)
-    _globalMtlLayoutHandle = _rnd->pipelines().layout( "Global_Material_Layout" )
-                                 // Space 0: Persistent (Geometry, Materials and Textures)
-                                 .addSet( {
-                                     { 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                             // Vertex
-                                     { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                             // Index
-                                     { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                             // Materials
-                                     { 3, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, _settings.memory.device.maxMtlTextures }, // Textures
-                                     { 0, Graphics::RHI::DescriptorType::Sampler, Graphics::RHI::ShaderStage::All, _settings.memory.device.maxMtlSamplers }       // Samplers
-                                 } )
-                                 // Space 1: Scene Data
-                                 .addSet( {
-                                     { 0, Graphics::RHI::DescriptorType::UniformBuffer, Graphics::RHI::ShaderStage::All, 1 },         // Frame
-                                     { 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Meshes
-                                     { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Material Metadata
-                                     { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Instances
-                                     { 3, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Lights
-                                     { 4, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // Environments
-                                     { 5, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // Instance Redirection Buffer
-                                 } )
-                                 // Space 2: Instance ID Push Constant
-                                 .setPushConstants( sizeof( u32 ), 0, 2 )
-                                 .enableIndirectRendering()
-                                 .create();
-
-    _mtlLib.setTargetLayout( _globalMtlLayoutHandle );
-
-    // Standard opaque pass
-    _mtlLib.setPassProfile( MaterialPassType::Opaque,
-                            MaterialPassProfile {
-                                .renderTargetFormats = { Graphics::Format::RGBA16_FLOAT },
-                                .depthTargetFormat   = _settings.depthFormat,
-                            } );
-    // Visibility pre-pass
-    _mtlLib.setPassProfile( MaterialPassType::Visibility,
-                            MaterialPassProfile {
-                                .renderTargetFormats = { Graphics::Format::RG32_UINT, Graphics::Format::RG16_FLOAT },
-                                .depthTargetFormat   = _settings.depthFormat,
-                            } );
+    Rasterizer::configureMaterialPasses( _mtlLib, _rnd, settings );
 }
 
 void Rasterizer::registerMaterials() {

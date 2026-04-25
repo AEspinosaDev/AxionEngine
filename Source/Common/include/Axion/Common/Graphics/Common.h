@@ -1,7 +1,7 @@
 #pragma once
 #include "Axion/Common/Common.h"
-#include "Axion/Common/Math.h"
 #include "Axion/Common/Containers/String.h"
+#include "Axion/Common/Math.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -274,7 +274,7 @@ enum class AddressMode
 struct ClearValue {
     Math::Vec4 color   = { 0.0, 0.0, 0.0, 1.0 }; // RGBA for RTV/UAV
     float      depth   = 1.0f;                   // depth for DSV
-    byte      stencil = 0;                      // stencil for DSV
+    byte       stencil = 0;                      // stencil for DSV
 
     inline bool operator==( const ClearValue o ) const {
         return color == o.color && depth == o.depth && stencil == o.stencil;
@@ -294,7 +294,21 @@ enum class PrimitiveTopology : byte
     TriangleStrip,
     TriangleFan,
     PatchList,
+    Count
 };
+
+enum TopologySupportFlags : byte
+{
+    TopologySupportNone          = 0,
+    TopologySupportTriangleList  = 1 << 0,
+    TopologySupportTriangleStrip = 1 << 1,
+    TopologySupportTriangleFan   = 1 << 2,
+    TopologySupportLineList      = 1 << 3,
+    TopologySupportLineStrip     = 1 << 4,
+    TopologySupportPointList     = 1 << 5,
+};
+
+AXION_ENUM_CLASS_FLAG_OPERATORS( TopologySupportFlags )
 
 enum class FillMode : byte
 {
