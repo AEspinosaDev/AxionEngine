@@ -6,7 +6,7 @@ namespace Core::Render {
 
 void GPUScene::update( const Scene::Scene&    cpuScene,
                        Scene::Entity&         cameraEntity,
-                       const MaterialLibrary& mtlLib,
+                       const IMaterialLibrary& mtlLib,
                        const Extent2D&        resolution,
                        float                  deltaTime,
                        GPUSceneUpdateFlags    flags ) {
@@ -37,7 +37,7 @@ void GPUScene::reset( float dt ) {
 #pragma region Instances
 #pragma endregion
 
-void GPUScene::processInstances( const Scene::Scene& cpuScene, const MaterialLibrary& mtlLib, bool sort, bool transpose, bool forceRaytrace ) {
+void GPUScene::processInstances( const Scene::Scene& cpuScene, const IMaterialLibrary& mtlLib, bool sort, bool transpose, bool forceRaytrace ) {
 
     u64 instanceCount = cpuScene.getRegistry().view<Scene::MeshComponent>().size();
     _instances.reserve( instanceCount );
@@ -166,7 +166,7 @@ u32 GPUScene::processMesh( const Axion::Core::Assets::AssetManager* assets, cons
 #pragma endregion
 
 u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets,
-                               const MaterialLibrary&                     mtlLib,
+                               const IMaterialLibrary&                     mtlLib,
                                std::pair<const byte*, size_t>&            dirtyLUT,
                                const Axion::Core::Assets::MaterialHandle& cpuMtlHandle ) {
     u32 cpuAssetID    = cpuMtlHandle.id;

@@ -27,10 +27,11 @@ enum RendererFlags : u32
 AXION_ENUM_CLASS_FLAG_OPERATORS( RendererFlags )
 
 struct MaterialArchetypeDesc {
-    String64                       name;
-    STLW::String                   archetypeShaderPath;
-    Graphics::TopologySupportFlags topologiesSupported = Graphics::TopologySupportTriangleStrip;
-    u32                            payloadSize         = 0;
+    String64                    name;
+    String64                    shaderModule;
+    String64                    shaderSpcecializationType;
+    Graphics::PrimitiveTopology topologiesSupported = Graphics::PrimitiveTopology::TriangleStrip;
+    u32                         payloadSize         = 0;
 };
 
 /**

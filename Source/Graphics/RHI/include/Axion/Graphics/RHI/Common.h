@@ -15,7 +15,6 @@
 #include <Axion/Common/Memory/Allocators/SubAllocators/FreeListSubAllocator.h>
 #include <Axion/Common/Memory/Allocators/SubAllocators/LinearSubAllocator.h>
 
-
 #define ALIGN( _size, _alignment ) ( ( ( _size ) + ( _alignment ) - 1 ) & ~( ( _alignment ) - 1 ) )
 #define AXION_TEXTURE_DATA_PLACEMENT_ALIGNMENT ( 512 )
 
@@ -259,7 +258,8 @@ enum class PipelineBindPoint : byte
     None,
     Compute,
     Graphic,
-    RTX
+    RTX,
+    Mesh
 };
 
 enum class AccelType

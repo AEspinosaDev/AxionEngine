@@ -13,10 +13,10 @@ namespace Config {
 // these are used for pipeline permutations in material system
 enum class MaterialPassType : u32
 {
-    Visibility        = 0,
-    VisibilityResolve = 1,
-    Shadow            = 2,
-    Transparent       = 3,
+    Visibility         = 0,
+    VisibilityResolve  = 1,
+    Shadow             = 2,
+    ForwardTransparent = 3,
 
     Count
 };
@@ -35,9 +35,9 @@ constexpr u64 MAX_GLOBAL_UBO_BYTES     = 1024;
 constexpr u64 MAX_PUSH_CONSTANTS_BYTES = 128;
 
 Graphics::PipelineLayoutHandle buildGlobalLayout( Graphics::IPipelineRegistry& pip );
-void                           setupMaterialPassProfiles( Graphics::PipelineLayoutHandle                 globalLayoutHandle,
-                                                          RasterizerSettings&                            settings,
-                                                          MaterialLibrary<(u32)MaterialPassType::Count>& matLib );
+void                           matLibConfig( Graphics::PipelineLayoutHandle                 globalLayoutHandle,
+                                             RasterizerSettings&                            settings,
+                                             MaterialLibrary<(u32)MaterialPassType::Count>& matLib );
 
 // void createDefaultResources( Renderer* rnd, GPUResources& outRes );
 

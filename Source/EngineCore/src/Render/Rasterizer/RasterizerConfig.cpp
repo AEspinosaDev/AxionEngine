@@ -55,22 +55,26 @@ Graphics::PipelineLayoutHandle Rasterizer::Config::buildGlobalLayout( Graphics::
         .enableIndirectRendering()
         .create();
 }
-void setupMaterialPassProfiles( Graphics::PipelineLayoutHandle globalLayoutHandle, RasterizerSettings& settings, MaterialLibrary<+MaterialPassType::Count>& matLib ) {
+void matLibConfig( Graphics::PipelineLayoutHandle globalLayoutHandle, RasterizerSettings& settings, MaterialLibrary<+MaterialPassType::Count>& matLib ) {
 
-    // Visibility pre-pass
-    matLib.setPassProfile( +MaterialPassType::Visibility,
-                           MaterialPassProfile {
+    // Visibility pass
+    matLib.setPassProfile( +MaterialPassType::Visibility, MaterialPassProfile {
+                               .name                = "Visibility",
+                               .layoutHandle        = globalLayoutHandle,
+                               .bindPointType       = Graphics::RHI::PipelineBindPoint::Graphic,
+                                 pass.entryPoints = {
+        { "vsForward", Axion::Graphics::ShaderType::Vertex },
+        { "psForward", Axion::Graphics::ShaderType::Pixel } };
+    pass.customIncludePath = AXION_SHADER_DIR "/Slang/BxDFs";
                                .renderTargetFormats = { Graphics::Format::RG32_UINT, Graphics::Format::RG16_FLOAT },
-                               .depthTargetFormat   = _settings.depthFormat,
-                               .layoutHandle        = globalLayoutHandle
-
-                           } );
+                               .depthTargetFormat   = settings.depthFormat, } );
 
     // Resolve pass
     matLib.setPassProfile( +MaterialPassType::VisibilityResolve,
                            MaterialPassProfile {
-                               .layoutHandle        = globalLayoutHandle
-
+                               .name          = "VisibilityResolve",
+                               .layoutHandle  = globalLayoutHandle,
+                               .bindPointType = Graphics::RHI::PipelineBindPoint::Compute,
                            } );
 }
 

@@ -297,18 +297,29 @@ enum class PrimitiveTopology : byte
     Count
 };
 
-enum TopologySupportFlags : byte
-{
-    TopologySupportNone          = 0,
-    TopologySupportTriangleList  = 1 << 0,
-    TopologySupportTriangleStrip = 1 << 1,
-    TopologySupportTriangleFan   = 1 << 2,
-    TopologySupportLineList      = 1 << 3,
-    TopologySupportLineStrip     = 1 << 4,
-    TopologySupportPointList     = 1 << 5,
-};
+AXION_ENUM_CLASS_FLAG_OPERATORS( PrimitiveTopology )
 
-AXION_ENUM_CLASS_FLAG_OPERATORS( TopologySupportFlags )
+String32 getTopologyString( PrimitiveTopology type ) {
+    switch ( type )
+    {
+        case PrimitiveTopology::TriangleList:
+            return "TriList";
+        case PrimitiveTopology::TriangleStrip:
+            return "TriStrip";
+        case PrimitiveTopology::TriangleFan:
+            return "TriFan";
+        case PrimitiveTopology::LineList:
+            return "LineList";
+        case PrimitiveTopology::LineStrip:
+            return "LineStrip";
+        case PrimitiveTopology::PointList:
+            return "PntList";
+
+        default:
+            return "Unknown";
+    }
+}
+
 
 enum class FillMode : byte
 {

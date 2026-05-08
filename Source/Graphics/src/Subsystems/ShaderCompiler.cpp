@@ -103,11 +103,36 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
         return false;
     }
 
-    STLW::Vector<Slang::ComPtr<slang::IEntryPoint>> entryPointsKeepAlive;
-    STLW::Vector<slang::IComponentType*>            rawComponents;
+    STLW::Vector<Slang::ComPtr<slang::IEntryPoint>>    entryPointsKeepAlive;
+    STLW::Vector<Slang::ComPtr<slang::IModule>>        extraModulesKeepAlive;
+    STLW::Vector<Slang::ComPtr<slang::IComponentType>> componentsKeepAlive;
+    STLW::Vector<slang::IComponentType*>               rawComponents;
 
-    rawComponents.reserve( desc.entryPoints.size() + 1 );
+    rawComponents.reserve( desc.entryPoints.size() + 1 + desc.additionalModules.size() );
     rawComponents.push_back( module.get() );
+
+    // Load additional modules
+    // 2. Load and add all additional modules (e.g., Material implementations)
+    for ( const auto& extraModName : desc.additionalModules )
+    {
+        Slang::ComPtr<slang::IBlob>   extraDiagnostics;
+        Slang::ComPtr<slang::IModule> extraModule( session->loadModule( extraModName.cstr(), extraDiagnostics.writeRef() ) );
+
+        if ( extraDiagnostics )
+        {
+            const char* diagText = (const char*)extraDiagnostics->getBufferPointer();
+            AXION_LOG_WARN( Logger::Module::Shader, "Diagnostics for module {}: {}", extraModName, diagText );
+        }
+
+        if ( !extraModule )
+        {
+            AXION_LOG_ERROR( Logger::Module::Shader, "Slang failed to load additional module '{}'", extraModName );
+            return false;
+        }
+
+        extraModulesKeepAlive.push_back( extraModule );
+        rawComponents.push_back( extraModule.get() );
+    }
 
     if ( desc.entryPoints.empty() )
     {
@@ -126,11 +151,43 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
             return false;
         }
 
-        // 2. Guardamos el ComPtr para que el objeto no muera al terminar esta iteración del for
-        entryPointsKeepAlive.push_back( entryPoint );
+        // Look for specialization args
+        SmallVector<slang::SpecializationArg, 2> specializationArgs;
+        for ( const auto& specType : desc.spececializationTypeNames )
+        {
+            if ( specType.empty() )
+                continue;
 
-        // 3. Añadimos el puntero crudo a la lista de componentes
-        rawComponents.push_back( entryPoint.get() );
+            slang::TypeReflection* specReflType = module->getLayout()->findTypeByName( specType.cstr() );
+            if ( !specReflType )
+            {
+                AXION_LOG_ERROR( Logger::Module::Shader, "Failed to find concrete type '{}' in layout for specialization.", specType );
+                return false;
+            }
+            specializationArgs.pushBack( { slang::SpecializationArg::Kind::Type, specReflType } );
+        }
+        // Specialize the entry point
+        Slang::ComPtr<slang::IComponentType> specializedEntryPoint = nullptr;
+        if ( !specializationArgs.isEmpty() )
+        {
+            Slang::ComPtr<slang::IBlob> diagnosticsBlob;
+            SlangResult                 res = entryPoint->specialize(
+                specializationArgs.data(),
+                specializationArgs.size(),
+                specializedEntryPoint.writeRef(),
+                diagnosticsBlob.writeRef() );
+
+            if ( diagnosticsBlob )
+            {
+                const char* diagText = (const char*)diagnosticsBlob->getBufferPointer();
+                AXION_LOG_ERROR( Logger::Module::Shader, "Specialization Diagnostics: {}", diagText );
+            }
+            SLANG_RETURN_ON_FAIL( res );
+        }
+
+        entryPointsKeepAlive.push_back( entryPoint );
+        componentsKeepAlive.push_back( specializedEntryPoint );
+        rawComponents.push_back( specializedEntryPoint ? specializedEntryPoint.get() : entryPoint.get() );
     }
 
     Slang::ComPtr<slang::IComponentType> composedProgram;
@@ -313,7 +370,7 @@ Format ShaderCompiler::slangFormatToRHI( slang::TypeReflection* type ) {
 }
 
 void ShaderCompiler::reflectParameter(
-    slang::VariableLayoutReflection*                       varLayout,
+    slang::VariableLayoutReflection*                      varLayout,
     STLW::Map<u32, STLW::Vector<RHI::DescriptorBinding>>& tempSets ) {
     slang::TypeReflection*      type = varLayout->getType();
     slang::TypeReflection::Kind kind = type->getKind();
@@ -462,8 +519,8 @@ void ShaderCompiler::extractReflection( StringView name, IComponentType* program
 
             outDesc.pushConstant.size           = (u32)sizeBytes;
             outDesc.pushConstant.stageMask      = RHI::ShaderStage::All;
-            u32 assignedRegister               = varLayout->getBindingIndex();
-            u32 assignedSpace                  = varLayout->getBindingSpace();
+            u32 assignedRegister                = varLayout->getBindingIndex();
+            u32 assignedSpace                   = varLayout->getBindingSpace();
             outDesc.pushConstant.customRegister = assignedRegister;
             outDesc.pushConstant.customSpace    = assignedSpace;
 

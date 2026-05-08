@@ -40,15 +40,20 @@ struct MaterialArchetype {
  * This allows for flexible configuration of different passes (e.g., opaque, transparent, shadow) without hardcoding these details in the material archetypes.
  */
 struct MaterialPassProfile {
+    String64 name; // Eg: "Opaque", "Transparent", "Shadow", used for shader naming and logging
+    u32      slot; // Slot index for this pass type, used for indexing into archetype shader handles and pipeline handles
 
     // Pass profile stores the global layout used by all Materials in this Pass, which defines the expected resources and their bindings.
     Graphics::PipelineLayoutHandle layoutHandle;
+    // Bind point type shared for all PSOs created with this pass profile, used to determine the type of resources expected in the layout (eg: Compute vs Graphics)
+    Graphics::RHI::PipelineBindPoint bindPointType = Graphics::RHI::PipelineBindPoint::Graphic;
 
     // Pass profile stores the shader used by all Materials in this Pass
     STLW::String                               shaderPath;
     STLW::String                               shaderIncludePath;
     STLW::Vector<Graphics::Shader::EntryPoint> entryPoints;
-    bool                                       needsPerMaterialSpecialization = true;
+    // Shader needs especialization with material archetype data (eg: BRDF type, texture count, etc) to be functional
+    bool needsSpecialization = true;
 
     // Render state configuration for this pass type
     STLW::Vector<Graphics::Format> renderTargetFormats;
@@ -63,30 +68,38 @@ struct MaterialPassProfile {
     bool                depthTest  = true;
 };
 
-template <u32 PassCount>
-class MaterialLibrary
+class IMaterialLibrary
 {
 public:
-    class ArchetypeBuilder;
+    virtual ~IMaterialLibrary() = default;
 
-    ArchetypeBuilder beginMaterial( StringView name );
-    void             registerArchetype( const MaterialArchetypeDesc& desc );
+    virtual u32  getArchetypeID( StringView name ) const = 0;
+    virtual u64  getArchetypesCount() const              = 0;
+    virtual bool isInitialized() const                   = 0;
+};
 
-    void initialize( Graphics::API api );
+template <u32 PassCount>
+class MaterialLibrary : public IMaterialLibrary
+{
+    struct Description {
+        Graphics::API                    gfxApi;
+        SmallVector<MaterialPassProfile> passProfiles;
+        Vector<MaterialArchetypeDesc>    archetypeDescs;
+    };
 
-    // Material Profiles Api
-    void                                              setPassProfile( u32 passSlot, const MaterialPassProfile& profile );
-    const FixedArray<MaterialPassProfile, PassCount>& getPassProfiles() const { return _passProfiles; }
+public:
+    void initialize( const Description& desc );
 
     // Resources
     void registerShaders( Graphics::IShaderRegistry& shaders );
     void createPipelines( Graphics::IPipelineRegistry& pipelines );
 
+    const FixedArray<MaterialPassProfile, PassCount>& getPassProfiles() const { return _passProfiles; }
     AXION_FORCE_INLINE const STLW::Vector<MaterialArchetype<PassCount>>& getArchetypesRaw() const { return _archetypes; }
-    AXION_FORCE_INLINE u64                                               getArchetypesCount() const { return _archetypes.size(); }
-    AXION_FORCE_INLINE bool                                              isInitialized() const { return _initialized; }
 
-    u32 getArchetypeID( StringView name ) const;
+    u32                     getArchetypeID( StringView name ) const override;
+    AXION_FORCE_INLINE u64  getArchetypesCount() const override { return _archetypes.size(); }
+    AXION_FORCE_INLINE bool isInitialized() const override { return _initialized; }
 
 private:
     STLW::Vector<MaterialArchetype<PassCount>> _archetypes;
@@ -96,50 +109,9 @@ private:
 
     Graphics::API _api;
     bool          _initialized = false;
-
-    friend class ArchetypeBuilder;
 };
-
-#include "MaterialLibrary.inl"
-
-// El archetype builder cogera ahora la descripcion del arquetipe,
-// y creara unos PSOs usadno el shader del profile + el inherit shader del arquetipo,
-// y el resto de configuracion del profile (RT formats, Depth formats, etc).
-// El shader del profile hara un include del shader del arquetipo,
-// y este ultimo definira la BRDF a usar y demas configuracion especifica del material.
-// De esta forma separamos la configuracion de render (profiles) de la configuracion de material (archetypes),
-//  y permitimos que multiples materiales compartan la misma configuracion de render pero tengan diferentes BRDFs
-//   y comportamientos.
-// class MaterialLibrary::ArchetypeBuilder
-// {
-// public:
-//     ArchetypeBuilder( MaterialLibrary& l, StringView name )
-//         : _lib( l ) {
-//         _archDesc.name                = name;
-//         _archDesc.topologiesSupported = MaterialTopologyTriangles;
-//     }
-
-//     ArchetypeBuilder& addPass( MaterialPassType                                  type,
-//                                const STLW::String&                               path,
-//                                const STLW::Vector<Graphics::Shader::EntryPoint>& entryPoints,
-//                                const STLW::String&                               customIncludePath = "" ) {
-//         MaterialArchetypePassConfig p;
-//         p.shaderPath        = path;
-//         p.passType          = type;
-//         p.entryPoints       = entryPoints;
-//         p.customIncludePath = customIncludePath;
-//         _archDesc.passConfigs.push_back( p );
-//         return *this;
-//     }
-
-//     void finish() {
-//         _lib.registerArchetype( _archDesc );
-//     }
-
-// private:
-//     MaterialLibrary&      _lib;
-//     MaterialArchetypeDesc _archDesc;
-// };
 
 } // namespace Core::Render
 AXION_NAMESPACE_END
+
+#include "MaterialLibrary.inl"

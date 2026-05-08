@@ -82,6 +82,7 @@ private:
     ID3D12DescriptorHeap* _currentViewHeap    = nullptr;
     ID3D12DescriptorHeap* _currentSamplerHeap = nullptr;
 
+    //TODO: Cache layout per bind point type (Compute + Graphics)
     IPipelineLayout* _currentLayout = nullptr;
 
     // To support RTX

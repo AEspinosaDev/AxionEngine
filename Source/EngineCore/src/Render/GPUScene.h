@@ -88,12 +88,12 @@ public:
      * @param cameraEntity The point of view for this render pass (Culling/ViewProj).
      * @param flags Modifiers for the update pipeline (e.g., DX12 Transpose).
      */
-    void update( const Scene::Scene&    cpuScene,
-                 Scene::Entity&         cameraEntity,
-                 const MaterialLibrary& mtlLib,
-                 const Extent2D&        resolution,
-                 float                  deltaTime,
-                 GPUSceneUpdateFlags    flags = GPUSceneNone );
+    void update( const Scene::Scene&     cpuScene,
+                 Scene::Entity&          cameraEntity,
+                 const IMaterialLibrary& mtlLib,
+                 const Extent2D&         resolution,
+                 float                   deltaTime,
+                 GPUSceneUpdateFlags     flags = GPUSceneNone );
 
     void setGCMode( Graphics::GCMode mode ) { _resourceTTL = (u32)mode; }
 
@@ -101,14 +101,14 @@ private:
     // -- Internal Pipeline Stages --
     void reset( float dt );
 
-    void processInstances( const Scene::Scene&    cpuScene,
-                           const MaterialLibrary& mtlLib,
-                           bool                   sort,
-                           bool                   transpose,
-                           bool                   forceRaytrace );
+    void processInstances( const Scene::Scene&     cpuScene,
+                           const IMaterialLibrary& mtlLib,
+                           bool                    sort,
+                           bool                    transpose,
+                           bool                    forceRaytrace );
     u32  processMesh( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::MeshHandle& cpuMeshHandle );
     u32  processMaterial( const Axion::Core::Assets::AssetManager*   assets,
-                          const MaterialLibrary&                     mtlLib,
+                          const IMaterialLibrary&                    mtlLib,
                           std::pair<const byte*, size_t>&            dirtyLUT,
                           const Axion::Core::Assets::MaterialHandle& cpuMtlHandle );
     u32  processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle, u32 materialGpuCacheIndex );
