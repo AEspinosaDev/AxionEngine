@@ -320,7 +320,6 @@ String32 getTopologyString( PrimitiveTopology type ) {
     }
 }
 
-
 enum class FillMode : byte
 {
     Solid     = 0,
@@ -468,5 +467,30 @@ struct PreprocessorDefine {
 };
 
 } // namespace Shader
+
+struct RenderState {
+    Graphics::PrimitiveTopology topology   = Graphics::PrimitiveTopology::TriangleList;
+    Graphics::FillMode          fillMode   = Graphics::FillMode::Solid;
+    Graphics::CullMode          cullMode   = Graphics::CullMode::Front;
+    Graphics::BlendOp           blendOp    = Graphics::BlendOp::Add;
+    Graphics::CompareOp         depthOp    = Graphics::CompareOp::LessEqual;
+    bool                        depthWrite = true;
+    bool                        depthTest  = true;
+    // To be extended later ...
+
+    bool operator==( const RenderState& o ) const {
+        return topology == o.topology &&
+               fillMode == o.fillMode &&
+               cullMode == o.cullMode &&
+               blendOp == o.blendOp &&
+               depthOp == o.depthOp &&
+               depthWrite == o.depthWrite &&
+               depthTest == o.depthTest;
+    };
+    bool operator!=( const RenderState& o ) const {
+        return !operator==( o );
+    };
+};
+
 } // namespace Graphics
 AXION_NAMESPACE_END

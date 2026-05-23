@@ -3,7 +3,8 @@
 #include <Axion/Common/Math.h>
 #include <Axion/Common/Memory/Pointers/OwnerPtr.h>
 #include <Axion/Common/Memory/Pointers/SharedPtr.h>
-#include <Axion/Core/Render/Common.h>
+#include <Axion/Core/Assets/Common.h>
+
 
 
 AXION_NAMESPACE_BEGIN

@@ -82,13 +82,14 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, const IMaterialLi
             u32 archID   = _materialCache.cache[gpuMaterialID].archetypeID;
 
             SortKey key;
-            key.key                 = makeSortKey( archID, topology, gpuMeshID );
+            key.key                 = makeSortKey( archID, psoID, gpuMeshID );
             key.originalInstanceIdx = (u32)_instances.size() - 1;
 
             _sortedKeys.pushBack( key );
         }
     }
 
+    //Quick sort
     if ( sort )
     {
         std::sort( _sortedKeys.begin(), _sortedKeys.end(), []( const SortKey& a, const SortKey& b ) { return a.key < b.key; } );

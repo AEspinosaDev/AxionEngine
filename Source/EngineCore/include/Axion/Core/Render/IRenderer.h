@@ -3,6 +3,7 @@
 #include <Axion/Common/Memory/Pointers/OwnerPtr.h>
 #include <Axion/Core/Scene/Entity.h>
 #include <Axion/Core/Scene/Scene.h>
+#include <Axion/Core/Render/Common.h>
 
 AXION_NAMESPACE_BEGIN
 

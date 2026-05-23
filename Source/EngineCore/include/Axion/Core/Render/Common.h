@@ -24,15 +24,7 @@ enum RendererFlags : u32
     RendererEnableGPUCulling = 1 << 9,
 };
 
-AXION_ENUM_CLASS_FLAG_OPERATORS( RendererFlags )
-
-struct MaterialArchetypeDesc {
-    String64                    name;
-    String64                    shaderModule;
-    String64                    shaderSpcecializationType;
-    Graphics::PrimitiveTopology topologiesSupported = Graphics::PrimitiveTopology::TriangleStrip;
-    u32                         payloadSize         = 0;
-};
+AXION_ENUM_CLASS_FLAG_OPERATORS( RendererFlags );
 
 /**
  * MemoryBudget struct defines configurable memory limits for different categories of resource allocations in the rendering engine.

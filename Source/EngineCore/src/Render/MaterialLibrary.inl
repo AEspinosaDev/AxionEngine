@@ -11,20 +11,30 @@ inline void MaterialLibrary<PassCount>::initialize( const Description& desc ) {
     for ( auto& passProfile : desc.passProfiles )
         _passProfiles[passProfile.slot] = passProfile;
 
-    // Register archetypes
-    for ( auto& archetypeDesc : desc.archetypeDescs )
-    {
-        if ( _archetypeLookup.contains( desc.name ) )
-            return;
-
-        MaterialArchetype arch( desc );
-        _archetypes.push_back( arch );
-        _archetypeLookup[desc.name] = (u32)_archetypes.size() - 1;
-
-        AXION_LOG_INFO( Logger::Module::Core, "Registered Material [{}]", desc.name );
-    }
-
     _initialized = true;
+
+    _pendingArchetypeStates.reserve( 1024 );
+    _pipelineCache.reserve( 1024 );
+}
+
+template <u32 PassCount>
+void MaterialLibrary<PassCount>::registerArchetype( StringView name, StringView shaderModule, StringView shaderSpecializationType ) {
+
+    if ( _archetypeLookup.contains( name ) )
+        return;
+
+    MaterialArchetype arch( name, shaderModule, shaderSpecializationType );
+    _archetypes.push_back( arch );
+    _archetypeLookup[name] = (u32)_archetypes.size() - 1;
+
+    AXION_LOG_INFO( Logger::Module::Core, "Registered Material [{}]", name );
+}
+
+template <u32 PassCount>
+inline u64 MaterialLibrary<PassCount>::updateArchetypeState( u32 archetypeID, const Graphics::RenderState& state ) {
+    ArchetypeStateEntry entry = { archetypeID, state };
+    _pendingArchetypeStates.push( entry );
+    return entry.hash();
 }
 
 template <u32 PassCount>
@@ -37,13 +47,23 @@ u32 MaterialLibrary<PassCount>::getArchetypeID( StringView name ) const {
 }
 
 template <u32 PassCount>
+inline Graphics::PipelineHandle MaterialLibrary<PassCount>::getPipelineHandle( u64 bundleHash, u32 passSlot ) const {
+    auto it = _pipelineCache.find( bundleHash );
+    if ( it != _pipelineCache.end() )
+    {
+        return it->second.getHandleForPass( passSlot );
+    }
+    return Graphics::PipelineHandle();
+}
+
+template <u32 PassCount>
 void MaterialLibrary<PassCount>::registerShaders( Graphics::IShaderRegistry& shaders ) {
 
     for ( auto& arch : _archetypes )
     {
         for ( const auto& passProfile : _passProfiles )
         {
-            StringView shaderName = passProfile.needsSpecialization ? passProfile.name + "_shader_" + arch.desc.name : passProfile.name + "_shader";
+            StringView shaderName = passProfile.needsSpecialization ? passProfile.name + "_shader_" + arch.name : passProfile.name + "_shader";
 
             auto builder = shaders.shader( shaderName )
                                .path( passProfile.shaderPath )
@@ -56,8 +76,8 @@ void MaterialLibrary<PassCount>::registerShaders( Graphics::IShaderRegistry& sha
 
             if ( passProfile.needsSpecialization )
             {
-                builder.addModule( arch.desc.shadeModule );
-                builder.addSpecialization( arch.desc.archetypeShaderSpcecializationType );
+                builder.addModule( arch.shaderModule );
+                builder.addSpecialization( arch.shaderSpecializationType );
             }
 
             _api == Graphics::API::DirectX12 ? builder.asDXIL() : builder.asSPIRV();
@@ -67,59 +87,78 @@ void MaterialLibrary<PassCount>::registerShaders( Graphics::IShaderRegistry& sha
         }
     }
 }
-
 template <u32 PassCount>
-void MaterialLibrary<PassCount>::createPipelines( Graphics::IPipelineRegistry& pipelines ) {
+void MaterialLibrary<PassCount>::updatePipelines( Graphics::IPipelineRegistry& pipelines ) {
 
-    for ( auto& arch : _archetypes )
+    while ( !_pendingArchetypeStates.empty() )
     {
-        for ( const auto& passProfile : _passProfiles )
+        const auto& state   = _pendingArchetypeStates.front();
+        u64         hashKey = state.hash();
+        const auto& arch    = _archetypes[state.archetypeID];
+
+        _pendingArchetypeStates.pop();
+
+        // Already exists? Return key
+        if ( auto it = _pipelineCache.find( hashKey ); it != _pipelineCache.end() )
         {
-            StringView pipName = passProfile.needsSpecialization ? passProfile.name + "_pip_" + arch.desc.name : passProfile.name + "_pip";
+            continue;
+        }
+        // If it doesn't exist, create it.
+        else
+        {
+            PipelineBundle<PassCount> newBundle;
 
-            switch ( passProfile.bindPointType )
+            for ( u32 passId = 0; passId < PassCount; ++passId )
             {
-                case Graphics::RHI::PipelineBindPoint::Graphic: {
+                const MaterialPassProfile& passProfile = _passProfiles[passId];
 
-                    for ( u32 t = 0; t < (u32)Graphics::PrimitiveTopology::Count; ++t )
+                // Sanity check
+                auto& shaderHandle = arch.shaderHandles[passId];
+                if ( !shaderHandle.isValid() )
+                {
+                    if ( !passProfile.shaderPath.empty() )
                     {
-                        auto topoType = (Graphics::PrimitiveTopology)t;
+                        AXION_LOG_ERROR( Logger::Module::Core, "Skipping pipeline creation for Material '{}' Pass '{}': Shader compilation failed.", arch.name, passProfile.name );
+                    }
+                    continue;
+                }
 
-                        if ( !( arch.desc.topologiesSupported & topoType ) )
-                            continue;
+                String64 pipName = passProfile.name + "_PSO_arch_" + arch.name + "_Hash:" + hashKey;
 
-                        auto& shaderHandle = arch.shaderHandles[passProfile.slot];
-                        if ( !shaderHandle.isValid() )
-                        {
-                            if ( !passProfile.shaderPath.empty() )
-                            {
-                                AXION_LOG_ERROR( Logger::Module::Core, "Skipping pipeline creation for Material '{}' Pass '{}': Shader compilation failed.", arch.desc.name, passProfile.name );
-                            }
-                            continue;
-                        }
+                Graphics::RenderState finalState = passProfile.defaultState;
 
-                        auto builder = pipelines.graphic( pipName + getTopologyString( topoType ) ).shader( shaderHandle ).setLayout( passProfile.layoutHandle );
+                if ( (u32)passProfile.overrideMask & (u32)StateOverrideFlags::Topology )
+                    finalState.topology = state.state.topology;
+                if ( (u32)passProfile.overrideMask & (u32)StateOverrideFlags::FillMode )
+                    finalState.fillMode = state.state.fillMode;
+                if ( (u32)passProfile.overrideMask & (u32)StateOverrideFlags::CullMode )
+                    finalState.cullMode = state.state.cullMode;
+                if ( (u32)passProfile.overrideMask & (u32)StateOverrideFlags::BlendOp )
+                    finalState.blendOp = state.state.blendOp;
+                if ( (u32)passProfile.overrideMask & (u32)StateOverrideFlags::DepthOp )
+                    finalState.depthOp = state.state.depthOp;
+                if ( (u32)passProfile.overrideMask & (u32)StateOverrideFlags::DepthWrite )
+                    finalState.depthWrite = state.state.depthWrite;
+                if ( (u32)passProfile.overrideMask & (u32)StateOverrideFlags::DepthTest )
+                    finalState.depthTest = state.state.depthTest;
 
-                        // TBD
-                        //  Graphics::RHI::RasterizerState rasterizerState;
-                        //  rasterizerState.fillMode              = pass.fillMode;
-                        //  // rasterizerState.cullMode              = pass.cullMode;
-                        //  rasterizerState.cullMode              = pass.cullMode;
-                        //  rasterizerState.frontCounterClockwise = false;
-                        //  rasterizerState.depthBias             = 0;
-                        //  rasterizerState.depthBiasClamp        = 0.0f;
-                        //  rasterizerState.slopeScaledDepthBias  = 0.0f;
-                        //  rasterizerState.depthClipEnable       = true;
-                        //  rasterizerState.multisampleEnable     = false;
-                        //  rasterizerState.antialiasedLineEnable = false;
-                        //  builder.setRasterizer( rasterizerState );
+                switch ( passProfile.bindPointType )
+                {
+                    ///////////////////////
+                    // RASTER PSO
+                    ///////////////////////
+                    case Graphics::RHI::PipelineBindPoint::Graphic: {
 
-                        builder.setTopology( topoType );
-                        builder.cullMode( passProfile.cullMode );
+                        auto builder = pipelines.graphic( pipName ).shader( shaderHandle ).setLayout( passProfile.layoutHandle );
 
-                        builder.setDepthStencilState( { .depthEnable    = passProfile.depthTest,
-                                                        .depthWriteMask = passProfile.depthWrite,
-                                                        .depthFunc      = passProfile.depthOp } );
+                        Graphics::RHI::RasterizerState rasterizerState;
+                        rasterizerState.fillMode = finalState.fillMode; // Likely to be extended in the future
+                        builder.setRasterizer( rasterizerState );
+                        builder.setTopology( finalState.topology );
+                        builder.cullMode( finalState.cullMode );
+                        builder.setDepthStencilState( { .depthEnable    = finalState.depthTest,
+                                                        .depthWriteMask = finalState.depthWrite,
+                                                        .depthFunc      = finalState.depthOp } );
 
                         for ( int i = 0; i < passProfile.renderTargetFormats.size(); ++i )
                         {
@@ -127,36 +166,65 @@ void MaterialLibrary<PassCount>::createPipelines( Graphics::IPipelineRegistry& p
                         }
                         builder.setDepthFormat( passProfile.depthTargetFormat );
 
-                        arch.pipelines[passProfile.slot][t] = builder.create();
+                        newBundle.handles[passId] = builder.create();
                     }
-                }
-                /* code */
-                break;
-                case Graphics::RHI::PipelineBindPoint::Compute: {
+                    break;
 
-                    auto& shaderHandle = arch.shaderHandles[passProfile.slot];
-                    if ( !shaderHandle.isValid() )
-                    {
-                        if ( !passProfile.shaderPath.empty() )
+                    ///////////////////////
+                    // COMPUTE PSO
+                    ///////////////////////
+                    case Graphics::RHI::PipelineBindPoint::Compute: {
+
+                        auto builder = pipelines.compute( pipName ).shader( shaderHandle ).setLayout( passProfile.layoutHandle );
+
+                        newBundle.handles[passId] = builder.create();
+                    }
+                    break;
+
+                    ///////////////////////
+                    // MESH PSO
+                    ///////////////////////
+                    case Graphics::RHI::PipelineBindPoint::Mesh: {
+
+                        auto builder = pipelines.mesh( pipName ).shader( shaderHandle ).setLayout( passProfile.layoutHandle );
+
+                        Graphics::RHI::RasterizerState rasterizerState;
+                        rasterizerState.fillMode = finalState.fillMode;
+                        builder.setRasterizer( rasterizerState );
+                        builder.setTopology( finalState.topology );
+                        builder.cullMode( finalState.cullMode );
+                        builder.setDepthStencilState( { .depthEnable    = finalState.depthTest,
+                                                        .depthWriteMask = finalState.depthWrite,
+                                                        .depthFunc      = finalState.depthOp } );
+
+                        for ( int i = 0; i < passProfile.renderTargetFormats.size(); ++i )
                         {
-                            AXION_LOG_ERROR( Logger::Module::Core, "Skipping pipeline creation for Material '{}' Pass '{}': Shader compilation failed.", arch.desc.name, passProfile.name );
+                            builder.addRenderTarget( passProfile.renderTargetFormats[i] );
                         }
-                        continue;
+                        builder.setDepthFormat( passProfile.depthTargetFormat );
+
+                        newBundle.handles[passId] = builder.create();
                     }
+                    break;
 
-                    auto builder = pipelines.compute( pipName ).shader( shaderHandle ).setLayout( passProfile.layoutHandle );
-
-                    arch.pipelines[passProfile.slot][0] = builder.create();
+                    ///////////////////////
+                    // RTX PSO
+                    ///////////////////////
+                    case Graphics::RHI::PipelineBindPoint::RTX: {
+                        ///////////////////////
+                        ///////////////////////
+                        ///////////////////////
+                        // TBD ...
+                        ///////////////////////
+                        ///////////////////////
+                        ///////////////////////
+                        newBundle.handles[passId] = Graphics::PipelineHandle::Invalid;
+                    }
+                    break;
                 }
-                /* code */
-                break;
-                case Graphics::RHI::PipelineBindPoint::Mesh:
-                    /* code */
-                    break;
-                case Graphics::RHI::PipelineBindPoint::RTX:
-                    /* code */
-                    break;
             }
+
+            _pipelineCache.emplace( hashKey, std::move( newBundle ) );
         }
     }
 }

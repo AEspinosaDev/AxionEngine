@@ -1,10 +1,49 @@
 #pragma once
 #include <Axion/Common/Graphics/Common.h>
-
+#include <Axion/Common/Containers/STLWrapper/Vector.h>
+#include <Axion/Common/Containers/STLWrapper/String.h>
 
 AXION_NAMESPACE_BEGIN
 
 namespace Core::Assets {
+
+struct MaterialArchetypeInfo {
+    const char* name;
+    const char* shaderModule;
+    const char* shaderSpcecializationType;
+};
+
+class GlobalMaterialRegistry
+{
+public:
+    static void registerMaterial( Axion::StringView name, MaterialArchetypeInfo info );
+    static void enumerate( std::function<void( StringView name, MaterialArchetypeInfo info )> visitor );
+};
+
+/**
+ * Macro used to easy define a Material Archetype.
+ */
+#define AXION_DECLARE_MATERIAL_ARCH( STRING_NAME, STRING_SHADER, STRING_SPECIALIZATION_TYPE )                           \
+public:                                                                                                                 \
+    static constexpr MaterialArchetypeInfo ARCHETYPE_INFO = { STRING_NAME, STRING_SHADER, STRING_SPECIALIZATION_TYPE }; \
+                                                                                                                        \
+    virtual MaterialArchetypeInfo getArchetypeInfo() const override { return ARCHETYPE_INFO; }
+
+    
+/**
+ * Macro used to easy register a Material Archetype for the renderers.
+ */
+#define AXION_REGISTER_MATERIAL( CLASS_NAME )                                  \
+    namespace {                                                                \
+        struct Register##CLASS_NAME {                                          \
+            Register##CLASS_NAME() {                                           \
+                Axion::Core::Assets::GlobalMaterialRegistry::registerMaterial( \
+                    CLASS_NAME::ARCHETYPE_INFO.name,                           \
+                    CLASS_NAME::ARCHETYPE_INFO );                              \
+            }                                                                  \
+        };                                                                     \
+        static Register##CLASS_NAME global_reg_##CLASS_NAME;                   \
+    }
 
 /**
  * @brief Bitmask flags to configure the mesh import process.

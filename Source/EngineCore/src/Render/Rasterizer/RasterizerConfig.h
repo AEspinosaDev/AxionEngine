@@ -15,8 +15,8 @@ enum class MaterialPassType : u32
 {
     Visibility         = 0,
     VisibilityResolve  = 1,
-    Shadow             = 2,
-    ForwardTransparent = 3,
+    // Shadow             = 2,
+    // ForwardTransparent = 3,
 
     Count
 };
