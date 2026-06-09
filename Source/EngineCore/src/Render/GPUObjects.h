@@ -88,7 +88,7 @@ struct GPUMaterial {
     // Offsets y Counts (32 bytes)
     u32 bufferOffset;
     u32 payloadSize;
-    u32 archetypeID; //Or Pso ID
+    u32 psoID; //Or Pso ID
     u32 valid;
 
     u32 lastFrameUsed;

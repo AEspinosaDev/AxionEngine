@@ -1,7 +1,7 @@
 #pragma once
 #include <Axion/Common/Containers/STLWrapper/Array.h>
-#include <Axion/Common/Containers/STLWrapper/Maps.h>
 #include <Axion/Common/Containers/STLWrapper/Lists.h>
+#include <Axion/Common/Containers/STLWrapper/Maps.h>
 #include <Axion/Core/Render/Common.h>
 #include <Axion/Graphics/Subsystems/IPipelineRegistry.h>
 #include <Axion/Graphics/Subsystems/IShaderRegistry.h>
@@ -81,48 +81,128 @@ class IMaterialLibrary
 public:
     virtual ~IMaterialLibrary() = default;
 
+    virtual u32 updateArchetypeState( u32 archetypeID, const Graphics::RenderState& state ) = 0;
+
     virtual u32  getArchetypeID( StringView name ) const = 0;
     virtual u64  getArchetypesCount() const              = 0;
     virtual u64  getPipelineBundleCount() const          = 0;
     virtual bool isInitialized() const                   = 0;
 
-    virtual Graphics::PipelineHandle getPipelineHandle( u64 bundleHash, u32 passSlot ) const = 0;
+    virtual Graphics::PipelineHandle getPipelineHandle( u32 bundleID, u32 passSlot ) const = 0;
 };
 
+/**
+ * @brief Core system responsible for managing material archetypes, pass profiles, and their associated pipeline states.
+ * * This library acts as a centralized lazy-evaluation cache for Pipeline State Objects (PSOs). It handles the compilation
+ * and retrieval of pipeline bundles based on archetype data and dynamic render states.
+ * * @tparam PassCount The total number of render passes supported by the renderer.
+ */
 template <u32 PassCount>
 class MaterialLibrary : public IMaterialLibrary
 {
+    /**
+     * @brief Initialization descriptor for the MaterialLibrary.
+     */
     struct Description {
-        Graphics::API                    gfxApi;
-        SmallVector<MaterialPassProfile> passProfiles;
+        Graphics::API                    gfxApi;       ///< The graphics API currently in use (e.g., DirectX 12, Vulkan).
+        SmallVector<MaterialPassProfile> passProfiles; ///< Configuration profiles for all render passes.
     };
 
 public:
+    /**
+     * @brief Initializes the material library with the provided description.
+     * @param desc The configuration descriptor containing API info and pass profiles.
+     */
     void initialize( const Description& desc );
-    void registerArchetype( StringView name, StringView shaderModule, StringView shaderSpecializationType );
-    u64  updateArchetypeState( u32 archetypeID, const Graphics::RenderState& state );
 
+    /**
+     * @brief Registers a new material archetype into the library.
+     * @param name The unique name of the material archetype.
+     * @param shaderModule The base shader module file or name.
+     * @param shaderSpecializationType The entry point or specialization type in the shader.
+     */
+    void registerArchetype( StringView name, StringView shaderModule, StringView shaderSpecializationType );
+
+    /**
+     * @brief Queues a material state update to generate or fetch a pipeline bundle.
+     * @param archetypeID The internal ID of the archetype being used.
+     * @param state The dynamic render state requested by the material instance.
+     * @return u64 The 64-bit deterministic hash representing the pipeline bundle.
+     */
+    u32 updateArchetypeState( u32 archetypeID, const Graphics::RenderState& state ) override;
+
+    /**
+     * @brief Registers and compiles all shaders for all known archetypes and passes.
+     * @param shaders The global shader registry.
+     */
     void registerShaders( Graphics::IShaderRegistry& shaders );
+
+    /**
+     * @brief Processes all pending archetype state updates and compiles missing PSOs.
+     * * This function iterates through the queued states, checks the pipeline cache,
+     * and synchronously builds new pipeline bundles if they do not exist.
+     * * @param pipelines The global pipeline registry used to create new PSOs.
+     */
     void updatePipelines( Graphics::IPipelineRegistry& pipelines );
 
+    /**
+     * @brief Retrieves the array of configured pass profiles.
+     * @return const FixedArray<MaterialPassProfile, PassCount>&
+     */
     const FixedArray<MaterialPassProfile, PassCount>& getPassProfiles() const { return _passProfiles; }
+
+    /**
+     * @brief Retrieves the raw array of registered material archetypes.
+     * @return const STLW::Vector<MaterialArchetype<PassCount>>&
+     */
     AXION_FORCE_INLINE const STLW::Vector<MaterialArchetype<PassCount>>& getArchetypesRaw() const { return _archetypes; }
 
-    u32                      getArchetypeID( StringView name ) const override;
-    AXION_FORCE_INLINE u64   getArchetypesCount() const override { return _archetypes.size(); }
-    AXION_FORCE_INLINE u64   getPipelineBundleCount() const override { return _pipelineCache.size(); }
-    AXION_FORCE_INLINE bool  isInitialized() const override { return _initialized; }
-    Graphics::PipelineHandle getPipelineHandle( u64 bundleHash, u32 passSlot ) const override;
+    /**
+     * @brief Retrieves the internal ID of a registered archetype by name.
+     * @param name The name of the archetype.
+     * @return u32 The ID of the archetype, or 0 if not found (fallback).
+     */
+    u32 getArchetypeID( StringView name ) const override;
+
+    /**
+     * @brief Retrieves the total number of registered archetypes.
+     */
+    AXION_FORCE_INLINE u64 getArchetypesCount() const override { return _archetypes.size(); }
+
+    /**
+     * @brief Retrieves the total number of cached pipeline bundles.
+     */
+    AXION_FORCE_INLINE u64 getPipelineBundleCount() const override { return _pipelineCache.size(); }
+
+    /**
+     * @brief Checks if the material library has been successfully initialized.
+     */
+    AXION_FORCE_INLINE bool isInitialized() const override { return _initialized; }
+
+    /**
+     * @brief Fetches a specific pipeline handle from the cache without throwing exceptions.
+     * @param bundleID The ID of the pipeline bundle.
+     * @param passSlot The specific pass slot index to retrieve the PSO for.
+     * @return Graphics::PipelineHandle The pipeline handle, or Invalid if not found.
+     */
+    Graphics::PipelineHandle getPipelineHandle( u32 bundleID, u32 passSlot ) const override;
 
 private:
-    STLW::Vector<MaterialArchetype<PassCount>> _archetypes;
-    STLW::UnorderedMap<String64, u32>          _archetypeLookup;
-    FixedArray<MaterialPassProfile, PassCount> _passProfiles;
+    STLW::UnorderedMap<String64, u32>          _archetypeLookup; ///< Fast name-to-ID mapping for archetypes.
+    STLW::Vector<MaterialArchetype<PassCount>> _archetypes;      ///< Contiguous array of registered archetypes.
 
+    FixedArray<MaterialPassProfile, PassCount> _passProfiles; ///< Array containing the static profile definitions for each pass.
+
+    /**
+     * @brief Internal structure used to hash and identify unique pipeline requests.
+     */
     struct ArchetypeStateEntry {
         u32                   archetypeID;
         Graphics::RenderState state;
 
+        /**
+         * @brief Generates a 64-bit deterministic hash for the archetype and state combination.
+         */
         u64 hash() const {
             u64 h = archetypeID;
             h ^= (u64)state.topology << 24;
@@ -136,11 +216,12 @@ private:
         }
     };
 
-    STLW::Queue<ArchetypeStateEntry> _pendingArchetypeStates;
-    // Change this map for another better structure
-    STLW::UnorderedMap<u64, PipelineBundle<PassCount>> _pipelineCache;
+    STLW::Queue<ArchetypeStateEntry> _pendingArchetypeStates; ///< Queue of material states waiting for pipeline creation.
+    // TODO: Change this map for another faster structure in the future
+    STLW::UnorderedMap<u64, u32>            _pipelineLookup; ///< Global cache mapping hashes to fully built pipeline bundles lookup.
+    STLW::Vector<PipelineBundle<PassCount>> _pipelineCache;       ///< Global PSO cache.
 
-    Graphics::API _api;
+    Graphics::API _api; ///< Active graphics API backend.
     bool          _initialized = false;
 };
 

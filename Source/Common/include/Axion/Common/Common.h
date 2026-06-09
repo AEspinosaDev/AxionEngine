@@ -126,6 +126,19 @@ using s8  = int8_t;
 #define KBYTES( x ) ( ( x ) * 1024 )
 #define BYTES( x ) ( ( x ) )
 
+constexpr u64  AXION_INVALID_U64  = 0xFFFFFFFFFFFFFFFFULL;
+constexpr u32  AXION_INVALID_U32  = 0xFFFFFFFFU;
+constexpr u16  AXION_INVALID_U16  = 0xFFFF;
+constexpr byte AXION_INVALID_BYTE = 0xFF;
+ 
+constexpr s64  AXION_NVALID_S64 = 0x7FFFFFFFFFFFFFFFLL;
+constexpr s32  AXION_NVALID_S32 = 0x7FFFFFFFL;
+constexpr s16  AXION_NVALID_S16 = 0x7FFF;
+constexpr s8   AXION_NVALID_S8  = 0x7F;
+
+// Common alternative for signed types
+constexpr s32 INVALID_INDEX_SIGNED = -1;
+
 AXION_NAMESPACE_BEGIN
 
 /// Simple exception class, which stores a human-readable error description

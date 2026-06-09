@@ -4,12 +4,12 @@ AXION_NAMESPACE_BEGIN
 
 namespace Core::Render {
 
-void GPUScene::update( const Scene::Scene&    cpuScene,
-                       Scene::Entity&         cameraEntity,
-                       const IMaterialLibrary& mtlLib,
-                       const Extent2D&        resolution,
-                       float                  deltaTime,
-                       GPUSceneUpdateFlags    flags ) {
+void GPUScene::update( const Scene::Scene& cpuScene,
+                       Scene::Entity&      cameraEntity,
+                       IMaterialLibrary&   mtlLib,
+                       const Extent2D&     resolution,
+                       float               deltaTime,
+                       GPUSceneUpdateFlags flags ) {
 
     bool transposeMatrices = ( flags & GPUSceneTransposeMatrices ) != GPUSceneNone;
     bool forceRaytrace     = ( flags & GPUSceneForceRaytrace ) != GPUSceneNone;
@@ -37,7 +37,7 @@ void GPUScene::reset( float dt ) {
 #pragma region Instances
 #pragma endregion
 
-void GPUScene::processInstances( const Scene::Scene& cpuScene, const IMaterialLibrary& mtlLib, bool sort, bool transpose, bool forceRaytrace ) {
+void GPUScene::processInstances( const Scene::Scene& cpuScene, IMaterialLibrary& mtlLib, bool sort, bool transpose, bool forceRaytrace ) {
 
     u64 instanceCount = cpuScene.getRegistry().view<Scene::MeshComponent>().size();
     _instances.reserve( instanceCount );
@@ -79,17 +79,17 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, const IMaterialLi
         if ( sort )
         {
             u32 topology = (u32)_meshCache.cache[gpuMeshID].aabbMax_Topology.w;
-            u32 archID   = _materialCache.cache[gpuMaterialID].archetypeID;
+            u32 psoID    = _materialCache.cache[gpuMaterialID].psoID;
 
             SortKey key;
-            key.key                 = makeSortKey( archID, psoID, gpuMeshID );
+            key.key                 = makeSortKey( psoID, gpuMeshID );
             key.originalInstanceIdx = (u32)_instances.size() - 1;
 
             _sortedKeys.pushBack( key );
         }
     }
 
-    //Quick sort
+    // Quick sort
     if ( sort )
     {
         std::sort( _sortedKeys.begin(), _sortedKeys.end(), []( const SortKey& a, const SortKey& b ) { return a.key < b.key; } );
@@ -167,7 +167,7 @@ u32 GPUScene::processMesh( const Axion::Core::Assets::AssetManager* assets, cons
 #pragma endregion
 
 u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets,
-                               const IMaterialLibrary&                     mtlLib,
+                               IMaterialLibrary&                          mtlLib,
                                std::pair<const byte*, size_t>&            dirtyLUT,
                                const Axion::Core::Assets::MaterialHandle& cpuMtlHandle ) {
     u32 cpuAssetID    = cpuMtlHandle.id;
@@ -213,7 +213,6 @@ u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets
         _materialCache.cache[gpuCacheIndex].valid           = true;
     }
 
-
     if ( isDirty )
     {
         // Slow indirection
@@ -226,8 +225,9 @@ u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets
                 _textureCache.cache[oldTexGpuHandle].refCount--;
         _materialToTextureMap[gpuCacheIndex].clear();
 
-        gpuMtl.payloadSize = cpuMaterial->getPayloadSize();
-        gpuMtl.archetypeID = mtlLib.getArchetypeID( cpuMaterial->getArchetypeName() );
+        gpuMtl.payloadSize   = cpuMaterial->getPayloadSize();
+        const char* archName = cpuMaterial->getArchetypeInfo().name; // Subscribe psoID to to matlib given archetype and renderstate
+        gpuMtl.psoID         = mtlLib.updateArchetypeState( mtlLib.getArchetypeID( archName ), cpuMaterial->getRenderState() );
 
         Assets::Material::TextureResolver resolver = [&]( const Axion::Core::Assets::TextureHandle& h ) -> u32 {
             return processTexture( assets, h, gpuCacheIndex );
@@ -530,7 +530,7 @@ void GPUScene::runGC() {
                 gpuMat.valid        = false;
                 gpuMat.bufferOffset = 0;
                 gpuMat.payloadSize  = 0;
-                gpuMat.archetypeID  = 0;
+                gpuMat.psoID        = AXION_INVALID_U32;
 
                 AXION_LOG_INFO( Logger::Module::Core, "GC: Recycled material slot {}", i );
             }

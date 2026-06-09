@@ -76,7 +76,7 @@ public struct MeshData {
 public struct MaterialData {
     public uint bufferOffset; // Pointer to the big ByteAddressBuffer
     public uint payloadSize;
-    public uint archetypeID; // For validation or branching if needed
+    public uint archetypeID; // For validation or branching if needed (UNUSED for now)
     public uint valid;
 
     public uint lastFrameUsed;

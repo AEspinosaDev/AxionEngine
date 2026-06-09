@@ -31,10 +31,21 @@ void MaterialLibrary<PassCount>::registerArchetype( StringView name, StringView 
 }
 
 template <u32 PassCount>
-inline u64 MaterialLibrary<PassCount>::updateArchetypeState( u32 archetypeID, const Graphics::RenderState& state ) {
-    ArchetypeStateEntry entry = { archetypeID, state };
+inline u32 MaterialLibrary<PassCount>::updateArchetypeState( u32 archetypeID, const Graphics::RenderState& state ) {
+    ArchetypeStateEntry entry   = { archetypeID, state };
+    u64                 hashKey = entry.hash();
+
+    if ( auto it = _pipelineLookup.find( hashKey ); it != _pipelineLookup.end() )
+        return it->second;
+
+    u32 newBundleID = (u32)_pipelineCache.size();
+
+    _pipelineLookup[hashKey] = newBundleID;
+    _pipelineCache.emplace_back();
+
     _pendingArchetypeStates.push( entry );
-    return entry.hash();
+
+    return newBundleID;
 }
 
 template <u32 PassCount>
@@ -45,14 +56,14 @@ u32 MaterialLibrary<PassCount>::getArchetypeID( StringView name ) const {
     AXION_LOG_WARN( "Material '{}' not found. Fallback to Error Material.", name );
     return 0;
 }
-
 template <u32 PassCount>
-inline Graphics::PipelineHandle MaterialLibrary<PassCount>::getPipelineHandle( u64 bundleHash, u32 passSlot ) const {
-    auto it = _pipelineCache.find( bundleHash );
-    if ( it != _pipelineCache.end() )
+inline Graphics::PipelineHandle MaterialLibrary<PassCount>::getPipelineHandle( u32 bundleID, u32 passSlot ) const {
+
+    if ( bundleID < _pipelineCache.size() )
     {
-        return it->second.getHandleForPass( passSlot );
+        return _pipelineCache[bundleID].getHandleForPass( passSlot );
     }
+
     return Graphics::PipelineHandle();
 }
 
@@ -98,11 +109,16 @@ void MaterialLibrary<PassCount>::updatePipelines( Graphics::IPipelineRegistry& p
 
         _pendingArchetypeStates.pop();
 
-        // Already exists? Return key
-        if ( auto it = _pipelineCache.find( hashKey ); it != _pipelineCache.end() )
-        {
+        auto lookupIt = _pipelineLookup.find( hashKey );
+        if ( lookupIt == _pipelineLookup.end() )
             continue;
-        }
+
+        u32 bundleID = lookupIt->second;
+
+        // Is compiled ??
+        if ( _pipelineCache[bundleID].handles[0].isValid() )
+            continue;
+
         // If it doesn't exist, create it.
         else
         {
@@ -224,7 +240,7 @@ void MaterialLibrary<PassCount>::updatePipelines( Graphics::IPipelineRegistry& p
                 }
             }
 
-            _pipelineCache.emplace( hashKey, std::move( newBundle ) );
+            _pipelineCache[bundleID] = std::move( newBundle );
         }
     }
 }
