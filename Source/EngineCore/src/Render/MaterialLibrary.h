@@ -79,17 +79,28 @@ struct PipelineBundle {
 class IMaterialLibrary
 {
 public:
+    /**
+     * @brief Initialization descriptor for the MaterialLibrary.
+     */
+    struct Description {
+        Graphics::API                    gfxApi;       ///< The graphics API currently in use (e.g., DirectX 12, Vulkan).
+        SmallVector<MaterialPassProfile> passProfiles; ///< Configuration profiles for all render passes.
+    };
     virtual ~IMaterialLibrary() = default;
 
     virtual u32 updateArchetypeState( u32 archetypeID, const Graphics::RenderState& state ) = 0;
+
+    virtual const MaterialPassProfile& getPassProfile( u32 passSlot ) const                 = 0;
+    virtual Graphics::PipelineHandle   getPipelineHandle( u32 bundleID, u32 passSlot ) const = 0;
 
     virtual u32  getArchetypeID( StringView name ) const = 0;
     virtual u64  getArchetypesCount() const              = 0;
     virtual u64  getPipelineBundleCount() const          = 0;
     virtual bool isInitialized() const                   = 0;
 
-    virtual Graphics::PipelineHandle getPipelineHandle( u32 bundleID, u32 passSlot ) const = 0;
 };
+
+using MaterialLibraryDesc = IMaterialLibrary::Description;
 
 /**
  * @brief Core system responsible for managing material archetypes, pass profiles, and their associated pipeline states.
@@ -100,20 +111,13 @@ public:
 template <u32 PassCount>
 class MaterialLibrary : public IMaterialLibrary
 {
-    /**
-     * @brief Initialization descriptor for the MaterialLibrary.
-     */
-    struct Description {
-        Graphics::API                    gfxApi;       ///< The graphics API currently in use (e.g., DirectX 12, Vulkan).
-        SmallVector<MaterialPassProfile> passProfiles; ///< Configuration profiles for all render passes.
-    };
 
 public:
     /**
      * @brief Initializes the material library with the provided description.
      * @param desc The configuration descriptor containing API info and pass profiles.
      */
-    void initialize( const Description& desc );
+    void initialize( const MaterialLibraryDesc& desc );
 
     /**
      * @brief Registers a new material archetype into the library.
@@ -144,6 +148,9 @@ public:
      * * @param pipelines The global pipeline registry used to create new PSOs.
      */
     void updatePipelines( Graphics::IPipelineRegistry& pipelines );
+
+    
+    const MaterialPassProfile& getPassProfile( u32 passSlot ) const override;
 
     /**
      * @brief Retrieves the array of configured pass profiles.
@@ -219,7 +226,7 @@ private:
     STLW::Queue<ArchetypeStateEntry> _pendingArchetypeStates; ///< Queue of material states waiting for pipeline creation.
     // TODO: Change this map for another faster structure in the future
     STLW::UnorderedMap<u64, u32>            _pipelineLookup; ///< Global cache mapping hashes to fully built pipeline bundles lookup.
-    STLW::Vector<PipelineBundle<PassCount>> _pipelineCache;       ///< Global PSO cache.
+    STLW::Vector<PipelineBundle<PassCount>> _pipelineCache;  ///< Global PSO cache.
 
     Graphics::API _api; ///< Active graphics API backend.
     bool          _initialized = false;

@@ -10,8 +10,7 @@ namespace Core::Render {
 // -----------------------------------------------------------------------------
 
 struct IndirectDrawBatch {
-    u32 archetypeID;
-    u32 topologyID;
+    u32 psoID;
     u32 bufferOffset;
     u32 drawCount;
 };

@@ -8,10 +8,11 @@
 
 // Private
 // -------------------
-#include <Render/Rasterizer/RasterizerConfig.h>
 #include <Render/DrawIndirect.h>
+#include <Render/Rasterizer/RasterizerConfig.h>
 
-//Modules
+
+// Modules
 #include <Render/GPUScene.h>
 #include <Render/MaterialLibrary.h>
 #include <Render/PassManager.h>
@@ -26,7 +27,7 @@
 
 AXION_NAMESPACE_BEGIN
 
-namespace Core::Render {
+namespace Core::Render::Rasterizer {
 
 class Rasterizer final : public IRasterizer
 {
@@ -52,8 +53,6 @@ public:
     const u32 getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
 
     STLW::String toString() const override;
-
-    
 
 private:
     void setupMaterialLibrary();
@@ -92,7 +91,7 @@ private:
     Axion::Graphics::Passes::PresentPass      _presentpass {};
 
     // Material Library & Global Shader Contract
-    MaterialLibrary<(u32)MaterialPassPermutation::Count> _mtlLib;
+    MaterialLibrary<(u32)Config::MaterialPassType::Count> _mtlLib;
     Graphics::PipelineLayoutHandle                       _globalMtlLayoutHandle;
 
     // Graphics & GPU Resources Logic and Handles
@@ -142,6 +141,6 @@ private:
     const u32 _FRAMES_IN_FLIGHT;
 };
 
-} // namespace Core::Render
+} // namespace Core::Render::Rasterizer
 
 AXION_NAMESPACE_END

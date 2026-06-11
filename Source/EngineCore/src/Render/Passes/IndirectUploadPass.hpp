@@ -1,6 +1,6 @@
 #pragma once
-#include "../DrawIndirect.h"
-#include "../PassSystem.h"
+#include <Render/DrawIndirect.h>
+#include <Render/PassManager.h>
 #include "Axion/Graphics/Subsystems/IRenderGraph.h"
 
 AXION_NAMESPACE_BEGIN

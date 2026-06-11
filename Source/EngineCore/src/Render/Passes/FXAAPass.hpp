@@ -1,5 +1,5 @@
 #pragma once
-#include "../PassSystem.h"
+#include <Render/PassManager.h>
 #include "Axion/Graphics/Subsystems/IRenderGraph.h"
 
 AXION_NAMESPACE_BEGIN

@@ -299,26 +299,26 @@ enum class PrimitiveTopology : byte
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( PrimitiveTopology )
 
-String32 getTopologyString( PrimitiveTopology type ) {
-    switch ( type )
-    {
-        case PrimitiveTopology::TriangleList:
-            return "TriList";
-        case PrimitiveTopology::TriangleStrip:
-            return "TriStrip";
-        case PrimitiveTopology::TriangleFan:
-            return "TriFan";
-        case PrimitiveTopology::LineList:
-            return "LineList";
-        case PrimitiveTopology::LineStrip:
-            return "LineStrip";
-        case PrimitiveTopology::PointList:
-            return "PntList";
+// String32 getTopologyString( PrimitiveTopology type ) {
+//     switch ( type )
+//     {
+//         case PrimitiveTopology::TriangleList:
+//             return "TriList";
+//         case PrimitiveTopology::TriangleStrip:
+//             return "TriStrip";
+//         case PrimitiveTopology::TriangleFan:
+//             return "TriFan";
+//         case PrimitiveTopology::LineList:
+//             return "LineList";
+//         case PrimitiveTopology::LineStrip:
+//             return "LineStrip";
+//         case PrimitiveTopology::PointList:
+//             return "PntList";
 
-        default:
-            return "Unknown";
-    }
-}
+//         default:
+//             return "Unknown";
+//     }
+// }
 
 enum class FillMode : byte
 {

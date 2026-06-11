@@ -1,6 +1,6 @@
 #pragma once
-#include "../GPUScene.h"
-#include "../PassSystem.h"
+#include <Render/GPUScene.h>
+#include <Render/PassManager.h>
 #include "Axion/Graphics/Subsystems/IRenderGraph.h"
 
 AXION_NAMESPACE_BEGIN

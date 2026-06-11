@@ -55,27 +55,48 @@ Graphics::PipelineLayoutHandle Rasterizer::Config::buildGlobalLayout( Graphics::
         .enableIndirectRendering()
         .create();
 }
-void matLibConfig( Graphics::PipelineLayoutHandle globalLayoutHandle, RasterizerSettings& settings, MaterialLibrary<+MaterialPassType::Count>& matLib ) {
+void matLibConfig( Graphics::PipelineLayoutHandle globalLayoutHandle, RasterizerSettings& settings, MaterialLibraryDesc& matLibDesc ) {
+
+    // Set API
+    matLibDesc.gfxApi = settings.common.gfxApi;
 
     // Visibility pass
-    matLib.setPassProfile( +MaterialPassType::Visibility, MaterialPassProfile {
-                               .name                = "Visibility",
-                               .layoutHandle        = globalLayoutHandle,
-                               .bindPointType       = Graphics::RHI::PipelineBindPoint::Graphic,
-                                 pass.entryPoints = {
-        { "vsForward", Axion::Graphics::ShaderType::Vertex },
-        { "psForward", Axion::Graphics::ShaderType::Pixel } };
-    pass.customIncludePath = AXION_SHADER_DIR "/Slang/BxDFs";
-                               .renderTargetFormats = { Graphics::Format::RG32_UINT, Graphics::Format::RG16_FLOAT },
-                               .depthTargetFormat   = settings.depthFormat, } );
+    matLibDesc.passProfiles.pushBack( MaterialPassProfile {
+        .name          = "Visibility",
+        .layoutHandle  = globalLayoutHandle,
+        .bindPointType = Graphics::RHI::PipelineBindPoint::Graphic,
+        // Pass shader
+        .shaderPath          = AXION_SHADER_DIR "/Slang/VisibilityPass.slang",
+        .shaderIncludePath   = AXION_SHADER_DIR "/Slang/BxDFs",
+        .entryPoints         = { { "vsVis", Axion::Graphics::ShaderType::Vertex },
+                                 { "psVis", Axion::Graphics::ShaderType::Pixel } },
+        .needsSpecialization = true,
+        // Pass fmts
+        .renderTargetFormats = { Graphics::Format::RG32_UINT,
+                                 Graphics::Format::RG16_FLOAT },
+        .depthTargetFormat   = settings.depthFormat,
+        // Pass state
+        .defaultState = {},
+        .overrideMask = StateOverrideFlags::Topology | StateOverrideFlags::CullMode } );
 
     // Resolve pass
-    matLib.setPassProfile( +MaterialPassType::VisibilityResolve,
-                           MaterialPassProfile {
-                               .name          = "VisibilityResolve",
-                               .layoutHandle  = globalLayoutHandle,
-                               .bindPointType = Graphics::RHI::PipelineBindPoint::Compute,
-                           } );
+    matLibDesc.passProfiles.pushBack( MaterialPassProfile {
+        .name          = "VisibilityResolve",
+        .layoutHandle  = globalLayoutHandle,
+        .bindPointType = Graphics::RHI::PipelineBindPoint::Compute,
+        // Pass shader
+        .shaderPath          = AXION_SHADER_DIR "/Slang/VisResolveNaivePass.slang",
+        .shaderIncludePath   = AXION_SHADER_DIR "/Slang/BxDFs",
+        .entryPoints         = { { "csResolve", Axion::Graphics::ShaderType::Compute } },
+        .needsSpecialization = true,
+        // Pass fmts
+        .renderTargetFormats = { Graphics::Format::RGBA16_FLOAT },
+        .depthTargetFormat   = settings.depthFormat,
+        // Pass state
+        .defaultState = {},
+        .overrideMask = StateOverrideFlags::All } );
+
+   
 }
 
 // void createDefaultResources( Renderer* rnd, GPUResources& outRes ) {

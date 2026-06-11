@@ -4,11 +4,12 @@
 AXION_NAMESPACE_BEGIN
 
 namespace Core::Render {
-
-// Factory
-RendererOwnerPtr createRasterizer( Platform::Window* wnd, const RasterizerSettings& settings ) {
-    return Memory::makeOwned<Rasterizer>( wnd, settings );
+    // Factory
+    RendererOwnerPtr createRasterizer( Platform::Window* wnd, const RasterizerSettings& settings ) {
+        return Memory::makeOwned<Rasterizer::Rasterizer>( wnd, settings );
+    }
 }
+namespace Core::Render::Rasterizer {
 
 
 Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& settings )
@@ -51,8 +52,8 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
         .RGmaxSBTAlloc            = settings.memory.shared.maxExecutableAlloc,
         .RGmaxTransientAlloc      = settings.memory.shared.maxUploadAllocPerFrame,
         .RGmaxDescriptorsPerFrame = 2048,
-        .RGmaxViewsPerFrame       = settings.memory.device.maxMtlTextures + RASTERIZER_VOLATILE_VIEWS_PER_FRAME,
-        .RGmaxSamplersPerFrame    = settings.memory.device.maxMtlSamplers + RASTERIZER_VOLATILE_SAMPLERS_PER_FRAME,
+        .RGmaxViewsPerFrame       = settings.memory.device.maxMtlTextures + Config::RASTERIZER_VOLATILE_VIEWS_PER_FRAME,
+        .RGmaxSamplersPerFrame    = settings.memory.device.maxMtlSamplers + Config::RASTERIZER_VOLATILE_SAMPLERS_PER_FRAME,
         .GCMode                   = settings.common.GCMode,
         .autoSync                 = true,
         .selectedDeviceID         = settings.common.selectedDeviceID,
@@ -391,12 +392,9 @@ void Rasterizer::setupMaterialLibrary() {
 void Rasterizer::registerMaterials() {
 
     Assets::GlobalMaterialRegistry::enumerate(
-        [&]( StringView name, Assets::GlobalMaterialRegistry::SetupCallback setupFunc ) {
+        [&]( StringView name,  MaterialArchetypeInfo info ) {
             AXION_UNUSED_PARAMETER( name );
-            MaterialArchetypeDesc desc;
-            setupFunc( desc );
-
-            _mtlLib.registerArchetype( desc );
+            _mtlLib.registerArchetype( info.name, info.shaderModule, info.shaderSpcecializationType );
         } );
 
     // _mtlLib.beginMaterial( "ErrorMaterial" )

@@ -1,9 +1,9 @@
 #pragma once
-#include "../DrawIndirect.h"
-#include "../GPUScene.h"
-#include "../MaterialSystem.h"
-#include "../PassSystem.h"
 #include "Axion/Graphics/Subsystems/IRenderGraph.h"
+#include <Render/DrawIndirect.h>
+#include <Render/GPUScene.h>
+#include <Render/MaterialLibrary.h>
+#include <Render/PassManager.h>
 
 AXION_NAMESPACE_BEGIN
 
@@ -32,16 +32,16 @@ public:
         Graphics::BufferSlice inEnvsSlice;
         Graphics::BufferSlice inRedirectionSlice;
 
-        IndirectCommandPayload        indirectData;
+        IndirectCommandPayload     indirectData;
         Graphics::RGResourceHandle inIndirectBufferHandle;
         Graphics::RGResourceHandle inCulledRedirectBufferHandle;
         bool                       useGPUCulling = false;
 
         Graphics::RHI::IDescriptorSet* persistentDescriptorSet = nullptr;
 
-        GPUScene*                      gpuScene;
-        MaterialLibrary*               matLib;
-        Graphics::PipelineLayoutHandle matLayoutHandle;
+        GPUScene*         gpuScene;
+        u32               materialPassSlot;
+        IMaterialLibrary* matLib;
 
         Graphics::RGResourceHandle outColorHandle;
         Graphics::RGResourceHandle outDepthHandle;
@@ -79,12 +79,15 @@ private:
         auto* cmd   = ctx.cmd;
         auto& scene = *data.gpuScene;
 
+        // RenderMaterial
+        const MaterialPassProfile& matPassProfile = data.matLib->getPassProfile( data.materialPassSlot );
+
         // RenderTargets
         auto* rtv = ctx.getTexture( data.outColorHandle );
         auto* dsv = ctx.getTexture( data.outDepthHandle );
 
         // Global Layout
-        auto* matLayout = ctx.pipelines.getLayout( data.matLayoutHandle );
+        auto* matLayout = ctx.pipelines.getLayout( matPassProfile.layoutHandle );
 
         // Begin Rendering
         Graphics::RHI::RenderingDesc info;
@@ -130,7 +133,6 @@ private:
         // -----------------------------------------------------
         // 3. DRAW LOOP
         // -----------------------------------------------------
-        const auto& matArchetypes = data.matLib->getArchetypesRaw();
 
 #if DRAW_INDIRECT
         auto* ib = ctx.getBuffer( data.inGlobalBufferHandles.index );
@@ -142,10 +144,7 @@ private:
             if ( batch.drawCount == 0 )
                 continue;
 
-            // auto topologyType = (MaterialTopologyType)toGFXTopology( ()batch.topologyID );
-
-            Graphics::PipelineHandle psoHandle = matArchetypes[batch.archetypeID].getPipeline(
-                MaterialPassType::Opaque, TopologyType::Triangles );
+            Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( batch.psoID, data.materialPassSlot );
 
             if ( psoHandle.isValid() )
             {

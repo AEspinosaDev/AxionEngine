@@ -4,7 +4,7 @@ AXION_NAMESPACE_BEGIN
 namespace Core::Render {
 
 template <u32 PassCount>
-inline void MaterialLibrary<PassCount>::initialize( const Description& desc ) {
+inline void MaterialLibrary<PassCount>::initialize( const MaterialLibraryDesc& desc ) {
     _api = desc.gfxApi;
 
     // Store pass profiles config
@@ -46,6 +46,15 @@ inline u32 MaterialLibrary<PassCount>::updateArchetypeState( u32 archetypeID, co
     _pendingArchetypeStates.push( entry );
 
     return newBundleID;
+}
+template <u32 PassCount>
+const MaterialPassProfile& MaterialLibrary<PassCount>::getPassProfile( u32 passSlot ) const {
+    if( passSlot >= PassCount )
+    {
+        AXION_LOG_ERROR( Logger::Module::Core, "Invalid pass slot {} requested. Max supported is {}. Returning first pass profile as fallback.", passSlot, PassCount - 1 );
+        return _passProfiles[0];
+    }
+    return _passProfiles[passSlot];
 }
 
 template <u32 PassCount>

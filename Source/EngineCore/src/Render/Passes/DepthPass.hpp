@@ -1,7 +1,7 @@
 #pragma once
-#include "../DrawIndirect.h"
-#include "../MaterialSystem.h"
-#include "../PassSystem.h"
+#include <Render/DrawIndirect.h>
+#include <Render/MaterialLibrary.h>
+#include <Render/PassManager.h>
 #include "Axion/Graphics/Subsystems/IRenderGraph.h"
 
 AXION_NAMESPACE_BEGIN
@@ -34,8 +34,8 @@ public:
 
         Graphics::RHI::IDescriptorSet* persistentDescriptorSet = nullptr;
 
-        MaterialLibrary*               matLib;
-        Graphics::PipelineLayoutHandle matLayoutHandle;
+        u32 materialPassSlot;
+        IMaterialLibrary*               matLib;
 
         Graphics::RGResourceHandle outDepthHandle;
     };
@@ -63,11 +63,14 @@ private:
     void execute( const Config& data, Graphics::RenderPassContext& ctx ) {
         auto* cmd = ctx.cmd;
 
+        //RenderMaterial
+        const MaterialPassProfile& matPassProfile = data.matLib->getPassProfile( data.materialPassSlot );
+
         // RenderTargets
         auto* dsv = ctx.getTexture( data.outDepthHandle );
 
         // Global Layout
-        auto* matLayout = ctx.pipelines.getLayout( data.matLayoutHandle );
+        auto* matLayout = ctx.pipelines.getLayout( matPassProfile.layoutHandle );
 
         // Begin Rendering
         Graphics::RHI::RenderingDesc info;
@@ -111,7 +114,6 @@ private:
         // -----------------------------------------------------
         // 3. DRAW LOOP
         // -----------------------------------------------------
-        const auto& matArchetypes = data.matLib->getArchetypesRaw();
 
         auto* ib = ctx.getBuffer( data.inGlobalBufferHandles.index );
         cmd->bindIndexBuffer( ib );
@@ -123,11 +125,8 @@ private:
             if ( batch.drawCount == 0 )
                 continue;
 
-            // auto topologyType = (MaterialTopologyType)toGFXTopology( ()batch.topologyID );
-
-            Graphics::PipelineHandle psoHandle = matArchetypes[batch.archetypeID].getPipeline(
-                MaterialPassType::Depth, TopologyType::Triangles );
-
+            Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( batch.psoID, data.materialPassSlot );
+            
             if ( currentPsoHandle != psoHandle )
             {
                 auto* pso = ctx.pipelines.getGraphicPipeline( psoHandle );
