@@ -11,7 +11,6 @@
 #include <Render/DrawIndirect.h>
 #include <Render/Rasterizer/RasterizerConfig.h>
 
-
 // Modules
 #include <Render/GPUScene.h>
 #include <Render/MaterialLibrary.h>
@@ -24,6 +23,7 @@
 #include <Render/Passes/TonemappingPass.hpp>
 #include <Render/Passes/UploadPass.hpp>
 #include <Render/Passes/VisPass.hpp>
+#include <Render/Passes/VisResolveNaivePass.hpp>
 
 AXION_NAMESPACE_BEGIN
 
@@ -55,7 +55,6 @@ public:
     STLW::String toString() const override;
 
 private:
-    void setupMaterialLibrary();
     void registerMaterials();
     void registerPasses();
     void createResources();
@@ -92,7 +91,7 @@ private:
 
     // Material Library & Global Shader Contract
     MaterialLibrary<(u32)Config::MaterialPassType::Count> _mtlLib;
-    Graphics::PipelineLayoutHandle                       _globalMtlLayoutHandle;
+    Graphics::PipelineLayoutHandle                        _globalMtlLayoutHandle;
 
     // Graphics & GPU Resources Logic and Handles
     GPUScene _gpuScene;
@@ -125,9 +124,13 @@ private:
         Graphics::BufferHandle               mtlBufferHandle;
         Graphics::BufferGPUFreeListAllocator mtlAllocator;
 
-        Vector<Graphics::TextureHandle> textureHandles;
-        Graphics::TextureHandle         fallbackTexture2DHandle;
+        Vector<Graphics::TextureHandle> texture2DHandles;
+        Vector<Graphics::TextureHandle> texture3DHandles;
+        Vector<Graphics::TextureHandle> textureCubeHandles;
         Vector<Graphics::SamplerHandle> samplerHandles;
+        Graphics::TextureHandle         fallbackTexture2DHandle;
+        Graphics::TextureHandle         fallbackTexture3DHandle;
+        Graphics::TextureHandle         fallbackTextureCubeHandle;
         Graphics::SamplerHandle         fallbackSamplerHandle;
 
         SmallVector<FrameResources, 3> frame;

@@ -1,7 +1,8 @@
 #pragma once
+#include "Axion/Graphics/Subsystems/IRenderGraph.h"
 #include <Render/GPUScene.h>
 #include <Render/PassManager.h>
-#include "Axion/Graphics/Subsystems/IRenderGraph.h"
+
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
@@ -23,9 +24,11 @@ public:
 
         SmallVector<Graphics::RHI::IDescriptorSet*, 2> allPersistentSets;
 
-        Vector<Graphics::TextureHandle>* mtlTextureHandles = nullptr;
-        GPUScene*                        gpuScene          = nullptr;
-        u64                              maxAllocationSize = 0;
+        Vector<Graphics::TextureHandle>* mtlTexture2DHandles   = nullptr;
+        Vector<Graphics::TextureHandle>* mtlTexture3DHandles   = nullptr;
+        Vector<Graphics::TextureHandle>* mtlTextureCubeHandles = nullptr;
+        GPUScene*                        gpuScene              = nullptr;
+        u64                              maxAllocationSize     = 0;
     };
 
     void registerShaders( Graphics::IShaderRegistry& /*shaders*/ ) override { /*NO OP*/ }
@@ -245,12 +248,12 @@ private:
                 if ( pixelData != nullptr )
                 {
                     // Create texture
-                    ( *data.mtlTextureHandles )[uploadEntry.slot] = ctx.resources.texture( uploadEntry.name )
+                    ( *data.mtlTexture2DHandles )[uploadEntry.slot] = ctx.resources.texture( uploadEntry.name )
                                                                         .extent( uploadEntry.extent )
                                                                         .format( uploadEntry.format )
                                                                         .create();
 
-                    auto* tex = ctx.resources.getTexture( ( *data.mtlTextureHandles )[uploadEntry.slot] );
+                    auto* tex = ctx.resources.getTexture( ( *data.mtlTexture2DHandles )[uploadEntry.slot] );
 
                     // Upload
                     cmd->barrier( tex, Graphics::RHI::ResourceState::CopyDest );
@@ -274,11 +277,11 @@ private:
         {
             auto deletionEntry = std::move( deletionQueue.front() );
             deletionQueue.pop();
-            
-            //Textures are always save to destroy here as its lifetime is bound bt TTL, and is always bigger than the frame in flight number
-            ctx.resources.destroyTexture( ( *data.mtlTextureHandles )[deletionEntry] );
-            
-            ( *data.mtlTextureHandles )[deletionEntry] = Graphics::TextureHandle();
+
+            // Textures are always save to destroy here as its lifetime is bound bt TTL, and is always bigger than the frame in flight number
+            ctx.resources.destroyTexture( ( *data.mtlTexture2DHandles )[deletionEntry] );
+
+            ( *data.mtlTexture2DHandles )[deletionEntry] = Graphics::TextureHandle();
 
             // // Update bindless slots
             // for ( auto* pSet : data.allPersistentSets )

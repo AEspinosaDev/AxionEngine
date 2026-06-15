@@ -4,13 +4,12 @@
 AXION_NAMESPACE_BEGIN
 
 namespace Core::Render {
-    // Factory
-    RendererOwnerPtr createRasterizer( Platform::Window* wnd, const RasterizerSettings& settings ) {
-        return Memory::makeOwned<Rasterizer::Rasterizer>( wnd, settings );
-    }
+// Factory
+RendererOwnerPtr createRasterizer( Platform::Window* wnd, const RasterizerSettings& settings ) {
+    return Memory::makeOwned<Rasterizer::Rasterizer>( wnd, settings );
 }
+} // namespace Core::Render
 namespace Core::Render::Rasterizer {
-
 
 Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& settings )
     : _window( wnd )
@@ -52,8 +51,8 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
         .RGmaxSBTAlloc            = settings.memory.shared.maxExecutableAlloc,
         .RGmaxTransientAlloc      = settings.memory.shared.maxUploadAllocPerFrame,
         .RGmaxDescriptorsPerFrame = 2048,
-        .RGmaxViewsPerFrame       = settings.memory.device.maxMtlTextures + Config::RASTERIZER_VOLATILE_VIEWS_PER_FRAME,
-        .RGmaxSamplersPerFrame    = settings.memory.device.maxMtlSamplers + Config::RASTERIZER_VOLATILE_SAMPLERS_PER_FRAME,
+        .RGmaxViewsPerFrame       = Config::MAX_SHADER_RESOURCE_VIEWS,
+        .RGmaxSamplersPerFrame    = Config::MAX_SAMPLER_VIEWS,
         .GCMode                   = settings.common.GCMode,
         .autoSync                 = true,
         .selectedDeviceID         = settings.common.selectedDeviceID,
@@ -62,7 +61,11 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
     _rnd = Graphics::createRenderer( wnd->getNativeWindow(), rndStts );
 
     // Configure Material Library & Global Layout Contract
-    setupMaterialLibrary();
+    _globalMtlLayoutHandle = Config::buildGlobalLayout( _rnd->pipelines() );
+
+    MaterialLibraryDesc matLibDesc;
+    Config::matLibConfig( _globalMtlLayoutHandle, _settings, matLibDesc );
+    _mtlLib.initialize( matLibDesc );
 
     // Registrations
     registerMaterials();
@@ -110,8 +113,7 @@ void Rasterizer::compileShaders( u32 threadCount ) {
     // Compile
     _rnd->shaders().compileAllShaders( threadCount );
 
-    // Pipeline creation
-    _mtlLib.createPipelines( _rnd->pipelines() );
+    // Pipeline creation for passes
     _passes.createPipelines( _rnd->pipelines() );
 
     auto endTime = std::chrono::high_resolution_clock::now();
@@ -159,6 +161,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         return;
     }
 
+    // Scene Update
     GPUSceneUpdateFlags updateFlags = GPUSceneSortInstances;
     if ( _settings.common.gfxApi == Graphics::API::DirectX12 )
         updateFlags |= GPUSceneTransposeMatrices;
@@ -170,13 +173,20 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                       deltaTime,
                       updateFlags );
 
-    _res.textureHandles.resize( _gpuScene.textures().size() );
+    _res.texture2DHandles.resize( _gpuScene.textures().size() );
+    _res.texture3DHandles.resize( Config::MAX_PERSISTENT_3D_TEXTURES );
+    _res.textureCubeHandles.resize( Config::MAX_PERSISTENT_CUBE_TEXTURES );
 
+    // Material Library Update
+    _mtlLib.updatePipelines( _rnd->pipelines() );
+
+    // Reset allocators
     auto& currentFrameRes = _res.frame[_rnd->getCurrentFrameIndex()];
     currentFrameRes.uboAllocator.reset();
     currentFrameRes.ssboAllocator.reset();
     currentFrameRes.indirectAllocator.reset();
 
+    // Upload CPU Coherent Data to GPU
     auto transientPayload   = uploadTransientData( currentFrameRes.uboAllocator,
                                                  currentFrameRes.ssboAllocator );
     auto indirectCmdPayload = uploadIndirectCommandData( currentFrameRes.ssboAllocator,
@@ -199,7 +209,8 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         upConfig.matAllocator      = &_res.mtlAllocator;
         upConfig.maxAllocationSize = _settings.memory.shared.maxUploadAllocPerFrame;
 
-        upConfig.mtlTextureHandles = &_res.textureHandles;
+        upConfig.mtlTexture2DHandles = &_res.texture2DHandles;
+        //TBD: Do the same for 3D and Cube textures
 
         for ( u32 i = 0; i < _FRAMES_IN_FLIGHT; ++i )
             upConfig.allPersistentSets.pushBack( _res.frame[i].persistentDescriptorSetPtr );
@@ -260,8 +271,8 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
             .vertex = upConfig.outGlobalBufferHandles.vertex,
             .index  = upConfig.outGlobalBufferHandles.index,
         },
-        visConfig.matLib          = &_mtlLib;
-        visConfig.matLayoutHandle = _globalMtlLayoutHandle;
+        visConfig.matLib           = &_mtlLib;
+        visConfig.materialPassSlot = Config::MaterialPassType::Visibility;
 
         visConfig.inFrameSlice       = transientPayload.frameSlice;
         visConfig.inMeshesSlice      = transientPayload.meshesSlice;
@@ -280,7 +291,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         //----------------------------
         // D. Resolve Vis
         //----------------------------
-        ForwardPass::Config fwConfig;
+        Resolve::Config fwConfig;
         fwConfig.outColorHandle = builder.texture( "ColorRTO" )
                                       .asRenderTarget()
                                       .asStorage()
@@ -382,17 +393,10 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 #pragma endregion
 #pragma region Resources
 
-void Rasterizer::setupMaterialLibrary() {
-
-    _mtlLib.init( _settings.common.gfxApi );
-
-    Rasterizer::configureMaterialPasses( _mtlLib, _rnd, settings );
-}
-
 void Rasterizer::registerMaterials() {
 
     Assets::GlobalMaterialRegistry::enumerate(
-        [&]( StringView name,  MaterialArchetypeInfo info ) {
+        [&]( StringView name, Assets::MaterialArchetypeInfo info ) {
             AXION_UNUSED_PARAMETER( name );
             _mtlLib.registerArchetype( info.name, info.shaderModule, info.shaderSpcecializationType );
         } );
@@ -412,7 +416,7 @@ void Rasterizer::registerPasses() {
     _passes.registerPass<VisPass>();
     // TBD
     //  _passes.registerPass<BinningPass>();
-    //  _passes.registerPass<ResolveVisPass>();
+    _passes.registerPass<VisResolvePass>();
     _passes.registerPass<ToneMappingPass>();
     _passes.registerPass<FXAAPass>();
 }
@@ -461,11 +465,25 @@ void Rasterizer::createResources() {
                                        .extent( { 1, 1, 1 } )
                                        .withData( fallbackPixels.data() )
                                        .create();
+    _res.fallbackTexture3DHandle = r.texture( "FallbackTexture3D" )
+                                       .format( Graphics::Format::RGBA8_UNORM )
+                                       .extent( { 1, 1, 1 } )
+                                       .dim( Graphics::TextureDimension::Texture3D )
+                                       .withData( fallbackPixels.data() )
+                                       .create();
+    _res.fallbackTextureCubeHandle = r.texture( "FallbackTextureCube" )
+                                         .format( Graphics::Format::RGBA8_UNORM )
+                                         .extent( { 1, 1, 1 } )
+                                         .asCubeMap()
+                                         .withData( fallbackPixels.data() )
+                                         .create();
 
     _res.fallbackSamplerHandle = r.sampler( "FallbackSampler" ).create();
 
-    STLW::Vector<Graphics::RHI::ITexture*> initialTextures( _settings.memory.device.maxMtlTextures, r.getTexture( _res.fallbackTexture2DHandle ) );
-    STLW::Vector<Graphics::RHI::ISampler*> initialSamplers( _settings.memory.device.maxMtlSamplers, r.getSampler( _res.fallbackSamplerHandle ) );
+    STLW::Vector<Graphics::RHI::ITexture*> initial2DTextures( Config::MAX_PERSISTENT_2D_TEXTURES, r.getTexture( _res.fallbackTexture2DHandle ) );
+    STLW::Vector<Graphics::RHI::ITexture*> initial3DTextures( Config::MAX_PERSISTENT_3D_TEXTURES, r.getTexture( _res.fallbackTexture3DHandle ) );
+    STLW::Vector<Graphics::RHI::ITexture*> initialCubeTextures( Config::MAX_PERSISTENT_CUBE_TEXTURES, r.getTexture( _res.fallbackTextureCubeHandle ) );
+    STLW::Vector<Graphics::RHI::ISampler*> initialSamplers( Config::MAX_PERSISTENT_SAMPLERS, r.getSampler( _res.fallbackSamplerHandle ) );
 
     // ----------------------- C. PER-FRAME BUFFERS (Volatile) -------------------
 
@@ -473,7 +491,7 @@ void Rasterizer::createResources() {
     for ( u32 i = 0; i < _FRAMES_IN_FLIGHT; ++i )
     {
         _res.frame[i].uboBufferHandle = r.buffer( "GlobalUBO_" + std::to_string( i ) )
-                                            .size( GLOBAL_UBO_SIZE )
+                                            .size( Config::MAX_GLOBAL_UBO_BYTES )
                                             .onCPU()
                                             .create();
         auto* uboBuffer = r.getBuffer( _res.frame[i].uboBufferHandle );
@@ -525,7 +543,9 @@ void Rasterizer::createResources() {
         persistentSet->attach( 0, r.getBuffer( _res.vertexBufferHandle ), Graphics::RHI::ResourceState::ShaderResource );
         persistentSet->attach( 1, r.getBuffer( _res.indexBufferHandle ), Graphics::RHI::ResourceState::ShaderResource );
         persistentSet->attach( 2, r.getBuffer( _res.mtlBufferHandle ), Graphics::RHI::ResourceState::ShaderResource );
-        persistentSet->attachBindlessArray( 3, 0, initialTextures, Graphics::RHI::ResourceState::ShaderResource );
+        persistentSet->attachBindlessArray( 3, 0, initial2DTextures, Graphics::RHI::ResourceState::ShaderResource );
+        persistentSet->attachBindlessArray( 4, 0, initial3DTextures, Graphics::RHI::ResourceState::ShaderResource );
+        persistentSet->attachBindlessArray( 5, 0, initialCubeTextures, Graphics::RHI::ResourceState::ShaderResource );
         persistentSet->attachBindlessArray( 0, 0, initialSamplers );
 
         frameDescriptorAllocator->lockPersistent();
@@ -740,8 +760,8 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
     // 2. LOOP
     // =================================================================================
 
-    u32 currentArch = 0, currentTopo = 0, currentMeshID = 0;
-    sortedKeys[0].unpack( currentArch, currentTopo, currentMeshID );
+    u32 currentPso = 0, currentMeshID = 0;
+    sortedKeys[0].unpack( currentPso, currentMeshID );
 
     auto lastMesh = meshes[instances[sortedKeys[0].originalInstanceIdx].meshID];
 
@@ -764,12 +784,11 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
 
     for ( size_t i = 0; i < sortedKeys.size(); ++i )
     {
-        u32 arch, topo, meshID;
-        sortedKeys[i].unpack( arch, topo, meshID );
+        u32 psoID, meshID;
+        sortedKeys[i].unpack( psoID, meshID );
 
         bool breakInstancing = ( meshID != currentMeshID ) ||
-                               ( arch != currentArch ) ||
-                               ( topo != currentTopo );
+                               ( psoID != currentPso );
 
         if ( breakInstancing && instanceAccumulator > 0 )
         {
@@ -797,15 +816,13 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
             lastMesh        = meshes[instances[originalIdx].meshID];
         }
 
-        if ( arch != currentArch || topo != currentTopo )
+        if ( psoID != currentPso )
         {
-            payload.batches.push_back( { .archetypeID  = currentArch,
-                                         .topologyID   = currentTopo,
+            payload.batches.push_back( { .psoID        = currentPso,
                                          .bufferOffset = (u32)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
                                          .drawCount    = cmdsInCurrentArch } );
 
-            currentArch          = arch;
-            currentTopo          = topo;
+            currentPso           = psoID;
             cmdsInCurrentArch    = 0;
             archBatchStartCmdIdx = cmdWriteIdx;
         }
@@ -834,11 +851,10 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
         cmdsInCurrentArch++;
     }
 
-    // Último Render Batch
+    // Last Render Batch
     if ( cmdsInCurrentArch > 0 )
     {
-        payload.batches.push_back( { .archetypeID  = currentArch,
-                                     .topologyID   = currentTopo,
+        payload.batches.push_back( { .psoID        = currentPso,
                                      .bufferOffset = (u32)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
                                      .drawCount    = cmdsInCurrentArch } );
     }
@@ -921,7 +937,7 @@ Graphics::IRenderer::MemoryBudget Rasterizer::convertMemoryBudget() {
 
     // Calculate total mapped memory required across all frames in flight
     u64 perFrameMappedBufferSize =
-        GLOBAL_UBO_SIZE +                               // uboBufferHandle
+        Config::MAX_GLOBAL_UBO_BYTES +                  // uboBufferHandle
         _settings.memory.shared.maxExecutableAlloc +    // indirectStagingBufferHandle
         _settings.memory.shared.maxUploadAllocPerFrame; // general transient upload
 
@@ -938,6 +954,6 @@ Graphics::IRenderer::MemoryBudget Rasterizer::convertMemoryBudget() {
     return lowLevelBudget;
 }
 
-} // namespace Core::Render
+} // namespace Core::Render::Rasterizer
 
 AXION_NAMESPACE_END

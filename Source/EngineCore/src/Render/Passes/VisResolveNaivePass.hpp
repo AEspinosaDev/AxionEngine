@@ -5,7 +5,7 @@
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
 
-class ToneMappingPass : public IRenderPass
+class VisResolvePass : public IRenderPass
 {
 public:
     struct Config {

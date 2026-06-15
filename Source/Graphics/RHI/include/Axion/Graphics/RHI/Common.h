@@ -210,6 +210,12 @@ AXION_ENUM_CLASS_FLAG_OPERATORS( FormatSupport )
 
 enum class DescriptorType : byte
 {
+    // ShaderResourceView, // SRV / VK_DESCRIPTOR_TYPE_STORAGE_BUFFER/UNIFORM_TEXEL
+    // UnorderedAccessView, // UAV / VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+    // ConstantBufferView, // CBV / VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+    // Sampler, // Sampler object
+    // AccelerationStructure, // For raytracing
+
     UniformBuffer = 0,     // Constant buffer / UBO
     StorageBuffer,         // RW buffer / SSBO
     ReadonlyStorageBuffer, // RO buffer / SSBO
