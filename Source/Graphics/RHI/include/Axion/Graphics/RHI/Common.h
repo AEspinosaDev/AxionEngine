@@ -24,11 +24,14 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
 
+constexpr u32 MAX_STACK_DESCRIPTOR_SET_COUNT = 4;
+
 ////////////////////////////////////////////////////////////////////////
 // Device Buffer Sub Allocator
 ////////////////////////////////////////////////////////////////////////
 
 namespace RHI {
+
 class IBuffer;
 }
 
@@ -210,18 +213,17 @@ AXION_ENUM_CLASS_FLAG_OPERATORS( FormatSupport )
 
 enum class DescriptorType : byte
 {
-    // ShaderResourceView, // SRV / VK_DESCRIPTOR_TYPE_STORAGE_BUFFER/UNIFORM_TEXEL
-    // UnorderedAccessView, // UAV / VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
-    // ConstantBufferView, // CBV / VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-    // Sampler, // Sampler object
-    // AccelerationStructure, // For raytracing
+    // CBO
+    UniformBuffer = 0,     // Constant buffer
+                           // SRV
+    SampledImage,          // Texture
+    ReadonlyStorageBuffer, // RO buffer
+                           // UAV
+    StorageBuffer,         // RW buffer
+    StorageImage,          // RW texture
 
-    UniformBuffer = 0,     // Constant buffer / UBO
-    StorageBuffer,         // RW buffer / SSBO
-    ReadonlyStorageBuffer, // RO buffer / SSBO
-    SampledImage,          // Texture SRV
-    StorageImage,          // RW texture / UAV
-    Sampler,               // Sampler object
+    Sampler, // Sampler object
+
     AccelerationStructure, // For raytracing
     CombinedImageSampler   // For Vulkan convenience (DX12 splits)
 };

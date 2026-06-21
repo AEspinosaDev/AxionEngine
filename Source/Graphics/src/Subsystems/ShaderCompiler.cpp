@@ -375,80 +375,80 @@ void ShaderCompiler::reflectParameter(
     slang::TypeReflection*      type = varLayout->getType();
     slang::TypeReflection::Kind kind = type->getKind();
 
-    // --- CASO 1: Es un recurso directo (Buffer, Texture, Sampler) ---
-    // Reutilizamos la lógica de detección de tipo que te di antes
-    // Desentrañamos arrays primero
-    slang::TypeReflection* checkType = type;
-    while ( checkType->getKind() == slang::TypeReflection::Kind::Array )
-    {
-        checkType = checkType->getElementType();
-    }
-    slang::TypeReflection::Kind realKind = checkType->getKind();
+    // // --- CASO 1: Es un recurso directo (Buffer, Texture, Sampler) ---
+    // // Reutilizamos la lógica de detección de tipo que te di antes
+    // // Desentrañamos arrays primero
+    // slang::TypeReflection* checkType = type;
+    // while ( checkType->getKind() == slang::TypeReflection::Kind::Array )
+    // {
+    //     checkType = checkType->getElementType();
+    // }
+    // slang::TypeReflection::Kind realKind = checkType->getKind();
 
-    bool isResource =
-        ( realKind == slang::TypeReflection::Kind::Resource ) ||
-        ( realKind == slang::TypeReflection::Kind::SamplerState ) ||
-        ( realKind == slang::TypeReflection::Kind::ConstantBuffer );
+    // bool isResource =
+    //     ( realKind == slang::TypeReflection::Kind::Resource ) ||
+    //     ( realKind == slang::TypeReflection::Kind::SamplerState ) ||
+    //     ( realKind == slang::TypeReflection::Kind::ConstantBuffer );
 
-    if ( isResource )
-    {
-        u32 bindingIdx = (u32)varLayout->getBindingIndex();
-        u32 spaceIdx   = (u32)varLayout->getBindingSpace();
+    // if ( isResource )
+    // {
+    //     u32 bindingIdx = (u32)varLayout->getBindingIndex();
+    //     u32 spaceIdx   = (u32)varLayout->getBindingSpace();
 
-        // Si Slang dice "sin binding", lo ignoramos (o es un error del shader)
-        if ( bindingIdx == -1 )
-            return;
+    //     // Si Slang dice "sin binding", lo ignoramos (o es un error del shader)
+    //     if ( bindingIdx == -1 )
+    //         return;
 
-        RHI::DescriptorBinding bindingInfo;
-        bindingInfo.binding   = bindingIdx;
-        bindingInfo.type      = slangTypeToRHI( type ); // Tu función de mapeo
-        bindingInfo.stageMask = RHI::ShaderStage::All;  // Asumimos visibilidad total
-        bindingInfo.arraySize = (u32)type->getElementCount();
-        if ( bindingInfo.arraySize == 0 )
-            bindingInfo.arraySize = 1;
+    //     RHI::DescriptorBinding bindingInfo;
+    //     bindingInfo.binding   = bindingIdx;
+    //     bindingInfo.type      = slangTypeToRHI( type ); // Tu función de mapeo
+    //     bindingInfo.stageMask = RHI::ShaderStage::All;  // Asumimos visibilidad total
+    //     bindingInfo.arraySize = (u32)type->getElementCount();
+    //     if ( bindingInfo.arraySize == 0 )
+    //         bindingInfo.arraySize = 1;
 
-        // IMPORTANTE: Evitar duplicados si Slang reporta el mismo recurso en Global y en EntryPoint
-        // Simplemente sobrescribimos (o chequeamos si existe)
-        auto& bindings = tempSets[spaceIdx];
-        bool  exists   = false;
-        for ( auto& b : bindings )
-        {
-            if ( b.binding == bindingInfo.binding )
-            {
-                exists = true;
-                break;
-            }
-        }
-        if ( !exists )
-            bindings.push_back( bindingInfo );
+    //     // IMPORTANTE: Evitar duplicados si Slang reporta el mismo recurso en Global y en EntryPoint
+    //     // Simplemente sobrescribimos (o chequeamos si existe)
+    //     auto& bindings = tempSets[spaceIdx];
+    //     bool  exists   = false;
+    //     for ( auto& b : bindings )
+    //     {
+    //         if ( b.binding == bindingInfo.binding )
+    //         {
+    //             exists = true;
+    //             break;
+    //         }
+    //     }
+    //     if ( !exists )
+    //         bindings.push_back( bindingInfo );
 
-        return; // Ya procesamos este nodo, no necesitamos entrar más
-    }
+    //     return; // Ya procesamos este nodo, no necesitamos entrar más
+    // }
 
-    // --- CASO 2: Es un Struct o Constant Buffer Block ---
-    // Si Slang ha agrupado cosas (o usamos ParameterBlock), entramos recursivamente.
-    if ( kind == slang::TypeReflection::Kind::Struct ||
-         kind == slang::TypeReflection::Kind::ParameterBlock )
-    {
-        // Un ParameterBlock tiene su propio sub-layout de campos
-        unsigned fieldCount = type->getFieldCount();
-        for ( unsigned i = 0; i < fieldCount; i++ )
-        {
-            // OJO: type->getFieldByIndex da TypeLayout, pero varLayout->getTypeLayout()->getFieldByIndex...
-            // La forma correcta de navegar la JERARQUÍA DE VARIABLES es usar getFieldByIndex del type
-            // pero necesitamos el VariableLayout correspondiente (offset/binding relativo).
+    // // --- CASO 2: Es un Struct o Constant Buffer Block ---
+    // // Si Slang ha agrupado cosas (o usamos ParameterBlock), entramos recursivamente.
+    // if ( kind == slang::TypeReflection::Kind::Struct ||
+    //      kind == slang::TypeReflection::Kind::ParameterBlock )
+    // {
+    //     // Un ParameterBlock tiene su propio sub-layout de campos
+    //     unsigned fieldCount = type->getFieldCount();
+    //     for ( unsigned i = 0; i < fieldCount; i++ )
+    //     {
+    //         // OJO: type->getFieldByIndex da TypeLayout, pero varLayout->getTypeLayout()->getFieldByIndex...
+    //         // La forma correcta de navegar la JERARQUÍA DE VARIABLES es usar getFieldByIndex del type
+    //         // pero necesitamos el VariableLayout correspondiente (offset/binding relativo).
 
-            // Slang a veces expone los hijos directamente si es un ParameterBlock
-            // Si es un struct normal usado como uniform, no tiene bindings dentro.
-            // PERO si es un struct usado como ParameterBlock, sí.
+    //         // Slang a veces expone los hijos directamente si es un ParameterBlock
+    //         // Si es un struct normal usado como uniform, no tiene bindings dentro.
+    //         // PERO si es un struct usado como ParameterBlock, sí.
 
-            // Simplificación: En tu caso (Global Resources), suelen ser top-level.
-            // Si ese 'paramCount == 1' es un struct anónimo, esto lo cazaría.
+    //         // Simplificación: En tu caso (Global Resources), suelen ser top-level.
+    //         // Si ese 'paramCount == 1' es un struct anónimo, esto lo cazaría.
 
-            // Nota: Navegar sub-campos de variables en Slang puede ser complejo porque
-            // depende de si es Offset-based (Uniforms) o Register-based.
-        }
-    }
+    //         // Nota: Navegar sub-campos de variables en Slang puede ser complejo porque
+    //         // depende de si es Offset-based (Uniforms) o Register-based.
+    //     }
+    // }
 }
 void ShaderCompiler::extractReflection( StringView name, IComponentType* program, RHI::PipelineLayoutDesc& outDesc ) {
 
@@ -554,9 +554,10 @@ void ShaderCompiler::extractReflection( StringView name, IComponentType* program
         }
 
         RHI::DescriptorBinding bindingInfo;
-        bindingInfo.binding   = (u32)bindingIdx;
-        bindingInfo.type      = slangTypeToRHI( type );
-        bindingInfo.stageMask = RHI::ShaderStage::All;
+        bindingInfo.range.base  = (u32)bindingIdx;
+        bindingInfo.range.count = 1;
+        bindingInfo.type        = slangTypeToRHI( type );
+        bindingInfo.stageMask   = RHI::ShaderStage::All;
 
         bindingInfo.arraySize = (u32)type->getElementCount();
         if ( bindingInfo.arraySize == 0 )

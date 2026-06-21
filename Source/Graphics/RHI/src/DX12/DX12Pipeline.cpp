@@ -77,15 +77,33 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
 
         STLW::Vector<CD3DX12_DESCRIPTOR_RANGE1> viewRanges;
         STLW::Vector<CD3DX12_DESCRIPTOR_RANGE1> samplerRanges;
+        D3D12BindingMappingLUT                  setBindingLUT;
 
         for ( const auto& binding : set.bindings )
         {
-            if ( binding.type == DescriptorType::Sampler )
-                _samplerCountPerSet[setIndex] += binding.arraySize;
-            else
-                _viewCountPerSet[setIndex] += binding.arraySize;
+            u32 numDescriptors = binding.arraySize;
+            if ( numDescriptors != AXION_INVALID_U32 )
+            {
+                numDescriptors = binding.range.count * binding.arraySize;
+            }
 
-            D3D12_DESCRIPTOR_RANGE_TYPE  rangeType = DX12Translator::get( binding.type );
+            if ( numDescriptors != AXION_INVALID_U32 )
+            {
+                if ( binding.type == DescriptorType::Sampler )
+                    _samplerCountPerSet[setIndex] += numDescriptors;
+                else
+                    _viewCountPerSet[setIndex] += numDescriptors;
+            }
+
+            D3D12_DESCRIPTOR_RANGE_TYPE rangeType = DX12Translator::get( binding.type );
+
+            u32                 countForMapping = ( numDescriptors == AXION_INVALID_U32 ) ? 1 : numDescriptors;
+            D3D12BindingMapping mapping         = { binding.range.base,
+                                                    numDescriptors,
+                                            rangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER ? _samplerCountPerSet[setIndex] : _viewCountPerSet[setIndex] };
+
+            setBindingLUT.registerMappings[static_cast<u32>( rangeType )].pushBack( mapping );
+
             CD3DX12_DESCRIPTOR_RANGE1    range;
             D3D12_DESCRIPTOR_RANGE_FLAGS flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
 
@@ -94,8 +112,8 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
 
             range.Init(
                 rangeType,
-                binding.arraySize,
-                binding.binding,
+                numDescriptors,
+                binding.range.base,
                 setIndex, // Register Space
                 flags );
 
@@ -132,6 +150,8 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
 
             allRanges.insert( allRanges.end(), samplerRanges.begin(), samplerRanges.end() );
         }
+
+        _bindingMappingPerSet.pushBack( setBindingLUT );
     }
 
     for ( const auto& info : pendingTables )

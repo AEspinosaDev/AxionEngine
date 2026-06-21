@@ -23,6 +23,18 @@ enum class MaterialPassType : u32
 };
 
 //-----------------------------------------------------------------------------
+// Rasterizer Layout Sets
+//-----------------------------------------------------------------------------
+enum class DescriptorSetFrequency : u32
+{
+    Persistent     = 0,
+    FrameTransient = 1,
+    PassTransient  = 2,
+
+    Count
+};
+
+//-----------------------------------------------------------------------------
 // Rasterizer Caps
 //-----------------------------------------------------------------------------
 constexpr u64 MAX_SHADER_RESOURCE_VIEWS = 16384;

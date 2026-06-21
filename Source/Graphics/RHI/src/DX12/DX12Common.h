@@ -17,6 +17,29 @@ using namespace Microsoft::WRL;
 
 #include <D3D12MemAlloc.h>
 
+AXION_NAMESPACE_BEGIN
+
+namespace Graphics::RHI {
+
+constexpr u32 D3D12_DESCRIPTOR_TYPE_COUNT   = 4; // THIs needs to be in parity with microsoft D3D12 descriptor types (CBV, SRV, UAV, Sampler)
+
+
+// Internal hlsl descriptor mapping for DX12
+struct D3D12BindingMapping {
+    u32 hlslBase;
+    u32 count;
+    u32 globalOffset; // Offset in the global descriptor heap (for DX12)
+};
+
+struct D3D12BindingMappingLUT {
+    // Per register offsets: t, u, s, b
+    FixedArray<SmallVector<D3D12BindingMapping, 4>, D3D12_DESCRIPTOR_TYPE_COUNT> registerMappings;
+};
+
+} // namespace Graphics::RHI
+
+AXION_NAMESPACE_END
+
 /***
  * Utility function to set native debug names on D3D12 objects.
  * Converts UTF-8 string to wide string and calls SetName on the object.

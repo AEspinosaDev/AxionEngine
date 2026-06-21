@@ -181,7 +181,8 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
     _mtlLib.updatePipelines( _rnd->pipelines() );
 
     // Reset allocators
-    auto& currentFrameRes = _res.frame[_rnd->getCurrentFrameIndex()];
+    const u32 FRAME_ID        = _rnd->getCurrentFrameIndex();
+    auto&     currentFrameRes = _res.frame[FRAME_ID];
     currentFrameRes.uboAllocator.reset();
     currentFrameRes.ssboAllocator.reset();
     currentFrameRes.indirectAllocator.reset();
@@ -193,7 +194,36 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                                                          currentFrameRes.indirectAllocator );
 
     _rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
-        auto rtExtent = _window->getSettings().size.to3D();
+        const Extent3D SCENE_RESOLUTION  = _window->getSettings().size.to3D();
+        const Extent3D SCREEN_RESOLUTION = _window->getSettings().size.to3D();
+        // const bool     GPU_CULLING_ENABLED = _settings.common.flags & RendererEnableGPUCulling;
+        const bool GPU_CULLING_ENABLED = false;
+
+        //----------------------------
+        // 0. Allocate Frame Descriptor Set
+        //----------------------------
+        Graphics::RHI::IDescriptorAllocator* frameDescriptorAllocator = _rnd->getFrameDescriptorAllocator( FRAME_ID );
+        Graphics::RHI::IDescriptorSet*       transientSetPtr          = frameDescriptorAllocator->allocate( _rnd->pipelines().getLayout( _globalMtlLayoutHandle ),
+                                                                                             (u32)Config::DescriptorSetFrequency::FrameTransient );
+
+        transientSetPtr->attachBufferSlice( 0, Graphics::RHI::DescriptorType::UniformBuffer, transientPayload.frameSlice );
+        transientSetPtr->attachBufferSlice( 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, transientPayload.meshesSlice );
+        transientSetPtr->attachBufferSlice( 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, transientPayload.mtlSlice );
+        transientSetPtr->attachBufferSlice( 3, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, transientPayload.instancesSlice );
+        transientSetPtr->attachBufferSlice( 4, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, transientPayload.lightsSlice );
+        transientSetPtr->attachBufferSlice( 5, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, transientPayload.envsSlice );
+
+        if ( GPU_CULLING_ENABLED )
+        {
+
+            // Graphics::BufferSlice culledSlice;
+            // culledSlice.container = culledBuf;
+            // culledSlice.offset    = 0;
+            // culledSlice.size      = data.inRedirectionSlice.size;
+            // culledSlice.stride    = data.inRedirectionSlice.stride;
+            // transientSetPtr->attachBufferSlice( 6, culledSlice, Graphics::RHI::ResourceState::ShaderResource );
+        } else
+            transientSetPtr->attachBufferSlice( 6, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, transientPayload.redirectSlice );
 
         //----------------------------
         // A. Upload Global Data
@@ -210,7 +240,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         upConfig.maxAllocationSize = _settings.memory.shared.maxUploadAllocPerFrame;
 
         upConfig.mtlTexture2DHandles = &_res.texture2DHandles;
-        //TBD: Do the same for 3D and Cube textures
+        // TBD: Do the same for 3D and Cube textures
 
         for ( u32 i = 0; i < _FRAMES_IN_FLIGHT; ++i )
             upConfig.allPersistentSets.pushBack( _res.frame[i].persistentDescriptorSetPtr );
@@ -221,8 +251,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         // B. GPU-Culling
         //----------------------------
         CullingPass::Config cullConfig;
-        bool                useGPUCulling = _settings.common.flags & RendererEnableGPUCulling;
-        if ( useGPUCulling )
+        if ( GPU_CULLING_ENABLED )
         {
             IndirectUploadPass::Config indUpConfig;
             indUpConfig.inOutIndirectBufferHandle         = builder.import( "IndirectCommandBuffer", currentFrameRes.indirectBufferHandle );
@@ -254,17 +283,17 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         visConfig.outVisHandle = builder.texture( "VisRTO" )
                                      .asRenderTarget()
                                      .format( Graphics::Format::RG32_UINT )
-                                     .extent( rtExtent )
+                                     .extent( SCENE_RESOLUTION )
                                      .create();
         visConfig.outVelocityHandle = builder.texture( "VelocityRTO" )
                                           .asRenderTarget()
                                           .format( Graphics::Format::RG16_FLOAT )
-                                          .extent( rtExtent )
+                                          .extent( SCENE_RESOLUTION )
                                           .create();
         visConfig.outDepthHandle = builder.texture( "DepthRTO" )
                                        .asDepthStencil()
                                        .format( Graphics::Format::D32 )
-                                       .extent( rtExtent )
+                                       .extent( SCENE_RESOLUTION )
                                        .create();
 
         visConfig.inGlobalBufferHandles = {
@@ -272,58 +301,40 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
             .index  = upConfig.outGlobalBufferHandles.index,
         },
         visConfig.matLib           = &_mtlLib;
-        visConfig.materialPassSlot = Config::MaterialPassType::Visibility;
-
-        visConfig.inFrameSlice       = transientPayload.frameSlice;
-        visConfig.inMeshesSlice      = transientPayload.meshesSlice;
-        visConfig.inInstancesSlice   = transientPayload.instancesSlice;
-        visConfig.inRedirectionSlice = transientPayload.redirectSlice;
+        visConfig.materialPassSlot = (u32)Config::MaterialPassType::Visibility;
 
         visConfig.indirectData                 = indirectCmdPayload;
         visConfig.inIndirectBufferHandle       = cullConfig.outIndirectBufferHandle;
         visConfig.inCulledRedirectBufferHandle = cullConfig.outCulledRedirectBufferHandle;
-        visConfig.useGPUCulling                = useGPUCulling;
+        visConfig.useGPUCulling                = GPU_CULLING_ENABLED;
 
         visConfig.persistentDescriptorSet = currentFrameRes.persistentDescriptorSetPtr;
+        visConfig.transientDescriptorSet  = transientSetPtr;
 
         _passes.getPass<VisPass>()->addToGraph( builder, visConfig );
 
         //----------------------------
         // D. Resolve Vis
         //----------------------------
-        Resolve::Config fwConfig;
-        fwConfig.outColorHandle = builder.texture( "ColorRTO" )
-                                      .asRenderTarget()
-                                      .asStorage()
-                                      .format( Graphics::Format::RGBA16_FLOAT )
-                                      .extent( rtExtent )
-                                      .clearValue( { .color = { 0.2f, 0.2f, 0.2f, 1.0f } } )
-                                      .create();
-        fwConfig.outDepthHandle        = dpConfig.outDepthHandle;
-        fwConfig.inGlobalBufferHandles = {
-            .vertex   = dpConfig.inGlobalBufferHandles.vertex,
-            .index    = dpConfig.inGlobalBufferHandles.index,
-            .material = dpConfig.inGlobalBufferHandles.material },
-        fwConfig.matLib          = &_mtlLib;
-        fwConfig.matLayoutHandle = _globalMtlLayoutHandle;
-        fwConfig.gpuScene        = &_gpuScene;
+        VisResolvePass::Config resConfig;
+        resConfig.outColorHandle = builder.texture( "ColorRTO" )
+                                       .asRenderTarget()
+                                       .asStorage()
+                                       .format( Graphics::Format::RGBA16_FLOAT )
+                                       .extent( SCENE_RESOLUTION )
+                                       .clearValue( { .color = { 0.2f, 0.2f, 0.2f, 1.0f } } )
+                                       .create();
+        resConfig.inVisHandle = visConfig.outVisHandle;
 
-        fwConfig.inFrameSlice       = transientPayload.frameSlice;
-        fwConfig.inMeshesSlice      = transientPayload.meshesSlice;
-        fwConfig.inMaterialsSlice   = transientPayload.mtlSlice;
-        fwConfig.inInstancesSlice   = transientPayload.instancesSlice;
-        fwConfig.inLightsSlice      = transientPayload.lightsSlice;
-        fwConfig.inEnvsSlice        = transientPayload.envsSlice;
-        fwConfig.inRedirectionSlice = transientPayload.redirectSlice;
+        resConfig.ioSetId = (u32)Config::DescriptorSetFrequency::PassTransient;
 
-        fwConfig.indirectData                 = indirectCmdPayload;
-        fwConfig.inIndirectBufferHandle       = cullConfig.outIndirectBufferHandle;
-        fwConfig.inCulledRedirectBufferHandle = cullConfig.outCulledRedirectBufferHandle;
-        fwConfig.useGPUCulling                = useGPUCulling;
+        resConfig.materialPassSlot = (u32)Config::MaterialPassType::VisibilityResolve;
+        resConfig.matLib           = &_mtlLib;
 
-        fwConfig.persistentDescriptorSet = currentFrameRes.persistentDescriptorSetPtr;
+        resConfig.persistentDescriptorSet = currentFrameRes.persistentDescriptorSetPtr;
+        resConfig.transientDescriptorSet  = transientSetPtr;
 
-        _passes.getPass<ForwardPass>()->addToGraph( builder, fwConfig );
+        _passes.getPass<VisResolvePass>()->addToGraph( builder, resConfig );
 
         //----------------------------
         // E. ToneMapping
@@ -332,10 +343,10 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         float                   ev100          = cameraEntity.getComponent<Scene::CameraComponent>().getEV100();
         float                   exposureFactor = 1.0f / ( 1.2f * std::pow( 2.0f, ev100 ) );
         tmConfig.exposure                      = exposureFactor;
-        tmConfig.inputHandle                   = fwConfig.outColorHandle;
+        tmConfig.inputHandle                   = resConfig.outColorHandle;
         tmConfig.outputHandle                  = builder.texture( "ToneMappedRTO" )
                                     .format( _settings.common.backbufferFormat )
-                                    .extent( rtExtent )
+                                    .extent( SCENE_RESOLUTION )
                                     .asStorage()
                                     .create();
 
@@ -353,7 +364,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
             fxaaConfig.inputHandle  = tmConfig.outputHandle;
             fxaaConfig.outputHandle = builder.texture( "FxaaRTO" )
                                           .format( _settings.common.backbufferFormat )
-                                          .extent( rtExtent )
+                                          .extent( SCENE_RESOLUTION )
                                           .asStorage()
                                           .create();
             fxaaConfig.linearSamplerHandle = _res.fallbackSamplerHandle;
@@ -535,17 +546,16 @@ void Rasterizer::createResources() {
                                                        .create();
 
         // ----------------------- E. PER-FRAME DESCRIPTOR SET (Persistent) -------------------
-        auto* frameDescriptorAllocator = _rnd->getFrameDescriptorAllocator( i );
-
-        auto* persistentSet = frameDescriptorAllocator->allocate( _rnd->pipelines().getLayout( _globalMtlLayoutHandle ), 0 );
+        Graphics::RHI::IDescriptorAllocator* frameDescriptorAllocator = _rnd->getFrameDescriptorAllocator( i );
+        Graphics::RHI::IDescriptorSet*       persistentSet            = frameDescriptorAllocator->allocate( _rnd->pipelines().getLayout( _globalMtlLayoutHandle ), (u32)Config::DescriptorSetFrequency::Persistent );
 
         // Attach core persistent buffers
-        persistentSet->attach( 0, r.getBuffer( _res.vertexBufferHandle ), Graphics::RHI::ResourceState::ShaderResource );
-        persistentSet->attach( 1, r.getBuffer( _res.indexBufferHandle ), Graphics::RHI::ResourceState::ShaderResource );
-        persistentSet->attach( 2, r.getBuffer( _res.mtlBufferHandle ), Graphics::RHI::ResourceState::ShaderResource );
-        persistentSet->attachBindlessArray( 3, 0, initial2DTextures, Graphics::RHI::ResourceState::ShaderResource );
-        persistentSet->attachBindlessArray( 4, 0, initial3DTextures, Graphics::RHI::ResourceState::ShaderResource );
-        persistentSet->attachBindlessArray( 5, 0, initialCubeTextures, Graphics::RHI::ResourceState::ShaderResource );
+        persistentSet->attach( 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, r.getBuffer( _res.vertexBufferHandle ) );
+        persistentSet->attach( 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, r.getBuffer( _res.indexBufferHandle ) );
+        persistentSet->attach( 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, r.getBuffer( _res.mtlBufferHandle ) );
+        persistentSet->attachBindlessArray( 3, 0, Graphics::RHI::DescriptorType::SampledImage, initial2DTextures );
+        persistentSet->attachBindlessArray( 4, 0, Graphics::RHI::DescriptorType::SampledImage, initial3DTextures );
+        persistentSet->attachBindlessArray( 5, 0, Graphics::RHI::DescriptorType::SampledImage, initialCubeTextures );
         persistentSet->attachBindlessArray( 0, 0, initialSamplers );
 
         frameDescriptorAllocator->lockPersistent();
@@ -775,7 +785,8 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
 
     u32*                  indirectCmdMapPtr = nullptr;
     Graphics::BufferSlice cmdMapAlloc {};
-    bool                  useGPUCulling = _settings.common.flags & RendererEnableGPUCulling;
+    // bool                  useGPUCulling = _settings.common.flags & RendererEnableGPUCulling;
+    bool useGPUCulling = false;
     if ( useGPUCulling )
     {
         cmdMapAlloc       = currentSSBOAlloc.allocate<u32>( instances.size() );

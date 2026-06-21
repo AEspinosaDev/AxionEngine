@@ -23,6 +23,8 @@ public:
     StringView         getDebugName() const override;
     STLW::String       toString() const override;
 
+    const D3D12BindingMappingLUT& getBindingMappingLUT( u32 setIndex ) const { return _bindingMappingPerSet[setIndex]; }
+
     std::pair<int, int> getRootIndices( u32 setIndex ) const {
         if ( setIndex >= _rootIndexMap.size() )
             return { -1, -1 };
@@ -44,11 +46,14 @@ private:
     ComPtr<ID3D12CommandSignature> _drawIndexedIndirectSignature;
     ComPtr<ID3D12CommandSignature> _dispatchIndirectSignature;
 
-    SmallVector<u32, 4> _viewCountPerSet;
-    SmallVector<u32, 4> _samplerCountPerSet;
-    SmallVector<u32, 4> _accelCountPerSet;
+    SmallVector<u32, MAX_STACK_DESCRIPTOR_SET_COUNT> _viewCountPerSet;
+    SmallVector<u32, MAX_STACK_DESCRIPTOR_SET_COUNT> _samplerCountPerSet;
+    SmallVector<u32, MAX_STACK_DESCRIPTOR_SET_COUNT> _accelCountPerSet;
 
-    SmallVector<std::pair<int, int>, 4> _rootIndexMap;
+    SmallVector<std::pair<int, int>, MAX_STACK_DESCRIPTOR_SET_COUNT> _rootIndexMap;
+
+    // Binging LUT for easy interop with descriptors
+    SmallVector<D3D12BindingMappingLUT, MAX_STACK_DESCRIPTOR_SET_COUNT> _bindingMappingPerSet {};
 };
 
 DEFINE_OWNER_PTR_FOR_TYPE( DX12GraphicPipeline, DX12GraphicPipeline )

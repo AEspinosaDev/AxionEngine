@@ -1,8 +1,8 @@
 #pragma once
+#include <Axion/Graphics/Subsystems/IRenderGraph.h>
 #include <Render/DrawIndirect.h>
 #include <Render/MaterialLibrary.h>
 #include <Render/PassManager.h>
-#include <Axion/Graphics/Subsystems/IRenderGraph.h>
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
@@ -16,15 +16,10 @@ public:
     };
 
     struct Config {
+        IndirectCommandPayload indirectData;
+
         // In Buffers
-        GlobalBufferHandles inGlobalBufferHandles;
-
-        Graphics::BufferSlice inFrameSlice;
-        Graphics::BufferSlice inMeshesSlice;
-        Graphics::BufferSlice inInstancesSlice;
-        Graphics::BufferSlice inRedirectionSlice;
-
-        IndirectCommandPayload     indirectData;
+        GlobalBufferHandles        inGlobalBufferHandles;
         Graphics::RGResourceHandle inIndirectBufferHandle;
         Graphics::RGResourceHandle inCulledRedirectBufferHandle;
         bool                       useGPUCulling = false;
@@ -36,6 +31,7 @@ public:
 
         // Resources
         Graphics::RHI::IDescriptorSet* persistentDescriptorSet = nullptr;
+        Graphics::RHI::IDescriptorSet* transientDescriptorSet  = nullptr;
 
         u32               materialPassSlot;
         IMaterialLibrary* matLib;
@@ -47,8 +43,8 @@ public:
     void addToGraph( Graphics::RenderGraphBuilder& builder, Config& seedData ) {
         builder.addPass<Config>( "Vis Pass", seedData, []( Graphics::RenderPassBuilder& pb, Config& data ) {
                                     //RTOs
-                                    data.outVisHandle        = pb.write( data.outDepthHandle, Graphics::RHI::ResourceState::RenderTarget );
-                                    data.outVelocityHandle  = pb.write( data.outDepthHandle, Graphics::RHI::ResourceState::RenderTarget );
+                                    data.outVisHandle        = pb.write( data.outVisHandle, Graphics::RHI::ResourceState::RenderTarget );
+                                    data.outVelocityHandle  = pb.write( data.outVelocityHandle, Graphics::RHI::ResourceState::RenderTarget );
                                     data.outDepthHandle     = pb.write( data.outDepthHandle, Graphics::RHI::ResourceState::DepthWrite );
                                     //Global
                                     data.inGlobalBufferHandles.vertex   = pb.read( data.inGlobalBufferHandles.vertex, Graphics::RHI::ResourceState::ShaderResource );
@@ -66,7 +62,7 @@ private:
     void execute( const Config& data, Graphics::RenderPassContext& ctx ) {
         auto* cmd = ctx.cmd;
 
-        //RenderMaterial
+        // RenderMaterial
         const MaterialPassProfile& matPassProfile = data.matLib->getPassProfile( data.materialPassSlot );
 
         // RenderTargets
@@ -93,27 +89,7 @@ private:
         auto* set0 = data.persistentDescriptorSet;
         cmd->bindDescriptorSet( 0, set0, matLayout );
 
-        // SPACE 1: Volatile Data (Slices into the giant UBO)
-        auto* set1 = ctx.allocateSet( matLayout, 1 ); // Space 1
-
-        // Frame (b0), Meshes (t0), Materials (t1), Instances (t2, Lights (t3), Redirection (t4)
-        set1->attachBufferSlice( 0, data.inFrameSlice, Graphics::RHI::ResourceState::ConstantBuffer );
-        set1->attachBufferSlice( 1, data.inMeshesSlice, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferSlice( 3, data.inInstancesSlice, Graphics::RHI::ResourceState::ShaderResource );
-
-        if ( data.useGPUCulling )
-        {
-            auto* culledBuf = ctx.getBuffer( data.inCulledRedirectBufferHandle );
-
-            Graphics::BufferSlice culledSlice;
-            culledSlice.container = culledBuf;
-            culledSlice.offset    = 0;
-            culledSlice.size      = data.inRedirectionSlice.size;
-            culledSlice.stride    = data.inRedirectionSlice.stride;
-            set1->attachBufferSlice( 6, culledSlice, Graphics::RHI::ResourceState::ShaderResource );
-        } else
-            set1->attachBufferSlice( 6, data.inRedirectionSlice, Graphics::RHI::ResourceState::ShaderResource );
-
+        auto* set1 = data.transientDescriptorSet;
         cmd->bindDescriptorSet( 1, set1, matLayout );
 
         // -----------------------------------------------------
@@ -124,7 +100,7 @@ private:
         cmd->bindIndexBuffer( ib );
         auto* indirectBuffer = data.useGPUCulling ? ctx.getBuffer( data.inIndirectBufferHandle ) : data.indirectData.commandBufferSlice.container;
 
-        //Cache PSO
+        // Cache PSO
         Graphics::PipelineHandle currentPsoHandle;
         for ( const auto& batch : data.indirectData.batches )
         {

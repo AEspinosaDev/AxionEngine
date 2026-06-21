@@ -9,45 +9,27 @@ namespace Rasterizer::Config {
 
 Graphics::PipelineLayoutHandle Rasterizer::Config::buildGlobalLayout( Graphics::IPipelineRegistry& pip ) {
     return pip.layout( "Rasterizer_Global_Layout" )
-        // Space 0: Persistent Bindless (Geometry, Materials, Textures)
+        // Space 0: Persistent + Bindless (Geometry, Materials, Textures)
         .addSet( {
-            { 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                   // t0: gGlobalVertices
-            { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                   // t1: gGlobalIndices
-            { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                   // t2: gGlobalMaterials
-            { 3, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, MAX_PERSISTENT_2D_TEXTURES },   // t3: gTextures2D
-            { 4, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, MAX_PERSISTENT_3D_TEXTURES },   // t4: gTextures3D
-            { 5, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, MAX_PERSISTENT_CUBE_TEXTURES }, // t5: gTexturesCube
-            { 0, Graphics::RHI::DescriptorType::Sampler, Graphics::RHI::ShaderStage::All, MAX_PERSISTENT_SAMPLERS }            // s0: gSamplers
+            { { .base = 0, .count = 3 }, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 },                   // t0: gGlobalVertices, t1: gGlobalIndices,  t2: gGlobalMaterials
+            { { .base = 3, .count = 1 }, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, MAX_PERSISTENT_2D_TEXTURES },   // t3: gTextures2D
+            { { .base = 4, .count = 1 }, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, MAX_PERSISTENT_3D_TEXTURES },   // t4: gTextures3D
+            { { .base = 5, .count = 1 }, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, MAX_PERSISTENT_CUBE_TEXTURES }, // t5: gTexturesCube
+            { { .base = 0, .count = 1 }, Graphics::RHI::DescriptorType::Sampler, Graphics::RHI::ShaderStage::All, MAX_PERSISTENT_SAMPLERS }            // s0: gSamplers
         } )
         // Space 1: Frame Transient Bindless (Scene Data Per-Frame)
         .addSet( {
-            { 0, Graphics::RHI::DescriptorType::UniformBuffer, Graphics::RHI::ShaderStage::All, 1 },         // b0: gFrame
-            { 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // t0: gMeshes
-            { 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // t1: gMaterials
-            { 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // t2: gInstances
-            { 3, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // t3: gLights
-            { 4, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // t4: gEnvs
-            { 5, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }  // t5: gInstanceRedirection
+            { { .base = 0, .count = 1 }, Graphics::RHI::DescriptorType::UniformBuffer, Graphics::RHI::ShaderStage::All, 1 },         // b0: gFrame
+            { { .base = 0, .count = 6 }, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // t0: gMeshes t1: gMaterials t2: gInstances t3: gLights t4: gEnvs t5: gInstanceRedirection
         } )
         // Space 2: Transient I/O (Per-Pass)
         .addSet( {
-            // Input (Read-Only)
-            { 0, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, MAX_TRANSIENT_IO_RESOURCES },          // t0: gPassRead2D_F4
-            { 1, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, MAX_TRANSIENT_IO_RESOURCES },          // t1: gPassRead2D_F1
-            { 2, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, MAX_TRANSIENT_IO_RESOURCES },          // t2: gPassRead2D_U2
-            { 3, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, MAX_TRANSIENT_IO_RESOURCES },          // t3: gPassRead2D_U1
-            { 4, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, MAX_TRANSIENT_IO_RESOURCES },          // t4: gPassRead3D_F4
-            { 5, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, MAX_TRANSIENT_IO_RESOURCES },          // t5: gPassRead3D_F1
-            { 6, Graphics::RHI::DescriptorType::SampledImage, Graphics::RHI::ShaderStage::All, MAX_TRANSIENT_IO_RESOURCES },          // t6: gPassReadCube_F4
-            { 7, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, MAX_TRANSIENT_IO_RESOURCES }, // t7: gPassReadBuffer
-
+            // Input (Read-Only) 
+            { { .base = 0, .count = 8 }, Graphics::RHI::DescriptorType::SampledImage,          Graphics::RHI::ShaderStage::All, 1 }, // t0 - t7  
+            { { .base = 8, .count = 8 }, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, Graphics::RHI::ShaderStage::All, 1 }, // t8 - t15 
             // Output (Read-Write)
-            { 0, Graphics::RHI::DescriptorType::StorageImage, Graphics::RHI::ShaderStage::All, MAX_TRANSIENT_IO_RESOURCES }, // u0: gPassWrite2D_F4
-            { 1, Graphics::RHI::DescriptorType::StorageImage, Graphics::RHI::ShaderStage::All, MAX_TRANSIENT_IO_RESOURCES }, // u1: gPassWrite2D_F1
-            { 2, Graphics::RHI::DescriptorType::StorageImage, Graphics::RHI::ShaderStage::All, MAX_TRANSIENT_IO_RESOURCES }, // u2: gPassWrite2D_U2
-            { 3, Graphics::RHI::DescriptorType::StorageImage, Graphics::RHI::ShaderStage::All, MAX_TRANSIENT_IO_RESOURCES }, // u3: gPassWrite3D_F4
-            { 4, Graphics::RHI::DescriptorType::StorageImage, Graphics::RHI::ShaderStage::All, MAX_TRANSIENT_IO_RESOURCES }, // u4: gPassWrite3D_F1
-            { 5, Graphics::RHI::DescriptorType::StorageBuffer, Graphics::RHI::ShaderStage::All, MAX_TRANSIENT_IO_RESOURCES } // u5: gPassWriteBuffer
+            { { .base = 0, .count = 8 }, Graphics::RHI::DescriptorType::StorageImage,          Graphics::RHI::ShaderStage::All, 1 }, // u0 - u7  
+            { { .base = 8, .count = 8 }, Graphics::RHI::DescriptorType::StorageBuffer,         Graphics::RHI::ShaderStage::All, 1 }, // u8 - u15 
         } )
         // Space 3: Universal Push Constants
         // Maximum guaranteed size across all hardware is 128 bytes.
@@ -95,8 +77,6 @@ void matLibConfig( Graphics::PipelineLayoutHandle globalLayoutHandle, Rasterizer
         // Pass state
         .defaultState = {},
         .overrideMask = StateOverrideFlags::All } );
-
-   
 }
 
 // void createDefaultResources( Renderer* rnd, GPUResources& outRes ) {

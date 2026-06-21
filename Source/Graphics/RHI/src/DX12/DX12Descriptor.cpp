@@ -1,7 +1,9 @@
 #pragma once
 #include "DX12Descriptor.h"
 #include "DX12Debug.h"
+#include "DX12Pipeline.h"
 #include "DX12Resource.h"
+#include "DX12TranslatorUnit.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -65,49 +67,57 @@ void DX12DescriptorHeap::setDebugName( StringView name ) {
     setNativeName( _heap.Get(), name );
 }
 
-DX12DescriptorSet::DX12DescriptorSet( ID3D12Device* device, DescriptorHandleInfo views, DescriptorHandleInfo samplers )
+DX12DescriptorSet::DX12DescriptorSet( ID3D12Device*                 device,
+                                      const DescriptorHandleInfo&   views,
+                                      const DescriptorHandleInfo&   samplers,
+                                      const D3D12BindingMappingLUT& bindingOffsets )
     : _device( device )
     , _views( views )
-    , _samplers( samplers ) {
+    , _samplers( samplers )
+    , _bindingMappings( bindingOffsets ) {
 }
 
 DX12DescriptorSet::~DX12DescriptorSet() {
 }
 
-void DX12DescriptorSet::attach( u32 binding, ITexture* tex, ResourceState bindingState ) {
+void DX12DescriptorSet::attach( u32 regBinding, DescriptorType descType, ITexture* tex ) {
     AXION_LOG_ASSERT( tex, Logger::Module::RHI, "Binding null texture!" );
-    auto* dxTex = static_cast<DX12Texture*>( tex );
+    AXION_LOG_ASSERT( descType == DescriptorType::SampledImage ||
+                          descType == DescriptorType::StorageImage,
+                      Logger::Module::RHI,
+                      "Invalid descriptor type for texture binding!" );
 
-    D3D12_CPU_DESCRIPTOR_HANDLE dest = _views.startCPU;
-    dest.ptr += binding * _views.handleSize;
+    D3D12_DESCRIPTOR_RANGE_TYPE rangeType = DX12Translator::get( descType );
+    D3D12_CPU_DESCRIPTOR_HANDLE dest      = getDestHandle( regBinding, rangeType, 0 );
 
-    D3D12_CPU_DESCRIPTOR_HANDLE src;
-
-    if ( bindingState == ResourceState::UnorderedAccess )
-        src = dxTex->getUAV();
-    else
-        src = dxTex->getSRV();
+    auto*                       dxTex = static_cast<DX12Texture*>( tex );
+    D3D12_CPU_DESCRIPTOR_HANDLE src   = ( rangeType == D3D12_DESCRIPTOR_RANGE_TYPE_UAV ) ? dxTex->getUAV() : dxTex->getSRV();
 
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::attach( u32 binding, IBuffer* buf, ResourceState bindingState ) {
+void DX12DescriptorSet::attach( u32 regBinding, DescriptorType descType, IBuffer* buf ) {
     AXION_LOG_ASSERT( buf, Logger::Module::RHI, "Binding null buffer!" );
-    auto* dxBuf = static_cast<DX12Buffer*>( buf );
+    AXION_LOG_ASSERT( descType == DescriptorType::UniformBuffer ||
+                          descType == DescriptorType::StorageBuffer ||
+                          descType == DescriptorType::ReadonlyStorageBuffer,
+                      Logger::Module::RHI,
+                      "Invalid descriptor type for buffer binding!" );
 
-    D3D12_CPU_DESCRIPTOR_HANDLE dest = _views.startCPU;
-    dest.ptr += binding * _views.handleSize;
+    D3D12_DESCRIPTOR_RANGE_TYPE rangeType = DX12Translator::get( descType );
+    D3D12_CPU_DESCRIPTOR_HANDLE dest      = getDestHandle( regBinding, rangeType, 0 );
 
     D3D12_CPU_DESCRIPTOR_HANDLE src {};
-    switch ( bindingState )
+    auto*                       dxBuf = static_cast<DX12Buffer*>( buf );
+    switch ( rangeType )
     {
-        case ResourceState::UnorderedAccess:
+        case D3D12_DESCRIPTOR_RANGE_TYPE_UAV:
             src = dxBuf->getUAV();
             break;
-        case ResourceState::ShaderResource:
+        case D3D12_DESCRIPTOR_RANGE_TYPE_SRV:
             src = dxBuf->getSRV();
             break;
-        case ResourceState::ConstantBuffer:
+        case D3D12_DESCRIPTOR_RANGE_TYPE_CBV:
             src = dxBuf->getCBV();
             break;
 
@@ -118,38 +128,35 @@ void DX12DescriptorSet::attach( u32 binding, IBuffer* buf, ResourceState binding
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::attach( u32 binding, ISampler* samp ) {
+void DX12DescriptorSet::attach( u32 regBinding, ISampler* samp ) {
     AXION_LOG_ASSERT( samp, Logger::Module::RHI, "Binding null sampler!" );
     auto* dxSamp = static_cast<DX12Sampler*>( samp );
 
-    D3D12_CPU_DESCRIPTOR_HANDLE dest = _samplers.startCPU;
-    dest.ptr += binding * _samplers.handleSize;
-    D3D12_CPU_DESCRIPTOR_HANDLE src = dxSamp->getSamplerHandle();
+    D3D12_CPU_DESCRIPTOR_HANDLE dest = getDestHandle( regBinding, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 0 );
+    D3D12_CPU_DESCRIPTOR_HANDLE src  = dxSamp->getSamplerHandle();
 
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER );
 }
 
-void DX12DescriptorSet::attach( u32 binding, IAccel* accel ) {
+void DX12DescriptorSet::attach( u32 regBinding, IAccel* accel ) {
     AXION_LOG_ASSERT( accel, Logger::Module::RHI, "Binding null Accel!" );
     auto* dxAccel = static_cast<DX12Accel*>( accel );
 
-    D3D12_CPU_DESCRIPTOR_HANDLE dest = _views.startCPU;
-    dest.ptr += binding * _views.handleSize;
-
+    D3D12_CPU_DESCRIPTOR_HANDLE dest = getDestHandle( regBinding, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0 );
     D3D12_CPU_DESCRIPTOR_HANDLE src;
     src = dxAccel->getSRV();
 
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::attachDynamic( u32 binding, IBuffer* buf, u64 offset, u64 range, u32 stride, ResourceState bindingState ) {
+void DX12DescriptorSet::attachDynamic( u32 regBinding, DescriptorType descType, IBuffer* buf, u64 offset, u64 range, u32 stride ) {
     AXION_LOG_ASSERT( buf, Logger::Module::RHI, "Binding null buffer!" );
 
     auto*           dxBuf  = static_cast<DX12Buffer*>( buf );
     ID3D12Resource* d3dRes = dxBuf->getNativeObject( ObjectTypes::DX12_Resource );
 
-    D3D12_CPU_DESCRIPTOR_HANDLE destHandle = _views.startCPU;
-    destHandle.ptr += binding * _views.handleSize;
+    D3D12_DESCRIPTOR_RANGE_TYPE rangeType  = DX12Translator::get( descType );
+    D3D12_CPU_DESCRIPTOR_HANDLE destHandle = getDestHandle( regBinding, rangeType, 0 );
 
     if ( range == 0 )
         range = buf->getDescription().size - offset;
@@ -161,9 +168,9 @@ void DX12DescriptorSet::attachDynamic( u32 binding, IBuffer* buf, u64 offset, u6
     if ( finalStride == 0 )
         finalStride = 4;
 
-    switch ( bindingState )
+    switch ( rangeType )
     {
-        case ResourceState::ConstantBuffer: {
+        case D3D12_DESCRIPTOR_RANGE_TYPE_CBV: {
             D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
             cbvDesc.BufferLocation                  = gpuAddress;
             cbvDesc.SizeInBytes                     = (UINT)Helpers::alignUp( range, (size_t)256 );
@@ -172,7 +179,7 @@ void DX12DescriptorSet::attachDynamic( u32 binding, IBuffer* buf, u64 offset, u6
             break;
         }
 
-        case ResourceState::ShaderResource: {
+        case D3D12_DESCRIPTOR_RANGE_TYPE_SRV: {
             D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
             srvDesc.ViewDimension                   = D3D12_SRV_DIMENSION_BUFFER;
             srvDesc.Shader4ComponentMapping         = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -203,7 +210,7 @@ void DX12DescriptorSet::attachDynamic( u32 binding, IBuffer* buf, u64 offset, u6
             break;
         }
 
-        case ResourceState::UnorderedAccess: {
+        case D3D12_DESCRIPTOR_RANGE_TYPE_UAV: {
             D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
             uavDesc.ViewDimension                    = D3D12_UAV_DIMENSION_BUFFER;
 
@@ -236,34 +243,32 @@ void DX12DescriptorSet::attachDynamic( u32 binding, IBuffer* buf, u64 offset, u6
     }
 }
 
-void DX12DescriptorSet::attachBufferSlice( u32 binding, const BufferSlice& bufferSlice, ResourceState bindingState ) {
-    attachDynamic( binding, bufferSlice.container, bufferSlice.offset, bufferSlice.size, bufferSlice.stride, bindingState );
+void DX12DescriptorSet::attachBufferSlice( u32 regBinding, DescriptorType descType, const BufferSlice& bufferSlice ) {
+    attachDynamic( regBinding, descType, bufferSlice.container, bufferSlice.offset, bufferSlice.size, bufferSlice.stride );
 }
 
-void DX12DescriptorSet::attachBindless( u32 binding, u32 arrayIndex, ITexture* tex, ResourceState bindingState ) {
+void DX12DescriptorSet::attachBindless( u32 regBinding, u32 arrayIndex, DescriptorType descType, ITexture* tex ) {
     AXION_LOG_ASSERT( tex, Logger::Module::RHI, "Binding null texture!" );
     auto* dxTex = static_cast<DX12Texture*>( tex );
 
-    D3D12_CPU_DESCRIPTOR_HANDLE dest = _views.startCPU;
-    dest.ptr += binding * _views.handleSize;
-    dest.ptr += arrayIndex * _views.handleSize;
+    D3D12_DESCRIPTOR_RANGE_TYPE rangeType  = DX12Translator::get( descType );
+    D3D12_CPU_DESCRIPTOR_HANDLE destHandle = getDestHandle( regBinding, rangeType, arrayIndex );
 
     D3D12_CPU_DESCRIPTOR_HANDLE src;
-    if ( bindingState == ResourceState::UnorderedAccess )
+    if ( rangeType == D3D12_DESCRIPTOR_RANGE_TYPE_UAV )
         src = dxTex->getUAV();
     else
         src = dxTex->getSRV();
 
-    _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+    _device->CopyDescriptorsSimple( 1, destHandle, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::attachBindlessArray( u32 binding, u32 startArrayIndex, const STLW::Vector<ITexture*>& textures, ResourceState bindingState ) {
+void DX12DescriptorSet::attachBindlessArray( u32 regBinding, u32 startArrayIndex, DescriptorType descType, const STLW::Vector<ITexture*>& textures ) {
     if ( textures.empty() )
         return;
 
-    D3D12_CPU_DESCRIPTOR_HANDLE destStart = _views.startCPU;
-    destStart.ptr += binding * _views.handleSize;
-    destStart.ptr += startArrayIndex * _views.handleSize;
+    D3D12_DESCRIPTOR_RANGE_TYPE rangeType  = DX12Translator::get( descType );
+    D3D12_CPU_DESCRIPTOR_HANDLE destHandle = getDestHandle( regBinding, rangeType, startArrayIndex );
 
     STLW::Vector<D3D12_CPU_DESCRIPTOR_HANDLE> srcHandles( textures.size() );
     STLW::Vector<UINT>                        srcSizes( textures.size(), 1 );
@@ -274,50 +279,49 @@ void DX12DescriptorSet::attachBindlessArray( u32 binding, u32 startArrayIndex, c
         AXION_LOG_ASSERT( textures[i], Logger::Module::RHI, "Binding null texture in array!" );
         auto* dxTex = static_cast<DX12Texture*>( textures[i] );
 
-        if ( bindingState == ResourceState::UnorderedAccess )
+        if ( rangeType == D3D12_DESCRIPTOR_RANGE_TYPE_UAV )
             srcHandles[i] = dxTex->getUAV();
         else
             srcHandles[i] = dxTex->getSRV();
     }
 
     _device->CopyDescriptors(
-        1, &destStart, &destSize, (UINT)textures.size(), srcHandles.data(), srcSizes.data(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+        1, &destHandle, &destSize, (UINT)textures.size(), srcHandles.data(), srcSizes.data(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::attachBindless( u32 binding, u32 arrayIndex, IBuffer* buf, ResourceState bindingState ) {
+void DX12DescriptorSet::attachBindless( u32 regBinding, u32 arrayIndex, DescriptorType descType, IBuffer* buf ) {
     AXION_LOG_ASSERT( buf, Logger::Module::RHI, "Binding null buffer!" );
     auto* dxBuf = static_cast<DX12Buffer*>( buf );
 
-    D3D12_CPU_DESCRIPTOR_HANDLE dest = _views.startCPU;
-    dest.ptr += binding * _views.handleSize;
-    dest.ptr += arrayIndex * _views.handleSize;
+    D3D12_DESCRIPTOR_RANGE_TYPE rangeType  = DX12Translator::get( descType );
+    D3D12_CPU_DESCRIPTOR_HANDLE destHandle = getDestHandle( regBinding, rangeType, arrayIndex );
 
     D3D12_CPU_DESCRIPTOR_HANDLE src;
-    switch ( bindingState )
+    switch ( rangeType )
     {
-        case ResourceState::UnorderedAccess:
+        case D3D12_DESCRIPTOR_RANGE_TYPE_UAV:
             src = dxBuf->getUAV();
             break;
-        case ResourceState::ShaderResource:
+        case D3D12_DESCRIPTOR_RANGE_TYPE_SRV:
             src = dxBuf->getSRV();
             break;
-        case ResourceState::ConstantBuffer:
+        case D3D12_DESCRIPTOR_RANGE_TYPE_CBV:
             src = dxBuf->getCBV();
             break;
+
         default:
             break;
     }
 
-    _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+    _device->CopyDescriptorsSimple( 1, destHandle, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::attachBindlessArray( u32 binding, u32 startArrayIndex, const STLW::Vector<IBuffer*>& buffers, ResourceState bindingState ) {
+void DX12DescriptorSet::attachBindlessArray( u32 regBinding, u32 startArrayIndex, DescriptorType descType, const STLW::Vector<IBuffer*>& buffers ) {
     if ( buffers.empty() )
         return;
 
-    D3D12_CPU_DESCRIPTOR_HANDLE destStart = _views.startCPU;
-    destStart.ptr += binding * _views.handleSize;
-    destStart.ptr += startArrayIndex * _views.handleSize;
+    D3D12_DESCRIPTOR_RANGE_TYPE rangeType  = DX12Translator::get( descType );
+    D3D12_CPU_DESCRIPTOR_HANDLE destHandle = getDestHandle( regBinding, rangeType, startArrayIndex );
 
     STLW::Vector<D3D12_CPU_DESCRIPTOR_HANDLE> srcHandles( buffers.size() );
     STLW::Vector<UINT>                        srcSizes( buffers.size(), 1 );
@@ -328,15 +332,15 @@ void DX12DescriptorSet::attachBindlessArray( u32 binding, u32 startArrayIndex, c
         AXION_LOG_ASSERT( buffers[i], Logger::Module::RHI, "Binding null buffer in array!" );
         auto* dxBuf = static_cast<DX12Buffer*>( buffers[i] );
 
-        switch ( bindingState )
+        switch ( rangeType )
         {
-            case ResourceState::UnorderedAccess:
+            case D3D12_DESCRIPTOR_RANGE_TYPE_UAV:
                 srcHandles[i] = dxBuf->getUAV();
                 break;
-            case ResourceState::ShaderResource:
+            case D3D12_DESCRIPTOR_RANGE_TYPE_SRV:
                 srcHandles[i] = dxBuf->getSRV();
                 break;
-            case ResourceState::ConstantBuffer:
+            case D3D12_DESCRIPTOR_RANGE_TYPE_CBV:
                 srcHandles[i] = dxBuf->getCBV();
                 break;
             default:
@@ -345,30 +349,24 @@ void DX12DescriptorSet::attachBindlessArray( u32 binding, u32 startArrayIndex, c
     }
 
     _device->CopyDescriptors(
-        1, &destStart, &destSize, (UINT)buffers.size(), srcHandles.data(), srcSizes.data(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+        1, &destHandle, &destSize, (UINT)buffers.size(), srcHandles.data(), srcSizes.data(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::attachBindless( u32 binding, u32 arrayIndex, ISampler* samp ) {
+void DX12DescriptorSet::attachBindless( u32 regBinding, u32 arrayIndex, ISampler* samp ) {
     AXION_LOG_ASSERT( samp, Logger::Module::RHI, "Binding null sampler!" );
     auto* dxSamp = static_cast<DX12Sampler*>( samp );
 
-    D3D12_CPU_DESCRIPTOR_HANDLE dest = _samplers.startCPU;
-    dest.ptr += binding * _samplers.handleSize;
-    dest.ptr += arrayIndex * _samplers.handleSize;
-
-    D3D12_CPU_DESCRIPTOR_HANDLE src = dxSamp->getSamplerHandle();
+    D3D12_CPU_DESCRIPTOR_HANDLE dest = getDestHandle( regBinding, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, arrayIndex );
+    D3D12_CPU_DESCRIPTOR_HANDLE src  = dxSamp->getSamplerHandle();
 
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER );
 }
 
-void DX12DescriptorSet::attachBindlessArray( u32 binding, u32 startArrayIndex, const STLW::Vector<ISampler*>& samplers ) {
+void DX12DescriptorSet::attachBindlessArray( u32 regBinding, u32 startArrayIndex, const STLW::Vector<ISampler*>& samplers ) {
     if ( samplers.empty() )
         return;
 
-    D3D12_CPU_DESCRIPTOR_HANDLE destStart = _samplers.startCPU;
-    destStart.ptr += binding * _samplers.handleSize;
-    destStart.ptr += startArrayIndex * _samplers.handleSize;
-
+    D3D12_CPU_DESCRIPTOR_HANDLE               dest = getDestHandle( regBinding, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, startArrayIndex );
     STLW::Vector<D3D12_CPU_DESCRIPTOR_HANDLE> srcHandles( samplers.size() );
     STLW::Vector<UINT>                        srcSizes( samplers.size(), 1 );
     UINT                                      destSize = (UINT)samplers.size();
@@ -381,29 +379,25 @@ void DX12DescriptorSet::attachBindlessArray( u32 binding, u32 startArrayIndex, c
     }
 
     _device->CopyDescriptors(
-        1, &destStart, &destSize, (UINT)samplers.size(), srcHandles.data(), srcSizes.data(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER );
+        1, &dest, &destSize, (UINT)samplers.size(), srcHandles.data(), srcSizes.data(), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER );
 }
 
-void DX12DescriptorSet::attachBindless( u32 binding, u32 arrayIndex, IAccel* accel ) {
+void DX12DescriptorSet::attachBindless( u32 regBinding, u32 arrayIndex, IAccel* accel ) {
     AXION_LOG_ASSERT( accel, Logger::Module::RHI, "Binding null Accel!" );
     auto* dxAccel = static_cast<DX12Accel*>( accel );
 
-    D3D12_CPU_DESCRIPTOR_HANDLE dest = _views.startCPU;
-    dest.ptr += binding * _views.handleSize;
-    dest.ptr += arrayIndex * _views.handleSize;
+    D3D12_CPU_DESCRIPTOR_HANDLE dest = getDestHandle( regBinding, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, arrayIndex );
 
     D3D12_CPU_DESCRIPTOR_HANDLE src = dxAccel->getSRV();
 
     _device->CopyDescriptorsSimple( 1, dest, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
-void DX12DescriptorSet::attachBindlessArray( u32 binding, u32 startArrayIndex, const STLW::Vector<IAccel*>& accels ) {
+void DX12DescriptorSet::attachBindlessArray( u32 regBinding, u32 startArrayIndex, const STLW::Vector<IAccel*>& accels ) {
     if ( accels.empty() )
         return;
 
-    D3D12_CPU_DESCRIPTOR_HANDLE destStart = _views.startCPU;
-    destStart.ptr += binding * _views.handleSize;
-    destStart.ptr += startArrayIndex * _views.handleSize;
+    D3D12_CPU_DESCRIPTOR_HANDLE dest = getDestHandle( regBinding, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, startArrayIndex );
 
     STLW::Vector<D3D12_CPU_DESCRIPTOR_HANDLE> srcHandles( accels.size() );
     STLW::Vector<UINT>                        srcSizes( accels.size(), 1 );
@@ -417,7 +411,7 @@ void DX12DescriptorSet::attachBindlessArray( u32 binding, u32 startArrayIndex, c
     }
 
     _device->CopyDescriptors(
-        1, &destStart, &destSize, (UINT)accels.size(), srcHandles.data(), srcSizes.data(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+        1, &dest, &destSize, (UINT)accels.size(), srcHandles.data(), srcSizes.data(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
 void DX12DescriptorSet::setDebugName( StringView name ) {
@@ -435,6 +429,31 @@ NativeObject DX12DescriptorSet::getNativeObject( ObjectType /*objectType*/ ) {
 
 STLW::String DX12DescriptorSet::toString() const {
     return STLW::String();
+}
+
+u32 DX12DescriptorSet::getD3D12BindingOffset( u32 regBinding, D3D12_DESCRIPTOR_RANGE_TYPE rangeType ) const {
+    const auto& mappings = _bindingMappings.registerMappings[static_cast<u32>( rangeType )];
+
+    for ( const auto& mapping : mappings )
+    {
+        if ( regBinding >= mapping.hlslBase && regBinding < mapping.hlslBase + mapping.count )
+            return mapping.globalOffset + ( regBinding - mapping.hlslBase );
+    }
+
+    AXION_LOG_WARN_ONCE( Logger::Module::RHI, "Failed to find binding offset for register {}!", regBinding );
+    return 0;
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE DX12DescriptorSet::getDestHandle( u32 regBinding, D3D12_DESCRIPTOR_RANGE_TYPE rangeType, u32 arrayIndex ) const {
+    bool        isSampler = ( rangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER );
+    const auto& heapInfo  = isSampler ? _samplers : _views;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE dest   = heapInfo.startCPU;
+    u32                         offset = getD3D12BindingOffset( regBinding, rangeType );
+
+    // Add base offset and array index
+    dest.ptr += ( offset + arrayIndex ) * heapInfo.handleSize;
+    return dest;
 }
 
 DX12DescriptorAllocator::DX12DescriptorAllocator( ID3D12Device*                  device,
@@ -458,8 +477,9 @@ DX12DescriptorAllocator::~DX12DescriptorAllocator() {
 
 IDescriptorSet* DX12DescriptorAllocator::allocate( IPipelineLayout* layout, u32 setIndex ) {
 
-    u32 viewCount    = layout->getViewCount( setIndex );
-    u32 samplerCount = layout->getSamplerCount( setIndex );
+    auto dx12Layout   = static_cast<DX12PipelineLayout*>( layout );
+    u32  viewCount    = layout->getViewCount( setIndex );
+    u32  samplerCount = layout->getSamplerCount( setIndex );
 
     if ( _currentViewOffset + viewCount > _desc.numViews )
     {
@@ -505,13 +525,13 @@ IDescriptorSet* DX12DescriptorAllocator::allocate( IPipelineLayout* layout, u32 
     {
         // Recycle
         _setPool[_poolIndex]->reconfigure(
-            viewInfo.startCPU, viewInfo.startGPU, samplerInfo.startCPU, samplerInfo.startGPU );
+            viewInfo.startCPU, viewInfo.startGPU, samplerInfo.startCPU, samplerInfo.startGPU, dx12Layout->getBindingMappingLUT( setIndex ) );
         return _setPool[_poolIndex++].get();
     } else
     {
         // New
         auto newSet = Memory::makeOwned<DX12DescriptorSet>(
-            _device, viewInfo, samplerInfo );
+            _device, viewInfo, samplerInfo, dx12Layout->getBindingMappingLUT( setIndex ) );
         IDescriptorSet* ret = newSet.get();
         _setPool.push_back( std::move( newSet ) );
         _poolIndex++;

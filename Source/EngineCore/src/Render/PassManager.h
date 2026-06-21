@@ -17,12 +17,26 @@ public:
     virtual void createPipelines( Graphics::IPipelineRegistry& pipelines ) = 0;
 };
 
+// template <typename u32 numRes = 0>
+// struct RenderPassResources{
+//     Array<Graphics::RGResourceHandle, numRes> res;
+// }
+
+
+// class IMaterialPass : public IRenderPass
+// {
+// public:
+//     virtual ~IMaterialPass() = default;
+
+//     virtual void registerShaders( Graphics::IShaderRegistry& shaders )     = 0; //NO OP
+//     virtual void createPipelines( Graphics::IPipelineRegistry& pipelines ) = 0;
+// };
+
 class PassManager
 {
 public:
     template <typename T>
     void registerPass() {
-        // auto pass                = std::make_unique<T>();
         auto pass                = Memory::makeOwned<T>();
         _passLookup[typeid( T )] = pass.get();
 
