@@ -18,10 +18,10 @@
 #pragma once
 #include "Axion/Common/Common.h"
 #include "Axion/Core/Assets/AssetManager.h"
+#include "Axion/Graphics/IRenderer.h"
 #include "Axion/Graphics/Passes/PostProcess.hpp"
 #include "Axion/Graphics/Passes/Utilitary.hpp"
 #include "Axion/Graphics/Platforms/IWin32.h"
-#include "Axion/Graphics/IRenderer.h"
 
 USING_AXION_NAMESPACE
 
@@ -95,14 +95,14 @@ struct ForwardPass {
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
 
         // Bind Standard Resources
-        set0->attach( 0, ubo, Graphics::RHI::ResourceState::ConstantBuffer );
-        set0->attach( 1, texture, Graphics::RHI::ResourceState::ShaderResource );
+        set0->attach( 0, Graphics::RHI::DescriptorType::CBV, ubo );
+        set0->attach( 0, Graphics::RHI::DescriptorType::SRV_Image, texture );
 
         // Bind Geometry Data as Shader Resources (SRVs / ByteAddressBuffers)
-        set0->attach( 2, vb, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 3, mb, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 4, vib, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 5, pib, Graphics::RHI::ResourceState::ShaderResource );
+        set0->attach( 1, Graphics::RHI::DescriptorType::SRV_Buffer, vb );
+        set0->attach( 2, Graphics::RHI::DescriptorType::SRV_Buffer, mb );
+        set0->attach( 3, Graphics::RHI::DescriptorType::SRV_Buffer, vib );
+        set0->attach( 4, Graphics::RHI::DescriptorType::SRV_Buffer, pib );
 
         set0->attach( 0, sampler );
 
@@ -124,14 +124,14 @@ int main( /*int argc, char* argv[]*/ ) {
 
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "MESH SHADING SAMPLE" } );
 
-        auto       bufferingType    = Graphics::BufferingType::Double;
+        auto      bufferingType    = Graphics::BufferingType::Double;
         const u32 FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
-        auto       rnd              = Axion::Graphics::createRenderer( wnd.get(),
-                                                                       { .gfxApi        = Graphics::API::DirectX12,
-                                                                         .bufferingType = bufferingType,
-                                                                         .presentMode   = Graphics::PresentMode::Immediate,
-                                                                         .autoSync      = true,
-                                                                         .enableGui     = true } );
+        auto      rnd              = Axion::Graphics::createRenderer( wnd.get(),
+                                                                      { .gfxApi        = Graphics::API::DirectX12,
+                                                                        .bufferingType = bufferingType,
+                                                                        .presentMode   = Graphics::PresentMode::Immediate,
+                                                                        .autoSync      = true,
+                                                                        .enableGui     = true } );
 
         Axion::Core::Assets::AssetManager assets;
 

@@ -32,6 +32,9 @@ class IDescriptorSet : public IDeviceObject
 public:
     virtual ~IDescriptorSet() = default;
 
+    /**
+     * Attach a resource to an specific descriptor binding. Binding number is by hlsl register type, not global
+     */
     virtual void attach( u32 regBinding, DescriptorType descType, ITexture* tex )                                          = 0;
     virtual void attach( u32 regBinding, DescriptorType descType, IBuffer* buf )                                           = 0;
     virtual void attach( u32 regBinding, ISampler* samp )                                                                  = 0;

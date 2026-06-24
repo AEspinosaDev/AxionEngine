@@ -39,14 +39,14 @@ struct Mesh {
     struct Payload {
         Math::Mat4 model;
         Math::Vec4 color;
-        u32       meshOffset   = 0;
-        u32       meshIdOffset = 0;
+        u32        meshOffset   = 0;
+        u32        meshIdOffset = 0;
     };
 
     Payload payload {};
 
     FixedArray<Vertex, 24> vertices = cubeVertices;
-    FixedArray<u32, 36>   indices  = cubeIndices;
+    FixedArray<u32, 36>    indices  = cubeIndices;
 };
 
 struct UploadPass {
@@ -145,9 +145,10 @@ struct ForwardPass {
         ctx.cmd->bindGraphicPipeline( pso );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, vb, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 1, ib, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 2, ubo, Graphics::RHI::ResourceState::ConstantBuffer );
+
+        set0->attach( 0, Graphics::RHI::DescriptorType::CBV, ubo );
+        set0->attach( 0, Graphics::RHI::DescriptorType::SRV_Buffer, vb );
+        set0->attach( 1, Graphics::RHI::DescriptorType::SRV_Buffer, ib );
 
         ctx.cmd->bindDescriptorSet( 0, set0 );
 
@@ -174,13 +175,13 @@ int main( /*int argc, char* argv[]*/ ) {
 
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX VERTEX PULLING SAMPLE" } );
 
-        auto       bufferingType    = Graphics::BufferingType::Double;
+        auto      bufferingType    = Graphics::BufferingType::Double;
         const u32 FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
-        auto       rnd              = Axion::Graphics::createRenderer( wnd.get(),
-                                                                       { .gfxApi        = Graphics::API::DirectX12,
-                                                                         .bufferingType = bufferingType,
-                                                                         .presentMode   = Graphics::PresentMode::Immediate,
-                                                                         .autoSync      = true } );
+        auto      rnd              = Axion::Graphics::createRenderer( wnd.get(),
+                                                                      { .gfxApi        = Graphics::API::DirectX12,
+                                                                        .bufferingType = bufferingType,
+                                                                        .presentMode   = Graphics::PresentMode::Immediate,
+                                                                        .autoSync      = true } );
 
         FixedArray<Mesh, 4>       meshes;
         FixedArray<Math::Vec3, 4> meshPositions = {
@@ -311,7 +312,7 @@ int main( /*int argc, char* argv[]*/ ) {
 
                 // Update geometries:
                 bool needUpload = false;
-                u32 meshId     = 0;
+                u32  meshId     = 0;
                 for ( auto& mesh : meshes )
                 {
 

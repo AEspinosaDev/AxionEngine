@@ -52,8 +52,8 @@ struct ToneMapping : public IPassRecipe<ToneMappingData> {
         auto* texOut = ctx.getTexture( data.outputLDR );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, texIn, RHI::ResourceState::ShaderResource );
-        set0->attach( 1, texOut, RHI::ResourceState::UnorderedAccess );
+        set0->attach( 0, Graphics::RHI::DescriptorType::SRV_Image, texIn );
+        set0->attach( 1, Graphics::RHI::DescriptorType::UAV_Image, texOut );
 
         ctx.cmd->bindComputePipeline( pso );
         ctx.cmd->bindDescriptorSet( 0, set0 );
@@ -104,8 +104,8 @@ struct FXAA : public IPassRecipe<FXAAData> {
         auto* texOut = ctx.getTexture( data.output );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, texIn, RHI::ResourceState::ShaderResource );
-        set0->attach( 1, texOut, RHI::ResourceState::UnorderedAccess );
+        set0->attach( 0, Graphics::RHI::DescriptorType::SRV_Image, texIn );
+        set0->attach( 1, Graphics::RHI::DescriptorType::UAV_Image, texOut );
 
         ctx.cmd->bindComputePipeline( pso );
         ctx.cmd->bindDescriptorSet( 0, set0 );

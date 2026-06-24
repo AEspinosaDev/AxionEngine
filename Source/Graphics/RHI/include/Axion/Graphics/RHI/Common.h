@@ -211,21 +211,25 @@ enum class FormatSupport : u32
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( FormatSupport )
 
+/**
+ * Ordered by register type
+ *
+ */
 enum class DescriptorType : byte
 {
     // CBO
-    UniformBuffer = 0,     // Constant buffer
-                           // SRV
-    SampledImage,          // Texture
-    ReadonlyStorageBuffer, // RO buffer
-                           // UAV
-    StorageBuffer,         // RW buffer
-    StorageImage,          // RW texture
+    CBV = 0, // D3D12_DESCRIPTOR_RANGE_TYPE_CBV (b) <-> VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
 
-    Sampler, // Sampler object
+    SRV_Image,  // D3D12_DESCRIPTOR_RANGE_TYPE_SRV (t) <-> VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
+    SRV_Buffer, // D3D12_DESCRIPTOR_RANGE_TYPE_SRV (t) <-> VK_DESCRIPTOR_TYPE_STORAGE_BUFFER (Read-only)
+    SRV_Accel,  // D3D12_DESCRIPTOR_RANGE_TYPE_SRV (t) <-> VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR
 
-    AccelerationStructure, // For raytracing
-    CombinedImageSampler   // For Vulkan convenience (DX12 splits)
+    UAV_Image,  // D3D12_DESCRIPTOR_RANGE_TYPE_UAV (u) <-> VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+    UAV_Buffer, // D3D12_DESCRIPTOR_RANGE_TYPE_UAV (u) <-> VK_DESCRIPTOR_TYPE_STORAGE_BUFFER (Read-Write
+
+    Sampler, // D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER (s) <-> VK_DESCRIPTOR_TYPE_SAMPLER
+
+    CombinedImageSampler // Especial: For Vulkan convenience (DX12 splits)
 };
 
 enum class ShaderStage : uint8_t

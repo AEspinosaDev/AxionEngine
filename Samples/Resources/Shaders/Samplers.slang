@@ -16,7 +16,7 @@ cbuffer CameraCB : register(b0, space0) {
     CameraData gCam;
 };
 
-Texture2D<float4> gTexture : register(t1, space0);
+Texture2D<float4> gTexture : register(t0, space0);
 SamplerState gSampler : register(s0, space0);
 
 [shader("vertex")]

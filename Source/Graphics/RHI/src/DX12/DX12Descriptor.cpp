@@ -82,8 +82,8 @@ DX12DescriptorSet::~DX12DescriptorSet() {
 
 void DX12DescriptorSet::attach( u32 regBinding, DescriptorType descType, ITexture* tex ) {
     AXION_LOG_ASSERT( tex, Logger::Module::RHI, "Binding null texture!" );
-    AXION_LOG_ASSERT( descType == DescriptorType::SampledImage ||
-                          descType == DescriptorType::StorageImage,
+    AXION_LOG_ASSERT( descType == DescriptorType::SRV_Image ||
+                          descType == DescriptorType::UAV_Image,
                       Logger::Module::RHI,
                       "Invalid descriptor type for texture binding!" );
 
@@ -98,9 +98,9 @@ void DX12DescriptorSet::attach( u32 regBinding, DescriptorType descType, ITextur
 
 void DX12DescriptorSet::attach( u32 regBinding, DescriptorType descType, IBuffer* buf ) {
     AXION_LOG_ASSERT( buf, Logger::Module::RHI, "Binding null buffer!" );
-    AXION_LOG_ASSERT( descType == DescriptorType::UniformBuffer ||
-                          descType == DescriptorType::StorageBuffer ||
-                          descType == DescriptorType::ReadonlyStorageBuffer,
+    AXION_LOG_ASSERT( descType == DescriptorType::CBV ||
+                          descType == DescriptorType::UAV_Buffer ||
+                          descType == DescriptorType::SRV_Buffer,
                       Logger::Module::RHI,
                       "Invalid descriptor type for buffer binding!" );
 

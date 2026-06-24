@@ -46,8 +46,8 @@ private:
         auto* texOut = ctx.getTexture( data.outputHandle );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, texIn, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 1, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
+        set0->attach( 0, Graphics::RHI::DescriptorType::SRV_Image, texIn );
+        set0->attach( 1, Graphics::RHI::DescriptorType::UAV_Image, texOut );
 
         ctx.cmd->bindComputePipeline( pso );
         ctx.cmd->bindDescriptorSet( 0, set0 );

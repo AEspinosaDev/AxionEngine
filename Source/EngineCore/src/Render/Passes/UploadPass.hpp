@@ -3,7 +3,6 @@
 #include <Render/GPUScene.h>
 #include <Render/PassManager.h>
 
-
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
 
@@ -249,9 +248,9 @@ private:
                 {
                     // Create texture
                     ( *data.mtlTexture2DHandles )[uploadEntry.slot] = ctx.resources.texture( uploadEntry.name )
-                                                                        .extent( uploadEntry.extent )
-                                                                        .format( uploadEntry.format )
-                                                                        .create();
+                                                                          .extent( uploadEntry.extent )
+                                                                          .format( uploadEntry.format )
+                                                                          .create();
 
                     auto* tex = ctx.resources.getTexture( ( *data.mtlTexture2DHandles )[uploadEntry.slot] );
 
@@ -266,7 +265,7 @@ private:
                     // Update bindless slots
                     for ( auto* pSet : data.allPersistentSets )
                     {
-                        pSet->attachBindless( 3, uploadEntry.slot, tex, Graphics::RHI::ResourceState::ShaderResource );
+                        pSet->attachBindless( 3, uploadEntry.slot, Graphics::RHI::DescriptorType::SRV_Image, tex );
                     }
                 }
             }

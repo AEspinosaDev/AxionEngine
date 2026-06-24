@@ -488,16 +488,16 @@ constexpr D3D_PRIMITIVE_TOPOLOGY getD3DTopology( PrimitiveTopology topology ) no
 constexpr D3D12_DESCRIPTOR_RANGE_TYPE get( DescriptorType type ) noexcept {
     switch ( type )
     {
-        case DescriptorType::UniformBuffer:
+        case DescriptorType::CBV:
             return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 
-        case DescriptorType::StorageBuffer:
-        case DescriptorType::StorageImage:
+        case DescriptorType::UAV_Buffer:
+        case DescriptorType::UAV_Image:
             return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
 
-        case DescriptorType::ReadonlyStorageBuffer:
-        case DescriptorType::SampledImage:
-        case DescriptorType::AccelerationStructure:
+        case DescriptorType::SRV_Buffer:
+        case DescriptorType::SRV_Image:
+        case DescriptorType::SRV_Accel:
             return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 
         case DescriptorType::Sampler:

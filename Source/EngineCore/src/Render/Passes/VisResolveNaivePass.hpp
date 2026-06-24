@@ -62,8 +62,8 @@ private:
         // SPACE 2: Volatile Data
         auto* set2 = ctx.allocateSet( matLayout, data.ioSetId );
 
-        set2->attach( 0, texIn, Graphics::RHI::ResourceState::ShaderResource );
-        set2->attach( 1, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
+        set2->attach( 0, Graphics::RHI::DescriptorType::SRV_Image, texIn );
+        set2->attach( 1, Graphics::RHI::DescriptorType::UAV_Image, texOut );
 
         cmd->bindDescriptorSet( 2, set2, matLayout );
 

@@ -206,12 +206,12 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         Graphics::RHI::IDescriptorSet*       transientSetPtr          = frameDescriptorAllocator->allocate( _rnd->pipelines().getLayout( _globalMtlLayoutHandle ),
                                                                                              (u32)Config::DescriptorSetFrequency::FrameTransient );
 
-        transientSetPtr->attachBufferSlice( 0, Graphics::RHI::DescriptorType::UniformBuffer, transientPayload.frameSlice );
-        transientSetPtr->attachBufferSlice( 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, transientPayload.meshesSlice );
-        transientSetPtr->attachBufferSlice( 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, transientPayload.mtlSlice );
-        transientSetPtr->attachBufferSlice( 3, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, transientPayload.instancesSlice );
-        transientSetPtr->attachBufferSlice( 4, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, transientPayload.lightsSlice );
-        transientSetPtr->attachBufferSlice( 5, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, transientPayload.envsSlice );
+        transientSetPtr->attachBufferSlice( 0, Graphics::RHI::DescriptorType::CBV, transientPayload.frameSlice );
+        transientSetPtr->attachBufferSlice( 1, Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.meshesSlice );
+        transientSetPtr->attachBufferSlice( 2, Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.mtlSlice );
+        transientSetPtr->attachBufferSlice( 3, Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.instancesSlice );
+        transientSetPtr->attachBufferSlice( 4, Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.lightsSlice );
+        transientSetPtr->attachBufferSlice( 5, Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.envsSlice );
 
         if ( GPU_CULLING_ENABLED )
         {
@@ -223,7 +223,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
             // culledSlice.stride    = data.inRedirectionSlice.stride;
             // transientSetPtr->attachBufferSlice( 6, culledSlice, Graphics::RHI::ResourceState::ShaderResource );
         } else
-            transientSetPtr->attachBufferSlice( 6, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, transientPayload.redirectSlice );
+            transientSetPtr->attachBufferSlice( 6, Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.redirectSlice );
 
         //----------------------------
         // A. Upload Global Data
@@ -550,12 +550,12 @@ void Rasterizer::createResources() {
         Graphics::RHI::IDescriptorSet*       persistentSet            = frameDescriptorAllocator->allocate( _rnd->pipelines().getLayout( _globalMtlLayoutHandle ), (u32)Config::DescriptorSetFrequency::Persistent );
 
         // Attach core persistent buffers
-        persistentSet->attach( 0, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, r.getBuffer( _res.vertexBufferHandle ) );
-        persistentSet->attach( 1, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, r.getBuffer( _res.indexBufferHandle ) );
-        persistentSet->attach( 2, Graphics::RHI::DescriptorType::ReadonlyStorageBuffer, r.getBuffer( _res.mtlBufferHandle ) );
-        persistentSet->attachBindlessArray( 3, 0, Graphics::RHI::DescriptorType::SampledImage, initial2DTextures );
-        persistentSet->attachBindlessArray( 4, 0, Graphics::RHI::DescriptorType::SampledImage, initial3DTextures );
-        persistentSet->attachBindlessArray( 5, 0, Graphics::RHI::DescriptorType::SampledImage, initialCubeTextures );
+        persistentSet->attach( 0, Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.vertexBufferHandle ) );
+        persistentSet->attach( 1, Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.indexBufferHandle ) );
+        persistentSet->attach( 2, Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.mtlBufferHandle ) );
+        persistentSet->attachBindlessArray( 3, 0, Graphics::RHI::DescriptorType::SRV_Image, initial2DTextures );
+        persistentSet->attachBindlessArray( 4, 0, Graphics::RHI::DescriptorType::SRV_Image, initial3DTextures );
+        persistentSet->attachBindlessArray( 5, 0, Graphics::RHI::DescriptorType::SRV_Image, initialCubeTextures );
         persistentSet->attachBindlessArray( 0, 0, initialSamplers );
 
         frameDescriptorAllocator->lockPersistent();

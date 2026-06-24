@@ -1,6 +1,8 @@
 
 #pragma once
 #include "Axion/Common/Containers/String.h"
+#include "Axion/Common/Containers/Array.h"
+#include "Axion/Common/Containers/SmallVector.h"
 
 // DirectX 12
 #include <wrl/client.h>

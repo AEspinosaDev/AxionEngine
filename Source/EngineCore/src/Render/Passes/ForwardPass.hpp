@@ -108,12 +108,12 @@ private:
         auto* set1 = ctx.allocateSet( matLayout, 1 ); // Space 1
 
         // Frame (b0), Meshes (t0), Materials (t1), Instances (t2, Lights (t3), Redirection (t4)
-        set1->attachBufferSlice( 0, data.inFrameSlice, Graphics::RHI::ResourceState::ConstantBuffer );
-        set1->attachBufferSlice( 1, data.inMeshesSlice, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferSlice( 2, data.inMaterialsSlice, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferSlice( 3, data.inInstancesSlice, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferSlice( 4, data.inLightsSlice, Graphics::RHI::ResourceState::ShaderResource );
-        set1->attachBufferSlice( 5, data.inEnvsSlice, Graphics::RHI::ResourceState::ShaderResource );
+        set1->attachBufferSlice( 0, Graphics::RHI::DescriptorType::CBV, data.inFrameSlice );
+        set1->attachBufferSlice( 1, Graphics::RHI::DescriptorType::SRV_Buffer, data.inMeshesSlice );
+        set1->attachBufferSlice( 2, Graphics::RHI::DescriptorType::SRV_Buffer, data.inMaterialsSlice );
+        set1->attachBufferSlice( 3, Graphics::RHI::DescriptorType::SRV_Buffer, data.inInstancesSlice );
+        set1->attachBufferSlice( 4, Graphics::RHI::DescriptorType::SRV_Buffer, data.inLightsSlice );
+        set1->attachBufferSlice( 5, Graphics::RHI::DescriptorType::SRV_Buffer, data.inEnvsSlice );
 
         if ( data.useGPUCulling )
         {
@@ -124,9 +124,9 @@ private:
             culledSlice.offset    = 0;
             culledSlice.size      = data.inRedirectionSlice.size;
             culledSlice.stride    = data.inRedirectionSlice.stride;
-            set1->attachBufferSlice( 6, culledSlice, Graphics::RHI::ResourceState::ShaderResource );
+            set1->attachBufferSlice( 6, Graphics::RHI::DescriptorType::SRV_Buffer, culledSlice );
         } else
-            set1->attachBufferSlice( 6, data.inRedirectionSlice, Graphics::RHI::ResourceState::ShaderResource );
+            set1->attachBufferSlice( 6, Graphics::RHI::DescriptorType::SRV_Buffer, data.inRedirectionSlice );
 
         cmd->bindDescriptorSet( 1, set1, matLayout );
 

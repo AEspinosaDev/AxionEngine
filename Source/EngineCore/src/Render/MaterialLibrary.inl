@@ -13,7 +13,7 @@ inline void MaterialLibrary<PassCount>::initialize( const MaterialLibraryDesc& d
 
     _initialized = true;
 
-    _pendingArchetypeStates.reserve( 1024 );
+    // _pendingArchetypeStates.reserve( 1024 );
     _pipelineCache.reserve( 1024 );
 }
 
@@ -23,7 +23,7 @@ void MaterialLibrary<PassCount>::registerArchetype( StringView name, StringView 
     if ( _archetypeLookup.contains( name ) )
         return;
 
-    MaterialArchetype arch( name, shaderModule, shaderSpecializationType );
+    MaterialArchetype<PassCount> arch( name, shaderModule, shaderSpecializationType );
     _archetypes.push_back( arch );
     _archetypeLookup[name] = (u32)_archetypes.size() - 1;
 
@@ -49,7 +49,7 @@ inline u32 MaterialLibrary<PassCount>::updateArchetypeState( u32 archetypeID, co
 }
 template <u32 PassCount>
 const MaterialPassProfile& MaterialLibrary<PassCount>::getPassProfile( u32 passSlot ) const {
-    if( passSlot >= PassCount )
+    if ( passSlot >= PassCount )
     {
         AXION_LOG_ERROR( Logger::Module::Core, "Invalid pass slot {} requested. Max supported is {}. Returning first pass profile as fallback.", passSlot, PassCount - 1 );
         return _passProfiles[0];
@@ -62,7 +62,7 @@ u32 MaterialLibrary<PassCount>::getArchetypeID( StringView name ) const {
     if ( auto it = _archetypeLookup.find( name ); it != _archetypeLookup.end() )
         return it->second;
 
-    AXION_LOG_WARN( "Material '{}' not found. Fallback to Error Material.", name );
+    AXION_LOG_WARN( Logger::Module::Core, "Material '{}' not found. Fallback to Error Material.", name );
     return 0;
 }
 template <u32 PassCount>
@@ -91,8 +91,10 @@ void MaterialLibrary<PassCount>::registerShaders( Graphics::IShaderRegistry& sha
                                .include( AXION_SHADER_DIR "/Slang/Common" )
                                .autoReflect( false ); // As defined layouts should be used
 
-            if ( !passProfile.customIncludePath.empty() )
-                builder.include( passProfile.customIncludePath );
+            if ( !passProfile.shaderIncludePath.empty() )
+                builder.include( passProfile.shaderIncludePath );
+
+           
 
             if ( passProfile.needsSpecialization )
             {
@@ -148,7 +150,7 @@ void MaterialLibrary<PassCount>::updatePipelines( Graphics::IPipelineRegistry& p
                     continue;
                 }
 
-                String64 pipName = passProfile.name + "_PSO_arch_" + arch.name + "_Hash:" + hashKey;
+                String64 pipName = passProfile.name + "_PSO_arch_" + arch.name + "_Hash:" + std::to_string(hashKey);
 
                 Graphics::RenderState finalState = passProfile.defaultState;
 
@@ -216,7 +218,6 @@ void MaterialLibrary<PassCount>::updatePipelines( Graphics::IPipelineRegistry& p
                         Graphics::RHI::RasterizerState rasterizerState;
                         rasterizerState.fillMode = finalState.fillMode;
                         builder.setRasterizer( rasterizerState );
-                        builder.setTopology( finalState.topology );
                         builder.cullMode( finalState.cullMode );
                         builder.setDepthStencilState( { .depthEnable    = finalState.depthTest,
                                                         .depthWriteMask = finalState.depthWrite,
@@ -243,7 +244,7 @@ void MaterialLibrary<PassCount>::updatePipelines( Graphics::IPipelineRegistry& p
                         ///////////////////////
                         ///////////////////////
                         ///////////////////////
-                        newBundle.handles[passId] = Graphics::PipelineHandle::Invalid;
+                        newBundle.handles[passId] = {/*INVALID*/};
                     }
                     break;
                 }

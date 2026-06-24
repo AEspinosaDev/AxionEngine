@@ -16,9 +16,9 @@
  */
 #pragma once
 #include "Axion/Common/Common.h"
+#include "Axion/Graphics/IRenderer.h"
 #include "Axion/Graphics/Platforms/IGLFW.h"
 #include "Axion/Graphics/Platforms/IWin32.h"
-#include "Axion/Graphics/IRenderer.h"
 
 USING_AXION_NAMESPACE
 
@@ -46,7 +46,7 @@ struct GenerationPass {
         auto* texOut = ctx.getTexture( data.outputHDR );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
+        set0->attach( 0, Graphics::RHI::DescriptorType::UAV_Image, texOut );
 
         ctx.cmd->bindComputePipeline( pso );
         ctx.cmd->bindDescriptorSet( 0, set0 );
@@ -79,8 +79,8 @@ struct ToneMappingPass {
         auto* texOut = ctx.getTexture( data.outputLDR );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, texIn, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 1, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
+        set0->attach( 0, Graphics::RHI::DescriptorType::SRV_Image, texIn );
+        set0->attach( 0, Graphics::RHI::DescriptorType::UAV_Image, texOut );
 
         ctx.cmd->bindComputePipeline( pso );
         ctx.cmd->bindDescriptorSet( 0, set0 );

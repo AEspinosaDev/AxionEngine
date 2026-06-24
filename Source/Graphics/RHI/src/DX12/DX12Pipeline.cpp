@@ -87,6 +87,13 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
                 numDescriptors = binding.range.count * binding.arraySize;
             }
 
+            D3D12_DESCRIPTOR_RANGE_TYPE rangeType = DX12Translator::get( binding.type );
+
+            u32                 countForMapping = ( numDescriptors == AXION_INVALID_U32 ) ? 1 : numDescriptors;
+            D3D12BindingMapping mapping         = { .hlslBase     = binding.range.base,
+                                                    .count        = numDescriptors,
+                                                    .globalOffset = rangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER ? _samplerCountPerSet[setIndex] : _viewCountPerSet[setIndex] };
+
             if ( numDescriptors != AXION_INVALID_U32 )
             {
                 if ( binding.type == DescriptorType::Sampler )
@@ -94,13 +101,6 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
                 else
                     _viewCountPerSet[setIndex] += numDescriptors;
             }
-
-            D3D12_DESCRIPTOR_RANGE_TYPE rangeType = DX12Translator::get( binding.type );
-
-            u32                 countForMapping = ( numDescriptors == AXION_INVALID_U32 ) ? 1 : numDescriptors;
-            D3D12BindingMapping mapping         = { binding.range.base,
-                                                    numDescriptors,
-                                            rangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER ? _samplerCountPerSet[setIndex] : _viewCountPerSet[setIndex] };
 
             setBindingLUT.registerMappings[static_cast<u32>( rangeType )].pushBack( mapping );
 

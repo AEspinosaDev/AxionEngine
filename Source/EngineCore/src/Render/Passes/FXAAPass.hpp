@@ -1,6 +1,7 @@
 #pragma once
-#include <Render/PassManager.h>
 #include "Axion/Graphics/Subsystems/IRenderGraph.h"
+#include <Render/PassManager.h>
+
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
@@ -99,8 +100,8 @@ private:
         auto* sampler = ctx.resources.getSampler( data.linearSamplerHandle );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, texIn, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 1, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
+        set0->attach( 0, Graphics::RHI::DescriptorType::SRV_Image, texIn );
+        set0->attach( 1, Graphics::RHI::DescriptorType::UAV_Image, texOut );
         set0->attach( 0, sampler );
 
         ctx.cmd->bindComputePipeline( pso );

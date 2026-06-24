@@ -294,7 +294,7 @@ RHI::DescriptorType ShaderCompiler::slangTypeToRHI( slang::TypeReflection* type 
     switch ( kind )
     {
         case TypeReflection::Kind::ConstantBuffer:
-            return RHI::DescriptorType::UniformBuffer; // cbuffer { ... }
+            return RHI::DescriptorType::CBV; // cbuffer { ... }
 
         case TypeReflection::Kind::Resource: {
             SlangResourceShape  shape  = type->getResourceShape();
@@ -303,17 +303,17 @@ RHI::DescriptorType ShaderCompiler::slangTypeToRHI( slang::TypeReflection* type 
             // 0. Accel
             if ( shape == SLANG_ACCELERATION_STRUCTURE )
             {
-                return RHI::DescriptorType::AccelerationStructure;
+                return RHI::DescriptorType::SRV_Accel;
             }
             // 1. Texturas
             if ( shape & SLANG_RESOURCE_BASE_SHAPE_MASK )
             {
                 // Si es escritura (RWTexture) -> StorageImage (UAV)
                 if ( access == SLANG_RESOURCE_ACCESS_READ_WRITE || access == SLANG_RESOURCE_ACCESS_WRITE )
-                    return RHI::DescriptorType::StorageImage;
+                    return RHI::DescriptorType::UAV_Image;
 
                 // Si es lectura -> SampledImage (SRV)
-                return RHI::DescriptorType::SampledImage;
+                return RHI::DescriptorType::SRV_Image;
             }
 
             // 2. Buffers (Structured, ByteAddress, etc.)
@@ -322,9 +322,9 @@ RHI::DescriptorType ShaderCompiler::slangTypeToRHI( slang::TypeReflection* type 
             if ( shape & SLANG_STRUCTURED_BUFFER ||
                  shape & SLANG_BYTE_ADDRESS_BUFFER )
             {
-                return RHI::DescriptorType::StorageBuffer;
+                return RHI::DescriptorType::UAV_Buffer;
             }
-            return RHI::DescriptorType::SampledImage; // Fallback
+            return RHI::DescriptorType::SRV_Image; // Fallback
         }
 
         case TypeReflection::Kind::SamplerState:
@@ -332,10 +332,10 @@ RHI::DescriptorType ShaderCompiler::slangTypeToRHI( slang::TypeReflection* type 
 
         // Nota: ParameterBlock se trataría aquí si decides usarlo en el futuro
         case TypeReflection::Kind::ParameterBlock:
-            return RHI::DescriptorType::UniformBuffer; // Ojo: Esto depende de cómo lo implementes
+            return RHI::DescriptorType::CBV; // Ojo: Esto depende de cómo lo implementes
 
         default:
-            return RHI::DescriptorType::UniformBuffer; // Fallback
+            return RHI::DescriptorType::CBV; // Fallback
     }
 }
 

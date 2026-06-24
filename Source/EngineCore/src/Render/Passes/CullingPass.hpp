@@ -64,11 +64,11 @@ private:
         // SET 0: INPUTS (ReadOnly) -> Space 0
         auto* set0 = ctx.allocateSet( pipLayout, 0 );
 
-        set0->attachBufferSlice( 0, data.inFrameSlice, Graphics::RHI::ResourceState::ConstantBuffer );
-        set0->attachBufferSlice( 1, data.inMeshesSlice, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attachBufferSlice( 2, data.inInstancesSlice, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attachBufferSlice( 3, data.inRedirectionSlice, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attachBufferSlice( 4, data.indirectData.batchMapSlice, Graphics::RHI::ResourceState::ShaderResource );
+        // set0->attachBufferSlice( 0, data.inFrameSlice, Graphics::RHI::ResourceState::ConstantBuffer );
+        // set0->attachBufferSlice( 1, data.inMeshesSlice, Graphics::RHI::ResourceState::ShaderResource );
+        // set0->attachBufferSlice( 2, data.inInstancesSlice, Graphics::RHI::ResourceState::ShaderResource );
+        // set0->attachBufferSlice( 3, data.inRedirectionSlice, Graphics::RHI::ResourceState::ShaderResource );
+        // set0->attachBufferSlice( 4, data.indirectData.batchMapSlice, Graphics::RHI::ResourceState::ShaderResource );
 
         cmd->bindDescriptorSet( 0, set0 );
 
@@ -77,8 +77,8 @@ private:
 
         auto* indirectCmdBufer     = ctx.getBuffer( data.outIndirectBufferHandle );
         auto* culledRedirectBuffer = ctx.getBuffer( data.outCulledRedirectBufferHandle );
-        set1->attach( 0, indirectCmdBufer, Graphics::RHI::ResourceState::UnorderedAccess );
-        set1->attach( 1, culledRedirectBuffer, Graphics::RHI::ResourceState::UnorderedAccess );
+        // set1->attach( 0, indirectCmdBufer, Graphics::RHI::ResourceState::UnorderedAccess );
+        // set1->attach( 1, culledRedirectBuffer, Graphics::RHI::ResourceState::UnorderedAccess );
 
         cmd->bindDescriptorSet( 1, set1 );
 
