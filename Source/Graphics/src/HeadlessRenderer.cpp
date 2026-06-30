@@ -22,14 +22,14 @@ HeadlessRenderer::HeadlessRenderer( const RendererSettings& settings )
 
     _frameFences.resize( _FRAMES_IN_FLIGHT );
 
-    AXION_LOG_ASSERT( _setts.RGmaxAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.host.maxPersistentAlloc,
-                      Logger::Module::RHI,
+    AXION_LOG_ASSERT( _setts.RDGmaxAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.host.maxPersistentAlloc,
+                      Logger::Module::GFX,
                       "RenderGraph persistent allocation exceeds Host memory budget." );
-    AXION_LOG_ASSERT( _setts.RGmaxSBTAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.device.maxUploadAlloc,
-                      Logger::Module::RHI,
+    AXION_LOG_ASSERT( _setts.maxSBTAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.device.maxUploadAlloc,
+                      Logger::Module::GFX,
                       "SBT allocation exceeds Device Upload budget." );
-    AXION_LOG_ASSERT( _setts.RGmaxSBTAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.device.maxUploadAlloc,
-                      Logger::Module::RHI,
+    AXION_LOG_ASSERT( _setts.maxStagingAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.device.maxUploadAlloc,
+                      Logger::Module::GFX,
                       "Transient allocation exceeds Device Upload budget." );
 
     // Per Graphics API Device Creation
@@ -64,15 +64,10 @@ HeadlessRenderer::HeadlessRenderer( const RendererSettings& settings )
     _pipelineRegistry.initialize( ctx );
 
     RenderGraphDesc RGDesc = {
-        .framesInFlight        = _FRAMES_IN_FLIGHT,
-        .passDataAllocSize     = _setts.RGmaxAlloc,
-        .desciptorSetAllocSize = _setts.RGmaxDescriptorsPerFrame,
-        .descriptorMaxViews    = _setts.RGmaxViewsPerFrame,
-        .descriptorMaxSamplers = _setts.RGmaxSamplersPerFrame,
-        .sbtAllocSize          = _setts.RGmaxSBTAlloc,
-        .transientAllocSize    = _setts.RGmaxTransientAlloc,
-        .resourceTTL           = (u32)_setts.GCMode,
-        .autoSync              = _setts.autoSync };
+        .passDataAllocSize = _setts.RDGmaxAlloc,
+        .resourceTTL       = (u32)_setts.GCMode,
+        .autoSync          = _setts.autoSync };
+    _renderGraph.initialize( ctx, RGDesc );
     _renderGraph.initialize( ctx, RGDesc );
 }
 
@@ -80,11 +75,20 @@ HeadlessRenderer::~HeadlessRenderer() {
     destroy();
 }
 void HeadlessRenderer::render( RenderGraphSetupFunc setup ) {
-    // Record
+    // Reset Allocators
+    _descriptorAllocators[_currentFrame]->reset();
+    _sbtAllocators[_currentFrame]->reset();
+    _transientDataAllocators[_currentFrame].reset();
+    // Reset Command Buffer
     _commandList->setCurrentFrame( _currentFrame );
     _commandList->begin();
 
-    _renderGraph.execute( setup, _commandList.get() );
+    // Record
+    _renderGraph.execute( setup,
+                          _commandList.get(),
+                          _descriptorAllocators[_currentFrame].get(),
+                          _sbtAllocators[_currentFrame].get(),
+                          &_transientDataAllocators[_currentFrame] );
 
     _commandList->end();
 
@@ -116,8 +120,8 @@ const RHI::DeviceOwnerPtr& HeadlessRenderer::getDevice() const {
     return _device;
 }
 
-RHI::IDescriptorAllocator* HeadlessRenderer::getFrameDescriptorAllocator( u32 frameIndex ) {
-    return _renderGraph.getDescriptorAllocator( frameIndex );
+RHI::IDescriptorAllocator* const HeadlessRenderer::getDescriptorAllocator() {
+    return _persistentDescriptorAllocator.get();
 }
 
 const RHI::IGUIBackend* HeadlessRenderer::getGUIBackend() const {

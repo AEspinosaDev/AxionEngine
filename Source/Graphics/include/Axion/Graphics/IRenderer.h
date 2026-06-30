@@ -22,24 +22,6 @@ DEFINE_OWNER_PTR_FOR_TYPE( IRenderer, Renderer )
 class IRenderer
 {
 public:
-    struct MemoryBudget {
-        struct Device {
-            u64  maxTextureAlloc      = GIGABYTES( 1ull ); ///< Logical cap for loaded textures VRAM Pool (SRV, UAV).
-            u64  maxBufferAlloc       = MBYTES( 512 );     ///< Logical cap for loaded buffers VRAM Pool (CBV, SRV, UAV).
-            u64  maxRenderTargetAlloc = MBYTES( 256 );     ///< Logical cap for render tartgets VRAM Pool (RTV, DSV).
-            u64  maxUploadAlloc       = MBYTES( 256 );     ///< Logical cap for CPU visible data Pool.
-            bool strict               = false;             ///< If memory request surpass the limits, strict mode doesnt let device allocate new memory
-        };
-        struct Host {
-            u64  maxPersistentAlloc        = MBYTES( 64 ); ///< Memory reservation for persistent data allocations.
-            u64  maxTransientAllocPerFrame = MBYTES( 16 ); ///< Memory reservation for transient data allocations per frame.
-            bool useOS                     = true;         ///< Strict mode use optimized custom allocators instead of OS,
-        };
-
-        Device device {};
-        Host   host {};
-    };
-
     /// @brief Configuration settings for initializing the renderer.
     struct Settings {
         API           gfxApi           = API::DirectX12;        ///< Underlying Graphics API backend.
@@ -49,15 +31,14 @@ public:
         Format        backbufferFormat = Format::RGBA8_UNORM;   ///< Swapchain backbuffer format.
 
         // General Memory Budgeting
-        MemoryBudget memory = {}; ///< Custom memory budget configuration.
+        RendererMemoryBudget     memory           = {}; ///< Custom memory budget configuration.
+        RendererDescriptorBudget descriptorBudget = {}; ///< Custom descriptor budget configuration.
 
-        // Render graph budget (Must be below memory budget general limits)
-        u64 RGmaxAlloc               = KBYTES( 1024 ); ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
-        u64 RGmaxSBTAlloc            = KBYTES( 1024 ); ///< Initial memory reservation for per-frame Shader Binding Tables data (1MB default).
-        u64 RGmaxTransientAlloc      = MBYTES( 64 );   ///< Initial memory reservation for per-frame transient upload sensible data (Useful for CPU-GPU data streaming) (64MB default).
-        u32 RGmaxDescriptorsPerFrame = 2048;           ///< Initial memory reservation for per-frame DescriptorSet data.
-        u32 RGmaxViewsPerFrame       = 256;            ///< Initial view count reservation for per-frame Descriptor Pools.
-        u32 RGmaxSamplersPerFrame    = 128;            ///< Initial sampler count reservation for per-frame Descriptor Pools.
+        // SBT, Scracth & Uploa & RDG PER FRAME budgets (Must be below memory budget general limits)
+        u64 maxSBTAlloc     = KBYTES( 1024 ); ///< Initial memory reservation for per-frame Shader Binding Tables data (1MB default).
+        u64 maxStagingAlloc = MBYTES( 64 );   ///< Initial memory reservation for per-frame transient upload sensible data (Useful for CPU-GPU data streaming) (64MB default).
+        u64 maxScratchAlloc = MBYTES( 64 );   ///< Initial memory reservation for per-frame transient upload sensible data (Useful for CPU-GPU data streaming) (64MB default).
+        u64 RDGmaxAlloc     = KBYTES( 1024 ); ///< Initial memory reservation for per-frame RenderGraph data (1MB default).
 
         GCMode GCMode   = GCMode::AvgMemory; ///< Garbage Collection aggressiveness for transient resources.
         bool   autoSync = true;              ///< Automatic Barrier Insertion by RenderGraph.
@@ -75,7 +56,7 @@ public:
 
     /// @brief Executes a single frame using the provided RenderGraph setup.
     /// Handles synchronization, swapchain acquisition, graph compilation, command recording, and presentation.
-    /// @param setup Lambda function where the user defines passes and resources using the builder.
+    /// @param setup Lambda function where the user defines passes, resoruces and descriptor sets using the builder.
     virtual void render( RenderGraphSetupFunc setup ) = 0;
 
     // -------------------------------------------------------------------------
@@ -120,12 +101,12 @@ public:
     /// @brief Returns the low-level RHI Device. Use only for advanced/raw access.
     virtual const RHI::DeviceOwnerPtr& getDevice() const = 0;
 
-    /// @brief Returns the low-level RHI DescriptorAllocator.
-    /// In case persistent descriptor sets have to be created before the render loop.
-    virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( u32 frameIndex ) = 0;
-
     /// @brief Returns the GUI Backend interface (e.g. ImGui). Returns nullptr if GUI integration is disabled or headless.
     virtual const RHI::IGUIBackend* getGUIBackend() const = 0;
+
+    /// @brief Returns the renderer persistent allocator if persistent descriptor sets are needed (eg: general layout/bindless).
+    /// Descriptors created with this allocator wont be reset after each frame
+    virtual RHI::IDescriptorAllocator* const getDescriptorAllocator() = 0;
 
     // -------------------------------------------------------------------------
     // LIFECYCLE

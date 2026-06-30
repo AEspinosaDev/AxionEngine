@@ -60,10 +60,7 @@ struct MemoryBudget {
         DynamicHeavy // Less memory for assets, more for per-frame dynamic data (Good for action games with lots of dynamic effects and streaming)
     };
 
-    static MemoryBudget configureBudget( u64                     totalRamBudget,
-                                         u64                     totalVramBudget,
-                                         Preset                  preset        = Preset::Balanced,
-                                         Graphics::BufferingType bufferingType = Graphics::BufferingType::Double ) {
+    AXION_FORCE_INLINE static MemoryBudget configureBudget( u64 totalRamBudget, u64 totalVramBudget, Preset preset = Preset::Balanced, Graphics::BufferingType bufferingType = Graphics::BufferingType::Double ) {
         MemoryBudget budget;
 
         budget.shared.maxConstantAllocPerFrame = MBYTES( 16 );
@@ -114,6 +111,48 @@ struct MemoryBudget {
         }
 
         return budget;
+    }
+
+    AXION_FORCE_INLINE static Graphics::RendererMemoryBudget toLowLevelMemoryBudget( const MemoryBudget& budget, u32 framesInFlight = 3 ) {
+
+        Graphics::RendererMemoryBudget lowLevelBudget;
+
+        // 1. DEVICE POOLS (Pure VRAM)
+        lowLevelBudget.device.maxTextureAlloc      = budget.device.maxTextureAlloc;
+        lowLevelBudget.device.maxRenderTargetAlloc = budget.device.maxRenderTargetAlloc;
+
+        u64 totalGPUBufferSize =
+            budget.device.maxGeometryAlloc + // GlobalVertexBuffer & GlobalIndexBuffer
+            budget.device.maxMaterialAlloc;  // GlobalMaterialBuffer
+
+        // Add volatile GPU-side buffers that exist per-frame (like Indirect/Culling targets)
+        u64 perFrameGPUBufferSize =
+            ( budget.shared.maxExecutableAlloc * 50 ) +                                    // indirectBufferHandle & indirectTemplateBufferHandle
+            budget.shared.maxConstantAllocPerFrame + budget.shared.maxUploadAllocPerFrame; // culledInstanceBufferHandle
+
+        totalGPUBufferSize += ( perFrameGPUBufferSize * framesInFlight );
+
+        lowLevelBudget.device.maxBufferAlloc = totalGPUBufferSize;
+
+        // 2. UPLOAD / CPU-VISIBLE POOLS (Mapped RAM)
+
+        // Calculate total mapped memory required across all frames in flight
+        u64 perFrameMappedBufferSize =
+            budget.shared.maxConstantAllocPerFrame + // uboBufferHandle
+            budget.shared.maxExecutableAlloc +       // indirectStagingBufferHandle
+            budget.shared.maxUploadAllocPerFrame;    // general transient upload
+
+        lowLevelBudget.device.maxUploadAlloc = perFrameMappedBufferSize * framesInFlight;
+
+        // 3. HOST MEMORY (Standard CPU RAM)
+        // -------------------------------------------------------------------------
+
+        lowLevelBudget.host.maxPersistentAlloc        = budget.host.maxPersistentAlloc / 2;
+        lowLevelBudget.host.maxTransientAllocPerFrame = budget.host.maxTransientAllocPerFrame / 2;
+
+        lowLevelBudget.device.strict = budget.strictVRAM;
+
+        return lowLevelBudget;
     }
 };
 

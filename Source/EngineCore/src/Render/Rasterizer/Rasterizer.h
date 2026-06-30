@@ -59,8 +59,6 @@ private:
     void registerPasses();
     void createResources();
 
-    Graphics::IRenderer::MemoryBudget convertMemoryBudget();
-
     struct TransientPayload {
         Graphics::BufferSlice frameSlice;
         Graphics::BufferSlice meshesSlice;
@@ -79,15 +77,15 @@ private:
     Platform::Window*  _window = nullptr;
     RasterizerSettings _settings;
 
-    // Memory Management
+    // CPU Memory Management
     // Memory::VMemoryArena _memoryArena;
 
     // Passes
     PassManager _passes;
     // Backend Passes
-    Axion::Graphics::Passes::BlitToBackBuffer _cpypass {};
-    Axion::Graphics::Passes::GUIPass          _guipass {};
-    Axion::Graphics::Passes::PresentPass      _presentpass {};
+    Graphics::Passes::BlitToBackBuffer _cpypass {};
+    Graphics::Passes::GUIPass          _guipass {};
+    Graphics::Passes::PresentPass      _presentpass {};
 
     // Material Library & Global Shader Contract
     MaterialLibrary<(u32)Config::MaterialPassType::Count> _mtlLib;
@@ -128,6 +126,7 @@ private:
         Vector<Graphics::TextureHandle> texture3DHandles;
         Vector<Graphics::TextureHandle> textureCubeHandles;
         Vector<Graphics::SamplerHandle> samplerHandles;
+
         Graphics::TextureHandle         fallbackTexture2DHandle;
         Graphics::TextureHandle         fallbackTexture3DHandle;
         Graphics::TextureHandle         fallbackTextureCubeHandle;

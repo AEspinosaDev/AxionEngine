@@ -29,9 +29,9 @@ public:
     virtual const u32       getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
     virtual u32             getCurrentFrameIndex() const override;
 
-    virtual const RHI::DeviceOwnerPtr& getDevice() const override;
-    virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( u32 frameIndex ) override;
-    virtual const RHI::IGUIBackend*    getGUIBackend() const override;
+    virtual const RHI::DeviceOwnerPtr&       getDevice() const override;
+    virtual const RHI::IGUIBackend*          getGUIBackend() const override;
+    virtual RHI::IDescriptorAllocator* const getDescriptorAllocator() override;
 
     virtual bool         isHeadless() override;
     virtual void         destroy() override;
@@ -44,12 +44,19 @@ public:
 private:
     void windowCallback( const Extent2D& newSize );
     void generateSwapchainHandles();
+    void createPerFrameAllocators();
 
     RendererSettings _setts;
     // RHI -- GPU
     RHI::DeviceOwnerPtr        _device      = nullptr;
     RHI::CommandListOwnerPtr   _commandList = nullptr;
     SmallVector<RHI::Fence, 3> _frameFences;
+    // RHI -- Default Per Frame Allocators
+    SmallVector<RHI::DescriptorAllocatorOwnerPtr, 3> _descriptorAllocators;
+    SmallVector<RHI::SBTAllocatorOwnerPtr, 3>        _sbtAllocators;
+    SmallVector<RHI::TransientDataAllocator, 3>      _transientDataAllocators;
+    // RHI -- Persistent Descriptor Allocator
+    RHI::DescriptorAllocatorOwnerPtr _persistentDescriptorAllocator = nullptr;
 
     // SUBSYSTEMS
     GPUResourcePool  _resourcePool;   // GPU Resources

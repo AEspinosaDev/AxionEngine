@@ -21,13 +21,13 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
     AXION_LOG_ASSERT( _wnd, Logger::Module::GFX, "Window is NULL | Renderer needs Window. If no window needed, use Headless Renderer" );
     _frameFences.resize( _FRAMES_IN_FLIGHT );
 
-    AXION_LOG_ASSERT( _setts.RGmaxAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.host.maxPersistentAlloc,
+    AXION_LOG_ASSERT( _setts.RDGmaxAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.host.maxPersistentAlloc,
                       Logger::Module::GFX,
                       "RenderGraph persistent allocation exceeds Host memory budget." );
-    AXION_LOG_ASSERT( _setts.RGmaxSBTAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.device.maxUploadAlloc,
+    AXION_LOG_ASSERT( _setts.maxSBTAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.device.maxUploadAlloc,
                       Logger::Module::GFX,
                       "SBT allocation exceeds Device Upload budget." );
-    AXION_LOG_ASSERT( _setts.RGmaxSBTAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.device.maxUploadAlloc,
+    AXION_LOG_ASSERT( _setts.maxStagingAlloc * _FRAMES_IN_FLIGHT <= _setts.memory.device.maxUploadAlloc,
                       Logger::Module::GFX,
                       "Transient allocation exceeds Device Upload budget." );
 
@@ -44,8 +44,7 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
                 .maxBufferAlloc       = _setts.memory.device.maxBufferAlloc,
                 .maxRenderTargetAlloc = _setts.memory.device.maxRenderTargetAlloc,
                 .maxUploadAlloc       = _setts.memory.device.maxUploadAlloc,
-                .strictMemoryCap      = true
-            };
+                .strictMemoryCap      = true };
             _device = RHI::createDX12Device( desc );
             break;
             // case GraphicsAPI::Vulkan:
@@ -75,17 +74,12 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
     _pipelineRegistry.initialize( ctx );
 
     RenderGraphDesc RGDesc = {
-        .framesInFlight        = _FRAMES_IN_FLIGHT,
-        .passDataAllocSize     = _setts.RGmaxAlloc,
-        .desciptorSetAllocSize = _setts.RGmaxDescriptorsPerFrame,
-        .descriptorMaxViews    = _setts.RGmaxViewsPerFrame,
-        .descriptorMaxSamplers = _setts.RGmaxSamplersPerFrame,
-        .sbtAllocSize          = _setts.RGmaxSBTAlloc,
-        .transientAllocSize    = _setts.RGmaxTransientAlloc,
-        .resourceTTL           = (u32)_setts.GCMode,
-        .autoSync              = _setts.autoSync };
+        .passDataAllocSize = _setts.RDGmaxAlloc,
+        .resourceTTL       = (u32)_setts.GCMode,
+        .autoSync          = _setts.autoSync };
     _renderGraph.initialize( ctx, RGDesc );
 
+    createPerFrameAllocators();
     generateSwapchainHandles();
 
     // Init GUI Backend
@@ -139,10 +133,19 @@ void Renderer::render( RenderGraphSetupFunc setup ) {
         _pendingResize = false;
     }
 
+    // Reset Allocators
+    _descriptorAllocators[_currentFrame]->reset();
+    _sbtAllocators[_currentFrame]->reset();
+    _transientDataAllocators[_currentFrame].reset();
+    // Reset Command Buffer
     _commandList->setCurrentFrame( _currentFrame );
     _commandList->begin();
 
-    _renderGraph.execute( setup, _commandList.get() );
+    _renderGraph.execute( setup,
+                          _commandList.get(),
+                          _descriptorAllocators[_currentFrame].get(),
+                          _sbtAllocators[_currentFrame].get(),
+                          &_transientDataAllocators[_currentFrame] );
 
     _commandList->end();
 
@@ -177,12 +180,12 @@ const RHI::DeviceOwnerPtr& Renderer::getDevice() const {
     return _device;
 }
 
-RHI::IDescriptorAllocator* Renderer::getFrameDescriptorAllocator( u32 frameIndex ) {
-    return _renderGraph.getDescriptorAllocator( frameIndex );
-}
-
 const RHI::IGUIBackend* Renderer::getGUIBackend() const {
     return _guiBackend.get();
+}
+
+RHI::IDescriptorAllocator* const Renderer::getDescriptorAllocator() {
+    return _persistentDescriptorAllocator.get();
 }
 
 TextureHandle Renderer::getCurrentBackbufferHandle() const {
@@ -194,7 +197,7 @@ u32 Renderer::getCurrentFrameIndex() const {
 }
 
 STLW::String Renderer::toString() const {
-   
+
     const u64 totalVRAM = _setts.memory.device.maxTextureAlloc +
                           _setts.memory.device.maxBufferAlloc +
                           _setts.memory.device.maxRenderTargetAlloc;
@@ -261,6 +264,39 @@ void Renderer::generateSwapchainHandles() {
     {
         auto handle = _resourcePool.registerExternalTexture( std::move( images[i] ), "Backbuffer_" + std::to_string( i ) );
         _swapchainHandles.pushBack( handle );
+    }
+}
+
+void Renderer::createPerFrameAllocators() {
+    for ( u32 i = 0; i < _FRAMES_IN_FLIGHT; ++i )
+    {
+        // Platform Dependent Allocators
+
+        // Create Default Descriptor Allocator
+        RHI::DescriptorAllocatorDesc allocDesc;
+        allocDesc.numDescriptors = _setts.descriptorBudget.maxDescriptorsPerFrame;
+        allocDesc.numSamplers    = _setts.descriptorBudget.maxSamplersPerFrame;
+        allocDesc.numViews       = _setts.descriptorBudget.maxViewsPerFrame;
+        allocDesc.debugName      = "RendererDescAllocator_Frame_" + std::to_string( i );
+        _descriptorAllocators.pushBack( _device->createDescriptorAllocator( allocDesc ) );
+
+        // Only if RTX
+        if ( _setts.maxSBTAlloc > 0 )
+        {
+            // Create SBT Allocator
+            RHI::SBTAllocatorDesc sbtAllocDesc;
+            sbtAllocDesc.sizeInBytes = static_cast<u32>( _setts.maxSBTAlloc );
+            sbtAllocDesc.debugName   = "RendererSBTAllocator_Frame_" + std::to_string( i );
+
+            _sbtAllocators.pushBack( _device->createSBTAllocator( sbtAllocDesc ) );
+        }
+
+        // Create Transient Allocator
+        RHI::TransientDataAllocatorDesc transDesc;
+        transDesc.scratchSize = _setts.maxScratchAlloc;
+        transDesc.uploadSize  = _setts.maxStagingAlloc;
+        transDesc.debugName   = "RendererTransientAllocator_Frame_" + std::to_string( i );
+        _transientDataAllocators.pushBack( { _device.get(), transDesc } );
     }
 }
 

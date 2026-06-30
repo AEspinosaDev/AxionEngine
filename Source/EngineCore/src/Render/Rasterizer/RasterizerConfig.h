@@ -25,13 +25,14 @@ enum class MaterialPassType : u32
 //-----------------------------------------------------------------------------
 // Rasterizer Layout Sets
 //-----------------------------------------------------------------------------
-enum class DescriptorSetFrequency : u32
+enum class LayoutSetType : u32
 {
-    Persistent     = 0,
-    FrameTransient = 1,
-    PassTransient  = 2,
+    Persistent = 0,
+    FrameBound = 1,
+    PassBound  = 2,
 
-    Count
+    Count,
+    PushConstant = Count
 };
 
 //-----------------------------------------------------------------------------

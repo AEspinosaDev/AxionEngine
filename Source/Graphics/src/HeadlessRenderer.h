@@ -33,9 +33,9 @@ public:
     virtual IShaderRegistry&   shaders() override;
     virtual IPipelineRegistry& pipelines() override;
 
-    virtual const RHI::DeviceOwnerPtr& getDevice() const override;
-    virtual RHI::IDescriptorAllocator* getFrameDescriptorAllocator( u32 frameIndex ) override;
-    virtual const RHI::IGUIBackend*    getGUIBackend() const override;
+    virtual const RHI::DeviceOwnerPtr&       getDevice() const override;
+    virtual  RHI::IDescriptorAllocator* const getDescriptorAllocator() override;
+    virtual const RHI::IGUIBackend*          getGUIBackend() const override;
 
     virtual STLW::String toString() const override;
 
@@ -48,7 +48,14 @@ private:
     // RHI -- GPU
     RHI::DeviceOwnerPtr      _device      = nullptr;
     RHI::CommandListOwnerPtr _commandList = nullptr;
-    std::vector<RHI::Fence>  _frameFences;
+    SmallVector<RHI::Fence, 3> _frameFences;
+    // RHI -- Default Per Frame Allocators
+    SmallVector<RHI::DescriptorAllocatorOwnerPtr, 3> _descriptorAllocators;
+    SmallVector<RHI::SBTAllocatorOwnerPtr, 3>        _sbtAllocators;
+    SmallVector<RHI::TransientDataAllocator, 3>      _transientDataAllocators;
+    // RHI -- Persistent Descriptor Allocator
+    RHI::DescriptorAllocatorOwnerPtr _persistentDescriptorAllocator = nullptr;
+
     // SUBSYSTEMS
     GPUResourcePool  _resourcePool;   // GPU Resources
     ShaderRegistry   _shaderRegistry; // Pipelines & shaders

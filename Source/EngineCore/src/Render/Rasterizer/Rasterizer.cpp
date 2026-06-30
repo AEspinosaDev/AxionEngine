@@ -18,7 +18,7 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
 
     AXION_LOG_ASSERT( wnd, Logger::Module::Core, "Window is null" );
 
-    auto lowLevelMemoryBudget = convertMemoryBudget();
+    auto lowLevelMemoryBudget = MemoryBudget::toLowLevelMemoryBudget( _settings.memory, _FRAMES_IN_FLIGHT );
 
 #ifdef AXION_DEBUG
     {
@@ -40,23 +40,29 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
 #endif
 
     // Create Low-Level Renderer
+
+    Graphics::RendererDescriptorBudget descBudget = {
+        .maxDescriptorsPerFrame = 2048,
+        .maxViewsPerFrame       = Config::MAX_SHADER_RESOURCE_VIEWS,
+        .maxSamplersPerFrame    = Config::MAX_SAMPLER_VIEWS,
+    };
+
     Graphics::RendererSettings rndStts = {
-        .gfxApi                   = settings.common.gfxApi,
-        .bufferingType            = settings.common.bufferingType,
-        .debugMode                = ( settings.common.flags & RendererEnableDebug ) != RendererNone,
-        .presentMode              = wnd->getSettings().flags & Platform::WindowVSync ? Graphics::PresentMode::Vsync : Graphics::PresentMode::Immediate,
-        .backbufferFormat         = settings.common.backbufferFormat,
-        .memory                   = lowLevelMemoryBudget,
-        .RGmaxAlloc               = KBYTES( 1024 ),
-        .RGmaxSBTAlloc            = settings.memory.shared.maxExecutableAlloc,
-        .RGmaxTransientAlloc      = settings.memory.shared.maxUploadAllocPerFrame,
-        .RGmaxDescriptorsPerFrame = 2048,
-        .RGmaxViewsPerFrame       = Config::MAX_SHADER_RESOURCE_VIEWS,
-        .RGmaxSamplersPerFrame    = Config::MAX_SAMPLER_VIEWS,
-        .GCMode                   = settings.common.GCMode,
-        .autoSync                 = true,
-        .selectedDeviceID         = settings.common.selectedDeviceID,
-        .enableGui                = ( settings.common.flags & RendererEnableGUI ) != RendererNone };
+        .gfxApi           = settings.common.gfxApi,
+        .bufferingType    = settings.common.bufferingType,
+        .debugMode        = ( settings.common.flags & RendererEnableDebug ) != RendererNone,
+        .presentMode      = wnd->getSettings().flags & Platform::WindowVSync ? Graphics::PresentMode::Vsync : Graphics::PresentMode::Immediate,
+        .backbufferFormat = settings.common.backbufferFormat,
+        .memory           = lowLevelMemoryBudget,
+        .descriptorBudget = descBudget,
+        .maxSBTAlloc      = settings.memory.shared.maxExecutableAlloc,
+        .maxStagingAlloc  = settings.memory.shared.maxUploadAllocPerFrame,
+        .maxScratchAlloc  = settings.memory.shared.maxUploadAllocPerFrame,
+        .RDGmaxAlloc      = KBYTES( 1024 ),
+        .GCMode           = settings.common.GCMode,
+        .autoSync         = true,
+        .selectedDeviceID = settings.common.selectedDeviceID,
+        .enableGui        = ( settings.common.flags & RendererEnableGUI ) != RendererNone };
 
     _rnd = Graphics::createRenderer( wnd->getNativeWindow(), rndStts );
 
@@ -194,17 +200,17 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                                                          currentFrameRes.indirectAllocator );
 
     _rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
+
         const Extent3D SCENE_RESOLUTION  = _window->getSettings().size.to3D();
         const Extent3D SCREEN_RESOLUTION = _window->getSettings().size.to3D();
+        
         // const bool     GPU_CULLING_ENABLED = _settings.common.flags & RendererEnableGPUCulling;
         const bool GPU_CULLING_ENABLED = false;
 
         //----------------------------
         // 0. Allocate Frame Descriptor Set
         //----------------------------
-        Graphics::RHI::IDescriptorAllocator* frameDescriptorAllocator = _rnd->getFrameDescriptorAllocator( FRAME_ID );
-        Graphics::RHI::IDescriptorSet*       transientSetPtr          = frameDescriptorAllocator->allocate( _rnd->pipelines().getLayout( _globalMtlLayoutHandle ),
-                                                                                             (u32)Config::DescriptorSetFrequency::FrameTransient );
+        Graphics::RHI::IDescriptorSet* transientSetPtr = builder.allocateSet( _rnd->pipelines().getLayout( _globalMtlLayoutHandle ), (u32)Config::LayoutSetType::FrameBound );
 
         transientSetPtr->attachBufferSlice( 0, Graphics::RHI::DescriptorType::CBV, transientPayload.frameSlice );
         transientSetPtr->attachBufferSlice( 1, Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.meshesSlice );
@@ -326,7 +332,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                                        .create();
         resConfig.inVisHandle = visConfig.outVisHandle;
 
-        resConfig.ioSetId = (u32)Config::DescriptorSetFrequency::PassTransient;
+        resConfig.ioSetId = (u32)Config::LayoutSetType::PassBound;
 
         resConfig.materialPassSlot = (u32)Config::MaterialPassType::VisibilityResolve;
         resConfig.matLib           = &_mtlLib;
@@ -546,8 +552,7 @@ void Rasterizer::createResources() {
                                                        .create();
 
         // ----------------------- E. PER-FRAME DESCRIPTOR SET (Persistent) -------------------
-        Graphics::RHI::IDescriptorAllocator* frameDescriptorAllocator = _rnd->getFrameDescriptorAllocator( i );
-        Graphics::RHI::IDescriptorSet*       persistentSet            = frameDescriptorAllocator->allocate( _rnd->pipelines().getLayout( _globalMtlLayoutHandle ), (u32)Config::DescriptorSetFrequency::Persistent );
+        Graphics::RHI::IDescriptorSet* persistentSet = _rnd->getDescriptorAllocator()->allocate( _rnd->pipelines().getLayout( _globalMtlLayoutHandle ), (u32)Config::LayoutSetType::Persistent );
 
         // Attach core persistent buffers
         persistentSet->attach( 0, Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.vertexBufferHandle ) );
@@ -557,8 +562,6 @@ void Rasterizer::createResources() {
         persistentSet->attachBindlessArray( 4, 0, Graphics::RHI::DescriptorType::SRV_Image, initial3DTextures );
         persistentSet->attachBindlessArray( 5, 0, Graphics::RHI::DescriptorType::SRV_Image, initialCubeTextures );
         persistentSet->attachBindlessArray( 0, 0, initialSamplers );
-
-        frameDescriptorAllocator->lockPersistent();
 
         // Store Persistent Descriptor Set Ptr
         _res.frame[i].persistentDescriptorSetPtr = persistentSet;
@@ -923,47 +926,6 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
 
 #pragma endregion
 #pragma region Misc
-
-Graphics::IRenderer::MemoryBudget Rasterizer::convertMemoryBudget() {
-    Graphics::IRenderer::MemoryBudget lowLevelBudget;
-
-    // 1. DEVICE POOLS (Pure VRAM)
-    lowLevelBudget.device.maxTextureAlloc      = _settings.memory.device.maxTextureAlloc;
-    lowLevelBudget.device.maxRenderTargetAlloc = _settings.memory.device.maxRenderTargetAlloc;
-
-    u64 totalGPUBufferSize =
-        _settings.memory.device.maxGeometryAlloc + // GlobalVertexBuffer & GlobalIndexBuffer
-        _settings.memory.device.maxMaterialAlloc;  // GlobalMaterialBuffer
-
-    // Add volatile GPU-side buffers that exist per-frame (like Indirect/Culling targets)
-    u64 perFrameGPUBufferSize =
-        ( _settings.memory.shared.maxExecutableAlloc * 50 ) +                                              // indirectBufferHandle & indirectTemplateBufferHandle
-        _settings.memory.shared.maxConstantAllocPerFrame + _settings.memory.shared.maxUploadAllocPerFrame; // culledInstanceBufferHandle
-
-    totalGPUBufferSize += ( perFrameGPUBufferSize * _FRAMES_IN_FLIGHT );
-
-    lowLevelBudget.device.maxBufferAlloc = totalGPUBufferSize;
-
-    // 2. UPLOAD / CPU-VISIBLE POOLS (Mapped RAM)
-
-    // Calculate total mapped memory required across all frames in flight
-    u64 perFrameMappedBufferSize =
-        Config::MAX_GLOBAL_UBO_BYTES +                  // uboBufferHandle
-        _settings.memory.shared.maxExecutableAlloc +    // indirectStagingBufferHandle
-        _settings.memory.shared.maxUploadAllocPerFrame; // general transient upload
-
-    lowLevelBudget.device.maxUploadAlloc = perFrameMappedBufferSize * _FRAMES_IN_FLIGHT;
-
-    // 3. HOST MEMORY (Standard CPU RAM)
-    // -------------------------------------------------------------------------
-
-    lowLevelBudget.host.maxPersistentAlloc        = _settings.memory.host.maxPersistentAlloc / 2;
-    lowLevelBudget.host.maxTransientAllocPerFrame = _settings.memory.host.maxTransientAllocPerFrame / 2;
-
-    lowLevelBudget.device.strict = _settings.memory.strictVRAM;
-
-    return lowLevelBudget;
-}
 
 } // namespace Core::Render::Rasterizer
 

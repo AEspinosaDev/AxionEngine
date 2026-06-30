@@ -12,7 +12,7 @@ RHI::ITexture* RenderPassContext::getTexture( RGResourceHandle handle ) const {
 }
 
 RHI::IDescriptorSet* RenderPassContext::allocateSet( RHI::IPipelineLayout* layout, u32 setIndex ) const {
-    return descriptors->allocate( layout, setIndex );
+    return descAllocator->allocate( layout, setIndex );
 }
 
 RHI::SBT::Allocation RenderPassContext::allocateSBT( const RHI::SBT& sbt, RHI::IRayTracingPipeline* pip ) const {
@@ -56,6 +56,10 @@ RGResourceHandle RenderGraphBuilder::import( StringView name, BufferHandle handl
     return _graph.importBuffer( name, handle );
 }
 
+RHI::IDescriptorSet* RenderGraphBuilder::allocateSet( RHI::IPipelineLayout* layout, u32 setIndex ) {
+    return _descAllocator.allocate( layout, setIndex );
+    ;
+}
 // =============================================================================
 // RENDER GRAPH IMPLEMENTATION
 // =============================================================================
@@ -71,34 +75,6 @@ void RenderGraph::initialize( const SubsystemInitContext& ctx, const RenderGraph
 
     _frameMemory.resize( desc.passDataAllocSize );
 
-    for ( u32 i = 0; i < desc.framesInFlight; ++i )
-    {
-
-        // Create Descriptor Heap
-        RHI::DescriptorAllocatorDesc allocDesc;
-        allocDesc.numDescriptors = desc.desciptorSetAllocSize;
-        allocDesc.numSamplers    = desc.descriptorMaxSamplers;
-        allocDesc.numViews       = desc.descriptorMaxViews;
-        allocDesc.debugName      = "RG_Desc_Allocator_Frame_" + std::to_string( i );
-        _descriptorAllocators.pushBack( _device->createDescriptorAllocator( allocDesc ) );
-
-        // Create Transient Heap
-        RHI::TransientDataAllocatorDesc transDesc;
-        transDesc.scratchSize = desc.transientAllocSize;
-        transDesc.uploadSize  = desc.transientAllocSize;
-        transDesc.debugName   = "RG_Transient_Allocator_Frame_" + std::to_string( i );
-        _transientAllocators.pushBack( { _device, transDesc } );
-
-        if ( desc.sbtAllocSize > 0 )
-        {
-            // Create SBT Heap
-            RHI::SBTAllocatorDesc sbtAllocDesc;
-            sbtAllocDesc.sizeInBytes = static_cast<u32>( desc.sbtAllocSize );
-            sbtAllocDesc.debugName   = "RG_SBT_Allocator_Frame_" + std::to_string( i );
-
-            _sbtAllocators.pushBack( _device->createSBTAllocator( sbtAllocDesc ) );
-        }
-    }
     AXION_LOG_INFO( Logger::Module::GFX, "RenderGraph Subsystem Initialized Succesfully" );
 }
 
@@ -145,17 +121,14 @@ void RenderGraph::reset() {
     _frameOffset = 0;
 }
 
-void RenderGraph::execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) {
-
-    auto* currentAllocator = _descriptorAllocators[cmd->getCurrentFrame()].get();
-    currentAllocator->reset();
-    auto* currentSBTAllocator = _sbtAllocators[cmd->getCurrentFrame()].get();
-    currentSBTAllocator->reset();
-    auto* currentTransAllocatopr = &_transientAllocators[cmd->getCurrentFrame()];
-    currentTransAllocatopr->reset();
+void RenderGraph::execute( RenderGraphSetupFunc         setup,
+                           RHI::ICommandList*           cmd,
+                           RHI::IDescriptorAllocator*   descAlloc,
+                           RHI::ISBTAllocator*          sbtAlloc,
+                           RHI::TransientDataAllocator* transAlloc ) {
 
     reset();
-    RenderGraphBuilder builder( *this );
+    RenderGraphBuilder builder( *this, *descAlloc );
     setup( builder );
 
     if ( _passes.empty() )
@@ -168,9 +141,9 @@ void RenderGraph::execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) 
 
     // Execute
     RenderPassContext ctx { cmd,
-                            currentAllocator,
-                            currentSBTAllocator,
-                            currentTransAllocatopr,
+                            descAlloc,
+                            sbtAlloc,
+                            transAlloc,
                             *this,
                             *_pipelines,
                             *_pool };
@@ -185,12 +158,12 @@ void RenderGraph::execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) 
                 {
                     RHI::IBuffer* rawBuff = nullptr;
                     rawBuff               = getPhysicalBuffer( b.handle );
-                    ctx.cmd->barrier( rawBuff, b.after );
+                    cmd->barrier( rawBuff, b.after );
                 } else
                 {
                     RHI::ITexture* rawTex = nullptr;
                     rawTex                = getPhysicalTexture( b.handle );
-                    ctx.cmd->barrier( rawTex, b.after );
+                    cmd->barrier( rawTex, b.after );
                 }
             }
 
@@ -362,11 +335,6 @@ RHI::ITexture* RenderGraph::getPhysicalTexture( RGResourceHandle handle ) const 
         return _pool->getTexture( *h );
     else
         return nullptr;
-}
-
-RHI::IDescriptorAllocator* RenderGraph::getDescriptorAllocator( u32 frameIndex ) {
-    AXION_LOG_ASSERT( frameIndex < _descriptorAllocators.size(), Logger::Module::RHI, "Trying to access null RG DescritporAllocator | Invalid frame number" );
-    return _descriptorAllocators[frameIndex].get();
 }
 
 void RenderGraph::setGarbageCollectionTTL( u32 frames ) {
