@@ -210,7 +210,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         //----------------------------
         // 0. Allocate Frame Descriptor Set
         //----------------------------
-        Graphics::RHI::IDescriptorSet* transientSetPtr = builder.allocateSet( _rnd->pipelines().getLayout( _globalMtlLayoutHandle ), (u32)Config::LayoutSetType::FrameBound );
+        Graphics::RHI::IDescriptorSet* transientSetPtr = builder.allocateDescriptorSet(_rnd->pipelines().getLayout( _globalMtlLayoutHandle ), (u32)Config::LayoutSetType::FrameBound );
 
         transientSetPtr->attachBufferSlice( 0, Graphics::RHI::DescriptorType::CBV, transientPayload.frameSlice );
         transientSetPtr->attachBufferSlice( 1, Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.meshesSlice );

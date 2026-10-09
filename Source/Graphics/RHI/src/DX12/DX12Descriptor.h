@@ -8,6 +8,10 @@ AXION_NAMESPACE_BEGIN
 namespace Graphics::RHI {
 
 #pragma region Heap
+class DX12DescriptorHeap;
+/// offset = first descriptor index in the heap, size = descriptor count
+using DescriptorHeapAllocation = Memory::SubAllocation<DX12DescriptorHeap>;
+
 class DX12DescriptorHeap
 {
 public:
@@ -19,28 +23,56 @@ public:
         Sampler
     };
 
-    void initialize( ID3D12Device* device, Type type, u32 numDescriptors, bool shaderVisible = false );
-    void reset();
+    enum class AllocationPolicy
+    {
+        Linear,  ///< Bump allocation, only reset() frees. (eg: swapchain RTVs)
+        FreeList ///< Individual allocate/free with coalescing. (eg: global shader-visible heap, resource views)
+    };
 
-    D3D12_CPU_DESCRIPTOR_HANDLE allocateCPU();
-    D3D12_GPU_DESCRIPTOR_HANDLE getGPU( D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle ) const;
+    DX12DescriptorHeap() = default;
+
+    AXION_DISABLE_COPY_AND_MOVE(DX12DescriptorHeap)
+
+    void initialize( ID3D12Device* device, Type type, u32 numDescriptors, AllocationPolicy policy, bool shaderVisible = false );
+
+    DescriptorHeapAllocation    allocate( u32 count = 1 );                    ///< Contiguous block of descriptors.
+    void                        free( DescriptorHeapAllocation& allocation ); ///< FreeList only.
+    void                        reset();                                      ///< Frees everything.
+    D3D12_CPU_DESCRIPTOR_HANDLE allocateCPU();                                ///< Shortcut: allocate( 1 ) + getCPU.
+
+    D3D12_CPU_DESCRIPTOR_HANDLE getCPU( u32 index ) const;
+    D3D12_GPU_DESCRIPTOR_HANDLE getGPU( u32 index ) const; ///< Shader-visible heaps only.
+    u32                         getIndex( D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle ) const;
 
     ID3D12DescriptorHeap* getHeap() const { return _heap.Get(); }
     Type                  getType() const { return _type; }
+    AllocationPolicy      getPolicy() const { return _policy; }
+    u32                   getDescriptorSize() const { return _descriptorSize; }
+    bool                  isShaderVisible() const { return _shaderVisible; }
 
     D3D12_CPU_DESCRIPTOR_HANDLE getCPUStart() const { return _baseCPU; }
     D3D12_GPU_DESCRIPTOR_HANDLE getGPUStart() const { return _baseGPU; }
 
     void setDebugName( StringView name );
 
+    // Container contract for Memory::SubAllocators
+    u64        getCapacity() const { return _capacity; }
+    StringView getDebugName() const { return _debugName; }
+
 private:
+    using SubAllocator = Memory::ISubAllocator<DX12DescriptorHeap, Memory::VisibilityNone>;
+
     ComPtr<ID3D12DescriptorHeap> _heap           = nullptr;
     u32                          _descriptorSize = 0;
-    u32                          _allocated      = 0;
     u32                          _capacity       = 0;
+    bool                         _shaderVisible  = false;
     D3D12_CPU_DESCRIPTOR_HANDLE  _baseCPU {};
     D3D12_GPU_DESCRIPTOR_HANDLE  _baseGPU {};
     Type                         _type;
+    AllocationPolicy             _policy;
+    String64                     _debugName;
+
+    Memory::OwnerPtr<SubAllocator> _allocator;
 };
 
 struct DescriptorHandleInfo {

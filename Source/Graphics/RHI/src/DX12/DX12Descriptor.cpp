@@ -8,10 +8,11 @@
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
-void DX12DescriptorHeap::initialize( ID3D12Device* device, Type type, u32 numDescriptors, bool shaderVisible ) {
+void DX12DescriptorHeap::initialize( ID3D12Device* device, Type type, u32 numDescriptors, AllocationPolicy policy, bool shaderVisible ) {
 
     _capacity = numDescriptors;
     _type     = type;
+    _policy   = policy;
 
     D3D12_DESCRIPTOR_HEAP_DESC desc = {};
     desc.NumDescriptors             = numDescriptors;
@@ -39,31 +40,50 @@ void DX12DescriptorHeap::initialize( ID3D12Device* device, Type type, u32 numDes
     DX_CHECK( device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &_heap ) ) );
     _descriptorSize = device->GetDescriptorHandleIncrementSize( desc.Type );
     _baseCPU        = _heap->GetCPUDescriptorHandleForHeapStart();
-    if ( shaderVisible )
+    _shaderVisible  = ( desc.Flags & D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE ) != 0;
+    if ( _shaderVisible )
         _baseGPU = _heap->GetGPUDescriptorHandleForHeapStart();
+
+    if ( _policy == AllocationPolicy::Linear )
+        _allocator = Memory::makeOwned<Memory::LinearSubAllocator<DX12DescriptorHeap, Memory::VisibilityNone>>( this );
+    else
+        _allocator = Memory::makeOwned<Memory::FreeListSubAllocator<DX12DescriptorHeap, Memory::VisibilityNone>>( this );
+}
+
+DescriptorHeapAllocation DX12DescriptorHeap::allocate( u32 count ) {
+    DescriptorHeapAllocation alloc = _allocator->allocate( count, 1 ); // Alignment 1: offset == descriptor index
+    AXION_LOG_ASSERT( alloc.isValid(), Logger::Module::RHI, "FATAL | Descriptor Heap [{}] out of space. Requested {}", _debugName, count );
+    return alloc;
+}
+
+void DX12DescriptorHeap::free( DescriptorHeapAllocation& allocation ) {
+    AXION_LOG_ASSERT( _policy == AllocationPolicy::FreeList, Logger::Module::RHI, "Descriptor Heap [{}]: free() requires FreeList policy", _debugName );
+    _allocator->free( allocation ); // Resets 'allocation' to invalid → protects against double free through the same handle
 }
 
 void DX12DescriptorHeap::reset() {
-    _allocated = 0;
+    _allocator->reset();
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE DX12DescriptorHeap::allocateCPU() {
-    AXION_LOG_ASSERT( _allocated < _capacity, Logger::Module::RHI, "FATAL | Out of descriptor heap space" );
-
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = {
-        _baseCPU.ptr + _allocated * _descriptorSize };
-    ++_allocated;
-    return handle;
+    return getCPU( (u32)allocate( 1 ).offset );
 }
 
-D3D12_GPU_DESCRIPTOR_HANDLE DX12DescriptorHeap::getGPU( D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle ) const {
-    AXION_LOG_ASSERT( _type == Type::CBV_SRV_UAV, Logger::Module::RHI, "FATAL | This can only be used with CBV_SRV_UAV Type Heaps" );
-    u32                         offset = static_cast<u32>( ( cpuHandle.ptr - _baseCPU.ptr ) / _descriptorSize );
-    D3D12_GPU_DESCRIPTOR_HANDLE gpu    = { _baseGPU.ptr + offset * _descriptorSize };
-    return gpu;
+D3D12_CPU_DESCRIPTOR_HANDLE DX12DescriptorHeap::getCPU( u32 index ) const {
+    return { _baseCPU.ptr + (SIZE_T)index * _descriptorSize };
+}
+
+D3D12_GPU_DESCRIPTOR_HANDLE DX12DescriptorHeap::getGPU( u32 index ) const {
+    AXION_LOG_ASSERT( _shaderVisible, Logger::Module::RHI, "Descriptor Heap [{}]: GPU handles need a shader-visible heap", _debugName );
+    return { _baseGPU.ptr + (UINT64)index * _descriptorSize };
+}
+
+u32 DX12DescriptorHeap::getIndex( D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle ) const {
+    return (u32)( ( cpuHandle.ptr - _baseCPU.ptr ) / _descriptorSize );
 }
 
 void DX12DescriptorHeap::setDebugName( StringView name ) {
+    _debugName = name;
     setNativeName( _heap.Get(), name );
 }
 
@@ -462,10 +482,10 @@ DX12DescriptorAllocator::DX12DescriptorAllocator( ID3D12Device*                 
     : _device( device )
     , _desc( desc ) {
 
-    _viewHeap.initialize( device, DX12DescriptorHeap::Type::CBV_SRV_UAV, _desc.numViews, true );
+    _viewHeap.initialize( device, DX12DescriptorHeap::Type::CBV_SRV_UAV, _desc.numViews, DX12DescriptorHeap::AllocationPolicy::Linear, true );
     _viewHandleSize = device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 
-    _samplerHeap.initialize( device, DX12DescriptorHeap::Type::Sampler, _desc.numSamplers, true );
+    _samplerHeap.initialize( device, DX12DescriptorHeap::Type::Sampler, _desc.numSamplers, DX12DescriptorHeap::AllocationPolicy::Linear, true );
     _samplerHandleSize = device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER );
 
     _setPool.reserve( _desc.numDescriptors );

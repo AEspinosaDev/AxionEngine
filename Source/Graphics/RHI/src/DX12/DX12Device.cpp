@@ -43,10 +43,10 @@ DX12Device::DX12Device( const IDX12Device::Description& desc ) {
         _ctx.copyQueue    = createCommandQueue( QueueType::Transfer, "Copy Queue" );
 
         // Default global desc heaps
-        _ctx.heapSRV.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::CBV_SRV_UAV, desc.shaderResourceViewHeapSize );
-        _ctx.heapRTV.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::RTV, desc.renderTargetViewHeapSize );
-        _ctx.heapDSV.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::DSV, desc.depthStencilViewHeapSize );
-        _ctx.heapSamplers.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::Sampler, desc.samplerHeapSize );
+        _ctx.heapSRV.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::CBV_SRV_UAV, desc.shaderResourceViewHeapSize, DX12DescriptorHeap::AllocationPolicy::FreeList );
+        _ctx.heapRTV.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::RTV, desc.renderTargetViewHeapSize, DX12DescriptorHeap::AllocationPolicy::FreeList );
+        _ctx.heapDSV.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::DSV, desc.depthStencilViewHeapSize, DX12DescriptorHeap::AllocationPolicy::FreeList );
+        _ctx.heapSamplers.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::Sampler, desc.samplerHeapSize, DX12DescriptorHeap::AllocationPolicy::FreeList );
 
         // Memory Allocator and Pools
         createMasterAllocator( );

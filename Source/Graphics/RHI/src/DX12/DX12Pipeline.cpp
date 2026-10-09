@@ -195,7 +195,10 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
     if ( FAILED( hr ) )
     {
         if ( error )
+        {
             OutputDebugStringA( (char*)error->GetBufferPointer() );
+            AXION_LOG_ERROR( Logger::Module::RHI, "Root Signature serialization failed [{}]: {}", _desc.debugName, (char*)error->GetBufferPointer() );
+        }
         DX_CHECK( hr );
     }
 

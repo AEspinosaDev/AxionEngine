@@ -49,6 +49,7 @@ public:
                 alloc.container = _container;
                 alloc.offset    = alignedOffset;
                 alloc.size      = size;
+                alloc.padding   = (u32)padding;
 
                 if ( alignment > 0 )
                 {

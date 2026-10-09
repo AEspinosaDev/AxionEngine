@@ -9,31 +9,27 @@ namespace Rasterizer::Config {
 
 Graphics::PipelineLayoutHandle Rasterizer::Config::buildGlobalLayout( Graphics::IPipelineRegistry& pip ) {
     return pip.layout( "Rasterizer_Global_Layout" )
-        // Space 0: Persistent + Bindless (Geometry, Materials, Textures)
+        // Space 0: Persistent global buffers. Textures & samplers are bindless (heap indexed, no bindings)
         .addSet( {
-            { { .base = 0, .count = 3 }, Graphics::RHI::DescriptorType::SRV_Buffer, Graphics::RHI::ShaderStage::All, 1 },                           // t0: gGlobalVertices, t1: gGlobalIndices,  t2: gGlobalMaterials
-            { { .base = 3, .count = 1 }, Graphics::RHI::DescriptorType::SRV_Image, Graphics::RHI::ShaderStage::All, MAX_PERSISTENT_2D_TEXTURES },   // t3: gTextures2D
-            { { .base = 4, .count = 1 }, Graphics::RHI::DescriptorType::SRV_Image, Graphics::RHI::ShaderStage::All, MAX_PERSISTENT_3D_TEXTURES },   // t4: gTextures3D
-            { { .base = 5, .count = 1 }, Graphics::RHI::DescriptorType::SRV_Image, Graphics::RHI::ShaderStage::All, MAX_PERSISTENT_CUBE_TEXTURES }, // t5: gTexturesCube
-            { { .base = 0, .count = 1 }, Graphics::RHI::DescriptorType::Sampler, Graphics::RHI::ShaderStage::All, MAX_PERSISTENT_SAMPLERS }         // s0: gSamplers
+            { { .base = REG_GLOBAL_BUFFERS_BASE, .count = REG_GLOBAL_BUFFERS_COUNT }, Graphics::RHI::DescriptorType::SRV_Buffer, Graphics::RHI::ShaderStage::All, 1 }, // t0: gGlobalVertices, t1: gGlobalIndices, t2: gGlobalMaterials
         } )
-        // Space 1: Frame Transient Bindless (Scene Data Per-Frame)
+        // Space 1: Frame Transient (Scene Data Per-Frame)
         .addSet( {
-            { { .base = 0, .count = 1 }, Graphics::RHI::DescriptorType::CBV, Graphics::RHI::ShaderStage::All, 1 },        // b0: gFrame
-            { { .base = 0, .count = 6 }, Graphics::RHI::DescriptorType::SRV_Buffer, Graphics::RHI::ShaderStage::All, 1 }, // t0: gMeshes t1: gMaterials t2: gInstances t3: gLights t4: gEnvs t5: gInstanceRedirection
+            { { .base = REG_FRAME_CBV_BASE, .count = 1 }, Graphics::RHI::DescriptorType::CBV, Graphics::RHI::ShaderStage::All, 1 },                         // b0: gFrame
+            { { .base = REG_FRAME_SRV_BASE, .count = REG_FRAME_SRV_COUNT }, Graphics::RHI::DescriptorType::SRV_Buffer, Graphics::RHI::ShaderStage::All, 1 }, // t0: gMeshes t1: gMaterials t2: gInstances t3: gLights t4: gEnvs t5: gInstanceRedirection
         } )
-        // Space 2: Transient I/O (Per-Pass)
+        // Space 2: Transient I/O (Per-Pass, declared by each pass shader)
         .addSet( {
             // Input (Read-Only)
-            { { .base = 0, .count = 8 }, Graphics::RHI::DescriptorType::SRV_Image, Graphics::RHI::ShaderStage::All, 1 },  // t0 - t7
-            { { .base = 8, .count = 8 }, Graphics::RHI::DescriptorType::SRV_Buffer, Graphics::RHI::ShaderStage::All, 1 }, // t8 - t15
+            { { .base = REG_PASS_SRV_IMAGE_BASE, .count = REG_PASS_SLOT_COUNT }, Graphics::RHI::DescriptorType::SRV_Image, Graphics::RHI::ShaderStage::All, 1 },   // t0 - t7
+            { { .base = REG_PASS_SRV_BUFFER_BASE, .count = REG_PASS_SLOT_COUNT }, Graphics::RHI::DescriptorType::SRV_Buffer, Graphics::RHI::ShaderStage::All, 1 }, // t8 - t15
             // Output (Read-Write)
-            { { .base = 0, .count = 8 }, Graphics::RHI::DescriptorType::UAV_Image, Graphics::RHI::ShaderStage::All, 1 },  // u0 - u7
-            { { .base = 8, .count = 8 }, Graphics::RHI::DescriptorType::UAV_Buffer, Graphics::RHI::ShaderStage::All, 1 }, // u8 - u15
+            { { .base = REG_PASS_UAV_IMAGE_BASE, .count = REG_PASS_SLOT_COUNT }, Graphics::RHI::DescriptorType::UAV_Image, Graphics::RHI::ShaderStage::All, 1 },   // u0 - u7
+            { { .base = REG_PASS_UAV_BUFFER_BASE, .count = REG_PASS_SLOT_COUNT }, Graphics::RHI::DescriptorType::UAV_Buffer, Graphics::RHI::ShaderStage::All, 1 }, // u8 - u15
         } )
-        // Space 3: Universal Push Constants
+        // Space 3: Universal Push Constants (declared by each pass / material shader)
         // Maximum guaranteed size across all hardware is 128 bytes.
-        .setPushConstants( MAX_PUSH_CONSTANTS_BYTES, 0, 3 )
+        .setPushConstants( MAX_PUSH_CONSTANTS_BYTES, REG_PUSH_CONSTANT_BASE, (u32)LayoutSetType::PushConstant )
         .enableIndirectRendering()
         .create();
 }

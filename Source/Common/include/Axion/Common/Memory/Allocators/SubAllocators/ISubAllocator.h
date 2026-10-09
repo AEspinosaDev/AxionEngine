@@ -20,6 +20,12 @@ struct VisibilityShared {
     static constexpr bool isGPUVisible  = true;
 };
 
+// Index-only containers (eg: descriptor heaps): offsets are indices, no address resolution
+struct VisibilityNone {
+    static constexpr bool isCPUReadable = false;
+    static constexpr bool isGPUVisible  = false;
+};
+
 // Represents a logical slice of ANY container (CPU array, GPU buffer, File, etc.)
 template <typename TContainer>
 struct SubAllocation {

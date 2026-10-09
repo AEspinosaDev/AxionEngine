@@ -56,9 +56,8 @@ RGResourceHandle RenderGraphBuilder::import( StringView name, BufferHandle handl
     return _graph.importBuffer( name, handle );
 }
 
-RHI::IDescriptorSet* RenderGraphBuilder::allocateSet( RHI::IPipelineLayout* layout, u32 setIndex ) {
+RHI::IDescriptorSet* RenderGraphBuilder::allocateDescriptorSet( RHI::IPipelineLayout* layout, u32 setIndex ) {
     return _descAllocator.allocate( layout, setIndex );
-    ;
 }
 // =============================================================================
 // RENDER GRAPH IMPLEMENTATION

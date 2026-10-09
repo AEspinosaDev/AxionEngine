@@ -47,7 +47,8 @@ DX12Swapchain::DX12Swapchain( const HWND                     hwnd,
     DX_CHECK( swapChain1.As( &_swapchain ) );
 
     // Descriptor heap
-    _heapRTV.initialize( _device.Get(), DX12DescriptorHeap::Type::RTV, _desc.imageCount );
+    _imageCtx.device = _device;
+    _imageCtx.heapRTV.initialize( _device.Get(), DX12DescriptorHeap::Type::RTV, _desc.imageCount, DX12DescriptorHeap::AllocationPolicy::Linear );
 
     // Create backbuffers
     updateImages();
@@ -80,7 +81,7 @@ void DX12Swapchain::update( const Description& newDesc ) {
     DX_CHECK( _device->GetDeviceRemovedReason() );
 
     _swapImages.clear();
-    _heapRTV.reset();
+    _imageCtx.heapRTV.reset();
 
     _desc = newDesc;
 
@@ -93,7 +94,7 @@ void DX12Swapchain::update( const Description& newDesc ) {
         _desc.tearingSupported ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0 ) );
 
     // // Recreate RTV descriptor heap
-    // _heapRTV.init( _device, DX12DescriptorHeap::Type::RTV, _desc.imageCount );
+    // _imageCtx.heapRTV.init( _device, DX12DescriptorHeap::Type::RTV, _desc.imageCount );
     // Recreate backbuffer textures and their RTVs
     updateImages();
 
@@ -120,13 +121,12 @@ void DX12Swapchain::updateImages() {
 
         .debugName = "Swapchain Backbuffer",
         .viewFlags = TextureViewRenderTarget };
-    DX12Device::Context ctx = { .device = _device, .heapRTV = _heapRTV };
     for ( u32 i = 0; i < _desc.imageCount; ++i )
     {
         ComPtr<ID3D12Resource> backBuffer;
         DX_CHECK( _swapchain->GetBuffer( i, IID_PPV_ARGS( &backBuffer ) ) );
 
-        auto backBufferTexture = Memory::makeOwned<DX12Texture>( backBuffer, desc, ctx, false );
+        auto backBufferTexture = Memory::makeOwned<DX12Texture>( backBuffer, desc, _imageCtx, false );
         backBufferTexture->stateTracker().setState( ResourceState::Present );
         _swapImages[i] = std::move( backBufferTexture );
     }
