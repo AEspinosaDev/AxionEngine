@@ -8,8 +8,13 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 DX12CommandList::DX12CommandList( const ComPtr<ID3D12Device2>& device,
+                                  DX12DescriptorHeap&          gpuHeapSRV,
+                                  DX12DescriptorHeap&          gpuHeapSamplers,
                                   const CommandListDesc&       desc )
     : _desc( desc ) {
+
+    _globalHeaps[0] = gpuHeapSRV.getHeap();
+    _globalHeaps[1] = gpuHeapSamplers.getHeap();
 
     AXION_LOG_ASSERT( desc.numFrames > 0, Logger::Module::RHI, "Invalid frame number in CreateCommandList(). Must be greater than zero" );
     _cmdAllocators.resize( desc.numFrames );
@@ -46,13 +51,15 @@ DX12CommandList::~DX12CommandList() {
 }
 
 void DX12CommandList::begin() {
-    _currentViewHeap    = nullptr;
-    _currentSamplerHeap = nullptr;
-    _currentLayout      = nullptr;
-    _bindPoint          = PipelineBindPoint::None;
-    auto& allocator     = _cmdAllocators[_currentFrame];
+    _currentLayout  = nullptr;
+    _bindPoint      = PipelineBindPoint::None;
+    auto& allocator = _cmdAllocators[_currentFrame];
     DX_CHECK( allocator->Reset() );
     DX_CHECK( _cmdList->Reset( allocator.Get(), nullptr ) );
+
+    // Global heaps bound once, before any SetRootSignature (required by HEAP_DIRECTLY_INDEXED). Not allowed on copy lists
+    if ( _desc.queueType != QueueType::Transfer )
+        _cmdList->SetDescriptorHeaps( 2, _globalHeaps );
 }
 
 void DX12CommandList::end() {
@@ -487,25 +494,10 @@ void DX12CommandList::bindDescriptorSet( u32 setIndex, IDescriptorSet* set ) {
 
     auto* dxSet = static_cast<DX12DescriptorSet*>( set );
 
-    ID3D12DescriptorHeap* viewHeap    = dxSet->getViewOwnerHeap();
-    ID3D12DescriptorHeap* samplerHeap = dxSet->getSamplerOwnerHeap();
-
-    if ( _currentViewHeap != viewHeap || _currentSamplerHeap != samplerHeap )
-    {
-        _currentViewHeap    = viewHeap;
-        _currentSamplerHeap = samplerHeap;
-
-        ID3D12DescriptorHeap* heapsToBind[2] = {};
-        u32                  heapCount      = 0;
-
-        if ( _currentViewHeap )
-            heapsToBind[heapCount++] = _currentViewHeap;
-        if ( _currentSamplerHeap )
-            heapsToBind[heapCount++] = _currentSamplerHeap;
-
-        if ( heapCount > 0 )
-            _cmdList->SetDescriptorHeaps( heapCount, heapsToBind );
-    }
+    AXION_LOG_ASSERT( !dxSet->getViewOwnerHeap() || dxSet->getViewOwnerHeap() == _globalHeaps[0], Logger::Module::RHI,
+                      "Descriptor Set views do not belong to the global shader-visible heap" );
+    AXION_LOG_ASSERT( !dxSet->getSamplerOwnerHeap() || dxSet->getSamplerOwnerHeap() == _globalHeaps[1], Logger::Module::RHI,
+                      "Descriptor Set samplers do not belong to the global shader-visible heap" );
 
     auto indices = static_cast<DX12PipelineLayout*>( _currentLayout )->getRootIndices( setIndex );
 
@@ -552,25 +544,10 @@ void DX12CommandList::bindDescriptorSet( u32 setIndex, IDescriptorSet* set, IPip
             _cmdList->SetGraphicsRootSignature( rootSig );
     }
 
-    ID3D12DescriptorHeap* viewHeap    = dxSet->getViewOwnerHeap();
-    ID3D12DescriptorHeap* samplerHeap = dxSet->getSamplerOwnerHeap();
-
-    if ( _currentViewHeap != viewHeap || _currentSamplerHeap != samplerHeap )
-    {
-        _currentViewHeap    = viewHeap;
-        _currentSamplerHeap = samplerHeap;
-
-        ID3D12DescriptorHeap* heapsToBind[2] = {};
-        u32                  heapCount      = 0;
-
-        if ( _currentViewHeap )
-            heapsToBind[heapCount++] = _currentViewHeap;
-        if ( _currentSamplerHeap )
-            heapsToBind[heapCount++] = _currentSamplerHeap;
-
-        if ( heapCount > 0 )
-            _cmdList->SetDescriptorHeaps( heapCount, heapsToBind );
-    }
+    AXION_LOG_ASSERT( !dxSet->getViewOwnerHeap() || dxSet->getViewOwnerHeap() == _globalHeaps[0], Logger::Module::RHI,
+                      "Descriptor Set views do not belong to the global shader-visible heap" );
+    AXION_LOG_ASSERT( !dxSet->getSamplerOwnerHeap() || dxSet->getSamplerOwnerHeap() == _globalHeaps[1], Logger::Module::RHI,
+                      "Descriptor Set samplers do not belong to the global shader-visible heap" );
 
     auto* dxCurrentLayout = static_cast<DX12PipelineLayout*>( _currentLayout );
     auto  indices         = dxCurrentLayout->getRootIndices( setIndex );

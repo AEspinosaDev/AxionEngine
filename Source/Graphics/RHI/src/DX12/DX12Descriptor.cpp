@@ -460,7 +460,10 @@ u32 DX12DescriptorSet::getD3D12BindingOffset( u32 regBinding, D3D12_DESCRIPTOR_R
             return mapping.globalOffset + ( regBinding - mapping.hlslBase );
     }
 
-    AXION_LOG_WARN_ONCE( Logger::Module::RHI, "Failed to find binding offset for register {}!", regBinding );
+    // Wrong register in attach() is a programmer error: writing at offset 0 would silently corrupt another descriptor
+    AXION_LOG_ASSERT( false, Logger::Module::RHI,
+                      "Descriptor Set: register {} (range type {}) not found in layout. Check attach() register against the shader declaration",
+                      regBinding, (u32)rangeType );
     return 0;
 }
 
@@ -477,22 +480,29 @@ D3D12_CPU_DESCRIPTOR_HANDLE DX12DescriptorSet::getDestHandle( u32 regBinding, D3
 }
 
 DX12DescriptorAllocator::DX12DescriptorAllocator( ID3D12Device*                  device,
+                                                  DX12DescriptorHeap&            gpuHeapSRV,
+                                                  DX12DescriptorHeap&            gpuHeapSamplers,
                                                   const DescriptorAllocatorDesc& desc )
-
     : _device( device )
-    , _desc( desc ) {
+    , _desc( desc )
+    , _gpuHeapSRV( gpuHeapSRV )
+    , _gpuHeapSamplers( gpuHeapSamplers ) {
 
-    _viewHeap.initialize( device, DX12DescriptorHeap::Type::CBV_SRV_UAV, _desc.numViews, DX12DescriptorHeap::AllocationPolicy::Linear, true );
-    _viewHandleSize = device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-
-    _samplerHeap.initialize( device, DX12DescriptorHeap::Type::Sampler, _desc.numSamplers, DX12DescriptorHeap::AllocationPolicy::Linear, true );
-    _samplerHandleSize = device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER );
+    // Reserve contiguous blocks in the global heaps (FreeList asserts on allocate( 0 ), so guard empty budgets)
+    if ( _desc.numViews > 0 )
+        _viewRange = _gpuHeapSRV.allocate( _desc.numViews );
+    if ( _desc.numSamplers > 0 )
+        _samplerRange = _gpuHeapSamplers.allocate( _desc.numSamplers );
 
     _setPool.reserve( _desc.numDescriptors );
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 Desc.Allocator created [{}]", _desc.debugName );
 }
 DX12DescriptorAllocator::~DX12DescriptorAllocator() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Desc.Allocator [{}]", _desc.debugName );
+    if ( _viewRange.isValid() )
+        _gpuHeapSRV.free( _viewRange );
+    if ( _samplerRange.isValid() )
+        _gpuHeapSamplers.free( _samplerRange );
 }
 
 IDescriptorSet* DX12DescriptorAllocator::allocate( IPipelineLayout* layout, u32 setIndex ) {
@@ -516,13 +526,11 @@ IDescriptorSet* DX12DescriptorAllocator::allocate( IPipelineLayout* layout, u32 
     DescriptorHandleInfo viewInfo = {};
     if ( viewCount > 0 )
     {
-        viewInfo.startCPU   = _viewHeap.getCPUStart();
-        viewInfo.startGPU   = _viewHeap.getGPUStart();
-        viewInfo.handleSize = _viewHandleSize;
-        viewInfo.ownerHeap  = _viewHeap.getHeap();
-
-        viewInfo.startCPU.ptr += _currentViewOffset * _viewHandleSize;
-        viewInfo.startGPU.ptr += _currentViewOffset * _viewHandleSize;
+        const u32 index     = (u32)_viewRange.offset + _currentViewOffset;
+        viewInfo.startCPU   = _gpuHeapSRV.getCPU( index );
+        viewInfo.startGPU   = _gpuHeapSRV.getGPU( index );
+        viewInfo.handleSize = _gpuHeapSRV.getDescriptorSize();
+        viewInfo.ownerHeap  = _gpuHeapSRV.getHeap();
 
         _currentViewOffset += viewCount;
     }
@@ -530,13 +538,11 @@ IDescriptorSet* DX12DescriptorAllocator::allocate( IPipelineLayout* layout, u32 
     DescriptorHandleInfo samplerInfo = {};
     if ( samplerCount > 0 )
     {
-        samplerInfo.startCPU   = _samplerHeap.getCPUStart();
-        samplerInfo.startGPU   = _samplerHeap.getGPUStart();
-        samplerInfo.handleSize = _samplerHandleSize;
-        samplerInfo.ownerHeap  = _samplerHeap.getHeap();
-
-        samplerInfo.startCPU.ptr += _currentSamplerOffset * _samplerHandleSize;
-        samplerInfo.startGPU.ptr += _currentSamplerOffset * _samplerHandleSize;
+        const u32 index        = (u32)_samplerRange.offset + _currentSamplerOffset;
+        samplerInfo.startCPU   = _gpuHeapSamplers.getCPU( index );
+        samplerInfo.startGPU   = _gpuHeapSamplers.getGPU( index );
+        samplerInfo.handleSize = _gpuHeapSamplers.getDescriptorSize();
+        samplerInfo.ownerHeap  = _gpuHeapSamplers.getHeap();
 
         _currentSamplerOffset += samplerCount;
     }
@@ -544,8 +550,7 @@ IDescriptorSet* DX12DescriptorAllocator::allocate( IPipelineLayout* layout, u32 
     if ( _poolIndex < _setPool.size() )
     {
         // Recycle
-        _setPool[_poolIndex]->reconfigure(
-            viewInfo.startCPU, viewInfo.startGPU, samplerInfo.startCPU, samplerInfo.startGPU, dx12Layout->getBindingMappingLUT( setIndex ) );
+        _setPool[_poolIndex]->reconfigure( viewInfo, samplerInfo, dx12Layout->getBindingMappingLUT( setIndex ) );
         return _setPool[_poolIndex++].get();
     } else
     {
@@ -560,13 +565,9 @@ IDescriptorSet* DX12DescriptorAllocator::allocate( IPipelineLayout* layout, u32 
 }
 
 void DX12DescriptorAllocator::reset() {
-    _viewHeap.reset();
-    _currentViewOffset = _persistentViewOffset;
-
-    _samplerHeap.reset();
+    _currentViewOffset    = _persistentViewOffset;
     _currentSamplerOffset = _persistentSamplerOffset;
-
-    _poolIndex = _persistentPoolIndex;
+    _poolIndex            = _persistentPoolIndex;
 }
 
 StringView DX12DescriptorAllocator::getDebugName() const {
@@ -579,20 +580,15 @@ STLW::String DX12DescriptorAllocator::toString() const {
 
 void DX12DescriptorAllocator::setDebugName( StringView name ) {
     _desc.debugName = name;
-    char buffer[128];
-    snprintf( buffer, sizeof( buffer ), "%.*s | Views Heap", (int)name.size(), name.data() );
-    _viewHeap.setDebugName( buffer );
-    snprintf( buffer, sizeof( buffer ), "%.*s | Samplers Heap", (int)name.size(), name.data() );
-    _samplerHeap.setDebugName( buffer );
 }
 
 NativeObject DX12DescriptorAllocator::getNativeObject( ObjectType objectType ) {
     switch ( objectType )
     {
         case ObjectTypes::DX12_DescriptorHeap:
-            return NativeObject( objectType, _viewHeap.getHeap() );
+            return NativeObject( objectType, _gpuHeapSRV.getHeap() );
         case ObjectTypes::DX12_DescriptorSamplerHeap:
-            return NativeObject( objectType, _samplerHeap.getHeap() );
+            return NativeObject( objectType, _gpuHeapSamplers.getHeap() );
         default:
             AXION_LOG_ERROR( Logger::Module::RHI, "DX12 Descriptor Allocator | Wrong Object Type" );
             return nullptr;

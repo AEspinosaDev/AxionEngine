@@ -219,9 +219,10 @@ void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Devic
         return;
     }
 
-    bool validSize = ( _desc.pushConstant.size == sizeof( u32 ) );
+    // Command signature only writes the first 32-bit value (baseInstanceID). Bigger push constant blocks are valid
+    bool validSize = ( _desc.pushConstant.size >= sizeof( u32 ) );
 
-    AXION_LOG_ASSERT( validSize, Logger::Module::RHI, "DX12 Pipeline Layout [{}]: Push constant size must be 4 bytes (1 uint) for baseInstanceID. Current size: {}", _desc.debugName, _desc.pushConstant.size );
+    AXION_LOG_ASSERT( validSize, Logger::Module::RHI, "DX12 Pipeline Layout [{}]: Push constant size must be at least 4 bytes (1 uint) for baseInstanceID. Current size: {}", _desc.debugName, _desc.pushConstant.size );
 
     if ( !validSize )
         return;

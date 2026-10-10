@@ -2,6 +2,7 @@
 #include "DX12Common.h"
 #include "DX12Descriptor.h"
 #include <Axion/Graphics/RHI/DX12/IDX12Device.h>
+#include <Axion/Graphics/RHI/IGUIBackend.h>
 #include <functional>
 
 AXION_NAMESPACE_BEGIN
@@ -61,7 +62,7 @@ public:
     class UploadContext
     {
     public:
-        void initialize( const ComPtr<ID3D12Device2>& device );
+        void initialize( const ComPtr<ID3D12Device2>& device, DX12DescriptorHeap& gpuHeapSRV, DX12DescriptorHeap& gpuHeapSamplers );
         void oneTimeSubmitRaw( const Memory::OwnerPtr<Queue>& uploadQueue, const std::function<void( const ComPtr<ID3D12GraphicsCommandList>& )>& commands );
         void oneTimeSubmit( const Memory::OwnerPtr<Queue>& uploadQueue, const std::function<void( ICommandList* )>& commands );
 
@@ -96,12 +97,15 @@ public:
         Memory::OwnerPtr<Queue> computeQueue;
         Memory::OwnerPtr<Queue> copyQueue;
 
-        // CPU Only Heaps
-        DX12DescriptorHeap heapSRV;
-        DX12DescriptorHeap heapRTV;
-        DX12DescriptorHeap heapDSV;
-        DX12DescriptorHeap heapUAV;
-        DX12DescriptorHeap heapSamplers;
+        // CPU Only Heaps 
+        DX12DescriptorHeap cpuHeapSRV;
+        DX12DescriptorHeap cpuHeapRTV;
+        DX12DescriptorHeap cpuHeapDSV;
+        DX12DescriptorHeap cpuHeapSamplers;
+
+        // GPU Visible Heaps
+        DX12DescriptorHeap gpuHeapSRV; ///< CBV/SRV/UAV
+        DX12DescriptorHeap gpuHeapSamplers;
 
         UploadContext uploadContext = {};
     };
@@ -150,6 +154,9 @@ private:
     void createDefaultMemoryPools();
 
     Queue* getQueueRW( const QueueType& type );
+
+    // GUI factory needs the context (global heaps, queue) to build the backend
+    friend GUIBackendOwnerPtr createGUIBackendForDX12( IDevice* device, const GUIBackendDesc& desc );
 
     IDX12Device::Description _desc;
     Context                  _ctx;

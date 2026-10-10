@@ -120,7 +120,7 @@ void DX12Texture::createViews( DX12Device::Context& ctx, bool useDescriptionPara
         srvDesc.ViewDimension                   = DX12Translator::getSRVDimension( _desc.dimension ); // helper
         srvDesc.Texture2D.MipLevels             = _desc.mipLevels;
 
-        _srvHandle = ctx.heapSRV.allocateCPU();
+        _srvHandle = ctx.cpuHeapSRV.allocateCPU();
         ctx.device->CreateShaderResourceView( _resource.Get(), useDescriptionParams ? &srvDesc : nullptr, _srvHandle );
     }
 
@@ -129,7 +129,7 @@ void DX12Texture::createViews( DX12Device::Context& ctx, bool useDescriptionPara
         D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
         rtvDesc.Format                        = DX12Translator::get( _desc.format );
         rtvDesc.ViewDimension                 = DX12Translator::getRTVDimension( _desc.dimension );
-        _rtvHandle                            = ctx.heapRTV.allocateCPU();
+        _rtvHandle                            = ctx.cpuHeapRTV.allocateCPU();
         ctx.device->CreateRenderTargetView( _resource.Get(), useDescriptionParams ? &rtvDesc : nullptr, _rtvHandle );
     }
 
@@ -138,7 +138,7 @@ void DX12Texture::createViews( DX12Device::Context& ctx, bool useDescriptionPara
         D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
         dsvDesc.Format                        = DX12Translator::get( _desc.format );
         dsvDesc.ViewDimension                 = DX12Translator::getDSVDimension( _desc.dimension );
-        _dsvHandle                            = ctx.heapDSV.allocateCPU();
+        _dsvHandle                            = ctx.cpuHeapDSV.allocateCPU();
         ctx.device->CreateDepthStencilView( _resource.Get(), useDescriptionParams ? &dsvDesc : nullptr, _dsvHandle );
     }
     if ( _desc.viewFlags & TextureViewUnorderedAccess )
@@ -169,7 +169,7 @@ void DX12Texture::createViews( DX12Device::Context& ctx, bool useDescriptionPara
                 break;
         }
 
-        _uavHandle = ctx.heapSRV.allocateCPU();
+        _uavHandle = ctx.cpuHeapSRV.allocateCPU();
 
         ctx.device->CreateUnorderedAccessView(
             _resource.Get(),
@@ -419,7 +419,7 @@ void DX12Buffer::createViews( DX12Device::Context& ctx ) {
         cbv.BufferLocation = _resource->GetGPUVirtualAddress();
         cbv.SizeInBytes    = (UINT)Helpers::alignUp( _desc.size, (size_t)256 );
 
-        _cbvHandle = ctx.heapSRV.allocateCPU();
+        _cbvHandle = ctx.cpuHeapSRV.allocateCPU();
         ctx.device->CreateConstantBufferView( &cbv, _cbvHandle );
     }
 
@@ -454,7 +454,7 @@ void DX12Buffer::createViews( DX12Device::Context& ctx ) {
             srvDesc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_NONE;
         }
 
-        _srvHandle = ctx.heapSRV.allocateCPU();
+        _srvHandle = ctx.cpuHeapSRV.allocateCPU();
         ctx.device->CreateShaderResourceView( _resource.Get(), &srvDesc, _srvHandle );
     }
 
@@ -468,7 +468,7 @@ void DX12Buffer::createViews( DX12Device::Context& ctx ) {
         desc.Buffer.NumElements         = (UINT)( _desc.size / _desc.stride );
         desc.Buffer.StructureByteStride = _desc.stride;
 
-        _uavHandle = ctx.heapSRV.allocateCPU();
+        _uavHandle = ctx.cpuHeapSRV.allocateCPU();
         ctx.device->CreateUnorderedAccessView( _resource.Get(), nullptr, &desc, _uavHandle );
     }
     // Special case for VBO/(IBO)
@@ -573,7 +573,7 @@ DX12Sampler::DX12Sampler( const SamplerDesc& desc, DX12Device::Context& ctx )
     : _desc( desc ) {
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 Sampler Created [{}]", _desc.debugName );
 
-    _samplerHandle = ctx.heapSamplers.allocateCPU();
+    _samplerHandle = ctx.cpuHeapSamplers.allocateCPU();
 
     D3D12_SAMPLER_DESC dxDesc = {};
     dxDesc.Filter             = DX12Translator::get( desc.minFilter, desc.magFilter, desc.mipFilter );
@@ -790,7 +790,7 @@ void DX12Accel::createView( DX12Device::Context& ctx ) {
     desc.Shader4ComponentMapping                  = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     desc.RaytracingAccelerationStructure.Location = _buffer->getDeviceAddress();
 
-    _srvHandle = ctx.heapSRV.allocateCPU();
+    _srvHandle = ctx.cpuHeapSRV.allocateCPU();
 
     ctx.device->CreateShaderResourceView( nullptr, &desc, _srvHandle );
 }

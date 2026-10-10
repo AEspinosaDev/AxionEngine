@@ -118,16 +118,12 @@ public:
     D3D12_GPU_DESCRIPTOR_HANDLE getSamplerGPUHandle() const { return _samplers.startGPU; }
     ID3D12DescriptorHeap*       getSamplerOwnerHeap() const { return _samplers.ownerHeap; }
 
-    void reconfigure( D3D12_CPU_DESCRIPTOR_HANDLE   cpuViewHandle,
-                      D3D12_GPU_DESCRIPTOR_HANDLE   gpuViewHandle,
-                      D3D12_CPU_DESCRIPTOR_HANDLE   cpuSamplerHandle,
-                      D3D12_GPU_DESCRIPTOR_HANDLE   gpuSamplerHandle,
+    void reconfigure( const DescriptorHandleInfo&   views,
+                      const DescriptorHandleInfo&   samplers,
                       const D3D12BindingMappingLUT& bindingOffsets ) {
-        _views.startCPU    = cpuViewHandle;
-        _views.startGPU    = gpuViewHandle;
-        _samplers.startCPU = cpuSamplerHandle;
-        _samplers.startGPU = gpuSamplerHandle;
-        _bindingMappings   = bindingOffsets;
+        _views           = views;
+        _samplers        = samplers;
+        _bindingMappings = bindingOffsets;
     }
 
 private:
@@ -148,7 +144,10 @@ private:
 class DX12DescriptorAllocator : public IDescriptorAllocator
 {
 public:
-    DX12DescriptorAllocator( ID3D12Device* device, const DescriptorAllocatorDesc& desc );
+    DX12DescriptorAllocator( ID3D12Device*                  device,
+                             DX12DescriptorHeap&            gpuHeapSRV,
+                             DX12DescriptorHeap&            gpuHeapSamplers,
+                             const DescriptorAllocatorDesc& desc );
     ~DX12DescriptorAllocator() override;
 
     IDescriptorSet*                allocate( IPipelineLayout* layout, u32 setIndex ) override;
@@ -167,13 +166,14 @@ private:
     ID3D12Device*           _device;
     DescriptorAllocatorDesc _desc;
 
-    DX12DescriptorHeap _viewHeap;
-    u32                _currentViewOffset = 0;
-    u32                _viewHandleSize    = 0;
+    // Reserved blocks inside the device global shader-visible heaps. Offsets below are relative to them
+    DX12DescriptorHeap&      _gpuHeapSRV;
+    DX12DescriptorHeap&      _gpuHeapSamplers;
+    DescriptorHeapAllocation _viewRange;
+    DescriptorHeapAllocation _samplerRange;
 
-    DX12DescriptorHeap _samplerHeap;
-    u32                _currentSamplerOffset = 0;
-    u32                _samplerHandleSize    = 0;
+    u32 _currentViewOffset    = 0;
+    u32 _currentSamplerOffset = 0;
 
     // Pooling
     STLW::Vector<Memory::OwnerPtr<DX12DescriptorSet>> _setPool;

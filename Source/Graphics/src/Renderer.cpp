@@ -114,23 +114,29 @@ void Renderer::render( RenderGraphSetupFunc setup ) {
 
     if ( _pendingResize )
     {
-        _device->waitIdle();
-
-        for ( auto& handle : _swapchainHandles )
-        {
-            if ( handle.isValid() )
-                _resourcePool.destroyTexture( handle );
-        }
-
-        auto desc = _swapchain->getDescription();
-        desc.size = _wnd->getSettings().size;
-        _swapchain->update( desc );
-
-        generateSwapchainHandles();
-
-        _currentFrame = _swapchain->acquireNextImage();
-
         _pendingResize = false;
+
+        auto       desc    = _swapchain->getDescription();
+        const auto newSize = _wnd->getSettings().size;
+
+        // Same size (eg: resize event on window creation): backbuffers are still valid, nothing to recreate
+        if ( desc.size.width != newSize.width || desc.size.height != newSize.height )
+        {
+            _device->waitIdle();
+
+            for ( auto& handle : _swapchainHandles )
+            {
+                if ( handle.isValid() )
+                    _resourcePool.destroyTexture( handle );
+            }
+
+            desc.size = newSize;
+            _swapchain->update( desc );
+
+            generateSwapchainHandles();
+
+            _currentFrame = _swapchain->acquireNextImage();
+        }
     }
 
     // Reset Allocators

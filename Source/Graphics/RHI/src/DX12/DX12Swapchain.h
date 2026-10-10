@@ -40,7 +40,7 @@ private:
     ComPtr<IDXGISwapChain4> _swapchain;
     u32                     _currentImage;
 
-    DX12Device::Context             _imageCtx; ///< Only device + heapRTV are used (backbuffer RTVs)
+    DX12Device::Context             _imageCtx; ///< Only device + cpuHeapRTV are used (backbuffer RTVs)
     SmallVector<TextureOwnerPtr, 3> _swapImages;
 
     bool _initialized = false;

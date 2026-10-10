@@ -48,7 +48,7 @@ DX12Swapchain::DX12Swapchain( const HWND                     hwnd,
 
     // Descriptor heap
     _imageCtx.device = _device;
-    _imageCtx.heapRTV.initialize( _device.Get(), DX12DescriptorHeap::Type::RTV, _desc.imageCount, DX12DescriptorHeap::AllocationPolicy::Linear );
+    _imageCtx.cpuHeapRTV.initialize( _device.Get(), DX12DescriptorHeap::Type::RTV, _desc.imageCount, DX12DescriptorHeap::AllocationPolicy::Linear );
 
     // Create backbuffers
     updateImages();
@@ -81,7 +81,7 @@ void DX12Swapchain::update( const Description& newDesc ) {
     DX_CHECK( _device->GetDeviceRemovedReason() );
 
     _swapImages.clear();
-    _imageCtx.heapRTV.reset();
+    _imageCtx.cpuHeapRTV.reset();
 
     _desc = newDesc;
 
@@ -94,7 +94,7 @@ void DX12Swapchain::update( const Description& newDesc ) {
         _desc.tearingSupported ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0 ) );
 
     // // Recreate RTV descriptor heap
-    // _imageCtx.heapRTV.init( _device, DX12DescriptorHeap::Type::RTV, _desc.imageCount );
+    // _imageCtx.cpuHeapRTV.init( _device, DX12DescriptorHeap::Type::RTV, _desc.imageCount );
     // Recreate backbuffer textures and their RTVs
     updateImages();
 

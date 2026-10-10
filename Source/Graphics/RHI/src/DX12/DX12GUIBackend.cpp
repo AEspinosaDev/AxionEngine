@@ -11,14 +11,12 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 GUIBackendOwnerPtr RHI::createGUIBackendForDX12( IDevice* device, const GUIBackendDesc& desc ) {
-    ID3D12Device2* dx12Device = device->getNativeObject( ObjectTypes::DX12_Device );
-    return Memory::makeOwned<DX12GUIBackend>( dx12Device,
-                                    static_cast<DX12Device*>( device )->getQueue( QueueType::Graphics )->queue.Get(),
-                                    desc );
+    return Memory::makeOwned<DX12GUIBackend>( static_cast<DX12Device*>( device )->_ctx, desc );
 }
 
-DX12GUIBackend::DX12GUIBackend( ID3D12Device2* device, ID3D12CommandQueue* queue, const GUIBackendDesc& desc )
-    : _desc( desc ) {
+DX12GUIBackend::DX12GUIBackend( DX12Device::Context& ctx, const GUIBackendDesc& desc )
+    : _gpuHeapSRV( ctx.gpuHeapSRV )
+    , _desc( desc ) {
 
     // Setup ImGui context
     IMGUI_CHECKVERSION();
@@ -28,12 +26,7 @@ DX12GUIBackend::DX12GUIBackend( ID3D12Device2* device, ID3D12CommandQueue* queue
 
     io.ConfigFlags |= desc.configFlags;
 
-    D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-    heapDesc.Type                       = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    heapDesc.NumDescriptors             = 1;
-    heapDesc.Flags                      = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-
-    device->CreateDescriptorHeap( &heapDesc, IID_PPV_ARGS( &_guiHeap ) );
+    _fontSlot = _gpuHeapSRV.allocate( 1 );
 
     // Initialize platform backend
     if ( _desc.platform == PlatformType ::Win32 )
@@ -49,14 +42,14 @@ DX12GUIBackend::DX12GUIBackend( ID3D12Device2* device, ID3D12CommandQueue* queue
     }
 
     ImGui_ImplDX12_InitInfo init_info      = {};
-    init_info.Device                       = device;
-    init_info.CommandQueue                 = queue;
+    init_info.Device                       = ctx.device.Get();
+    init_info.CommandQueue                 = ctx.primaryQueue->queue.Get();
     init_info.NumFramesInFlight            = _desc.framesInFlight;
     init_info.RTVFormat                    = DX12Translator::get( _desc.backbufferFormat );
     init_info.DSVFormat                    = DXGI_FORMAT_UNKNOWN; // Assuming no depth buffer for UI
-    init_info.SrvDescriptorHeap            = _guiHeap.Get();
-    init_info.LegacySingleSrvCpuDescriptor = _guiHeap->GetCPUDescriptorHandleForHeapStart();
-    init_info.LegacySingleSrvGpuDescriptor = _guiHeap->GetGPUDescriptorHandleForHeapStart();
+    init_info.SrvDescriptorHeap            = _gpuHeapSRV.getHeap();
+    init_info.LegacySingleSrvCpuDescriptor = _gpuHeapSRV.getCPU( (u32)_fontSlot.offset );
+    init_info.LegacySingleSrvGpuDescriptor = _gpuHeapSRV.getGPU( (u32)_fontSlot.offset );
 
     // Initialize using the new API
     if ( ImGui_ImplDX12_Init( &init_info ) )
@@ -76,6 +69,7 @@ DX12GUIBackend::~DX12GUIBackend() {
     ImGui_ImplDX12_Shutdown();
     _platformShutdown();
     ImGui::DestroyContext();
+    _gpuHeapSRV.free( _fontSlot ); // After ImGui shutdown: font texture no longer referenced
 }
 
 void DX12GUIBackend::newFrame() const {
@@ -90,10 +84,7 @@ void DX12GUIBackend::render( ICommandList* cmd ) const {
 
     ID3D12GraphicsCommandList* rawCmd = cmd->getNativeObject( RHI::ObjectTypes::DX12_CommandList );
 
-    ID3D12DescriptorHeap* heaps[] = { _guiHeap.Get() };
-    rawCmd->SetDescriptorHeaps( 1, heaps );
-
-    ImGui_ImplDX12_RenderDrawData( ImGui::GetDrawData(), rawCmd );
+    ImGui_ImplDX12_RenderDrawData( ImGui::GetDrawData(), rawCmd ); // Global heap already bound at begin()
 }
 
 } // namespace Graphics::RHI

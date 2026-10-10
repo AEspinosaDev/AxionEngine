@@ -47,7 +47,7 @@ private:
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
         set0->attach( 0, Graphics::RHI::DescriptorType::SRV_Image, texIn );
-        set0->attach( 1, Graphics::RHI::DescriptorType::UAV_Image, texOut );
+        set0->attach( 0, Graphics::RHI::DescriptorType::UAV_Image, texOut ); // u0 in Tonemapping.slang
 
         ctx.cmd->bindComputePipeline( pso );
         ctx.cmd->bindDescriptorSet( 0, set0 );

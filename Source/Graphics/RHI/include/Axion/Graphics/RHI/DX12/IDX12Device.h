@@ -39,11 +39,17 @@ public:
         bool         useWarp           = false;               ///< Forces the use of the WARP software rasterizer instead of hardware.
         String64     debugName         = "Device";
 
-        u32  renderTargetViewHeapSize   = 1024;  ///< Capacity of the RTV Descriptor Heap.
-        u32  depthStencilViewHeapSize   = 1024;  ///< Capacity of the DSV Descriptor Heap.
-        u32  shaderResourceViewHeapSize = 16384; ///< Capacity of the CBV/SRV/UAV Descriptor Heap.
-        u32  samplerHeapSize            = 1024;  ///< Capacity of the Sampler Descriptor Heap.
-        bool enableHeapDirectlyIndexed  = false; ///< Enables SM 6.6 Dynamic Resources (Bindless) if hardware supports it.
+        // CPU-only heaps 
+        u32 cpuRenderTargetViewHeapSize   = 1024;  ///< Capacity of the CPU RTV Descriptor Heap.
+        u32 cpuDepthStencilViewHeapSize   = 1024;  ///< Capacity of the CPU DSV Descriptor Heap.
+        u32 cpuShaderResourceViewHeapSize = 16384; ///< Capacity of the CPU CBV/SRV/UAV Descriptor Heap.
+        u32 cpuSamplerHeapSize            = 1024;  ///< Capacity of the CPU Sampler Descriptor Heap.
+
+        // GPU-visible heaps
+        u32 gpuShaderResourceViewHeapSize = 524288; ///< Capacity of the global GPU CBV/SRV/UAV heap (D3D12 max: 1M). Shared by bindless slots and DescriptorAllocators.
+        u32 gpuSamplerHeapSize            = 2048;   ///< Capacity of the global GPU Sampler heap (D3D12 max: 2048).
+
+        bool enableHeapDirectlyIndexed = false; ///< Enables SM 6.6 Dynamic Resources (Bindless) if hardware supports it.
 
         u64  maxTextureAlloc      = GIGABYTES( 1ull ); ///< Logical cap for loaded textures VRAM Pool (SRV, UAV).;
         u64  maxBufferAlloc       = MBYTES( 512 );     ///< Logical cap for loaded buffers VRAM Pool (CBV, SRV, UAV).
