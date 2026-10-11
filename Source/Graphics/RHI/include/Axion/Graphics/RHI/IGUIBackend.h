@@ -1,6 +1,6 @@
 #pragma once
+#include "Axion/Graphics/RHI/Common.h"
 #include "Axion/Graphics/RHI/ICommandList.h"
-#include "Axion/Graphics/RHI/IDevice.h"
 #include <Axion/Common/Memory/Pointers/OwnerPtr.h>
 
 
@@ -10,7 +10,7 @@ namespace Graphics::RHI {
 
 DEFINE_OWNER_PTR_FOR_TYPE( IGUIBackend, GUIBackend )
 
-class IGUIBackend
+class IGUIBackend : public IDeviceObject
 {
 public:
     struct Description {
@@ -19,9 +19,12 @@ public:
         u32          framesInFlight     = 2;
         int          configFlags        = 0;
         void*        nativeWindowHandle = nullptr;
+        String64     debugName          = "GUIBackend";
     };
 
     virtual ~IGUIBackend() = default;
+
+    virtual const Description& getDescription() const = 0;
 
     // Prepare for a new frame
     virtual void newFrame() const = 0;
@@ -30,9 +33,6 @@ public:
 };
 
 typedef IGUIBackend::Description GUIBackendDesc;
-
-GUIBackendOwnerPtr createGUIBackendForDX12( IDevice* device, const GUIBackendDesc& desc );
-GUIBackendOwnerPtr createGUIBackendForVulkan( IDevice* device, const GUIBackendDesc& desc );
 
 } // namespace Graphics::RHI
 

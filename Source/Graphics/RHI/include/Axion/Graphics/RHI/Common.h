@@ -68,6 +68,10 @@ using LockedBufferLinearAllocator = Memory::LinearSubAllocator<RHI::IBuffer, Vis
 
 namespace RHI {
 
+/// Index of a resource view inside the device global shader-visible heap (SM 6.6 ResourceDescriptorHeap[index])
+using BindlessIndex                            = u32;
+constexpr BindlessIndex INVALID_BINDLESS_INDEX = AXION_INVALID_U32;
+
 struct DrawIndexedIndirectCommand {
     u32 baseInstanceID; ///< Current Instance ID + offset
 

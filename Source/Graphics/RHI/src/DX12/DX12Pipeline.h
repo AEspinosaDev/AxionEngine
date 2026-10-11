@@ -11,7 +11,7 @@ DEFINE_OWNER_PTR_FOR_TYPE( DX12PipelineLayout, DX12PipelineLayout )
 class DX12PipelineLayout final : public IPipelineLayout
 {
 public:
-    DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc );
+    DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc, bool heapDirectlyIndexed );
     ~DX12PipelineLayout() override;
 
     const Description& getDescription() const override { return _desc; }
@@ -34,7 +34,7 @@ public:
     ID3D12CommandSignature* getDispatchIndirectSignature() const { return _dispatchIndirectSignature.Get(); }
 
 private:
-    void                           buildRootSignature( const ComPtr<ID3D12Device2>& device );
+    void                           buildRootSignature( const ComPtr<ID3D12Device2>& device, bool heapDirectlyIndexed );
     void                           buildIndirectCommandSignature( const ComPtr<ID3D12Device2>& device );
     static D3D12_SHADER_VISIBILITY getShaderVisibility( const SmallVector<DescriptorBinding>& bindings );
 

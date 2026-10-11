@@ -79,6 +79,7 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
         .autoSync          = _setts.autoSync };
     _renderGraph.initialize( ctx, RGDesc );
 
+    createPersistentAllocators();
     createPerFrameAllocators();
     generateSwapchainHandles();
 
@@ -90,15 +91,9 @@ Renderer::Renderer( IWindow* wnd, const RendererSettings& settings )
             .backbufferFormat   = _setts.backbufferFormat,
             .framesInFlight     = _FRAMES_IN_FLIGHT,
             .nativeWindowHandle = _wnd->getNativeObject(),
+            .debugName          = "DX12 IMGUI Backend"
         };
-        switch ( _setts.gfxApi )
-        {
-            case API::DirectX12:
-                _guiBackend = RHI::createGUIBackendForDX12( _device.get(), guiDesc );
-                break;
-                // case GraphicsAPI::Vulkan:
-                //     break;
-        }
+        _guiBackend = _device->createGUIBackend( guiDesc );
         AXION_LOG_ASSERT( _guiBackend, Logger::Module::Core, "GUI Backend is not initialized in Renderer" );
     }
 }
@@ -271,6 +266,16 @@ void Renderer::generateSwapchainHandles() {
         auto handle = _resourcePool.registerExternalTexture( std::move( images[i] ), "Backbuffer_" + std::to_string( i ) );
         _swapchainHandles.pushBack( handle );
     }
+}
+
+void Renderer::createPersistentAllocators() {
+    // Persistent Descriptor Allocator: never reset, lives in the same global shader-visible heap as the per-frame ones
+    RHI::DescriptorAllocatorDesc allocDesc;
+    allocDesc.numDescriptors = _setts.descriptorBudget.maxPersistentDescriptors;
+    allocDesc.numSamplers    = _setts.descriptorBudget.maxPersistentSamplers;
+    allocDesc.numViews       = _setts.descriptorBudget.maxPersistentViews;
+    allocDesc.debugName      = "RendererDescAllocator_Persistent";
+    _persistentDescriptorAllocator = _device->createDescriptorAllocator( allocDesc );
 }
 
 void Renderer::createPerFrameAllocators() {

@@ -1,6 +1,7 @@
 #pragma once
 #include "Axion/Graphics/RHI/Common.h"
 #include "Axion/Graphics/RHI/ICommandList.h"
+#include "Axion/Graphics/RHI/IGUIBackend.h"
 #include "Axion/Graphics/RHI/IPipeline.h"
 #include "Axion/Graphics/RHI/IResource.h"
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
@@ -49,6 +50,10 @@ public:
     /// @param immediateBuild If true, blocks CPU to perform an immediate build/upload (useful for static scenes or tests).
     /// If false, allocates memory but leaves the AS empty (must be built via CommandList::buildAccel).
     virtual AccelOwnerPtr createAccel( const AccelDesc& desc, bool immediateBuild = false ) = 0;
+
+    /// @brief Creates the GUI backend (ImGui) bound to this device and its global descriptor heaps.
+    /// @note Only one instance can exist at a time (ImGui uses a global context).
+    virtual GUIBackendOwnerPtr createGUIBackend( const GUIBackendDesc& desc ) = 0;
 
     // -------------------------------------------------------------------------
     // PIPELINE CREATION

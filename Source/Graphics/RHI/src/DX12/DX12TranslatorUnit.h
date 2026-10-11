@@ -218,8 +218,16 @@ constexpr D3D12_SRV_DIMENSION getSRVDimension( TextureDimension dim ) {
     {
         case TextureDimension::Texture1D:
             return D3D12_SRV_DIMENSION_TEXTURE1D;
+        case TextureDimension::Texture1DArray:
+            return D3D12_SRV_DIMENSION_TEXTURE1DARRAY;
         case TextureDimension::Texture2D:
             return D3D12_SRV_DIMENSION_TEXTURE2D;
+        case TextureDimension::Texture2DArray:
+            return D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+        case TextureDimension::TextureCube:
+            return D3D12_SRV_DIMENSION_TEXTURECUBE;
+        case TextureDimension::TextureCubeArray:
+            return D3D12_SRV_DIMENSION_TEXTURECUBEARRAY;
         case TextureDimension::Texture3D:
             return D3D12_SRV_DIMENSION_TEXTURE3D;
     }
@@ -231,8 +239,14 @@ constexpr D3D12_RTV_DIMENSION getRTVDimension( TextureDimension dim ) {
     {
         case TextureDimension::Texture1D:
             return D3D12_RTV_DIMENSION_TEXTURE1D;
+        case TextureDimension::Texture1DArray:
+            return D3D12_RTV_DIMENSION_TEXTURE1DARRAY;
         case TextureDimension::Texture2D:
             return D3D12_RTV_DIMENSION_TEXTURE2D;
+        case TextureDimension::Texture2DArray:
+        case TextureDimension::TextureCube:
+        case TextureDimension::TextureCubeArray:
+            return D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
         case TextureDimension::Texture3D:
             return D3D12_RTV_DIMENSION_TEXTURE3D;
     }
@@ -244,8 +258,14 @@ constexpr D3D12_DSV_DIMENSION getDSVDimension( TextureDimension dim ) {
     {
         case TextureDimension::Texture1D:
             return D3D12_DSV_DIMENSION_TEXTURE1D;
+        case TextureDimension::Texture1DArray:
+            return D3D12_DSV_DIMENSION_TEXTURE1DARRAY;
         case TextureDimension::Texture2D:
             return D3D12_DSV_DIMENSION_TEXTURE2D;
+        case TextureDimension::Texture2DArray:
+        case TextureDimension::TextureCube:
+        case TextureDimension::TextureCubeArray:
+            return D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
         case TextureDimension::Texture3D:
             return D3D12_DSV_DIMENSION_UNKNOWN; // DSV cannot be 3D
     }
@@ -257,8 +277,14 @@ constexpr D3D12_UAV_DIMENSION getUAVDimension( TextureDimension dim ) {
     {
         case TextureDimension::Texture1D:
             return D3D12_UAV_DIMENSION_TEXTURE1D;
+        case TextureDimension::Texture1DArray:
+            return D3D12_UAV_DIMENSION_TEXTURE1DARRAY;
         case TextureDimension::Texture2D:
             return D3D12_UAV_DIMENSION_TEXTURE2D;
+        case TextureDimension::Texture2DArray:
+        case TextureDimension::TextureCube:
+        case TextureDimension::TextureCubeArray:
+            return D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
         case TextureDimension::Texture3D:
             return D3D12_UAV_DIMENSION_TEXTURE3D;
     }

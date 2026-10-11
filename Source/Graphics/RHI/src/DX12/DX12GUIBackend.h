@@ -10,13 +10,17 @@ namespace Graphics::RHI {
 class DX12GUIBackend final : public IGUIBackend
 {
 public:
-    DX12GUIBackend( DX12Device::Context& ctx, const GUIBackendDesc& desc );
+    DX12GUIBackend( const GUIBackendDesc& desc, DX12Device::Context& ctx );
     ~DX12GUIBackend() override;
 
-    const GUIBackendDesc& getDescription() const { return _desc; }
+    const GUIBackendDesc& getDescription() const override { return _desc; }
 
     void newFrame() const override;
     void render( ICommandList* cmd ) const override;
+
+    void         setDebugName( StringView name ) override { _desc.debugName = name; }
+    StringView   getDebugName() const override { return _desc.debugName; }
+    STLW::String toString() const override;
 
 private:
     DX12DescriptorHeap&      _gpuHeapSRV;

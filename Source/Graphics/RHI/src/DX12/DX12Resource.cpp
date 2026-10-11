@@ -7,6 +7,13 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
 
+// Copies a CPU staging descriptor into a new slot of the device global shader-visible heap
+static DescriptorHeapAllocation makeBindless( ID3D12Device* device, DX12DescriptorHeap& gpuHeap, D3D12_CPU_DESCRIPTOR_HANDLE src, D3D12_DESCRIPTOR_HEAP_TYPE type ) {
+    DescriptorHeapAllocation slot = gpuHeap.allocate( 1 );
+    device->CopyDescriptorsSimple( 1, gpuHeap.getCPU( (u32)slot.offset ), src, type );
+    return slot;
+}
+
 #pragma region Texture
 DX12Texture::DX12Texture( const TextureDesc& desc, DX12Device::Context& ctx, const void* initialData )
     : _desc( desc )
@@ -23,13 +30,20 @@ DX12Texture::DX12Texture( const TextureDesc& desc, DX12Device::Context& ctx, con
     switch ( desc.dimension )
     {
         case TextureDimension::Texture1D:
+        case TextureDimension::Texture1DArray:
             dx12Desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE1D;
             break;
         case TextureDimension::Texture2D:
+        case TextureDimension::Texture2DArray:
+        case TextureDimension::TextureCube: 
+        case TextureDimension::TextureCubeArray:
             dx12Desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
             break;
         case TextureDimension::Texture3D:
             dx12Desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE3D;
+            break;
+        default: // Unknown, Texture2DMS* (needs sample count support)
+            AXION_LOG_ASSERT( false, Logger::Module::RHI, "DX12 Texture [{}]: unsupported dimension {}", desc.debugName, (u32)desc.dimension );
             break;
     }
 
@@ -105,6 +119,10 @@ DX12Texture::DX12Texture( const ComPtr<ID3D12Resource>& resource,
 
 DX12Texture::~DX12Texture() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Texture [{}]", _desc.debugName );
+    if ( _bindlessSRV.isValid() )
+        _gpuHeapSRV->free( _bindlessSRV );
+    if ( _bindlessUAV.isValid() )
+        _gpuHeapSRV->free( _bindlessUAV );
 }
 
 const TextureDesc& DX12Texture::getDescription() const {
@@ -118,10 +136,40 @@ void DX12Texture::createViews( DX12Device::Context& ctx, bool useDescriptionPara
         srvDesc.Shader4ComponentMapping         = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         srvDesc.Format                          = DX12Translator::get( _desc.format );
         srvDesc.ViewDimension                   = DX12Translator::getSRVDimension( _desc.dimension ); // helper
-        srvDesc.Texture2D.MipLevels             = _desc.mipLevels;
+        switch ( srvDesc.ViewDimension )
+        {
+            case D3D12_SRV_DIMENSION_TEXTURECUBE:
+                srvDesc.TextureCube.MipLevels = _desc.mipLevels;
+                break;
+            case D3D12_SRV_DIMENSION_TEXTURECUBEARRAY:
+                srvDesc.TextureCubeArray.MipLevels = _desc.mipLevels;
+                srvDesc.TextureCubeArray.NumCubes  = _desc.arraySize / 6;
+                break;
+            case D3D12_SRV_DIMENSION_TEXTURE2DARRAY:
+                srvDesc.Texture2DArray.MipLevels = _desc.mipLevels;
+                srvDesc.Texture2DArray.ArraySize = _desc.arraySize;
+                break;
+            case D3D12_SRV_DIMENSION_TEXTURE1DARRAY:
+                srvDesc.Texture1DArray.MipLevels = _desc.mipLevels;
+                srvDesc.Texture1DArray.ArraySize = _desc.arraySize;
+                break;
+            case D3D12_SRV_DIMENSION_TEXTURE3D:
+                srvDesc.Texture3D.MipLevels = _desc.mipLevels;
+                break;
+            default: // 1D / 2D
+                srvDesc.Texture2D.MipLevels = _desc.mipLevels;
+                break;
+        }
 
         _srvHandle = ctx.cpuHeapSRV.allocateCPU();
         ctx.device->CreateShaderResourceView( _resource.Get(), useDescriptionParams ? &srvDesc : nullptr, _srvHandle );
+
+        // Swapchain image context has no global heaps (backbuffers are RTV only)
+        if ( ctx.gpuHeapSRV.getHeap() )
+        {
+            _gpuHeapSRV  = &ctx.gpuHeapSRV;
+            _bindlessSRV = makeBindless( ctx.device.Get(), ctx.gpuHeapSRV, _srvHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+        }
     }
 
     if ( _desc.viewFlags & TextureViewRenderTarget )
@@ -129,7 +177,9 @@ void DX12Texture::createViews( DX12Device::Context& ctx, bool useDescriptionPara
         D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
         rtvDesc.Format                        = DX12Translator::get( _desc.format );
         rtvDesc.ViewDimension                 = DX12Translator::getRTVDimension( _desc.dimension );
-        _rtvHandle                            = ctx.cpuHeapRTV.allocateCPU();
+        if ( rtvDesc.ViewDimension == D3D12_RTV_DIMENSION_TEXTURE2DARRAY )
+            rtvDesc.Texture2DArray.ArraySize = _desc.arraySize;
+        _rtvHandle = ctx.cpuHeapRTV.allocateCPU();
         ctx.device->CreateRenderTargetView( _resource.Get(), useDescriptionParams ? &rtvDesc : nullptr, _rtvHandle );
     }
 
@@ -138,7 +188,9 @@ void DX12Texture::createViews( DX12Device::Context& ctx, bool useDescriptionPara
         D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
         dsvDesc.Format                        = DX12Translator::get( _desc.format );
         dsvDesc.ViewDimension                 = DX12Translator::getDSVDimension( _desc.dimension );
-        _dsvHandle                            = ctx.cpuHeapDSV.allocateCPU();
+        if ( dsvDesc.ViewDimension == D3D12_DSV_DIMENSION_TEXTURE2DARRAY )
+            dsvDesc.Texture2DArray.ArraySize = _desc.arraySize;
+        _dsvHandle = ctx.cpuHeapDSV.allocateCPU();
         ctx.device->CreateDepthStencilView( _resource.Get(), useDescriptionParams ? &dsvDesc : nullptr, _dsvHandle );
     }
     if ( _desc.viewFlags & TextureViewUnorderedAccess )
@@ -176,10 +228,27 @@ void DX12Texture::createViews( DX12Device::Context& ctx, bool useDescriptionPara
             nullptr,
             useDescriptionParams ? &uavDesc : nullptr,
             _uavHandle );
+
+        if ( ctx.gpuHeapSRV.getHeap() )
+        {
+            _gpuHeapSRV  = &ctx.gpuHeapSRV;
+            _bindlessUAV = makeBindless( ctx.device.Get(), ctx.gpuHeapSRV, _uavHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+        }
     }
 }
 
 void DX12Texture::uploadInitialData( DX12Device::Context& ctx, const void* initialData ) {
+
+    // =====================================================================================================
+    // TODO: ONLY SUBRESOURCE 0 IS UPLOADED (first array slice / cube face, mip 0, first depth slice).
+    //   - TextureCube / TextureCubeArray: faces 1..5 (and every other cube) are left UNINITIALIZED.
+    //   - Texture1DArray / Texture2DArray: slices 1..N are left UNINITIALIZED.
+    //   - Texture3D: only the first depth slice is copied (rows of slice 0), the rest is UNINITIALIZED.
+    //   - Mips > 0 are never uploaded.
+    // To fix: query footprints for all subresources (GetCopyableFootprints with NumSubresources =
+    // mipLevels * arraySize), size the staging buffer with totalBytes and copy every subresource
+    // (initialData must then contain all slices/faces/mips, tightly packed, in subresource order).
+    // =====================================================================================================
 
     size_t bufferSize = _desc.size.width * _desc.size.height * _desc.size.depth * getFormatBytes( _desc.format );
     // Calculate required footprint size
@@ -456,6 +525,12 @@ void DX12Buffer::createViews( DX12Device::Context& ctx ) {
 
         _srvHandle = ctx.cpuHeapSRV.allocateCPU();
         ctx.device->CreateShaderResourceView( _resource.Get(), &srvDesc, _srvHandle );
+
+        if ( ctx.gpuHeapSRV.getHeap() )
+        {
+            _gpuHeapSRV  = &ctx.gpuHeapSRV;
+            _bindlessSRV = makeBindless( ctx.device.Get(), ctx.gpuHeapSRV, _srvHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+        }
     }
 
     // UAV
@@ -470,6 +545,12 @@ void DX12Buffer::createViews( DX12Device::Context& ctx ) {
 
         _uavHandle = ctx.cpuHeapSRV.allocateCPU();
         ctx.device->CreateUnorderedAccessView( _resource.Get(), nullptr, &desc, _uavHandle );
+
+        if ( ctx.gpuHeapSRV.getHeap() )
+        {
+            _gpuHeapSRV  = &ctx.gpuHeapSRV;
+            _bindlessUAV = makeBindless( ctx.device.Get(), ctx.gpuHeapSRV, _uavHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+        }
     }
     // Special case for VBO/(IBO)
     if ( ( _desc.usageFlags & BufferUsage::Index ) != BufferUsage::None )
@@ -565,6 +646,10 @@ void DX12Buffer::uploadInitialData( DX12Device::Context& ctx, const void* initia
 
 DX12Buffer::~DX12Buffer() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Buffer [{}]", _desc.debugName );
+    if ( _bindlessSRV.isValid() )
+        _gpuHeapSRV->free( _bindlessSRV );
+    if ( _bindlessUAV.isValid() )
+        _gpuHeapSRV->free( _bindlessUAV );
 }
 #pragma endregion
 #pragma region Sampler
@@ -588,12 +673,20 @@ DX12Sampler::DX12Sampler( const SamplerDesc& desc, DX12Device::Context& ctx )
 
     ctx.device->CreateSampler( &dxDesc, _samplerHandle );
 
+    if ( ctx.gpuHeapSamplers.getHeap() )
+    {
+        _gpuHeapSamplers = &ctx.gpuHeapSamplers;
+        _bindlessSlot    = makeBindless( ctx.device.Get(), ctx.gpuHeapSamplers, _samplerHandle, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER );
+    }
+
     setDebugName( desc.debugName );
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 Sampler Created [{}]", _desc.debugName );
 }
 
 DX12Sampler::~DX12Sampler() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Sampler [{}]", _desc.debugName );
+    if ( _bindlessSlot.isValid() )
+        _gpuHeapSamplers->free( _bindlessSlot );
 }
 
 NativeObject DX12Sampler::getNativeObject( ObjectType objectType ) {
@@ -716,6 +809,8 @@ DX12Accel::DX12Accel( const AccelDesc& desc, DX12Device::Context& ctx, bool imme
 
 DX12Accel::~DX12Accel() {
     AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 Acceleration Structure [{}]", _desc.debugName );
+    if ( _bindlessSRV.isValid() )
+        _gpuHeapSRV->free( _bindlessSRV );
 }
 
 NativeObject DX12Accel::getNativeObject( ObjectType objectType ) {
@@ -793,6 +888,12 @@ void DX12Accel::createView( DX12Device::Context& ctx ) {
     _srvHandle = ctx.cpuHeapSRV.allocateCPU();
 
     ctx.device->CreateShaderResourceView( nullptr, &desc, _srvHandle );
+
+    if ( ctx.gpuHeapSRV.getHeap() )
+    {
+        _gpuHeapSRV  = &ctx.gpuHeapSRV;
+        _bindlessSRV = makeBindless( ctx.device.Get(), ctx.gpuHeapSRV, _srvHandle, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+    }
 }
 #pragma endregion
 } // namespace Graphics::RHI

@@ -49,7 +49,7 @@ public:
         u32 gpuShaderResourceViewHeapSize = 524288; ///< Capacity of the global GPU CBV/SRV/UAV heap (D3D12 max: 1M). Shared by bindless slots and DescriptorAllocators.
         u32 gpuSamplerHeapSize            = 2048;   ///< Capacity of the global GPU Sampler heap (D3D12 max: 2048).
 
-        bool enableHeapDirectlyIndexed = false; ///< Enables SM 6.6 Dynamic Resources (Bindless) if hardware supports it.
+        bool enableHeapDirectlyIndexed = true; ///< Enables SM 6.6 Dynamic Resources (Bindless) if hardware supports it.
 
         u64  maxTextureAlloc      = GIGABYTES( 1ull ); ///< Logical cap for loaded textures VRAM Pool (SRV, UAV).;
         u64  maxBufferAlloc       = MBYTES( 512 );     ///< Logical cap for loaded buffers VRAM Pool (CBV, SRV, UAV).

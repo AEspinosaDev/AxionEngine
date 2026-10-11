@@ -15,6 +15,7 @@ enum class API : u32
 {
     DirectX12,
     Vulkan,
+    Metal,
     Invalid
 };
 enum class PlatformType : u32
@@ -514,6 +515,10 @@ struct RendererDescriptorBudget {
     u32 maxDescriptorsPerFrame = 2048; ///< Initial memory reservation for per-frame DescriptorSet data.
     u32 maxViewsPerFrame       = 256;  ///< Initial view count reservation for per-frame Descriptor Pools.
     u32 maxSamplersPerFrame    = 128;  ///< Initial sampler count reservation for per-frame Descriptor Pools.
+
+    u32 maxPersistentDescriptors = 256;  ///< DescriptorSets that live for the whole renderer lifetime (never reset).
+    u32 maxPersistentViews       = 1024; ///< View count reserved for persistent DescriptorSets.
+    u32 maxPersistentSamplers    = 64;   ///< Sampler count reserved for persistent DescriptorSets.
 };
 
 } // namespace Graphics

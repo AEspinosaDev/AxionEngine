@@ -44,6 +44,7 @@ public:
 private:
     void windowCallback( const Extent2D& newSize );
     void generateSwapchainHandles();
+    void createPersistentAllocators();
     void createPerFrameAllocators();
 
     RendererSettings _setts;

@@ -5,7 +5,9 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
 
-void ShaderCompiler::begin() {
+void ShaderCompiler::begin( const Settings& settings ) {
+    _settings = settings;
+
     // 1. Create Only One Slang Session for performance
     // CAUTION ! MONO-THREAD
     if ( !_globalSession )
@@ -27,15 +29,15 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
     {
         case Shader::NativeFormat::DXIL:
             targetDesc.format  = SLANG_DXIL;
-            targetDesc.profile = _globalSession->findProfile( "sm_6_5" );
+            targetDesc.profile = _globalSession->findProfile( _settings.dxilProfile.cstr() );
             break;
         case Shader::NativeFormat::SPIR_V:
             targetDesc.format  = SLANG_SPIRV;
-            targetDesc.profile = _globalSession->findProfile( "glsl_450" );
+            targetDesc.profile = _globalSession->findProfile( _settings.spirvProfile.cstr() );
             break;
         case Shader::NativeFormat::GLSL:
             targetDesc.format  = SLANG_GLSL;
-            targetDesc.profile = _globalSession->findProfile( "glsl_450" );
+            targetDesc.profile = _globalSession->findProfile( _settings.glslProfile.cstr() );
             break;
         default:
             break;

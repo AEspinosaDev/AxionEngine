@@ -2,7 +2,6 @@
 #include "DX12Common.h"
 #include "DX12Descriptor.h"
 #include <Axion/Graphics/RHI/DX12/IDX12Device.h>
-#include <Axion/Graphics/RHI/IGUIBackend.h>
 #include <functional>
 
 AXION_NAMESPACE_BEGIN
@@ -22,6 +21,7 @@ public:
     BufferOwnerPtr             createBuffer( const BufferDesc& desc, const void* initialData = nullptr ) override;
     SamplerOwnerPtr            createSampler( const SamplerDesc& desc ) override;
     AccelOwnerPtr              createAccel( const AccelDesc& desc, bool immediateBuild = false ) override;
+    GUIBackendOwnerPtr         createGUIBackend( const GUIBackendDesc& desc ) override;
     PipelineLayoutOwnerPtr     createPipelineLayout( const PipelineLayoutDesc& desc ) override;
     GraphicPipelineOwnerPtr    createGraphicPipeline( const GraphicPipelineDesc& desc ) override;
     ComputePipelineOwnerPtr    createComputePipeline( const ComputePipelineDesc& desc ) override;
@@ -155,8 +155,6 @@ private:
 
     Queue* getQueueRW( const QueueType& type );
 
-    // GUI factory needs the context (global heaps, queue) to build the backend
-    friend GUIBackendOwnerPtr createGUIBackendForDX12( IDevice* device, const GUIBackendDesc& desc );
 
     IDX12Device::Description _desc;
     Context                  _ctx;

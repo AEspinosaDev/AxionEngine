@@ -1,6 +1,7 @@
 #include "DX12Device.h"
 #include "DX12CommandList.h"
 #include "DX12Debug.h"
+#include "DX12GUIBackend.h"
 #include "DX12Pipeline.h"
 #include "DX12Resource.h"
 #include "DX12SBTAllocator.h"
@@ -121,8 +122,12 @@ AccelOwnerPtr DX12Device::createAccel( const AccelDesc& desc, bool immediateBuil
     return Memory::makeOwned<DX12Accel>( desc, _ctx, immediateBuild );
 }
 
+GUIBackendOwnerPtr DX12Device::createGUIBackend( const GUIBackendDesc& desc ) {
+    return Memory::makeOwned<DX12GUIBackend>( desc, _ctx );
+}
+
 PipelineLayoutOwnerPtr DX12Device::createPipelineLayout( const PipelineLayoutDesc& desc ) {
-    return Memory::makeOwned<DX12PipelineLayout>( _ctx.device, desc );
+    return Memory::makeOwned<DX12PipelineLayout>( _ctx.device, desc, _ext.heapDirectlyIndexedEnabled );
 }
 
 GraphicPipelineOwnerPtr DX12Device::createGraphicPipeline( const GraphicPipelineDesc& desc ) {
@@ -223,6 +228,8 @@ bool DX12Device::queryFeatureSupport( FeatureType feature, void* /*pInfo*/, size
     {
         case FeatureType::DeferredCommandLists:
             return true;
+        case FeatureType::HeapDirectlyIndexed:
+            return _ext.heapDirectlyIndexedEnabled;
         case FeatureType::SinglePassStereo:
             return _ext.singlePassStereoSupported;
         case FeatureType::RayTracingAccelStruct:

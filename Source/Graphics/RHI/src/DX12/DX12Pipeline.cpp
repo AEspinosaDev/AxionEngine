@@ -5,9 +5,9 @@
 AXION_NAMESPACE_BEGIN
 namespace Graphics::RHI {
 
-DX12PipelineLayout::DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc )
+DX12PipelineLayout::DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc, bool heapDirectlyIndexed )
     : _desc( desc ) {
-    buildRootSignature( device );
+    buildRootSignature( device, heapDirectlyIndexed );
     buildIndirectCommandSignature( device );
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 Pipeline Layout [{}] created", _desc.debugName );
 }
@@ -52,7 +52,7 @@ NativeObject DX12PipelineLayout::getNativeObject( ObjectType objectType ) {
     }
 }
 
-void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device ) {
+void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device, bool heapDirectlyIndexed ) {
     STLW::Vector<CD3DX12_ROOT_PARAMETER1>   rootParams;
     STLW::Vector<CD3DX12_DESCRIPTOR_RANGE1> allRanges;
 
@@ -188,6 +188,10 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
     rsDesc.Desc_1_1.NumStaticSamplers          = 0;
     rsDesc.Desc_1_1.pStaticSamplers            = nullptr;
     rsDesc.Desc_1_1.Flags                      = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
+    // SM 6.6: allow ResourceDescriptorHeap[] 
+    if ( heapDirectlyIndexed )
+        rsDesc.Desc_1_1.Flags |= D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED;
 
     ComPtr<ID3DBlob> serialized, error;
     HRESULT          hr = D3D12SerializeVersionedRootSignature( &rsDesc, &serialized, &error );

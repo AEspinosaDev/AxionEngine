@@ -10,13 +10,12 @@
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics::RHI {
-GUIBackendOwnerPtr RHI::createGUIBackendForDX12( IDevice* device, const GUIBackendDesc& desc ) {
-    return Memory::makeOwned<DX12GUIBackend>( static_cast<DX12Device*>( device )->_ctx, desc );
-}
-
-DX12GUIBackend::DX12GUIBackend( DX12Device::Context& ctx, const GUIBackendDesc& desc )
+DX12GUIBackend::DX12GUIBackend( const GUIBackendDesc& desc, DX12Device::Context& ctx )
     : _gpuHeapSRV( ctx.gpuHeapSRV )
     , _desc( desc ) {
+
+    // ImGui has a single global context: a second backend would silently hijack the first one
+    AXION_LOG_ASSERT( ImGui::GetCurrentContext() == nullptr, Logger::Module::RHI, "Only one GUI Backend can exist at a time (ImGui global context)" );
 
     // Setup ImGui context
     IMGUI_CHECKVERSION();
@@ -54,7 +53,7 @@ DX12GUIBackend::DX12GUIBackend( DX12Device::Context& ctx, const GUIBackendDesc& 
     // Initialize using the new API
     if ( ImGui_ImplDX12_Init( &init_info ) )
     {
-        AXION_LOG_INFO( Logger::Module::RHI, "GUI Backend Created Successfully" );
+        AXION_LOG_INFO( Logger::Module::RHI, "DX12 GUI Backend created [{}]", _desc.debugName );
     } else
     {
         AXION_LOG_ERROR( Logger::Module::RHI, "Failed to initialize DX12 GUI Backend" );
@@ -64,7 +63,7 @@ DX12GUIBackend::DX12GUIBackend( DX12Device::Context& ctx, const GUIBackendDesc& 
 }
 
 DX12GUIBackend::~DX12GUIBackend() {
-    AXION_LOG_INFO( Logger::Module::RHI, "Destroying GUI Backend" );
+    AXION_LOG_INFO( Logger::Module::RHI, "Destroying DX12 GUI Backend [{}]", _desc.debugName );
     AXION_LOG_ASSERT( _platformShutdown, Logger::Module::RHI, "GUIBackend: Platform shutdown function not set!" );
     ImGui_ImplDX12_Shutdown();
     _platformShutdown();
@@ -85,6 +84,12 @@ void DX12GUIBackend::render( ICommandList* cmd ) const {
     ID3D12GraphicsCommandList* rawCmd = cmd->getNativeObject( RHI::ObjectTypes::DX12_CommandList );
 
     ImGui_ImplDX12_RenderDrawData( ImGui::GetDrawData(), rawCmd ); // Global heap already bound at begin()
+}
+
+STLW::String DX12GUIBackend::toString() const {
+    fmt::memory_buffer out;
+    fmt::format_to( std::back_inserter( out ), "DX12 GUI Backend [{}] | Frames in flight: {}", _desc.debugName, _desc.framesInFlight );
+    return STLW::String( out.data(), out.size() );
 }
 
 } // namespace Graphics::RHI

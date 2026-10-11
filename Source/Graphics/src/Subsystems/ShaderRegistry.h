@@ -43,6 +43,7 @@ private:
     };
 
     ShaderCompiler _compiler;
+    bool           _bindlessSupported = false; ///< Device supports pure bindless
 
     STLW::Vector<ShaderRecord>                 _shaders;
     STLW::UnorderedMap<String64, ShaderHandle> _nameToHandle;

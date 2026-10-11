@@ -33,6 +33,9 @@ public:
 
     u64 getDeviceAddress() const override { return _resource->GetGPUVirtualAddress(); }
 
+    BindlessIndex getBindlessSRVIdx() const override { return _bindlessSRV.isValid() ? (BindlessIndex)_bindlessSRV.offset : INVALID_BINDLESS_INDEX; }
+    BindlessIndex getBindlessUAVIdx() const override { return _bindlessUAV.isValid() ? (BindlessIndex)_bindlessUAV.offset : INVALID_BINDLESS_INDEX; }
+
     D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getRTV() const { return _rtvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getDSV() const { return _dsvHandle; }
@@ -53,6 +56,11 @@ private:
     D3D12_CPU_DESCRIPTOR_HANDLE _rtvHandle = {};
     D3D12_CPU_DESCRIPTOR_HANDLE _dsvHandle = {};
     D3D12_CPU_DESCRIPTOR_HANDLE _uavHandle = {};
+
+    // Bindless slots in the device global heap
+    DX12DescriptorHeap*      _gpuHeapSRV = nullptr; ///< Global heap owning the bindless slots (released on destruction)
+    DescriptorHeapAllocation _bindlessSRV;
+    DescriptorHeapAllocation _bindlessUAV;
 };
 
 DEFINE_OWNER_PTR_FOR_TYPE( DX12Buffer, DX12Buffer )
@@ -78,6 +86,9 @@ public:
     STLW::String toString() const override;
 
     u64 getDeviceAddress() const override { return _resource->GetGPUVirtualAddress(); }
+
+    BindlessIndex getBindlessSRVIdx() const override { return _bindlessSRV.isValid() ? (BindlessIndex)_bindlessSRV.offset : INVALID_BINDLESS_INDEX; }
+    BindlessIndex getBindlessUAVIdx() const override { return _bindlessUAV.isValid() ? (BindlessIndex)_bindlessUAV.offset : INVALID_BINDLESS_INDEX; }
 
     D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getCBV() const { return _cbvHandle; }
@@ -106,6 +117,11 @@ private:
     D3D12_VERTEX_BUFFER_VIEW    _vbv       = {};
     D3D12_INDEX_BUFFER_VIEW     _ibv       = {};
 
+    // Bindless slots in the device global heap
+    DX12DescriptorHeap*      _gpuHeapSRV = nullptr; ///< Global heap owning the bindless slots (released on destruction)
+    DescriptorHeapAllocation _bindlessSRV;
+    DescriptorHeapAllocation _bindlessUAV;
+
     // Raw mapped data
     void* _mappedPtr = nullptr;
 };
@@ -123,12 +139,18 @@ public:
     StringView   getDebugName() const override { return _desc.debugName; };
     STLW::String toString() const override;
 
+    BindlessIndex getBindlessIdx() const override { return _bindlessSlot.isValid() ? (BindlessIndex)_bindlessSlot.offset : INVALID_BINDLESS_INDEX; }
+
     D3D12_CPU_DESCRIPTOR_HANDLE getSamplerHandle() const { return _samplerHandle; }
 
 private:
     SamplerDesc _desc;
 
     D3D12_CPU_DESCRIPTOR_HANDLE _samplerHandle = {};
+
+    // Bindless slot in the device global sampler heap
+    DX12DescriptorHeap*      _gpuHeapSamplers = nullptr; ///< Global heap owning the bindless slot (released on destruction)
+    DescriptorHeapAllocation _bindlessSlot;
 };
 
 DEFINE_OWNER_PTR_FOR_TYPE( DX12Accel, DX12Accel )
@@ -152,6 +174,8 @@ public:
     u64 getUpdateScratchSize() const override;
     u64 getBuildScratchSize() const override;
 
+    BindlessIndex getBindlessSRVIdx() const override { return _bindlessSRV.isValid() ? (BindlessIndex)_bindlessSRV.offset : INVALID_BINDLESS_INDEX; }
+
     D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }
 
     static void prepareInputs( const AccelDesc&                                      desc,
@@ -170,6 +194,10 @@ private:
     u64 _buildScratchSize  = 0;
 
     D3D12_CPU_DESCRIPTOR_HANDLE _srvHandle = {};
+
+    // Bindless slot in the device global heap
+    DX12DescriptorHeap*      _gpuHeapSRV = nullptr; ///< Global heap owning the bindless slot (released on destruction)
+    DescriptorHeapAllocation _bindlessSRV;
 
     bool _isBuilt = false;
 };
