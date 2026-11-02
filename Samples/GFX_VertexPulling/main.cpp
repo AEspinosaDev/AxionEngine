@@ -156,7 +156,7 @@ struct ForwardPass {
         {
             if ( mesh.loaded )
             {
-                ctx.cmd->pushConstants( 1, mesh.payload );
+                ctx.cmd->pushConstants( mesh.payload );
                 ctx.cmd->draw( (u32)mesh.indices.size() );
             }
         }

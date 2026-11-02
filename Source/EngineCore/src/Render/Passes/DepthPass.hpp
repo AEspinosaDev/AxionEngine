@@ -125,7 +125,7 @@ private:
             if ( batch.drawCount == 0 )
                 continue;
 
-            Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( batch.psoID, data.materialPassSlot );
+            Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( batch.bundleID, data.materialPassSlot );
             
             if ( currentPsoHandle != psoHandle )
             {

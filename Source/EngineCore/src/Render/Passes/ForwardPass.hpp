@@ -144,7 +144,7 @@ private:
             if ( batch.drawCount == 0 )
                 continue;
 
-            Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( batch.psoID, data.materialPassSlot );
+            Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( batch.bundleID, data.materialPassSlot );
 
             if ( psoHandle.isValid() )
             {
@@ -201,7 +201,7 @@ private:
                 uint instanceID;
             };
             Push p = { originalIdx };
-            cmd->pushConstants( 2, p ); // Space 2
+            cmd->pushConstants( p ); // Space 2
 
             cmd->drawIndexed(
                 mesh.indexCount,

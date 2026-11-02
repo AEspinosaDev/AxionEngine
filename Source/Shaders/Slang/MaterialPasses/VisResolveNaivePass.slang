@@ -1,59 +1,92 @@
-#include "MaterialCommon.slang"
-#include "Materials/IMaterial.slang"
+#include "Defines.slang" // PUSH_CONSTANT / SPACE_* / DECLARE_* macros
+import MaterialCommon;
+import IMaterial;
+
+// -----------------------------------------------------------
+// PASS I/O (Space 2)
+// -----------------------------------------------------------
+DECLARE_TEXTURE( Texture2D<uint2>, gVisBuffer, 0 );
+DECLARE_RW_TEXTURE( RWTexture2D<float4>, gOutColor, 0 );
+
+// Naive resolve: one full-screen dispatch per material bundle, each one only shades its own pixels
+struct ResolvePushConstant {
+    uint bundleID;
+};
+DECLARE_PUSH_CONSTANT( ResolvePushConstant, gPush );
+
+// -----------------------------------------------------------
+// Perspective-correct barycentrics of a NDC point inside a clip-space triangle
+float3 computeBarycentrics( float4 p0, float4 p1, float4 p2, float2 ndc ) {
+    float3 invW = rcp( float3( p0.w, p1.w, p2.w ) );
+    float2 ndc0 = p0.xy * invW.x;
+    float2 ndc1 = p1.xy * invW.y;
+    float2 ndc2 = p2.xy * invW.z;
+
+    float  invDet = rcp( determinant( float2x2( ndc2 - ndc1, ndc0 - ndc1 ) ) );
+    float3 ddx    = float3( ndc1.y - ndc2.y, ndc2.y - ndc0.y, ndc0.y - ndc1.y ) * invDet * invW;
+    float3 ddy    = float3( ndc2.x - ndc1.x, ndc0.x - ndc2.x, ndc1.x - ndc0.x ) * invDet * invW;
+
+    float2 delta      = ndc - ndc0;
+    float  interpInvW = invW.x + delta.x * dot( ddx, float3( 1.0 ) ) + delta.y * dot( ddy, float3( 1.0 ) );
+    float  interpW    = rcp( interpInvW );
+
+    return interpW * float3( invW.x + delta.x * ddx.x + delta.y * ddy.x,
+                             delta.x * ddx.y + delta.y * ddy.y,
+                             delta.x * ddx.z + delta.y * ddy.z );
+}
 
 // -----------------------------------------------------------
 // SHADER WITH SPECIALIZATION PER MATERIAL !
 [shader( "compute" )]
 [numthreads( 8, 8, 1 )]
 void csResolve<T : IMaterial>( uint3 dispatchThreadID: SV_DispatchThreadID ) {
-    uint2 pixelCoord = dispatchThreadID.xy;
+    uint2  pixelCoord = dispatchThreadID.xy;
+    float2 resolution = gFrame.getResolution();
 
-    // Evitar leer fuera de la pantalla si la resolución no es múltiplo de 8
-    if ( any( pixelCoord >= gFrame.getResolution() ) )
+    // Out of screen (resolution not multiple of the group size)
+    if ( any( pixelCoord >= (uint2)resolution ) )
         return;
 
-    uint2 visData     = gPassRead2D_U2[0].Load( int3( pixelCoord, 0 ) );
+    uint2 visData     = gVisBuffer.Load( int3( pixelCoord, 0 ) );
     uint  primitiveID = visData.x;
-    uint  instanceID  = visData.y;
+    uint  instanceID  = visData.y; // Offset by 1 (0 = background)
 
-    // Instance offseted by
     if ( instanceID == 0 )
     {
-        gPassWrite2D_F4[0][pixelCoord] = float4( 0.1, 0.1, 0.2, 1.0 );
+        gOutColor[pixelCoord] = float4( 0.1, 0.1, 0.2, 1.0 ); // Every dispatch writes the same value
         return;
     }
 
     InstanceData instance = getInstanceData( instanceID - 1u );
-    MeshData     mesh     = getMeshData( instance.meshID );
+    if ( getMaterialData( instance.materialID ).bundleID != gPush.bundleID )
+        return; // Pixel belongs to another material bundle
 
-    uint indexStride     = 4; // Bytes
-    uint baseIndexOffset = mesh.indexOffset + ( primitiveID * 3 * indexStride );
+    MeshData mesh = getMeshData( instance.meshID );
 
-    uint i0 = gGlobalIndices.Load( baseIndexOffset );
-    uint i1 = gGlobalIndices.Load( baseIndexOffset + 4 );
-    uint i2 = gGlobalIndices.Load( baseIndexOffset + 8 );
+    uint        baseIndexOffset = mesh.indexOffset + primitiveID * 3 * 4; // Bytes
+    CanonVertex v0              = CanonVertex.fromIndex( gGlobalIndices.Load( baseIndexOffset ), mesh.vertexOffset );
+    CanonVertex v1              = CanonVertex.fromIndex( gGlobalIndices.Load( baseIndexOffset + 4 ), mesh.vertexOffset );
+    CanonVertex v2              = CanonVertex.fromIndex( gGlobalIndices.Load( baseIndexOffset + 8 ), mesh.vertexOffset );
 
-    CanonVertex v0 = CanonVertex.fromIndex( i0, mesh.vertexOffset );
-    CanonVertex v1 = CanonVertex.fromIndex( i1, mesh.vertexOffset );
-    CanonVertex v2 = CanonVertex.fromIndex( i2, mesh.vertexOffset );
+    // TODO: WPO is applied in the vis pass but not here (no material uses it yet)
+    float4 wp0 = mul( instance.modelMatrix, float4( v0.position, 1.0 ) );
+    float4 wp1 = mul( instance.modelMatrix, float4( v1.position, 1.0 ) );
+    float4 wp2 = mul( instance.modelMatrix, float4( v2.position, 1.0 ) );
 
-    // Barycentrics
-    float3 barycentrics = calculateBarycentrics( pixelCoord, v0.position, v1.position, v2.position, instance.modelMatrix, gFrame.viewProj, gFrame.getResolution() );
-    
-    // Interpolation
-    float3 localPos = v0.position * barycentrics.x + v1.position * barycentrics.y + v2.position * barycentrics.z;
-    float3 localNrm = v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z;
-    float2 uv       = v0.uv * barycentrics.x + v1.uv * barycentrics.y + v2.uv * barycentrics.z;
+    // Pixel center to NDC (D3D: screen Y goes down, NDC Y goes up)
+    float2 ndc  = ( ( float2( pixelCoord ) + 0.5 ) / resolution ) * float2( 2.0, -2.0 ) + float2( -1.0, 1.0 );
+    float3 bary = computeBarycentrics( mul( gFrame.viewProj, wp0 ), mul( gFrame.viewProj, wp1 ), mul( gFrame.viewProj, wp2 ), ndc );
+
+    float3 localNrm = v0.normal * bary.x + v1.normal * bary.y + v2.normal * bary.z;
 
     SurfaceData surface;
-    surface.worldPos = mul( instance.modelMatrix, float4( localPos, 1.0 ) ).xyz;
+    surface.worldPos = wp0.xyz * bary.x + wp1.xyz * bary.y + wp2.xyz * bary.z;
     surface.shNormal = normalize( mul( (float3x3)instance.modelMatrix, localNrm ) );
-    surface.uv       = uv;
+    surface.uv       = v0.uv * bary.x + v1.uv * bary.y + v2.uv * bary.z;
     surface.V        = normalize( gFrame.getCameraPos() - surface.worldPos );
 
     T material;
     material.init( instance.materialID );
 
-    gPassWrite2D_F4[0][pixelCoord] = float4( material.evalColor( surface ), 1.0 );
-
+    gOutColor[pixelCoord] = float4( material.evalColor( surface ), 1.0 );
 }

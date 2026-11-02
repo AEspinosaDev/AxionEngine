@@ -51,14 +51,15 @@ struct ToneMapping : public IPassRecipe<ToneMappingData> {
         auto* texIn  = ctx.getTexture( data.inputHDR );
         auto* texOut = ctx.getTexture( data.outputLDR );
 
-        auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, Graphics::RHI::DescriptorType::SRV_Image, texIn );
-        set0->attach( 0, Graphics::RHI::DescriptorType::UAV_Image, texOut ); // u0 in Tonemapping.slang
+        // Reflected layout: the shader only declares pass I/O (space 2) + push constants (space 3)
+        auto* ioSet = ctx.allocateSet( pso->getDescription().layout, PassIO::SET_INDEX );
+        ioSet->attach( PassIO::texture( 0 ), Graphics::RHI::DescriptorType::SRV_Image, texIn );
+        ioSet->attach( PassIO::rwTexture( 0 ), Graphics::RHI::DescriptorType::UAV_Image, texOut );
 
         ctx.cmd->bindComputePipeline( pso );
-        ctx.cmd->bindDescriptorSet( 0, set0 );
+        ctx.cmd->bindDescriptorSet( PassIO::SET_INDEX, ioSet );
 
-        ctx.cmd->pushConstants( 1, data.exposure );
+        ctx.cmd->pushConstants( data.exposure );
 
         // Dispatch (assuming 8x8 thread group)
         auto size = texIn->getDescription().size;
@@ -103,12 +104,14 @@ struct FXAA : public IPassRecipe<FXAAData> {
         auto* texIn  = ctx.getTexture( data.input );
         auto* texOut = ctx.getTexture( data.output );
 
-        auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, Graphics::RHI::DescriptorType::SRV_Image, texIn );
-        set0->attach( 1, Graphics::RHI::DescriptorType::UAV_Image, texOut );
+        // Reflected layout: the shader only declares pass I/O (space 2) + push constants (space 3)
+        // TODO: push FXAAConstants (incl. bindless samplerID) as FXAAPass does. This recipe never pushed them
+        auto* ioSet = ctx.allocateSet( pso->getDescription().layout, PassIO::SET_INDEX );
+        ioSet->attach( PassIO::texture( 0 ), Graphics::RHI::DescriptorType::SRV_Image, texIn );
+        ioSet->attach( PassIO::rwTexture( 0 ), Graphics::RHI::DescriptorType::UAV_Image, texOut );
 
         ctx.cmd->bindComputePipeline( pso );
-        ctx.cmd->bindDescriptorSet( 0, set0 );
+        ctx.cmd->bindDescriptorSet( PassIO::SET_INDEX, ioSet );
 
         // Dispatch (assuming 8x8 thread group)
         auto size = texIn->getDescription().size;

@@ -52,6 +52,16 @@ struct Description {
 
 } // namespace Shader
 
+/// @brief Register map of the DECLARE_* pass I/O macros (Shaders/Slang/Common/Defines.slang). Space 2 of the global layout.
+namespace PassIO {
+constexpr u32 SET_INDEX  = 2;
+constexpr u32 SLOT_COUNT = 8;
+constexpr u32 texture( u32 slot ) { return slot; }               // DECLARE_TEXTURE    -> t0 - t7
+constexpr u32 buffer( u32 slot ) { return SLOT_COUNT + slot; }   // DECLARE_BUFFER     -> t8 - t15
+constexpr u32 rwTexture( u32 slot ) { return slot; }             // DECLARE_RW_TEXTURE -> u0 - u7
+constexpr u32 rwBuffer( u32 slot ) { return SLOT_COUNT + slot; } // DECLARE_RW_BUFFER  -> u8 - u15
+} // namespace PassIO
+
 typedef Shader::Description   ShaderDesc;
 typedef Shader::ProgramBundle ShaderBundle;
 

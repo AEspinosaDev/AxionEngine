@@ -78,11 +78,17 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, IMaterialLibrary&
 
         if ( sort )
         {
-            u32 topology = (u32)_meshCache.cache[gpuMeshID].aabbMax_Topology.w;
-            u32 psoID    = _materialCache.cache[gpuMaterialID].psoID;
+            u32 bundleID = _materialCache.cache[gpuMaterialID].bundleID;
+
+            // Unregistered archetype: instance data exists but it is never drawn
+            if ( bundleID == AXION_INVALID_U32 )
+            {
+                AXION_LOG_WARN_ONCE( Logger::Module::Core, "GPUScene: instance with invalid material bundle skipped" );
+                continue;
+            }
 
             SortKey key;
-            key.key                 = makeSortKey( psoID, gpuMeshID );
+            key.key                 = makeSortKey( bundleID, gpuMeshID );
             key.originalInstanceIdx = (u32)_instances.size() - 1;
 
             _sortedKeys.pushBack( key );
@@ -211,6 +217,7 @@ u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets
 
         _materialCache.cache[gpuCacheIndex].originalAssetID = cpuAssetID;
         _materialCache.cache[gpuCacheIndex].valid           = true;
+        _materialCache.cache[gpuCacheIndex].bufferOffset    = AXION_INVALID_U32; 
     }
 
     if ( isDirty )
@@ -226,8 +233,8 @@ u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets
         _materialToTextureMap[gpuCacheIndex].clear();
 
         gpuMtl.payloadSize   = cpuMaterial->getPayloadSize();
-        const char* archName = cpuMaterial->getArchetypeInfo().name; // Subscribe psoID to to matlib given archetype and renderstate
-        gpuMtl.psoID         = mtlLib.updateArchetypeState( mtlLib.getArchetypeID( archName ), cpuMaterial->getRenderState() );
+        const char* archName = cpuMaterial->getArchetypeInfo().name; // Subscribe bundle to matlib given archetype and renderstate
+        gpuMtl.bundleID      = mtlLib.updateArchetypeState( mtlLib.getArchetypeID( archName ), cpuMaterial->getRenderState() );
 
         Assets::Material::TextureResolver resolver = [&]( const Axion::Core::Assets::TextureHandle& h ) -> u32 {
             return processTexture( assets, h, gpuCacheIndex );
@@ -284,7 +291,7 @@ u32 GPUScene::processTexture( const Axion::Core::Assets::AssetManager*  assets,
 
         _textureCache.cache[gpuCacheIndex].valid           = false;
         _textureCache.cache[gpuCacheIndex].originalAssetID = cpuAssetID;
-        // _textureCache.cache[gpuCacheIndex].slot            = gpuCacheIndex;
+        _textureCache.cache[gpuCacheIndex].heapID          = AXION_INVALID_U32; // Set LATER
     }
 
     auto& gpuTex = _textureCache.cache[gpuCacheIndex];
@@ -513,6 +520,7 @@ void GPUScene::runGC() {
                         gpuTex.valid           = false;
                         gpuTex.refCount        = 0;
                         gpuTex.originalAssetID = 0;
+                        gpuTex.heapID       = AXION_INVALID_U32;
 
                         AXION_LOG_INFO( Logger::Module::Core, "GC: Recycled texture slot {}", textureGpuHandle );
                     }
@@ -528,9 +536,9 @@ void GPUScene::runGC() {
                 _materialCache.freeIndexQueue.push( (u32)i );
 
                 gpuMat.valid        = false;
-                gpuMat.bufferOffset = 0;
+                gpuMat.bufferOffset = AXION_INVALID_U32;
                 gpuMat.payloadSize  = 0;
-                gpuMat.psoID        = AXION_INVALID_U32;
+                gpuMat.bundleID     = AXION_INVALID_U32;
 
                 AXION_LOG_INFO( Logger::Module::Core, "GC: Recycled material slot {}", i );
             }

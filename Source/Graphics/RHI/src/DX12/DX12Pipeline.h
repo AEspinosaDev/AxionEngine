@@ -30,6 +30,7 @@ public:
             return { -1, -1 };
         return _rootIndexMap[setIndex];
     }
+    int                     getPushConstantRootIndex() const { return _pushConstantRootIndex; } ///< -1 if the layout has no push constants
     ID3D12CommandSignature* getIndirectCommandSignature() const { return _drawIndexedIndirectSignature.Get(); }
     ID3D12CommandSignature* getDispatchIndirectSignature() const { return _dispatchIndirectSignature.Get(); }
 

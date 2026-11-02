@@ -71,7 +71,7 @@ public:
     STLW::String toString() const override;
 
 private:
-    void pushConstants( u32 setIndex, const void* data, u32 numValues32Bit, u32 offset32Bit = 0 ) override;
+    void pushConstantsRaw( const void* data, u32 numValues32Bit, u32 offset32Bit = 0 ) override;
     bool validateUpdateCompatibility( const IAccel* accel, const AccelDesc& newDesc );
 
     ComPtr<ID3D12GraphicsCommandList>            _cmdList;

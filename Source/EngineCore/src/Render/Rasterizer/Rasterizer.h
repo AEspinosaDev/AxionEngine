@@ -67,6 +67,7 @@ private:
         Graphics::BufferSlice lightsSlice;
         Graphics::BufferSlice envsSlice;
         Graphics::BufferSlice redirectSlice;
+        Graphics::BufferSlice texturesSlice;
     };
 
     TransientPayload       uploadTransientData( Graphics::BufferLinearAllocator<>& currentUBOAlloc,
@@ -122,14 +123,8 @@ private:
         Graphics::BufferHandle               mtlBufferHandle;
         Graphics::BufferGPUFreeListAllocator mtlAllocator;
 
-        Vector<Graphics::TextureHandle> texture2DHandles;
-        Vector<Graphics::TextureHandle> texture3DHandles;
-        Vector<Graphics::TextureHandle> textureCubeHandles;
-        Vector<Graphics::SamplerHandle> samplerHandles;
-
+        Vector<Graphics::TextureHandle> materialTextureHandles; ///< Indexed by GPUScene texture slot
         Graphics::TextureHandle         fallbackTexture2DHandle;
-        Graphics::TextureHandle         fallbackTexture3DHandle;
-        Graphics::TextureHandle         fallbackTextureCubeHandle;
         Graphics::SamplerHandle         fallbackSamplerHandle;
 
         SmallVector<FrameResources, 3> frame;

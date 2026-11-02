@@ -1,7 +1,7 @@
 // Materials/StandardPBR.slang
-#include "MaterialCommon.slang"
-#include "CookTorranceBRDF.slang"
-#include "IMaterial.slang"
+import MaterialCommon;
+import IMaterial;
+#include "CookTorranceBRDF.slang" // Only used by this module
 
 struct StandardPBRPayload {
     // Chunk 0
@@ -48,31 +48,30 @@ struct StandardPBRPayload {
     }
 };
 
-struct StandardPBRMaterial : IMaterial {
+public struct StandardPBRMaterial : IMaterial {
     StandardPBRPayload payload;
 
     [mutating]
-    void init( uint materialID ) {
+    public void init( uint materialID ) {
         MaterialData header = getMaterialData( materialID );
         payload             = StandardPBRPayload.load( header.bufferOffset );
     }
 
-    float3 computeWPO( SurfaceData surface ) {
+    public float3 computeWPO( SurfaceData surface ) {
         return float3( 0.0 ); // TBD: Parallax Mapping
     }
 
-    float3 evalColor( SurfaceData surface ) {
+    public float3 evalColor( SurfaceData surface ) {
 
         float3 albedo    = payload.albedoFactor;
         float  roughness = payload.roughnessFactor;
         float  metallic  = payload.metallicFactor;
 
         // Texture Fetch
-        SamplerState defaultSampler = gSamplers[0];
-
         if ( payload.albedoTexIndex != INVALID_TEX_ID )
         {
-            float4 albedoSample = gTextures[payload.albedoTexIndex].Sample( defaultSampler, surface.uv );
+            // TODO: SampleGrad with analytic UV derivatives (no implicit derivatives in the compute resolve)
+            float4 albedoSample = getMaterialTexture2D( payload.albedoTexIndex ).SampleLevel( getDefaultSampler(), surface.uv, 0 );
             albedo              = albedoSample.rgb;
         }
 
@@ -129,17 +128,17 @@ struct StandardPBRMaterial : IMaterial {
 
         return color;
     }
-    float evalOpacity( SurfaceData surface ) {
+    public float evalOpacity( SurfaceData surface ) {
         // Ejemplo simple: solo comprobamos alfa si hay textura
-        if ( payload.albedoTexIndex != 0xFFFFFFFF )
+        if ( payload.albedoTexIndex != INVALID_TEX_ID )
         {
-            return gTextures[payload.albedoTexIndex].Sample( gSamplers[0], surface.uv ).a;
+            return getMaterialTexture2D( payload.albedoTexIndex ).Sample( getDefaultSampler(), surface.uv ).a; // Pixel shader: implicit derivatives OK
         }
         return 1.0;
     }
 
-    float3 sampleDirection( SurfaceData surface, float2 rnd, out float3 L, out float pdf ) {
+    public float3 sampleDirection( SurfaceData surface, float2 rnd, out float3 L, out float pdf ) {
         // TBD
     };
-    float evalPdf( SurfaceData surface, float3 L ) {};
+    public float evalPdf( SurfaceData surface, float3 L ) {};
 };

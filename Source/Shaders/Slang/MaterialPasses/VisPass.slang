@@ -1,6 +1,7 @@
 
-#include "MaterialCommon.slang"
-#include "Materials/IMaterial.slang"
+#include "Defines.slang" // PUSH_CONSTANT / SPACE_* / DECLARE_* macros
+import MaterialCommon;
+import IMaterial;
 
 struct VSInput {
     uint vertexID : SV_VertexID;
@@ -21,11 +22,17 @@ struct PSOutput {
     float2 velocity : SV_Target1;   // RT1: R16G16_FLOAT (Velocity)
 };
 
+// Indirect contract: baseInstanceID must be the first field (written by the command signature)
+struct VisPushConstant {
+    uint baseInstanceID;
+};
+DECLARE_PUSH_CONSTANT( VisPushConstant, gPush );
+
 // -----------------------------------------------------------
 // SHADER WITH SPECIALIZATION PER MATERIAL !
 [shader( "vertex" )]
 VSOutput vsVis<T : IMaterial>( VSInput input ) {
-    uint         instanceID = getRedirectedInstanceID( input.instanceID );
+    uint         instanceID = getRedirectedInstanceID( gPush.baseInstanceID, input.instanceID );
     InstanceData instance   = getInstanceData( instanceID );
     MeshData     mesh       = getMeshData( instance.meshID );
 

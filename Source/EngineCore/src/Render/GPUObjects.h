@@ -43,6 +43,11 @@ struct GPUFrame {
     Math::Vec4 sceneAABBMin; // x,y,z = AABB Min | w = padding
     Math::Vec4 sceneAABBMax; // x,y,z = AABB Max | w = padding
     Math::Vec4 frustrumPlanes[6];
+
+    // Bindless defaults (filled by the renderer, not by GPUScene)
+    u32 fallbackTex2DID = AXION_INVALID_U32; ///< Used while a material texture is not uploaded yet
+    u32 linearSamplerID = AXION_INVALID_U32;
+    u32 _pad[2];
 };
 
 struct GPULight {
@@ -88,7 +93,7 @@ struct GPUMaterial {
     // Offsets y Counts (32 bytes)
     u32 bufferOffset;
     u32 payloadSize;
-    u32 psoID; //Or Pso ID
+    u32 bundleID; ///< MaterialLibrary pipeline bundle (archetype + render state)
     u32 valid;
 
     u32 lastFrameUsed;
@@ -98,8 +103,8 @@ struct GPUMaterial {
 };
 
 struct GPUTexture {
-    u32 slot;
-
+    u32 heapID = AXION_INVALID_U32; ///< Bindless index in the device global heap. Filled by the renderer once uploaded.
+                                       ///< Uploaded as gTextures (payloads store the cache slot): keep 16 B layout
     u32 valid;
     u32 refCount = 0; //No lastFrameUsed here, only owner marterial ref count. As textures are dependent to materials to exist
     u32 originalAssetID;

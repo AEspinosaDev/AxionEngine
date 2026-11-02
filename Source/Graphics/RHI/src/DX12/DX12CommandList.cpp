@@ -811,17 +811,22 @@ STLW::String RHI::DX12CommandList::toString() const {
     return STLW::String();
 }
 
-void DX12CommandList::pushConstants( u32 setIndex, const void* data, u32 numValues32Bit, u32 offset32Bit ) {
-    AXION_LOG_ASSERT( _bindPoint != PipelineBindPoint::None, Logger::Module::RHI, "Attempting to set Push Constants without a bound Pipeline!" );
+void DX12CommandList::pushConstantsRaw( const void* data, u32 numValues32Bit, u32 offset32Bit ) {
+    AXION_LOG_ASSERT( _bindPoint != PipelineBindPoint::None && _currentLayout, Logger::Module::RHI, "Attempting to set Push Constants without a bound Pipeline!" );
+
+    // Root parameter of the push constant block in the bound layout
+    const int rootIndex = static_cast<DX12PipelineLayout*>( _currentLayout )->getPushConstantRootIndex();
+    AXION_LOG_ASSERT( rootIndex >= 0, Logger::Module::RHI, "Bound pipeline layout has no push constants" );
+
     if ( _bindPoint == PipelineBindPoint::Compute )
         _cmdList->SetComputeRoot32BitConstants(
-            setIndex,
+            (UINT)rootIndex,
             numValues32Bit,
             data,
             offset32Bit );
     else
         _cmdList->SetGraphicsRoot32BitConstants(
-            setIndex,
+            (UINT)rootIndex,
             numValues32Bit,
             data,
             offset32Bit );

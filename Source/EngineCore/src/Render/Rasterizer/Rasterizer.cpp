@@ -179,9 +179,11 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                       deltaTime,
                       updateFlags );
 
-    _res.texture2DHandles.resize( _gpuScene.textures().size() );
-    _res.texture3DHandles.resize( Config::MAX_PERSISTENT_3D_TEXTURES );
-    _res.textureCubeHandles.resize( Config::MAX_PERSISTENT_CUBE_TEXTURES );
+    // Bindless defaults read by shaders through gFrame
+    _gpuScene.frame().fallbackTex2DID = _rnd->resources().getTexture( _res.fallbackTexture2DHandle )->getBindlessSRVIdx();
+    _gpuScene.frame().linearSamplerID = _rnd->resources().getSampler( _res.fallbackSamplerHandle )->getBindlessIdx();
+
+    _res.materialTextureHandles.resize( _gpuScene.textures().size() );
 
     // Material Library Update
     _mtlLib.updatePipelines( _rnd->pipelines() );
@@ -212,12 +214,15 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         //----------------------------
         Graphics::RHI::IDescriptorSet* transientSetPtr = builder.allocateDescriptorSet(_rnd->pipelines().getLayout( _globalMtlLayoutHandle ), (u32)Config::LayoutSetType::FrameBound );
 
-        transientSetPtr->attachBufferSlice( 0, Graphics::RHI::DescriptorType::CBV, transientPayload.frameSlice );
-        transientSetPtr->attachBufferSlice( 1, Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.meshesSlice );
-        transientSetPtr->attachBufferSlice( 2, Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.mtlSlice );
-        transientSetPtr->attachBufferSlice( 3, Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.instancesSlice );
-        transientSetPtr->attachBufferSlice( 4, Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.lightsSlice );
-        transientSetPtr->attachBufferSlice( 5, Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.envsSlice );
+        auto frameSRV = []( Config::FrameSRV s ) { return Config::REG_FRAME_SRV_BASE + (u32)s; };
+
+        transientSetPtr->attachBufferSlice( Config::REG_FRAME_CBV_BASE, Graphics::RHI::DescriptorType::CBV, transientPayload.frameSlice );
+        transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::Meshes ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.meshesSlice );
+        transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::Materials ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.mtlSlice );
+        transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::Instances ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.instancesSlice );
+        transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::Lights ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.lightsSlice );
+        transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::Envs ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.envsSlice );
+        transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::Textures ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.texturesSlice );
 
         if ( GPU_CULLING_ENABLED )
         {
@@ -229,7 +234,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
             // culledSlice.stride    = data.inRedirectionSlice.stride;
             // transientSetPtr->attachBufferSlice( 6, culledSlice, Graphics::RHI::ResourceState::ShaderResource );
         } else
-            transientSetPtr->attachBufferSlice( 6, Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.redirectSlice );
+            transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::InstanceRedirection ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.redirectSlice );
 
         //----------------------------
         // A. Upload Global Data
@@ -245,11 +250,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         upConfig.matAllocator      = &_res.mtlAllocator;
         upConfig.maxAllocationSize = _settings.memory.shared.maxUploadAllocPerFrame;
 
-        upConfig.mtlTexture2DHandles = &_res.texture2DHandles;
-        // TBD: Do the same for 3D and Cube textures
-
-        for ( u32 i = 0; i < _FRAMES_IN_FLIGHT; ++i )
-            upConfig.allPersistentSets.pushBack( _res.frame[i].persistentDescriptorSetPtr );
+        upConfig.mtlTextureHandles = &_res.materialTextureHandles;
 
         _passes.getPass<UploadPass>()->addToGraph( builder, upConfig );
 
@@ -303,8 +304,9 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                                        .create();
 
         visConfig.inGlobalBufferHandles = {
-            .vertex = upConfig.outGlobalBufferHandles.vertex,
-            .index  = upConfig.outGlobalBufferHandles.index,
+            .vertex    = upConfig.outGlobalBufferHandles.vertex,
+            .index     = upConfig.outGlobalBufferHandles.index,
+            .materials = upConfig.outGlobalBufferHandles.materials,
         },
         visConfig.matLib           = &_mtlLib;
         visConfig.materialPassSlot = (u32)Config::MaterialPassType::Visibility;
@@ -324,13 +326,15 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         //----------------------------
         VisResolvePass::Config resConfig;
         resConfig.outColorHandle = builder.texture( "ColorRTO" )
-                                       .asRenderTarget()
-                                       .asStorage()
+                                       .asStorage() // Compute UAV output only (an RT flag would require a clear before first use)
                                        .format( Graphics::Format::RGBA16_FLOAT )
                                        .extent( SCENE_RESOLUTION )
-                                       .clearValue( { .color = { 0.2f, 0.2f, 0.2f, 1.0f } } )
                                        .create();
-        resConfig.inVisHandle = visConfig.outVisHandle;
+        resConfig.inVisHandle       = visConfig.outVisHandle;
+        resConfig.inVertexHandle    = upConfig.outGlobalBufferHandles.vertex;
+        resConfig.inIndexHandle     = upConfig.outGlobalBufferHandles.index;
+        resConfig.inMaterialsHandle = upConfig.outGlobalBufferHandles.materials;
+        resConfig.indirectData = indirectCmdPayload; // One dispatch per material bundle
 
         resConfig.ioSetId = (u32)Config::LayoutSetType::PassBound;
 
@@ -436,6 +440,9 @@ void Rasterizer::registerPasses() {
     _passes.registerPass<VisResolvePass>();
     _passes.registerPass<ToneMappingPass>();
     _passes.registerPass<FXAAPass>();
+
+    // Every pass works on the global layout contract (before createPipelines)
+    _passes.setGlobalLayout( _globalMtlLayoutHandle );
 }
 
 void Rasterizer::createResources() {
@@ -482,25 +489,8 @@ void Rasterizer::createResources() {
                                        .extent( { 1, 1, 1 } )
                                        .withData( fallbackPixels.data() )
                                        .create();
-    _res.fallbackTexture3DHandle = r.texture( "FallbackTexture3D" )
-                                       .format( Graphics::Format::RGBA8_UNORM )
-                                       .extent( { 1, 1, 1 } )
-                                       .dim( Graphics::TextureDimension::Texture3D )
-                                       .withData( fallbackPixels.data() )
-                                       .create();
-    _res.fallbackTextureCubeHandle = r.texture( "FallbackTextureCube" )
-                                         .format( Graphics::Format::RGBA8_UNORM )
-                                         .extent( { 1, 1, 1 } )
-                                         .asCubeMap()
-                                         .withData( fallbackPixels.data() )
-                                         .create();
 
     _res.fallbackSamplerHandle = r.sampler( "FallbackSampler" ).create();
-
-    STLW::Vector<Graphics::RHI::ITexture*> initial2DTextures( Config::MAX_PERSISTENT_2D_TEXTURES, r.getTexture( _res.fallbackTexture2DHandle ) );
-    STLW::Vector<Graphics::RHI::ITexture*> initial3DTextures( Config::MAX_PERSISTENT_3D_TEXTURES, r.getTexture( _res.fallbackTexture3DHandle ) );
-    STLW::Vector<Graphics::RHI::ITexture*> initialCubeTextures( Config::MAX_PERSISTENT_CUBE_TEXTURES, r.getTexture( _res.fallbackTextureCubeHandle ) );
-    STLW::Vector<Graphics::RHI::ISampler*> initialSamplers( Config::MAX_PERSISTENT_SAMPLERS, r.getSampler( _res.fallbackSamplerHandle ) );
 
     // ----------------------- C. PER-FRAME BUFFERS (Volatile) -------------------
 
@@ -558,10 +548,6 @@ void Rasterizer::createResources() {
         persistentSet->attach( 0, Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.vertexBufferHandle ) );
         persistentSet->attach( 1, Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.indexBufferHandle ) );
         persistentSet->attach( 2, Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.mtlBufferHandle ) );
-        persistentSet->attachBindlessArray( 3, 0, Graphics::RHI::DescriptorType::SRV_Image, initial2DTextures );
-        persistentSet->attachBindlessArray( 4, 0, Graphics::RHI::DescriptorType::SRV_Image, initial3DTextures );
-        persistentSet->attachBindlessArray( 5, 0, Graphics::RHI::DescriptorType::SRV_Image, initialCubeTextures );
-        persistentSet->attachBindlessArray( 0, 0, initialSamplers );
 
         // Store Persistent Descriptor Set Ptr
         _res.frame[i].persistentDescriptorSetPtr = persistentSet;
@@ -740,6 +726,30 @@ Rasterizer::TransientPayload Rasterizer::uploadTransientData( Graphics::BufferLi
         }
     }
 
+    // =================================================================================
+    // 8. TEXTURE DATA (GPUScene texture cache -> slot to bindless heap index) (SSBO - Structured Buffer)
+    // =================================================================================
+    {
+        const auto& textures = _gpuScene.textures();
+
+        if ( !textures.empty() )
+        {
+            payload.texturesSlice = currentSSBOAlloc.allocate<GPUTexture>( textures.size() );
+
+            if ( payload.texturesSlice.isValid() )
+            {
+                memcpy( payload.texturesSlice.cpuAddress, textures.data(), payload.texturesSlice.size );
+            }
+        } else
+        {
+            // DUMMY
+            payload.texturesSlice       = currentSSBOAlloc.allocate<GPUTexture>( 1 );
+            payload.texturesSlice.count = 0;
+            if ( payload.texturesSlice.cpuAddress )
+                memset( payload.texturesSlice.cpuAddress, 0, payload.texturesSlice.size );
+        }
+    }
+
     return payload;
 }
 
@@ -773,8 +783,8 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
     // 2. LOOP
     // =================================================================================
 
-    u32 currentPso = 0, currentMeshID = 0;
-    sortedKeys[0].unpack( currentPso, currentMeshID );
+    u32 currentBundle = 0, currentMeshID = 0;
+    sortedKeys[0].unpack( currentBundle, currentMeshID );
 
     auto lastMesh = meshes[instances[sortedKeys[0].originalInstanceIdx].meshID];
 
@@ -798,11 +808,11 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
 
     for ( size_t i = 0; i < sortedKeys.size(); ++i )
     {
-        u32 psoID, meshID;
-        sortedKeys[i].unpack( psoID, meshID );
+        u32 bundleID, meshID;
+        sortedKeys[i].unpack( bundleID, meshID );
 
         bool breakInstancing = ( meshID != currentMeshID ) ||
-                               ( psoID != currentPso );
+                               ( bundleID != currentBundle );
 
         if ( breakInstancing && instanceAccumulator > 0 )
         {
@@ -830,13 +840,13 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
             lastMesh        = meshes[instances[originalIdx].meshID];
         }
 
-        if ( psoID != currentPso )
+        if ( bundleID != currentBundle )
         {
-            payload.batches.push_back( { .psoID        = currentPso,
+            payload.batches.push_back( { .bundleID     = currentBundle,
                                          .bufferOffset = (u32)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
                                          .drawCount    = cmdsInCurrentArch } );
 
-            currentPso           = psoID;
+            currentBundle        = bundleID;
             cmdsInCurrentArch    = 0;
             archBatchStartCmdIdx = cmdWriteIdx;
         }
@@ -868,7 +878,7 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
     // Last Render Batch
     if ( cmdsInCurrentArch > 0 )
     {
-        payload.batches.push_back( { .psoID        = currentPso,
+        payload.batches.push_back( { .bundleID     = currentBundle,
                                      .bufferOffset = (u32)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
                                      .drawCount    = cmdsInCurrentArch } );
     }

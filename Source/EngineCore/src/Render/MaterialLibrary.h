@@ -24,6 +24,9 @@ struct MaterialArchetype {
     using ShaderArray = FixedArray<Graphics::ShaderHandle, PassCount>;
     ShaderArray shaderHandles;
 
+    // PSOs of state-independent passes (compute / no overrides): shared by every bundle of this archetype
+    FixedArray<Graphics::PipelineHandle, PassCount> statelessPipelines;
+
     MaterialArchetype( StringView name, StringView shaderModule, StringView shaderSpecializationType )
         : name( name )
         , shaderModule( shaderModule )
@@ -50,12 +53,11 @@ AXION_ENUM_CLASS_FLAG_OPERATORS( StateOverrideFlags );
  * This allows for flexible configuration of different passes (e.g., opaque, transparent, shadow) without hardcoding these details in the material archetypes.
  */
 struct MaterialPassProfile {
-    String64                                   name;         // Eg: "Opaque", "Transparent", "Shadow", used for shader naming and logging
-    u32                                        slot;         // Slot index for this pass type, used for indexing into archetype shader handles and pipeline handles
+    String64                                   name;         // Eg: "Opaque", "Transparent", "Shadow", used for shader naming and logging. Slot == index of this profile in MaterialLibraryDesc::passProfiles
     Graphics::PipelineLayoutHandle             layoutHandle; // Pass profile stores the global layout used by all Materials in this Pass, which defines the expected resources and their bindings.
     Graphics::RHI::PipelineBindPoint           bindPointType = Graphics::RHI::PipelineBindPoint::Graphic;
-    STLW::String                               shaderPath; // Pass profile stores the shader used by all Materials in this Pass
-    STLW::String                               shaderIncludePath;
+    STLW::String                               shaderPath;   // Pass profile stores the shader used by all Materials in this Pass
+    STLW::Vector<STLW::String>                 includePaths; // Extra search paths (pass includes + material modules). "/Slang/Common" is always added
     STLW::Vector<Graphics::Shader::EntryPoint> entryPoints;
     bool                                       needsSpecialization = true; // Shader needs especialization with material archetype data (eg: BRDF type, texture count, etc) to be functional
 
@@ -65,11 +67,17 @@ struct MaterialPassProfile {
 
     Graphics::RenderState defaultState;                           // Can be overridden by each material instance, but defines the default render state for this pass type.
     StateOverrideFlags    overrideMask = StateOverrideFlags::All; // Defaults to all, meaning that all render state properties can be overridden by the material instance.
+
+    /// Compute passes (or passes that override nothing) produce the same PSO for any RenderState
+    bool isStateIndependent() const {
+        return bindPointType == Graphics::RHI::PipelineBindPoint::Compute || overrideMask == StateOverrideFlags::None;
+    }
 };
 
 template <u32 PassCount>
 struct PipelineBundle {
     FixedArray<Graphics::PipelineHandle, PassCount> handles;
+    bool                                            built = false; ///< handles[0] can be legitimately invalid, don't use it as "compiled" flag
 
     Graphics::PipelineHandle getHandleForPass( u32 passSlot ) const {
         return handles[passSlot];
@@ -207,26 +215,33 @@ private:
         u32                   archetypeID;
         Graphics::RenderState state;
 
+        bool operator==( const ArchetypeStateEntry& o ) const { return archetypeID == o.archetypeID && state == o.state; }
+
         /**
          * @brief Generates a 64-bit deterministic hash for the archetype and state combination.
          */
         u64 hash() const {
-            u64 h = archetypeID;
-            h ^= (u64)state.topology << 24;
-            h ^= (u64)state.fillMode << 28;
-            h ^= (u64)state.cullMode << 32;
-            h ^= (u64)state.blendOp << 36;
-            h ^= (u64)state.depthOp << 40;
-            h ^= (u64)state.depthTest << 44;
-            h ^= (u64)state.depthWrite << 45;
+            u64 h = 0;
+            hashCombine( h, archetypeID );
+            hashCombine( h, (u64)state.topology );
+            hashCombine( h, (u64)state.fillMode );
+            hashCombine( h, (u64)state.cullMode );
+            hashCombine( h, (u64)state.blendOp );
+            hashCombine( h, (u64)state.depthOp );
+            hashCombine( h, (u64)state.depthWrite );
+            hashCombine( h, (u64)state.depthTest );
             return h;
         }
+
+    private:
+        static void hashCombine( u64& seed, u64 v ) { seed ^= v + 0x9e3779b97f4a7c15ull + ( seed << 6 ) + ( seed >> 2 ); }
     };
 
     STLW::Queue<ArchetypeStateEntry> _pendingArchetypeStates; ///< Queue of material states waiting for pipeline creation.
     // TODO: Change this map for another faster structure in the future
     STLW::UnorderedMap<u64, u32>            _pipelineLookup; ///< Global cache mapping hashes to fully built pipeline bundles lookup.
     STLW::Vector<PipelineBundle<PassCount>> _pipelineCache;  ///< Global PSO cache.
+    STLW::Vector<ArchetypeStateEntry>       _bundleKeys;     ///< Key of each bundle (detects hash collisions).
 
     Graphics::API _api; ///< Active graphics API backend.
     bool          _initialized = false;

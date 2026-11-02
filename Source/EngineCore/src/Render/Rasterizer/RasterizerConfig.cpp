@@ -38,14 +38,20 @@ void matLibConfig( Graphics::PipelineLayoutHandle globalLayoutHandle, Rasterizer
     // Set API
     matLibDesc.gfxApi = settings.common.gfxApi;
 
+    // Shared search paths: pass shaders include "Materials/...", material modules live in /Materials, BRDFs in /BxDFs
+    const STLW::Vector<STLW::String> includePaths = { AXION_SHADER_DIR "/Slang",
+                                                      AXION_SHADER_DIR "/Slang/Materials",
+                                                      AXION_SHADER_DIR "/Slang/BxDFs" };
+
+    // NOTE: profiles must be pushed in Config::MaterialPassType order (slot == index)
     // Visibility pass
     matLibDesc.passProfiles.pushBack( MaterialPassProfile {
         .name          = "Visibility",
         .layoutHandle  = globalLayoutHandle,
         .bindPointType = Graphics::RHI::PipelineBindPoint::Graphic,
         // Pass shader
-        .shaderPath          = AXION_SHADER_DIR "/Slang/VisibilityPass.slang",
-        .shaderIncludePath   = AXION_SHADER_DIR "/Slang/BxDFs",
+        .shaderPath          = AXION_SHADER_DIR "/Slang/MaterialPasses/VisPass.slang",
+        .includePaths        = includePaths,
         .entryPoints         = { { "vsVis", Axion::Graphics::ShaderType::Vertex },
                                  { "psVis", Axion::Graphics::ShaderType::Pixel } },
         .needsSpecialization = true,
@@ -63,8 +69,8 @@ void matLibConfig( Graphics::PipelineLayoutHandle globalLayoutHandle, Rasterizer
         .layoutHandle  = globalLayoutHandle,
         .bindPointType = Graphics::RHI::PipelineBindPoint::Compute,
         // Pass shader
-        .shaderPath          = AXION_SHADER_DIR "/Slang/VisResolveNaivePass.slang",
-        .shaderIncludePath   = AXION_SHADER_DIR "/Slang/BxDFs",
+        .shaderPath          = AXION_SHADER_DIR "/Slang/MaterialPasses/VisResolveNaivePass.slang",
+        .includePaths        = includePaths,
         .entryPoints         = { { "csResolve", Axion::Graphics::ShaderType::Compute } },
         .needsSpecialization = true,
         // Pass fmts

@@ -74,12 +74,14 @@ public:
                         .include( AXION_SHADER_DIR "/Slang/Common" )
                         .addDefine( qualityDefine )
                         .cs( "computeMain" )
+                        .autoReflect( false ) // Global layout
                         .load();
     }
 
     void createPipelines( Graphics::IPipelineRegistry& pipelines ) override {
         _pipHandle = pipelines.compute( "FXAA Pipeline" )
                          .shader( _shHandle )
+                         .setLayout( _globalLayout )
                          .create();
     }
 
@@ -99,26 +101,25 @@ private:
         auto* texOut  = ctx.getTexture( data.outputHandle );
         auto* sampler = ctx.resources.getSampler( data.linearSamplerHandle );
 
-        auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, Graphics::RHI::DescriptorType::SRV_Image, texIn );
-        set0->attach( 1, Graphics::RHI::DescriptorType::UAV_Image, texOut );
-        set0->attach( 0, sampler );
+        auto* ioSet = ctx.allocateSet( pso->getDescription().layout, Graphics::PassIO::SET_INDEX );
+        ioSet->attach( Graphics::PassIO::texture( 0 ), Graphics::RHI::DescriptorType::SRV_Image, texIn );
+        ioSet->attach( Graphics::PassIO::rwTexture( 0 ), Graphics::RHI::DescriptorType::UAV_Image, texOut );
 
         ctx.cmd->bindComputePipeline( pso );
-        ctx.cmd->bindDescriptorSet( 0, set0 );
+        ctx.cmd->bindDescriptorSet( Graphics::PassIO::SET_INDEX, ioSet );
 
         struct FXAAConstants {
             float      subpix;
             float      edgeThreshold;
             float      edgeThresholdMin;
-            float      padding0;
+            u32        samplerID; // Bindless linear sampler
             Math::Vec2 inverseTexSize;
         } constants { data.subpix,
                       data.edgeThreshold,
                       data.edgeThresholdMin,
-                      0.0f,
+                      sampler->getBindlessIdx(),
                       Math::Vec2( 1.0f / texIn->getDescription().size.width, 1.0f / texIn->getDescription().size.height ) };
-        ctx.cmd->pushConstants( 2, constants );
+        ctx.cmd->pushConstants( constants );
 
         auto size = texIn->getDescription().size;
         ctx.cmd->dispatch( { ( size.width + 7 ) / 8, ( size.height + 7 ) / 8, 1 } );

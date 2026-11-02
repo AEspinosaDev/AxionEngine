@@ -10,7 +10,7 @@ namespace Core::Render {
 // -----------------------------------------------------------------------------
 
 struct IndirectDrawBatch {
-    u32 psoID;
+    u32 bundleID; ///< MaterialLibrary pipeline bundle (archetype + render state)
     u32 bufferOffset;
     u32 drawCount;
 };

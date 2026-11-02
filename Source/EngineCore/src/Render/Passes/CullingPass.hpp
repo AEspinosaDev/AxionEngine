@@ -82,7 +82,7 @@ private:
 
         cmd->bindDescriptorSet( 1, set1 );
 
-        cmd->pushConstants( 2, data.instanceCount );
+        cmd->pushConstants( data.instanceCount );
 
         // DISPATCH
 

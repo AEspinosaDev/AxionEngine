@@ -1,13 +1,13 @@
 // Materials/IMaterial.slang
 
-struct SurfaceData {
-    float3 worldPos = float3( 0.0 );
-    float3 shNormal = float3( 0.0, 1.0, 0.0 );
-    float2 uv       = float2( 0.0 );
-    float3 V        = float3( 0.0 );
+public struct SurfaceData {
+    public float3 worldPos = float3( 0.0 );
+    public float3 shNormal = float3( 0.0, 1.0, 0.0 );
+    public float2 uv       = float2( 0.0 );
+    public float3 V        = float3( 0.0 );
 };
 
-interface IMaterial
+public interface IMaterial
 {
     [mutating]
     void init( uint materialID );

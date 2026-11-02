@@ -104,11 +104,10 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
 
             setBindingLUT.registerMappings[static_cast<u32>( rangeType )].pushBack( mapping );
 
-            CD3DX12_DESCRIPTOR_RANGE1    range;
-            D3D12_DESCRIPTOR_RANGE_FLAGS flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
-
-            if ( binding.arraySize > 1 )
-                flags = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
+            CD3DX12_DESCRIPTOR_RANGE1 range;
+            // Volatile descriptors: tables are partially filled (eg: pass I/O set uses a few of its slots),
+            // unused descriptors may stay uninitialized as long as the shader doesn't access them
+            D3D12_DESCRIPTOR_RANGE_FLAGS flags = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
 
             range.Init(
                 rangeType,

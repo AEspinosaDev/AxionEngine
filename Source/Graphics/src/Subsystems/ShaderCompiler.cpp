@@ -161,9 +161,13 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
                 continue;
 
             slang::TypeReflection* specReflType = module->getLayout()->findTypeByName( specType.cstr() );
+            // The concrete type usually lives in an additional module (eg: material implementation)
+            for ( size_t m = 0; !specReflType && m < extraModulesKeepAlive.size(); ++m )
+                specReflType = extraModulesKeepAlive[m]->getLayout()->findTypeByName( specType.cstr() );
+
             if ( !specReflType )
             {
-                AXION_LOG_ERROR( Logger::Module::Shader, "Failed to find concrete type '{}' in layout for specialization.", specType );
+                AXION_LOG_ERROR( Logger::Module::Shader, "Failed to find concrete type '{}' in pass module or additional modules for specialization.", specType );
                 return false;
             }
             specializationArgs.pushBack( { slang::SpecializationArg::Kind::Type, specReflType } );

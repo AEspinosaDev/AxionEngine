@@ -13,6 +13,7 @@ public:
     struct GlobalBufferHandles {
         Graphics::RGResourceHandle vertex;
         Graphics::RGResourceHandle index;
+        Graphics::RGResourceHandle materials;
     };
 
     struct Config {
@@ -49,6 +50,7 @@ public:
                                     //Global
                                     data.inGlobalBufferHandles.vertex   = pb.read( data.inGlobalBufferHandles.vertex, Graphics::RHI::ResourceState::ShaderResource );
                                     data.inGlobalBufferHandles.index    = pb.read( data.inGlobalBufferHandles.index, Graphics::RHI::ResourceState::ShaderResource );
+                                    data.inGlobalBufferHandles.materials = pb.read( data.inGlobalBufferHandles.materials, Graphics::RHI::ResourceState::ShaderResource );
                                     //Indirect
                                     if(data.useGPUCulling){
                                         data.inIndirectBufferHandle       = pb.read( data.inIndirectBufferHandle, Graphics::RHI::ResourceState::IndirectArgument );
@@ -107,7 +109,9 @@ private:
             if ( batch.drawCount == 0 )
                 continue;
 
-            Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( batch.psoID, data.materialPassSlot );
+            Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( batch.bundleID, data.materialPassSlot );
+            if ( !psoHandle.isValid() )
+                continue;
 
             if ( currentPsoHandle != psoHandle )
             {
@@ -116,13 +120,10 @@ private:
                 currentPsoHandle = psoHandle;
             }
 
-            if ( psoHandle.isValid() )
-            {
-                cmd->drawIndexedIndirect(
-                    indirectBuffer,
-                    batch.bufferOffset,
-                    batch.drawCount );
-            }
+            cmd->drawIndexedIndirect(
+                indirectBuffer,
+                batch.bufferOffset,
+                batch.drawCount );
         }
 
         cmd->endRendering();

@@ -15,6 +15,12 @@ public:
 
     virtual void registerShaders( Graphics::IShaderRegistry& shaders )     = 0;
     virtual void createPipelines( Graphics::IPipelineRegistry& pipelines ) = 0;
+
+    /// Global pipeline layout shared by the renderer passes (set before createPipelines)
+    void setGlobalLayout( Graphics::PipelineLayoutHandle handle ) { _globalLayout = handle; }
+
+protected:
+    Graphics::PipelineLayoutHandle _globalLayout;
 };
 
 // template <typename u32 numRes = 0>
@@ -60,6 +66,10 @@ public:
     void createPipelines( Graphics::IPipelineRegistry& pipelines ) {
         for ( auto& pass : _passes )
             pass->createPipelines( pipelines );
+    }
+    void setGlobalLayout( Graphics::PipelineLayoutHandle handle ) {
+        for ( auto& pass : _passes )
+            pass->setGlobalLayout( handle );
     }
 
 private:

@@ -1,5 +1,6 @@
 // MaterialCommon.slang
-#include "GlobalLayouts.slang"
+__exported import GlobalLayouts;
+__exported import Constants;
 
 // -----------------------------------------------------------
 // GLOBAL DEFINITIONS
@@ -12,8 +13,9 @@ public static const uint INVALID_SAMPLER = 0xFFFFFFFF;
 // HELPER FUNCTIONS
 // -----------------------------------------------------------
 
-public uint getRedirectedInstanceID( uint hwInstanceID ) {
-    return gInstanceRedirection[gPush.baseInstanceID + hwInstanceID];
+// baseInstanceID comes from each pass push constant (first field, written by the indirect command signature)
+public uint getRedirectedInstanceID( uint baseInstanceID, uint hwInstanceID ) {
+    return gInstanceRedirection[baseInstanceID + hwInstanceID];
 }
 
 public InstanceData getInstanceData( uint instanceID ) {
@@ -28,37 +30,48 @@ public MaterialData getMaterialData( uint materialID ) {
     return gMaterials[materialID];
 }
 
+// Resolves a material texture slot (GPUScene cache slot stored in payloads) to its bindless texture.
+// Falls back to the default texture while the real one is still being streamed.
+public Texture2D getMaterialTexture2D( uint texSlot ) {
+    uint heapID = gTextures[texSlot].heapID;
+    return getTexture2D( heapID != INVALID_TEX_ID ? heapID : gFrame.fallbackTex2DID );
+}
+
+public SamplerState getDefaultSampler() {
+    return getSampler( gFrame.linearSamplerID );
+}
+
 // -----------------------------------------------------------
 // CANONICAL VERTEX
 // -----------------------------------------------------------
 
-struct CanonVertex {
-    uint address;
+public struct CanonVertex {
+    public uint address;
 
-    static CanonVertex fromIndex( uint vertexID, uint offsetInVertices ) {
+    public static CanonVertex fromIndex( uint vertexID, uint offsetInVertices ) {
         CanonVertex v;
         v.address = offsetInVertices + ( vertexID * CANON_VERTEX_STRIDE );
         ;
         return v;
     }
 
-    property float3 position {
+    public property float3 position {
         get { return asfloat( gGlobalVertices.Load3( address ) ); }
     }
 
-    property float3 normal {
+    public property float3 normal {
         get { return asfloat( gGlobalVertices.Load3( address + 12 ) ); }
     }
 
-    property float2 uv {
+    public property float2 uv {
         get { return asfloat( gGlobalVertices.Load2( address + 24 ) ); }
     }
 
-    property float4 tangent {
+    public property float4 tangent {
         get { return asfloat( gGlobalVertices.Load4( address + 32 ) ); }
     }
 
-    property float4 color {
+    public property float4 color {
         get { return asfloat( gGlobalVertices.Load4( address + 48 ) ); }
     }
 };

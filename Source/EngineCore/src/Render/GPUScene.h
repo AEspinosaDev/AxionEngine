@@ -69,9 +69,9 @@ public:
         u64 key;
         u32 originalInstanceIdx;
 
-        void unpack( u32& psoID, u32& meshID ) const {
-            psoID  = (u32)( ( key >> 40 ) & 0xFFFFFF );
-            meshID = (u32)( key & 0xFFFFFFFF );
+        void unpack( u32& bundleID, u32& meshID ) const {
+            bundleID = (u32)( ( key >> 40 ) & 0xFFFFFF );
+            meshID   = (u32)( key & 0xFFFFFFFF );
         }
     };
 
@@ -118,10 +118,9 @@ private:
 
     void runGC();
 
-    AXION_FORCE_INLINE u64 makeSortKey( u32 psoID, u32 meshID ) {
-        // [PSO 24b] [Mesh 40b]
-        return ( ( (u64)psoID & 0xFFFFFF ) << 40 ) |
-               ( (u64)meshID & 0xFFFFFFFFFF );
+    AXION_FORCE_INLINE u64 makeSortKey( u32 bundleID, u32 meshID ) {
+        // [Bundle 24b] [Unused 8b] [Mesh 32b]
+        return ( ( (u64)bundleID & 0xFFFFFF ) << 40 ) | (u64)meshID;
     }
 
     // -- Transient Data (Cleared every frame) --

@@ -7,9 +7,10 @@ template <u32 PassCount>
 inline void MaterialLibrary<PassCount>::initialize( const MaterialLibraryDesc& desc ) {
     _api = desc.gfxApi;
 
-    // Store pass profiles config
-    for ( auto& passProfile : desc.passProfiles )
-        _passProfiles[passProfile.slot] = passProfile;
+    // Store pass profiles config. Profiles must be given in pass slot order
+    AXION_LOG_ASSERT( desc.passProfiles.size() == PassCount, Logger::Module::Core, "MaterialLibrary expects {} pass profiles, got {}", PassCount, desc.passProfiles.size() );
+    for ( u32 i = 0; i < PassCount && i < desc.passProfiles.size(); ++i )
+        _passProfiles[i] = desc.passProfiles[i];
 
     _initialized = true;
 
@@ -32,16 +33,23 @@ void MaterialLibrary<PassCount>::registerArchetype( StringView name, StringView 
 
 template <u32 PassCount>
 inline u32 MaterialLibrary<PassCount>::updateArchetypeState( u32 archetypeID, const Graphics::RenderState& state ) {
+    if ( archetypeID >= _archetypes.size() )
+        return AXION_INVALID_U32;
+
     ArchetypeStateEntry entry   = { archetypeID, state };
     u64                 hashKey = entry.hash();
 
     if ( auto it = _pipelineLookup.find( hashKey ); it != _pipelineLookup.end() )
+    {
+        AXION_LOG_ASSERT( _bundleKeys[it->second] == entry, Logger::Module::Core, "MaterialLibrary: pipeline bundle hash collision" );
         return it->second;
+    }
 
     u32 newBundleID = (u32)_pipelineCache.size();
 
     _pipelineLookup[hashKey] = newBundleID;
     _pipelineCache.emplace_back();
+    _bundleKeys.push_back( entry );
 
     _pendingArchetypeStates.push( entry );
 
@@ -62,8 +70,9 @@ u32 MaterialLibrary<PassCount>::getArchetypeID( StringView name ) const {
     if ( auto it = _archetypeLookup.find( name ); it != _archetypeLookup.end() )
         return it->second;
 
-    AXION_LOG_WARN( Logger::Module::Core, "Material '{}' not found. Fallback to Error Material.", name );
-    return 0;
+   
+    AXION_LOG_ERROR( Logger::Module::Core, "Material archetype '{}' not registered", name );
+    return AXION_INVALID_U32;
 }
 template <u32 PassCount>
 inline Graphics::PipelineHandle MaterialLibrary<PassCount>::getPipelineHandle( u32 bundleID, u32 passSlot ) const {
@@ -81,9 +90,10 @@ void MaterialLibrary<PassCount>::registerShaders( Graphics::IShaderRegistry& sha
 
     for ( auto& arch : _archetypes )
     {
-        for ( const auto& passProfile : _passProfiles )
+        for ( u32 passId = 0; passId < PassCount; ++passId )
         {
-            StringView shaderName = passProfile.needsSpecialization ? passProfile.name + "_shader_" + arch.name : passProfile.name + "_shader";
+            const auto& passProfile = _passProfiles[passId];
+            String64 shaderName = passProfile.needsSpecialization ? passProfile.name + "_shader_" + arch.name : passProfile.name + "_shader";
 
             auto builder = shaders.shader( shaderName )
                                .path( passProfile.shaderPath )
@@ -91,8 +101,8 @@ void MaterialLibrary<PassCount>::registerShaders( Graphics::IShaderRegistry& sha
                                .include( AXION_SHADER_DIR "/Slang/Common" )
                                .autoReflect( false ); // As defined layouts should be used
 
-            if ( !passProfile.shaderIncludePath.empty() )
-                builder.include( passProfile.shaderIncludePath );
+            for ( const auto& includePath : passProfile.includePaths )
+                builder.include( includePath );
 
            
 
@@ -105,7 +115,7 @@ void MaterialLibrary<PassCount>::registerShaders( Graphics::IShaderRegistry& sha
             _api == Graphics::API::DirectX12 ? builder.asDXIL() : builder.asSPIRV();
 
             // Builder does not duplicate the shader, if its already registered, so this is safe to call for multiple archetypes sharing the same pass profile
-            arch.shaderHandles[passProfile.slot] = builder.load();
+            arch.shaderHandles[passId] = builder.load();
         }
     }
 }
@@ -114,9 +124,9 @@ void MaterialLibrary<PassCount>::updatePipelines( Graphics::IPipelineRegistry& p
 
     while ( !_pendingArchetypeStates.empty() )
     {
-        const auto& state   = _pendingArchetypeStates.front();
-        u64         hashKey = state.hash();
-        const auto& arch    = _archetypes[state.archetypeID];
+        const ArchetypeStateEntry state   = _pendingArchetypeStates.front(); // Copy: the entry is popped below
+        u64                       hashKey = state.hash();
+        auto&                     arch    = _archetypes[state.archetypeID];
 
         _pendingArchetypeStates.pop();
 
@@ -127,7 +137,7 @@ void MaterialLibrary<PassCount>::updatePipelines( Graphics::IPipelineRegistry& p
         u32 bundleID = lookupIt->second;
 
         // Is compiled ??
-        if ( _pipelineCache[bundleID].handles[0].isValid() )
+        if ( _pipelineCache[bundleID].built )
             continue;
 
         // If it doesn't exist, create it.
@@ -150,7 +160,17 @@ void MaterialLibrary<PassCount>::updatePipelines( Graphics::IPipelineRegistry& p
                     continue;
                 }
 
-                String64 pipName = passProfile.name + "_PSO_arch_" + arch.name + "_Hash:" + std::to_string(hashKey);
+                // State-independent pass already built for this archetype: share it
+                const bool stateless = passProfile.isStateIndependent();
+                if ( stateless && arch.statelessPipelines[passId].isValid() )
+                {
+                    newBundle.handles[passId] = arch.statelessPipelines[passId];
+                    continue;
+                }
+
+                // Short name: String64 truncates and the registry would mix up states with the same truncated name
+                String64 pipName = stateless ? passProfile.name + "_" + arch.name
+                                             : passProfile.name + "_" + arch.name + "_" + fmt::format( "{:016x}", hashKey );
 
                 Graphics::RenderState finalState = passProfile.defaultState;
 
@@ -248,8 +268,12 @@ void MaterialLibrary<PassCount>::updatePipelines( Graphics::IPipelineRegistry& p
                     }
                     break;
                 }
+
+                if ( stateless )
+                    arch.statelessPipelines[passId] = newBundle.handles[passId];
             }
 
+            newBundle.built          = true;
             _pipelineCache[bundleID] = std::move( newBundle );
         }
     }

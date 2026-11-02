@@ -21,12 +21,14 @@ public:
                         .path( AXION_SHADER_DIR "/Slang/Postpro/Tonemapping.slang" )
                         .include( AXION_SHADER_DIR "/Slang/Common" )
                         .cs( "computeMain" )
+                        .autoReflect( false ) // Global layout
                         .load();
     }
 
     void createPipelines( Graphics::IPipelineRegistry& pipelines ) override {
         _pipHandle = pipelines.compute( "Tonemapping Pipeline" )
                          .shader( _shHandle )
+                         .setLayout( _globalLayout )
                          .create();
     }
 
@@ -45,14 +47,14 @@ private:
         auto* texIn  = ctx.getTexture( data.inputHandle );
         auto* texOut = ctx.getTexture( data.outputHandle );
 
-        auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, Graphics::RHI::DescriptorType::SRV_Image, texIn );
-        set0->attach( 0, Graphics::RHI::DescriptorType::UAV_Image, texOut ); // u0 in Tonemapping.slang
+        auto* ioSet = ctx.allocateSet( pso->getDescription().layout, Graphics::PassIO::SET_INDEX );
+        ioSet->attach( Graphics::PassIO::texture( 0 ), Graphics::RHI::DescriptorType::SRV_Image, texIn );
+        ioSet->attach( Graphics::PassIO::rwTexture( 0 ), Graphics::RHI::DescriptorType::UAV_Image, texOut );
 
         ctx.cmd->bindComputePipeline( pso );
-        ctx.cmd->bindDescriptorSet( 0, set0 );
+        ctx.cmd->bindDescriptorSet( Graphics::PassIO::SET_INDEX, ioSet );
 
-        ctx.cmd->pushConstants( 1, data.exposure );
+        ctx.cmd->pushConstants( data.exposure );
 
         auto size = texIn->getDescription().size;
         ctx.cmd->dispatch( { ( size.width + 7 ) / 8, ( size.height + 7 ) / 8, 1 } );

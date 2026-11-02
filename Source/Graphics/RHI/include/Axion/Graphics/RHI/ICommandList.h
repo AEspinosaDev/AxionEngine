@@ -149,18 +149,17 @@ public:
                                       IBuffer* countBuffer       = nullptr,
                                       u64      countBufferOffset = 0 ) = 0;
 
-    /// @brief Pushes 32-bit constants directly to the pipeline (Root Constants).
+    /// @brief Pushes 32-bit constants to the push constant block of the currently bound pipeline layout (Root Constants).
     /// @tparam T The struct type to push. Must be 4-byte aligned.
     template <typename T>
-    void pushConstants( u32 rootIndex, const T& data, u32 offset32Bit = 0 ) {
+    void pushConstants( const T& data, u32 offset32Bit = 0 ) {
         static_assert( sizeof( T ) % 4 == 0, "Push Constant struct size must be 4-byte aligned" );
-        u64 size = sizeof( T ) / 4;
-        pushConstants( rootIndex, &data, size, offset32Bit );
+        pushConstantsRaw( &data, (u32)( sizeof( T ) / 4 ), offset32Bit );
     }
 
 protected:
-    /// @brief Internal implementation for push constants.
-    virtual void pushConstants( u32 setIndex, const void* data, u32 numValues32Bit, u32 offset32Bit = 0 ) = 0;
+    /// @brief Internal implementation for push constants. The backend resolves where the block lives in the bound layout.
+    virtual void pushConstantsRaw( const void* data, u32 numValues32Bit, u32 offset32Bit = 0 ) = 0;
 };
 
 typedef ICommandList::Description CommandListDesc;

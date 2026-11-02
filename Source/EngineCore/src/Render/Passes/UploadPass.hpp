@@ -21,13 +21,9 @@ public:
         Graphics::BufferGPUFreeListAllocator* indexAllocator  = nullptr;
         Graphics::BufferGPUFreeListAllocator* matAllocator    = nullptr;
 
-        SmallVector<Graphics::RHI::IDescriptorSet*, 2> allPersistentSets;
-
-        Vector<Graphics::TextureHandle>* mtlTexture2DHandles   = nullptr;
-        Vector<Graphics::TextureHandle>* mtlTexture3DHandles   = nullptr;
-        Vector<Graphics::TextureHandle>* mtlTextureCubeHandles = nullptr;
-        GPUScene*                        gpuScene              = nullptr;
-        u64                              maxAllocationSize     = 0;
+        Vector<Graphics::TextureHandle>* mtlTextureHandles = nullptr; ///< Owner handles of material textures, indexed by GPUScene texture slot
+        GPUScene*                        gpuScene          = nullptr;
+        u64                              maxAllocationSize = 0;
     };
 
     void registerShaders( Graphics::IShaderRegistry& /*shaders*/ ) override { /*NO OP*/ }
@@ -156,7 +152,7 @@ private:
             // liberamos la memoria vieja antes de pedir nueva.
             // NOTA: Podrías intentar reutilizarla si el tamaño es igual,
             // pero Free+Alloc evita fragmentación si el tamaño cambia.
-            if ( gpuMtl.bufferOffset != 0 ) // Asumiendo que 0 es null/inválido
+            if ( gpuMtl.bufferOffset != AXION_INVALID_U32 ) // Already in VRAM (offset 0 is a valid offset)
             {
                 Graphics::BufferSlice oldSlice;
                 oldSlice.container = mtlb;
@@ -165,7 +161,7 @@ private:
 
                 data.matAllocator->free( oldSlice );
 
-                gpuMtl.bufferOffset = 0;
+                gpuMtl.bufferOffset = AXION_INVALID_U32;
             }
 
             auto mtlBufferView = data.matAllocator->allocate( uploadEntry.payload.size(), ALIGNMENT );
@@ -193,7 +189,7 @@ private:
             auto deletionEntry = std::move( deletionQueue.front() );
             deletionQueue.pop();
 
-            if ( deletionEntry.payloadSize > 0 )
+            if ( deletionEntry.payloadSize > 0 && deletionEntry.bufferOffset != AXION_INVALID_U32 ) // Never uploaded: nothing to free
             {
                 Graphics::BufferSlice mView;
                 mView.container = mtlb;
@@ -247,26 +243,21 @@ private:
                 if ( pixelData != nullptr )
                 {
                     // Create texture
-                    ( *data.mtlTexture2DHandles )[uploadEntry.slot] = ctx.resources.texture( uploadEntry.name )
-                                                                          .extent( uploadEntry.extent )
-                                                                          .format( uploadEntry.format )
-                                                                          .create();
+                    ( *data.mtlTextureHandles )[uploadEntry.slot] = ctx.resources.texture( uploadEntry.name )
+                                                                        .extent( uploadEntry.extent )
+                                                                        .format( uploadEntry.format )
+                                                                        .create();
 
-                    auto* tex = ctx.resources.getTexture( ( *data.mtlTexture2DHandles )[uploadEntry.slot] );
+                    auto* tex = ctx.resources.getTexture( ( *data.mtlTextureHandles )[uploadEntry.slot] );
 
                     // Upload
                     cmd->barrier( tex, Graphics::RHI::ResourceState::CopyDest );
                     cmd->uploadTexture( tex, pixelData, *allocator, 0, 0, Graphics::RHI::BarrierPolicy::None );
                     cmd->barrier( tex, Graphics::RHI::ResourceState::ShaderResource );
 
-                    gpuTex.slot = uploadEntry.slot;
+                    // Bindless: shaders reach it through gTextures[slot].heapID (visible from next frame's gTextures upload)
+                    gpuTex.heapID = tex->getBindlessSRVIdx();
                     totalUsedSpace += requiredSpace;
-
-                    // Update bindless slots
-                    for ( auto* pSet : data.allPersistentSets )
-                    {
-                        pSet->attachBindless( 3, uploadEntry.slot, Graphics::RHI::DescriptorType::SRV_Image, tex );
-                    }
                 }
             }
         }
@@ -278,15 +269,9 @@ private:
             deletionQueue.pop();
 
             // Textures are always save to destroy here as its lifetime is bound bt TTL, and is always bigger than the frame in flight number
-            ctx.resources.destroyTexture( ( *data.mtlTexture2DHandles )[deletionEntry] );
+            ctx.resources.destroyTexture( ( *data.mtlTextureHandles )[deletionEntry] );
 
-            ( *data.mtlTexture2DHandles )[deletionEntry] = Graphics::TextureHandle();
-
-            // // Update bindless slots
-            // for ( auto* pSet : data.allPersistentSets )
-            // {
-            //     pSet->attachBindless( 3, deletionEntry, tex, Graphics::RHI::ResourceState::ShaderResource );
-            // }
+            ( *data.mtlTextureHandles )[deletionEntry] = Graphics::TextureHandle();
         }
     }
 };
