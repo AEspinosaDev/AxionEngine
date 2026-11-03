@@ -3,7 +3,8 @@
 #include <Render/DrawIndirect.h>
 #include <Render/MaterialLibrary.h>
 #include <Render/PassManager.h>
-#include <Render/Passes/GlobalBufferHandles.h>
+#include <Render/Rasterizer/RasterizerConfig.h>
+#include <Render/Rasterizer/RasterizerResources.h>
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
@@ -15,11 +16,11 @@ public:
         IndirectCommandPayload indirectData;
 
         // In Buffers
-        GlobalBufferHandles        inGlobalBufferHandles;
-        Graphics::RGResourceHandle inIndirectBufferHandle;
-        Graphics::RGResourceHandle inCulledRedirectBufferHandle;
-        Graphics::BufferSlice      inInstanceListSlice; ///< Full sorted instance list (GPU culling off)
-        bool                       useGPUCulling = false;
+        Rasterizer::Resources::GlobalBufferHandles inGlobalBufferHandles; ///< Geometry pages + materials (bindless, declared for the transitions)
+        Graphics::RGResourceHandle                 inIndirectBufferHandle;
+        Graphics::RGResourceHandle                 inCulledRedirectBufferHandle;
+        Graphics::BufferSlice                      inInstanceListSlice; ///< Full sorted instance list (GPU culling off)
+        bool                                       useGPUCulling = false;
 
         // Out RTOs
         Graphics::RGResourceHandle outVisHandle;
@@ -27,8 +28,7 @@ public:
         Graphics::RGResourceHandle outDepthHandle;
 
         // Resources
-        Graphics::RHI::IDescriptorSet* persistentDescriptorSet = nullptr;
-        Graphics::RHI::IDescriptorSet* transientDescriptorSet  = nullptr;
+        Graphics::RHI::IDescriptorSet* transientDescriptorSet = nullptr;
 
         u32               materialPassSlot;
         IMaterialLibrary* matLib;
@@ -79,16 +79,12 @@ private:
         ctx.cmd->beginRendering( info );
 
         // -----------------------------------------------------
-        // BINDING GLOBAL RESOURCES (Space 0 & 1)
+        // BINDING GLOBAL RESOURCES (Space 0: frame data. Geometry & materials are bindless)
         // -----------------------------------------------------
 
-        auto* set0 = data.persistentDescriptorSet;
-        cmd->bindDescriptorSet( 0, set0, matLayout );
+        cmd->bindDescriptorSet( (u32)Rasterizer::Config::LayoutSetType::FrameBound, data.transientDescriptorSet, matLayout );
 
-        auto* set1 = data.transientDescriptorSet;
-        cmd->bindDescriptorSet( 1, set1, matLayout );
-
-        // SPACE 2: instances to draw (culled list or the full sorted one)
+        // SPACE 1: instances to draw (culled list or the full sorted one)
         auto* ioSet = ctx.allocateSet( matLayout, Graphics::PassIO::SET_INDEX );
         if ( data.useGPUCulling )
             ioSet->attach( Graphics::PassIO::buffer( 0 ), Graphics::RHI::DescriptorType::SRV_Buffer, ctx.getBuffer( data.inCulledRedirectBufferHandle ) );

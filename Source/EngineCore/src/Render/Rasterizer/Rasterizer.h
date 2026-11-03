@@ -10,20 +10,22 @@
 // -------------------
 #include <Render/DrawIndirect.h>
 #include <Render/Rasterizer/RasterizerConfig.h>
+#include <Render/Rasterizer/RasterizerResources.h>
 
 // Modules
 #include <Render/GPUScene.h>
 #include <Render/MaterialLibrary.h>
 #include <Render/PassManager.h>
 
-// High Level Passes
-#include <Render/Passes/CullingPass.hpp>
-#include <Render/Passes/FXAAPass.hpp>
-#include <Render/Passes/IndirectUploadPass.hpp>
-#include <Render/Passes/TonemappingPass.hpp>
-#include <Render/Passes/UploadPass.hpp>
-#include <Render/Passes/VisPass.hpp>
-#include <Render/Passes/VisResolveNaivePass.hpp>
+// Generic Passes
+#include <Render/GenericPasses/FXAAPass.hpp>
+#include <Render/GenericPasses/IndirectUploadPass.hpp>
+#include <Render/GenericPasses/ToneMappingPass.hpp>
+// Rasterizer Passes
+#include <Render/Rasterizer/Passes/CullingPass.hpp>
+#include <Render/Rasterizer/Passes/UploadPass.hpp>
+#include <Render/Rasterizer/Passes/VisPass.hpp>
+#include <Render/Rasterizer/Passes/VisResolveNaivePass.hpp>
 
 AXION_NAMESPACE_BEGIN
 
@@ -93,51 +95,8 @@ private:
     Graphics::PipelineLayoutHandle                        _globalMtlLayoutHandle;
 
     // Graphics & GPU Resources Logic and Handles
-    GPUScene _gpuScene;
-
-    struct FrameResources {
-        Graphics::BufferHandle            uboBufferHandle;
-        Graphics::BufferLinearAllocator<> uboAllocator;
-
-        Graphics::BufferHandle            ssboBufferHandle;
-        Graphics::BufferLinearAllocator<> ssboAllocator;
-
-        // Indirect Rendering
-        Graphics::BufferHandle            indirectStagingBufferHandle;
-        Graphics::BufferLinearAllocator<> indirectAllocator;
-        Graphics::BufferHandle            indirectBufferHandle;
-        Graphics::BufferHandle            culledInstanceBufferHandle;
-
-        // Persistent Descriptor Set
-        Graphics::RHI::IDescriptorSet* persistentDescriptorSetPtr = nullptr;
-    };
-    struct GPUResources {
-        // Resource Handles
-        Graphics::BufferHandle               vertexBufferHandle;
-        Graphics::BufferGPUFreeListAllocator vertexAllocator;
-
-        Graphics::BufferHandle               indexBufferHandle;
-        Graphics::BufferGPUFreeListAllocator indexAllocator;
-
-        Graphics::BufferHandle               meshletBufferHandle;
-        Graphics::BufferGPUFreeListAllocator meshletAllocator;
-
-        Graphics::BufferHandle               meshletVertexBufferHandle;
-        Graphics::BufferGPUFreeListAllocator meshletVertexAllocator;
-
-        Graphics::BufferHandle               meshletPrimitiveBufferHandle;
-        Graphics::BufferGPUFreeListAllocator meshletPrimitiveAllocator;
-
-        Graphics::BufferHandle               mtlBufferHandle;
-        Graphics::BufferGPUFreeListAllocator mtlAllocator;
-
-        Vector<Graphics::TextureHandle> materialTextureHandles; ///< Indexed by GPUScene texture slot
-        Graphics::TextureHandle         fallbackTexture2DHandle;
-        Graphics::SamplerHandle         fallbackSamplerHandle;
-
-        SmallVector<FrameResources, 3> frame;
-    };
-    GPUResources _res;
+    GPUScene                _gpuScene;
+    Resources::GPUResources _res;
 
     Graphics::RendererOwnerPtr _rnd = nullptr;
 

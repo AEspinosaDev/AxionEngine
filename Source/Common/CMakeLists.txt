@@ -2,7 +2,7 @@
 # Axion Engine Common module
 # /////////////////////////////////////////////////////////////////////////////
 
-file(GLOB COMMON_SOURCES
+file(GLOB COMMON_SOURCES CONFIGURE_DEPENDS
     "src/*.cpp"
     "src/Memory/*.cpp"
 )

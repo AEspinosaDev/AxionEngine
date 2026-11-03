@@ -2,7 +2,7 @@
 # Axion Engine Core Module
 # /////////////////////////////////////////////////////////////////////////////
 
-file(GLOB CORE_SOURCES
+file(GLOB CORE_SOURCES CONFIGURE_DEPENDS
     "src/*.hpp"
     "src/*.cpp"
     # Scene

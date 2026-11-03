@@ -8,7 +8,7 @@ static const uint MS_GROUP_SIZE = 128; // >= max( MESHLET_MAX_VERTICES, MESHLET_
 static const uint AS_GROUP_SIZE = 32;  // Meshlets tested per amplification group, one wave (must match Config::VIS_AMPLIFICATION_GROUP_SIZE)
 
 // -----------------------------------------------------------
-// PASS I/O (Space 2): instances to draw, packed per command (GPU culled list, or the full sorted list without culling)
+// PASS I/O (Space 1): instances to draw, packed per command (GPU culled list, or the full sorted list without culling)
 // -----------------------------------------------------------
 DECLARE_BUFFER( StructuredBuffer<uint>, gDrawInstances, 0 );
 
@@ -106,7 +106,7 @@ void msVis<T : IMaterial>( uint                                                 
     // Vertices (vertex pulling through the meshlet vertex list)
     if ( groupThreadID < meshlet.vertexCount )
     {
-        CanonVertex v        = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, groupThreadID ), mesh.vertexOffset );
+        CanonVertex v        = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, groupThreadID ), mesh );
         float4      worldPos = mul( instance.modelMatrix, float4( v.position, 1.0 ) );
 
         // WPO

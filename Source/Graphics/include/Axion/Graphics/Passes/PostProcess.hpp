@@ -51,7 +51,7 @@ struct ToneMapping : public IPassRecipe<ToneMappingData> {
         auto* texIn  = ctx.getTexture( data.inputHDR );
         auto* texOut = ctx.getTexture( data.outputLDR );
 
-        // Reflected layout: the shader only declares pass I/O (space 2) + push constants (space 3)
+        // Reflected layout: the shader only declares pass I/O (space 1) + push constants (space 2)
         auto* ioSet = ctx.allocateSet( pso->getDescription().layout, PassIO::SET_INDEX );
         ioSet->attach( PassIO::texture( 0 ), Graphics::RHI::DescriptorType::SRV_Image, texIn );
         ioSet->attach( PassIO::rwTexture( 0 ), Graphics::RHI::DescriptorType::UAV_Image, texOut );
@@ -104,7 +104,7 @@ struct FXAA : public IPassRecipe<FXAAData> {
         auto* texIn  = ctx.getTexture( data.input );
         auto* texOut = ctx.getTexture( data.output );
 
-        // Reflected layout: the shader only declares pass I/O (space 2) + push constants (space 3)
+        // Reflected layout: the shader only declares pass I/O (space 1) + push constants (space 2)
         // TODO: push FXAAConstants (incl. bindless samplerID) as FXAAPass does. This recipe never pushed them
         auto* ioSet = ctx.allocateSet( pso->getDescription().layout, PassIO::SET_INDEX );
         ioSet->attach( PassIO::texture( 0 ), Graphics::RHI::DescriptorType::SRV_Image, texIn );

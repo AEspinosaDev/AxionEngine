@@ -12,13 +12,13 @@ struct UnlitMaterialPayload
     {
         UnlitMaterialPayload p;
 
-        float4 chunk0 = asfloat(gGlobalMaterials.Load4(bufferOffset));
-        float4 chunk1 = asfloat(gGlobalMaterials.Load4(bufferOffset + 16));
+        float4 chunk0 = asfloat(getMaterialBuffer().Load4(bufferOffset));
+        float4 chunk1 = asfloat(getMaterialBuffer().Load4(bufferOffset + 16));
 
         p.color            = chunk0.xyz;
         p.emissivePower    = chunk0.w;
         
-        uint4 rawChunk1 = gGlobalMaterials.Load4(bufferOffset + 16);
+        uint4 rawChunk1 = getMaterialBuffer().Load4(bufferOffset + 16);
         p.textureIndex     = rawChunk1.x;
         p.overrideStrength = asfloat(rawChunk1.y); 
 
@@ -48,7 +48,7 @@ VSOutput vsForward(VSInput input)
     MeshData mesh = getMeshData(instance.meshID);
 
     // Vertex fetch
-    CanonVertex v        = CanonVertex.fromIndex( input.vertexID, mesh.vertexOffset );
+    CanonVertex v        = CanonVertex.fromIndex( input.vertexID, mesh );
     float3      localPos = v.position;
     float2      uv       = v.uv;
 

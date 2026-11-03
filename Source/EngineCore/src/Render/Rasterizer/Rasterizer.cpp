@@ -148,9 +148,9 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
             builder.addPass<PassData>( "ClearPass", [&]( Graphics::RenderPassBuilder& pb, PassData& data ) { data.target = pb.write( backbufferHandle, Graphics::RHI::ResourceState::RenderTarget ); },
 
                                        [&]( const PassData& data, Graphics::RenderPassContext& ctx ) {
-                    
+
                 auto* tex = ctx.getTexture( data.target );
-                
+
                 ctx.cmd->barrier( tex, Graphics::RHI::ResourceState::RenderTarget );
                 ctx.cmd->clearTexture( tex, Graphics::ClearValue { .color = { 0.0f, 0.0f, 0.0f, 0.0f } } ); } );
 
@@ -181,7 +181,8 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
     // Bindless defaults read by shaders through gFrame
     _gpuScene.frame().fallbackTex2DID = _rnd->resources().getTexture( _res.fallbackTexture2DHandle )->getBindlessSRVIdx();
-    _gpuScene.frame().linearSamplerID = _rnd->resources().getSampler( _res.fallbackSamplerHandle )->getBindlessIdx();
+    _gpuScene.frame().linearSamplerID  = _rnd->resources().getSampler( _res.fallbackSamplerHandle )->getBindlessIdx();
+    _gpuScene.frame().materialBufferID = _rnd->resources().getBuffer( _res.mtlBufferHandle )->getBindlessSRVIdx();
 
     _res.materialTextureHandles.resize( _gpuScene.textures().size() );
 
@@ -195,6 +196,13 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
     currentFrameRes.ssboAllocator.reset();
     currentFrameRes.indirectAllocator.reset();
 
+    // Geometry residency: pending meshes are placed in the geometry pages before GPUMesh is uploaded (heap IDs & offsets valid this frame)
+    auto meshUploads = _passes.getPass<UploadPass>()->reserveMeshes( _gpuScene,
+                                                                     _res,
+                                                                     _rnd->resources(),
+                                                                     _settings.memory.device.minGeometryPageAlloc,
+                                                                     _settings.memory.shared.maxUploadAllocPerFrame );
+
     // Upload CPU Coherent Data to GPU
     auto transientPayload   = uploadTransientData( currentFrameRes.uboAllocator,
                                                  currentFrameRes.ssboAllocator );
@@ -205,7 +213,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
         const Extent3D SCENE_RESOLUTION  = _window->getSettings().size.to3D();
         const Extent3D SCREEN_RESOLUTION = _window->getSettings().size.to3D();
-        
+
         const bool GPU_CULLING_ENABLED = ( _settings.common.flags & RendererEnableGPUCulling ) && !indirectCmdPayload.batches.empty();
 
         //----------------------------
@@ -228,21 +236,11 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         // A. Upload Global Data
         //----------------------------
         UploadPass::Config upConfig;
-        upConfig.outGlobalBufferHandles = {
-            .vertex            = builder.import( "GlobalVertexBuffer", _res.vertexBufferHandle ),
-            .index             = builder.import( "GlobalIndexBuffer", _res.indexBufferHandle ),
-            .meshlets          = builder.import( "GlobalMeshletBuffer", _res.meshletBufferHandle ),
-            .meshletVertices   = builder.import( "GlobalMeshletVertexBuffer", _res.meshletVertexBufferHandle ),
-            .meshletPrimitives = builder.import( "GlobalMeshletPrimitiveBuffer", _res.meshletPrimitiveBufferHandle ),
-            .materials         = builder.import( "GlobalMaterialBuffer", _res.mtlBufferHandle ) };
-        upConfig.gpuScene                  = &_gpuScene;
-        upConfig.vertexAllocator           = &_res.vertexAllocator;
-        upConfig.indexAllocator            = &_res.indexAllocator;
-        upConfig.meshletAllocator          = &_res.meshletAllocator;
-        upConfig.meshletVertexAllocator    = &_res.meshletVertexAllocator;
-        upConfig.meshletPrimitiveAllocator = &_res.meshletPrimitiveAllocator;
-        upConfig.matAllocator              = &_res.mtlAllocator;
-        upConfig.maxAllocationSize = _settings.memory.shared.maxUploadAllocPerFrame;
+        upConfig.outGlobalBufferHandles = Resources::importGlobalBuffers( builder, _res ); // Every page (including the ones created this frame)
+        upConfig.gpuScene               = &_gpuScene;
+        upConfig.meshUploads            = std::move( meshUploads );
+        upConfig.matAllocator           = &_res.mtlAllocator;
+        upConfig.maxAllocationSize      = _settings.memory.shared.maxUploadAllocPerFrame;
 
         upConfig.mtlTextureHandles = &_res.materialTextureHandles;
 
@@ -301,8 +299,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         visConfig.inInstanceListSlice          = transientPayload.redirectSlice;
         visConfig.useGPUCulling                = GPU_CULLING_ENABLED;
 
-        visConfig.persistentDescriptorSet = currentFrameRes.persistentDescriptorSetPtr;
-        visConfig.transientDescriptorSet  = transientSetPtr;
+        visConfig.transientDescriptorSet = transientSetPtr;
 
         _passes.getPass<VisPass>()->addToGraph( builder, visConfig );
 
@@ -324,8 +321,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         resConfig.materialPassSlot = (u32)Config::MaterialPassType::VisibilityResolve;
         resConfig.matLib           = &_mtlLib;
 
-        resConfig.persistentDescriptorSet = currentFrameRes.persistentDescriptorSetPtr;
-        resConfig.transientDescriptorSet  = transientSetPtr;
+        resConfig.transientDescriptorSet = transientSetPtr;
 
         _passes.getPass<VisResolvePass>()->addToGraph( builder, resConfig );
 
@@ -432,143 +428,12 @@ void Rasterizer::createResources() {
 
     auto& r = _rnd->resources();
 
-    //------------------------- A. GLOBAL BUFFERS (Persistent) -------------------
-    const u64 geometryBudget = _settings.memory.device.maxGeometryAlloc;
-    auto      geometrySplit  = [geometryBudget]( u64 pct ) { return ( geometryBudget * pct ) / 100; };
-
-    const u64 vertexBufferSize           = geometrySplit( Config::GEOMETRY_BUDGET_VERTICES_PCT );
-    const u64 indexBufferSize            = geometrySplit( Config::GEOMETRY_BUDGET_INDICES_PCT );
-    const u64 meshletBufferSize          = geometrySplit( Config::GEOMETRY_BUDGET_MESHLETS_PCT );
-    const u64 meshletVertexBufferSize    = geometrySplit( Config::GEOMETRY_BUDGET_MESHLET_VERTICES_PCT );
-    const u64 meshletPrimitiveBufferSize = geometrySplit( Config::GEOMETRY_BUDGET_MESHLET_PRIMITIVES_PCT );
-
-    _res.vertexBufferHandle = r.buffer( "GlobalVertexBuffer" )
-                                  .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
-                                  .view( Graphics::BufferViewFlags::BufferViewShaderResource )
-                                  .size( vertexBufferSize )
-                                  .onGPU()
-                                  .asRaw()
-                                  .create();
-    _res.vertexAllocator = Graphics::BufferGPUFreeListAllocator( r.getBuffer( _res.vertexBufferHandle ) );
-
-    _res.indexBufferHandle = r.buffer( "GlobalIndexBuffer" )
-                                 .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
-                                 .view( Graphics::BufferViewFlags::BufferViewShaderResource )
-                                 .size( indexBufferSize )
-                                 .onGPU()
-                                 .asRaw()
-                                 .asIBO()
-                                 .create();
-    _res.indexAllocator = Graphics::BufferGPUFreeListAllocator( r.getBuffer( _res.indexBufferHandle ) );
-
-    _res.meshletBufferHandle = r.buffer( "GlobalMeshletBuffer" )
-                                   .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
-                                   .view( Graphics::BufferViewFlags::BufferViewShaderResource )
-                                   .size( meshletBufferSize )
-                                   .onGPU()
-                                   .asRaw()
-                                   .create();
-    _res.meshletAllocator = Graphics::BufferGPUFreeListAllocator( r.getBuffer( _res.meshletBufferHandle ) );
-
-    _res.meshletVertexBufferHandle = r.buffer( "GlobalMeshletVertexBuffer" )
-                                         .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
-                                         .view( Graphics::BufferViewFlags::BufferViewShaderResource )
-                                         .size( meshletVertexBufferSize )
-                                         .onGPU()
-                                         .asRaw()
-                                         .create();
-    _res.meshletVertexAllocator = Graphics::BufferGPUFreeListAllocator( r.getBuffer( _res.meshletVertexBufferHandle ) );
-
-    _res.meshletPrimitiveBufferHandle = r.buffer( "GlobalMeshletPrimitiveBuffer" )
-                                            .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
-                                            .view( Graphics::BufferViewFlags::BufferViewShaderResource )
-                                            .size( meshletPrimitiveBufferSize )
-                                            .onGPU()
-                                            .asRaw()
-                                            .create();
-    _res.meshletPrimitiveAllocator = Graphics::BufferGPUFreeListAllocator( r.getBuffer( _res.meshletPrimitiveBufferHandle ) );
-
-    _res.mtlBufferHandle = r.buffer( "GlobalMaterialBuffer" )
-                               .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
-                               .view( Graphics::BufferViewFlags::BufferViewShaderResource )
-                               .size( _settings.memory.device.maxMaterialAlloc )
-                               .onGPU()
-                               .asRaw()
-                               .create();
-    _res.mtlAllocator = Graphics::BufferGPUFreeListAllocator( r.getBuffer( _res.mtlBufferHandle ) );
-
-    //------------------------- B. Fallback Resources -------------------
-
-    STLW::Array<byte, 4> fallbackPixels = { 255, 0, 255, 255 };
-    _res.fallbackTexture2DHandle        = r.texture( "FallbackTexture2D" )
-                                       .format( Graphics::Format::RGBA8_UNORM )
-                                       .extent( { 1, 1, 1 } )
-                                       .withData( fallbackPixels.data() )
-                                       .create();
-
-    _res.fallbackSamplerHandle = r.sampler( "FallbackSampler" ).create();
-
-    // ----------------------- C. PER-FRAME BUFFERS (Volatile) -------------------
-
-    _res.frame.resize( _FRAMES_IN_FLIGHT );
-    for ( u32 i = 0; i < _FRAMES_IN_FLIGHT; ++i )
-    {
-        _res.frame[i].uboBufferHandle = r.buffer( "GlobalUBO_" + std::to_string( i ) )
-                                            .size( Config::MAX_GLOBAL_UBO_BYTES )
-                                            .onCPU()
-                                            .create();
-        auto* uboBuffer = r.getBuffer( _res.frame[i].uboBufferHandle );
-        uboBuffer->map();
-        _res.frame[i].uboAllocator = Graphics::BufferLinearAllocator<>( uboBuffer );
-
-        _res.frame[i].ssboBufferHandle = r.buffer( "GlobalSSBO_" + std::to_string( i ) )
-                                             .size( _settings.memory.shared.maxConstantAllocPerFrame )
-                                             .onCPU()
-                                             .create();
-
-        auto* ssboBuffer = r.getBuffer( _res.frame[i].ssboBufferHandle );
-        ssboBuffer->map();
-        _res.frame[i].ssboAllocator = Graphics::BufferLinearAllocator<>( ssboBuffer );
-
-        // ----------------------- D. PER-FRAME INDIRECT RENDERING BUFFERS (Volatile) -------------------
-        _res.frame[i].indirectStagingBufferHandle = r.buffer( "IndirectStagingCommandBuffer_" + std::to_string( i ) )
-                                                        .size( _settings.memory.shared.maxExecutableAlloc )
-                                                        .onCPU()
-                                                        .create();
-        auto* indBuffer = r.getBuffer( _res.frame[i].indirectStagingBufferHandle );
-        indBuffer->map();
-        _res.frame[i].indirectAllocator = Graphics::BufferLinearAllocator<>( indBuffer );
-
-        _res.frame[i].indirectBufferHandle = r.buffer( "IndirectCommandBuffer_" + std::to_string( i ) )
-                                                 .size( _settings.memory.shared.maxExecutableAlloc )
-                                                 .asSSBO()
-                                                 .stride( sizeof( Graphics::RHI::DispatchMeshIndirectCommand ) )
-                                                 .create();
-
-        _res.frame[i].culledInstanceBufferHandle = r.buffer( "IndirectCulledInstanceBuffer_" + std::to_string( i ) )
-                                                       .size( _settings.memory.shared.maxConstantAllocPerFrame )
-                                                       .stride( sizeof( u32 ) )
-                                                       .onGPU()
-                                                       .asSSBO()
-                                                       .view( Graphics::BufferViewFlags::BufferViewUnorderedAccess | Graphics::BufferViewFlags::BufferViewShaderResource ) // Written by culling, read by the vis pass
-                                                       .create();
-
-        // ----------------------- E. PER-FRAME DESCRIPTOR SET (Persistent) -------------------
-        Graphics::RHI::IDescriptorSet* persistentSet = _rnd->getDescriptorAllocator()->allocate( _rnd->pipelines().getLayout( _globalMtlLayoutHandle ), (u32)Config::LayoutSetType::Persistent );
-
-        // Attach core persistent buffers
-        auto globalSRV = []( Config::GlobalBuffer b ) { return Config::REG_GLOBAL_BUFFERS_BASE + (u32)b; };
-
-        persistentSet->attach( globalSRV( Config::GlobalBuffer::Vertices ), Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.vertexBufferHandle ) );
-        persistentSet->attach( globalSRV( Config::GlobalBuffer::Indices ), Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.indexBufferHandle ) );
-        persistentSet->attach( globalSRV( Config::GlobalBuffer::Meshlets ), Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.meshletBufferHandle ) );
-        persistentSet->attach( globalSRV( Config::GlobalBuffer::MeshletVertices ), Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.meshletVertexBufferHandle ) );
-        persistentSet->attach( globalSRV( Config::GlobalBuffer::MeshletPrimitives ), Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.meshletPrimitiveBufferHandle ) );
-        persistentSet->attach( globalSRV( Config::GlobalBuffer::Materials ), Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.mtlBufferHandle ) );
-
-        // Store Persistent Descriptor Set Ptr
-        _res.frame[i].persistentDescriptorSetPtr = persistentSet;
-    }
+    // Material buffer + fallbacks
+    Resources::createPersistentResources( r, _settings.memory, _res );
+    // First geometry page (the rest are created on demand by the UploadPass)
+    Resources::createGeometryPage( r, Resources::GeometryPageSizes::fromBudget( _settings.memory.device.minGeometryPageAlloc ), _res );
+    // Per frame in flight buffers
+    Resources::createFrameResources( r, _settings.memory, _FRAMES_IN_FLIGHT, _res );
 }
 
 #pragma endregion
@@ -799,6 +664,8 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
 
     // Amplification groups per instance: each one culls a chunk of meshlets
     auto meshletChunks = []( u32 meshletCount ) { return ( meshletCount + Config::VIS_AMPLIFICATION_GROUP_SIZE - 1 ) / Config::VIS_AMPLIFICATION_GROUP_SIZE; };
+    // Meshes not placed in a geometry page yet (upload budget) dispatch nothing: their heap IDs are invalid
+    auto residentMeshletChunks = [&]( const GPUMesh& mesh ) { return mesh.geometryPageID != AXION_INVALID_U32 ? meshletChunks( mesh.meshletCount ) : 0u; };
 
     // DispatchMesh grid = ( meshlet chunks, instances, 1 ) is limited per dimension and in total groups
     auto maxInstancesPerCommand = [&]( u32 meshletCount ) {
@@ -847,7 +714,7 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
         {
             Graphics::RHI::DispatchMeshIndirectCommand cmd;
             cmd.baseInstanceID    = batchStartOffsetInRedirect;
-            cmd.threadGroupCountX = meshletChunks( lastMesh.meshletCount );
+            cmd.threadGroupCountX = residentMeshletChunks( lastMesh );
             cmd.threadGroupCountY = useGPUCulling ? 0 : instanceAccumulator; // GPU culling fills it with the visible ones
             cmd.threadGroupCountZ = 1;
 
@@ -890,7 +757,7 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
     {
         Graphics::RHI::DispatchMeshIndirectCommand cmd;
         cmd.baseInstanceID    = batchStartOffsetInRedirect;
-        cmd.threadGroupCountX = meshletChunks( lastMesh.meshletCount );
+        cmd.threadGroupCountX = residentMeshletChunks( lastMesh );
         cmd.threadGroupCountY = useGPUCulling ? 0 : instanceAccumulator; // GPU culling fills it with the visible ones
         cmd.threadGroupCountZ = 1;
 

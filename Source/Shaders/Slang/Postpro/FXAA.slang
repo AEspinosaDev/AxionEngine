@@ -28,7 +28,7 @@ public struct PushConstant {
     float  subpix;
     float  edgeThreshold;
     float  edgeThresholdMin;
-    uint   samplerID; // Bindless linear sampler (space 2 has no sampler range)
+    uint   samplerID; // Bindless linear sampler (space 1 has no sampler range)
     float2 inverseTexSize;
 };
 

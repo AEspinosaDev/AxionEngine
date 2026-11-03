@@ -45,9 +45,10 @@ struct GPUFrame {
     Math::Vec4 frustrumPlanes[6];
 
     // Bindless defaults (filled by the renderer, not by GPUScene)
-    u32 fallbackTex2DID = AXION_INVALID_U32; ///< Used while a material texture is not uploaded yet
-    u32 linearSamplerID = AXION_INVALID_U32;
-    u32 _pad[2];
+    u32 fallbackTex2DID  = AXION_INVALID_U32; ///< Used while a material texture is not uploaded yet
+    u32 linearSamplerID  = AXION_INVALID_U32;
+    u32 materialBufferID = AXION_INVALID_U32; ///< Global material payloads buffer
+    u32 _pad;
 };
 
 struct GPULight {
@@ -68,9 +69,21 @@ struct GPULight {
 // -----------------------------------------------------------------------------
 // Represents a geometry slot in VRAM.
 // NOTE: This does NOT contain the vertex data itself. It acts as a descriptor/view
-// telling the Renderer WHERE in the MegaBuffer the data is located.
+// telling the Renderer WHERE in the geometry pool (page buffers + offsets) the data is located.
 struct GPUMesh {
-    // Offsets y Counts (16 bytes)
+    // Geometry page bindless buffers (16 bytes) -> Heap indices of the page holding the mesh (INVALID until it is resident)
+    u32 vertexHeapID        = AXION_INVALID_U32;
+    u32 indexHeapID         = AXION_INVALID_U32;
+    u32 meshletHeapID       = AXION_INVALID_U32;
+    u32 meshletVertexHeapID = AXION_INVALID_U32;
+
+    // Last heap index + CPU bookkeeping (16 bytes) -> needed to release the allocations
+    u32 meshletPrimitiveHeapID = AXION_INVALID_U32;
+    u32 geometryPageID         = AXION_INVALID_U32; ///< Page owning the allocations (INVALID = not resident yet)
+    u32 meshletVertexCount;
+    u32 meshletPrimitiveSize; ///< Bytes (u8 local indices)
+
+    // Offsets y Counts (16 bytes) -> Byte offsets into the page buffers
     u32 vertexOffset;
     u32 indexOffset;
     u32 vertexCount;
@@ -86,19 +99,15 @@ struct GPUMesh {
     u32 lastFrameUsed;
     u32 originalAssetID;
 
-    // Meshlets (16 bytes) -> Byte offsets into the global meshlet buffers (0 count if not cooked as meshlets)
+    // Meshlets (16 bytes) -> Byte offsets into the page meshlet buffers (0 count if not cooked as meshlets)
     u32 meshletOffset;
     u32 meshletVertexOffset;
     u32 meshletPrimitiveOffset;
     u32 meshletCount;
 
-    // Meshlet sizes (16 bytes) -> CPU bookkeeping, needed to release the allocations
-    u32 meshletVertexCount;
-    u32 meshletPrimitiveSize; ///< Bytes (u8 local indices)
-    u32 _pad[2];
-
-    // Total: 112 bytes. (Multiple of 4, OK for StructuredBuffer).
+    // Total: 128 bytes. (Multiple of 4, OK for StructuredBuffer).
 };
+AXION_STATIC_ASSERT( sizeof( GPUMesh ) == 128, "GPUMesh must mirror MeshData (Scene.slang)" );
 
 struct GPUMaterial {
     // Offsets y Counts (32 bytes)
@@ -135,6 +144,8 @@ struct PendingMeshUpload {
 
 // Order: "This slot is empty, please mark this VRAM region as free"
 struct PendingMeshFree {
+    u32 geometryPageID; ///< Page whose allocators get the regions back
+
     u32 vertexOffset;
     u32 vertexSize;
     u32 indexOffset;

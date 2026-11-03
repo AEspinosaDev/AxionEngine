@@ -2,7 +2,7 @@
 # Axion Engine Graphics Upper Module
 # /////////////////////////////////////////////////////////////////////////////
 
-file(GLOB COMMON_SOURCES
+file(GLOB COMMON_SOURCES CONFIGURE_DEPENDS
     "src/*.hpp"
     "src/*.cpp"
     "src/Platforms/*.cpp"

@@ -21,7 +21,7 @@ VSOutput vsForward( VSInput input ) {
     MeshData     mesh     = getMeshData( instance.meshID );
 
     // Vertex fetch
-    CanonVertex v        = CanonVertex.fromIndex( input.vertexID, mesh.vertexOffset );
+    CanonVertex v        = CanonVertex.fromIndex( input.vertexID, mesh );
     float3      localPos = v.position;
     float2      uv       = v.uv;
 

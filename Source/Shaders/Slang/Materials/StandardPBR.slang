@@ -25,10 +25,11 @@ struct StandardPBRPayload {
     static StandardPBRPayload load( uint bufferOffset ) {
         StandardPBRPayload p;
 
-        float4 c0 = asfloat( gGlobalMaterials.Load4( bufferOffset ) );
-        float4 c1 = asfloat( gGlobalMaterials.Load4( bufferOffset + 16 ) );
-        uint4  c2 = gGlobalMaterials.Load4( bufferOffset + 32 );
-        uint4  c3 = gGlobalMaterials.Load4( bufferOffset + 48 );
+        ByteAddressBuffer materials = getMaterialBuffer();
+        float4            c0        = asfloat( materials.Load4( bufferOffset ) );
+        float4            c1        = asfloat( materials.Load4( bufferOffset + 16 ) );
+        uint4             c2        = materials.Load4( bufferOffset + 32 );
+        uint4             c3        = materials.Load4( bufferOffset + 48 );
 
         p.albedoFactor    = c0.xyz;
         p.roughnessFactor = c0.w;

@@ -2,7 +2,7 @@
 # Axion Engine Graphics::RHI submodule
 # /////////////////////////////////////////////////////////////////////////////
 
-file(GLOB RHI_SOURCES
+file(GLOB RHI_SOURCES CONFIGURE_DEPENDS
     "src/DX12/*.cpp"
     "src/DX12/*.hpp"
     "src/DX12/*.h"

@@ -44,10 +44,11 @@ Axion is designed with strict modularity in mind. You are not forced to use the 
 - **Declarative API:** Fluent Builder pattern for defining pipelines and resources easily.
 - **Multi-Pipeline Support:** Robust support for Compute, Graphics, Ray Tracing and Mesh Pipelines.
 - **Shader System:**
-    - Hot-Reloading support.+
+    - Hot-Reloading support.
     - **Automatic Reflection** using SLANG.
     - Agnostic compilation to DXIL and SPIR-V.
 - **GPU-Driven Rendering:** Indirect Rendering, Mesh Shading, true instancing and GPU Culling.
+- **Visibility Buffer:** Modern rasterization framework tha mixes the pros of both forward and defered pipelines with any of its cons.
 - **Modern Architecture:** PIMPL idioms, ECS integration, and strict RAII resource management.
 - **Tooling:** Integrated Logger, Windowing, and Event systems.
 

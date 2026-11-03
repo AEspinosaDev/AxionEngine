@@ -469,7 +469,8 @@ void GPUScene::runGC() {
                 static const u32 INDEX_STRIDE   = sizeof( u32 );
                 static const u32 MESHLET_STRIDE = sizeof( Assets::Meshlet );
 
-                _pendingMeshReleases.push( { .vertexOffset           = gpuMesh.vertexOffset,
+                _pendingMeshReleases.push( { .geometryPageID         = gpuMesh.geometryPageID,
+                                             .vertexOffset           = gpuMesh.vertexOffset,
                                              .vertexSize             = gpuMesh.vertexCount * VERTEX_STRIDE,
                                              .indexOffset            = gpuMesh.indexOffset,
                                              .indexSize              = gpuMesh.indexCount * INDEX_STRIDE,
@@ -496,6 +497,14 @@ void GPUScene::runGC() {
                 gpuMesh.meshletCount         = 0;
                 gpuMesh.meshletVertexCount   = 0;
                 gpuMesh.meshletPrimitiveSize = 0;
+
+                // Not resident anymore: the slot is skipped by draws until its next upload is placed
+                gpuMesh.geometryPageID         = AXION_INVALID_U32;
+                gpuMesh.vertexHeapID           = AXION_INVALID_U32;
+                gpuMesh.indexHeapID            = AXION_INVALID_U32;
+                gpuMesh.meshletHeapID          = AXION_INVALID_U32;
+                gpuMesh.meshletVertexHeapID    = AXION_INVALID_U32;
+                gpuMesh.meshletPrimitiveHeapID = AXION_INVALID_U32;
 
                 AXION_LOG_INFO( Logger::Module::Core, "GC: Recycled mesh slot {}", i );
             }

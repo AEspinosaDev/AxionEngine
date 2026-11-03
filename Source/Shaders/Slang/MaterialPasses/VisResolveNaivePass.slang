@@ -3,7 +3,7 @@ import MaterialCommon;
 import IMaterial;
 
 // -----------------------------------------------------------
-// PASS I/O (Space 2)
+// PASS I/O (Space 1)
 // -----------------------------------------------------------
 DECLARE_TEXTURE( Texture2D<uint2>, gVisBuffer, 0 );
 DECLARE_RW_TEXTURE( RWTexture2D<float4>, gOutColor, 0 );
@@ -68,9 +68,9 @@ void csResolve<T : IMaterial>( uint3 dispatchThreadID: SV_DispatchThreadID ) {
     Meshlet meshlet = getMeshlet( mesh, meshletIndex );
     uint3   tri     = getMeshletTriangle( mesh, meshlet, localTriangle );
 
-    CanonVertex v0 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.x ), mesh.vertexOffset );
-    CanonVertex v1 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.y ), mesh.vertexOffset );
-    CanonVertex v2 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.z ), mesh.vertexOffset );
+    CanonVertex v0 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.x ), mesh );
+    CanonVertex v1 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.y ), mesh );
+    CanonVertex v2 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.z ), mesh );
 
     // TODO: WPO is applied in the vis pass but not here (no material uses it yet)
     float4 wp0 = mul( instance.modelMatrix, float4( v0.position, 1.0 ) );

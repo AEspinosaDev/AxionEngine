@@ -78,7 +78,7 @@ struct ToneMappingPass {
         auto* texIn  = ctx.getTexture( data.inputHDR );
         auto* texOut = ctx.getTexture( data.outputLDR );
 
-        // Tonemapping.slang declares its I/O in space 2 (DECLARE_* macros)
+        // Tonemapping.slang declares its I/O in space 1 (DECLARE_* macros)
         auto* ioSet = ctx.allocateSet( pso->getDescription().layout, Graphics::PassIO::SET_INDEX );
         ioSet->attach( Graphics::PassIO::texture( 0 ), Graphics::RHI::DescriptorType::SRV_Image, texIn );
         ioSet->attach( Graphics::PassIO::rwTexture( 0 ), Graphics::RHI::DescriptorType::UAV_Image, texOut );

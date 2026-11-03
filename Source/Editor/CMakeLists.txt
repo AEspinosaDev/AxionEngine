@@ -1,5 +1,5 @@
    
-file(GLOB APP_SOURCES
+file(GLOB APP_SOURCES CONFIGURE_DEPENDS
     "src/*.cpp"
 )
 
