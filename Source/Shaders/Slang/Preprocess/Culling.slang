@@ -6,7 +6,7 @@ static const uint  CULLING_GROUP_SIZE    = 64;  // Must match CullingPass::GROUP
 static const float CULLING_RADIUS_MARGIN = 1.2; // Conservative bounding sphere
 
 // -----------------------------------------------------------
-// PASS I/O (Space 2)
+// PASS I/O (Space 1)
 // -----------------------------------------------------------
 DECLARE_BUFFER( StructuredBuffer<uint>, gCommandMap, 0 );                            // Sorted instance -> indirect command
 DECLARE_RW_BUFFER( RWStructuredBuffer<DispatchMeshIndirectCommand>, gCommands, 0 ); // threadGroupCountY: visible instances

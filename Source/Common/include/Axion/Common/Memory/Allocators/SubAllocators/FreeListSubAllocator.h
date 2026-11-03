@@ -126,6 +126,22 @@ public:
         return _usedSize;
     }
 
+    /// @brief True if allocate( size, alignment ) would succeed. No side effects (and no overflow log)
+    bool canAllocate( u64 size, u64 alignment = 256 ) {
+        this->lock();
+        bool fits = false;
+        for ( const auto& b : _freeBlocks )
+        {
+            if ( b.size >= size + ( Helpers::safeAlign( b.offset, alignment ) - b.offset ) )
+            {
+                fits = true;
+                break;
+            }
+        }
+        this->unlock();
+        return fits;
+    }
+
 protected:
     struct FreeBlock {
         u64 offset;

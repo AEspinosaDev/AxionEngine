@@ -17,9 +17,10 @@ public struct FrameData {
 
     public float4 frustrumPlanes[6];
 
-    public uint  fallbackTex2DID; // Bindless defaults (renderer)
-    public uint  linearSamplerID;
-    public uint2 _pad;
+    public uint fallbackTex2DID;  // Bindless defaults (renderer)
+    public uint linearSamplerID;
+    public uint materialBufferID; // Global material payloads (ByteAddressBuffer)
+    public uint _pad;
 
     // --- Helper Methods (Getters) ---
 
@@ -53,6 +54,18 @@ public struct InstanceData {
 // MESH DATA (Geometry Metadata)
 // ------------------------------------------------------------------
 public struct MeshData {
+    // Geometry page buffers (bindless heap IDs, INVALID until the mesh is resident)
+    public uint vertexHeapID;
+    public uint indexHeapID;
+    public uint meshletHeapID;
+    public uint meshletVertexHeapID;
+
+    public uint meshletPrimitiveHeapID;
+    public uint geometryPageID;       // CPU bookkeeping, unused by shaders
+    public uint meshletVertexCount;   // CPU bookkeeping, unused by shaders
+    public uint meshletPrimitiveSize; // CPU bookkeeping, unused by shaders
+
+    // Byte offsets into the page buffers
     public uint vertexOffset;
     public uint indexOffset;
     public uint vertexCount;
@@ -68,16 +81,11 @@ public struct MeshData {
     public uint lastFrameUsed;
     public uint originalAssetID;
 
-    // Meshlets: byte offsets into gGlobalMeshlets / gGlobalMeshletVertices / gGlobalMeshletPrimitives
+    // Meshlets: byte offsets into the page meshlet / meshlet vertex / meshlet primitive buffers
     public uint meshletOffset;
     public uint meshletVertexOffset;
     public uint meshletPrimitiveOffset;
     public uint meshletCount;
-
-    // Meshlet sizes (CPU bookkeeping, unused by shaders)
-    public uint  meshletVertexCount;
-    public uint  meshletPrimitiveSize;
-    public uint2 _pad;
 
     // --- Helpers ---
     public uint getTopology() { return (uint)aabbMaxTopology.w; }

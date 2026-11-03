@@ -33,7 +33,7 @@ AXION_ENUM_CLASS_FLAG_OPERATORS( RendererFlags );
 struct MemoryBudget {
     struct Device {
         u64 maxTextureAlloc      = GIGABYTES( 2ull ); ///< Logical cap for loaded textures before forcing mipmap eviction.
-        u64 maxGeometryAlloc     = MBYTES( 512 );     ///< Memory reservation persistent static geometry buffer -Vertex/Index/Meshlets- (512MB default)
+        u64 minGeometryPageAlloc = MBYTES( 128 );     ///< Size of a standard geometry page -Vertex/Index/Meshlets-, created on demand (bigger meshes get a dedicated page)
         u64 maxMaterialAlloc     = MBYTES( 16 );      ///< Memory reservation persistent static material buffer (16MB default)
         u64 maxRenderTargetAlloc = MBYTES( 512 );     ///< Logical cap for G-Buffers, Depth Stencil, and Shadow Maps.
         u64 maxRaytracingAlloc   = MBYTES( 256 );     ///< Memory reservation for BVH structures (TLAS/BLAS) if applicable.
@@ -71,6 +71,8 @@ struct MemoryBudget {
 
         u64 availableVram = totalVramBudget - ( budget.device.maxMaterialAlloc + budget.shared.maxExecutableAlloc );
 
+        // Geometry is paged on demand (minGeometryPageAlloc): it lives in the VRAM left by the distributions below
+
         switch ( preset )
         {
             case Preset::Balanced:
@@ -79,7 +81,6 @@ struct MemoryBudget {
                 budget.host.maxTransientAllocPerFrame = ( ( totalRamBudget * 20 ) / 100 ) / static_cast<u32>( bufferingType );
 
                 // VRAM Distribution
-                budget.device.maxGeometryAlloc     = ( availableVram * 25 ) / 100; // 25% Geometry
                 budget.device.maxRenderTargetAlloc = ( availableVram * 25 ) / 100; // 25% Render Targets
                 budget.device.maxRaytracingAlloc   = ( availableVram * 15 ) / 100; // 15% Raytracing BVH
                 budget.device.maxTextureAlloc      = ( availableVram * 35 ) / 100; // 35% Textures
@@ -91,7 +92,6 @@ struct MemoryBudget {
                 budget.host.maxTransientAllocPerFrame = ( ( totalRamBudget * 10 ) / 100 ) / static_cast<u32>( bufferingType );
 
                 // VRAM Distribution
-                budget.device.maxGeometryAlloc     = ( availableVram * 20 ) / 100; // 20% Geometry
                 budget.device.maxRenderTargetAlloc = ( availableVram * 20 ) / 100; // 20% Render Targets
                 budget.device.maxRaytracingAlloc   = ( availableVram * 10 ) / 100; // 10% Raytracing BVH
                 budget.device.maxTextureAlloc      = ( availableVram * 50 ) / 100; // 50% Textures
@@ -103,7 +103,6 @@ struct MemoryBudget {
                 budget.host.maxTransientAllocPerFrame = ( ( totalRamBudget * 30 ) / 100 ) / static_cast<u32>( bufferingType );
 
                 // VRAM Distribution (Assuming more dynamic G-Buffers, multiple shadow cascades, fewer static textures)
-                budget.device.maxGeometryAlloc     = ( availableVram * 10 ) / 100; // 10% Geometry
                 budget.device.maxRenderTargetAlloc = ( availableVram * 35 ) / 100; // 35% Render Targets
                 budget.device.maxRaytracingAlloc   = ( availableVram * 5 ) / 100;  //  5% Raytracing BVH
                 budget.device.maxTextureAlloc      = ( availableVram * 50 ) / 100; // 50% Textures
@@ -122,8 +121,8 @@ struct MemoryBudget {
         lowLevelBudget.device.maxRenderTargetAlloc = budget.device.maxRenderTargetAlloc;
 
         u64 totalGPUBufferSize =
-            budget.device.maxGeometryAlloc + // GlobalVertexBuffer, GlobalIndexBuffer & Global Meshlet Buffers
-            budget.device.maxMaterialAlloc;  // GlobalMaterialBuffer
+            budget.device.minGeometryPageAlloc + // First geometry page (Vertex/Index/Meshlets). New pages grow the pool (unless strict)
+            budget.device.maxMaterialAlloc;      // GlobalMaterialBuffer
 
         // Add volatile GPU-side buffers that exist per-frame (like Indirect/Culling targets)
         u64 perFrameGPUBufferSize =

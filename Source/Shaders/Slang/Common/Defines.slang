@@ -16,15 +16,14 @@
 // GLOBAL LAYOUT SPACES / REGISTERS (must match RasterizerConfig.h & Graphics::PassIO)
 // ============================================================================
 
-#define SPACE_PERSISTENT space0
-#define SPACE_FRAME      space1
-#define SPACE_PASS       space2
-#define SPACE_PUSH       space3
+#define SPACE_FRAME space0
+#define SPACE_PASS  space1
+#define SPACE_PUSH  space2
 
 // Push constant register (use with PUSH_CONSTANT( Type, Name, PUSH_CONSTANT_REG, SPACE_PUSH ))
 #define PUSH_CONSTANT_REG b0
 
-// Space 2 slot registers
+// Space 1 slot registers
 #define PASS_SRV_IMAGE_0 t0
 #define PASS_SRV_IMAGE_1 t1
 #define PASS_SRV_IMAGE_2 t2
@@ -62,7 +61,7 @@
 #define PASS_UAV_BUFFER_7 u15
 
 // ============================================================================
-// PASS I/O DECLARATIONS (space 2 of the global layout). Read-only: DECLARE_TEXTURE/BUFFER, read-write: DECLARE_RW_*.
+// PASS I/O DECLARATIONS (space 1 of the global layout). Read-only: DECLARE_TEXTURE/BUFFER, read-write: DECLARE_RW_*.
 // Slot = index inside each range [0, 7]
 // ============================================================================
 // Usage: DECLARE_TEXTURE( Texture2D<uint2>, gVisBuffer, 0 );

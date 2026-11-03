@@ -53,10 +53,10 @@ private:
 
         cmd->bindComputePipeline( pso );
 
-        // SPACE 1: Frame data (sorted instances, meshes, frustum)
+        // SPACE 0: Frame data (sorted instances, meshes, frustum)
         cmd->bindDescriptorSet( (u32)Rasterizer::Config::LayoutSetType::FrameBound, data.transientDescriptorSet, layout, Graphics::RHI::PipelineBindPoint::Compute );
 
-        // SPACE 2: Command map in, commands + visible instances out
+        // SPACE 1: Command map in, commands + visible instances out
         auto* ioSet = ctx.allocateSet( layout, Graphics::PassIO::SET_INDEX );
         ioSet->attachBufferSlice( Graphics::PassIO::buffer( 0 ), Graphics::RHI::DescriptorType::SRV_Buffer, data.inCommandMapSlice );
         ioSet->attach( Graphics::PassIO::rwBuffer( 0 ), Graphics::RHI::DescriptorType::UAV_Buffer, ctx.getBuffer( data.outIndirectBufferHandle ) );

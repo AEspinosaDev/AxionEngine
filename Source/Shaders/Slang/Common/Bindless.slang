@@ -14,6 +14,10 @@ public TextureCube getTextureCube( uint idx ) {
     TextureCube.Handle h = TextureCube.Handle( uint2( idx, 0 ) );
     return *nonuniform( h );
 }
+public ByteAddressBuffer getByteAddressBuffer( uint idx ) {
+    ByteAddressBuffer.Handle h = ByteAddressBuffer.Handle( uint2( idx, 0 ) );
+    return *nonuniform( h );
+}
 public SamplerState getSampler( uint idx ) {
     SamplerState.Handle h = SamplerState.Handle( uint2( idx, 0 ) );
     return *nonuniform( h );

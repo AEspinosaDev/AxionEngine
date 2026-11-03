@@ -1,8 +1,8 @@
 #pragma once
 #include "Axion/Graphics/Subsystems/IRenderGraph.h"
 #include <Render/PassManager.h>
-#include <Render/Passes/GlobalBufferHandles.h>
 #include <Render/Rasterizer/RasterizerConfig.h>
+#include <Render/Rasterizer/RasterizerResources.h>
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
@@ -13,16 +13,15 @@ public:
     struct Config {
         IndirectCommandPayload indirectData;
 
-        // Global buffers (persistent set): vertices / indices for the triangle, materials payloads
-        GlobalBufferHandles inGlobalBufferHandles;
+        // Global buffers (bindless): geometry pages for the triangle, materials payloads
+        Rasterizer::Resources::GlobalBufferHandles inGlobalBufferHandles;
 
         Graphics::RGResourceHandle inVisHandle;
         Graphics::RGResourceHandle outColorHandle;
 
         u32 workgroupSize = 8;
 
-        Graphics::RHI::IDescriptorSet* persistentDescriptorSet = nullptr;
-        Graphics::RHI::IDescriptorSet* transientDescriptorSet  = nullptr;
+        Graphics::RHI::IDescriptorSet* transientDescriptorSet = nullptr;
 
         u32               materialPassSlot;
         IMaterialLibrary* matLib;
@@ -56,22 +55,18 @@ private:
         auto* texOut = ctx.getTexture( data.outColorHandle );
 
         // -----------------------------------------------------
-        // BINDING GLOBAL RESOURCES (Space 0 & 1)
+        // BINDING GLOBAL RESOURCES (Space 0: frame data. Geometry & materials are bindless)
         // -----------------------------------------------------
 
-        auto* set0 = data.persistentDescriptorSet;
-        cmd->bindDescriptorSet( 0, set0, matLayout, Graphics::RHI::PipelineBindPoint::Compute );
+        cmd->bindDescriptorSet( (u32)Rasterizer::Config::LayoutSetType::FrameBound, data.transientDescriptorSet, matLayout, Graphics::RHI::PipelineBindPoint::Compute );
 
-        auto* set1 = data.transientDescriptorSet;
-        cmd->bindDescriptorSet( 1, set1, matLayout, Graphics::RHI::PipelineBindPoint::Compute );
+        // SPACE 1: Volatile Data
+        auto* ioSet = ctx.allocateSet( matLayout, data.ioSetId );
 
-        // SPACE 2: Volatile Data
-        auto* set2 = ctx.allocateSet( matLayout, data.ioSetId );
+        ioSet->attach( Rasterizer::Config::REG_PASS_SRV_IMAGE_BASE, Graphics::RHI::DescriptorType::SRV_Image, texIn );  // gVisBuffer (PASS_SRV_IMAGE_0)
+        ioSet->attach( Rasterizer::Config::REG_PASS_UAV_IMAGE_BASE, Graphics::RHI::DescriptorType::UAV_Image, texOut ); // gOutColor  (PASS_UAV_IMAGE_0)
 
-        set2->attach( Rasterizer::Config::REG_PASS_SRV_IMAGE_BASE, Graphics::RHI::DescriptorType::SRV_Image, texIn );  // gVisBuffer (PASS_SRV_IMAGE_0)
-        set2->attach( Rasterizer::Config::REG_PASS_UAV_IMAGE_BASE, Graphics::RHI::DescriptorType::UAV_Image, texOut ); // gOutColor  (PASS_UAV_IMAGE_0)
-
-        cmd->bindDescriptorSet( 2, set2, matLayout, Graphics::RHI::PipelineBindPoint::Compute );
+        cmd->bindDescriptorSet( data.ioSetId, ioSet, matLayout, Graphics::RHI::PipelineBindPoint::Compute );
 
         Graphics::PipelineHandle currentPsoHandle;
         for ( const auto& batch : data.indirectData.batches )

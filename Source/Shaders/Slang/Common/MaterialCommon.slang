@@ -41,38 +41,44 @@ public SamplerState getDefaultSampler() {
     return getSampler( gFrame.linearSamplerID );
 }
 
+// Material payloads (MaterialData.bufferOffset). Single global buffer, bindless
+public ByteAddressBuffer getMaterialBuffer() {
+    return getByteAddressBuffer( gFrame.materialBufferID );
+}
+
 // -----------------------------------------------------------
 // CANONICAL VERTEX
 // -----------------------------------------------------------
 
 public struct CanonVertex {
+    public uint heapID; // Vertex buffer of the mesh geometry page
     public uint address;
 
-    public static CanonVertex fromIndex( uint vertexID, uint offsetInVertices ) {
+    public static CanonVertex fromIndex( uint vertexID, MeshData mesh ) {
         CanonVertex v;
-        v.address = offsetInVertices + ( vertexID * CANON_VERTEX_STRIDE );
-        ;
+        v.heapID  = mesh.vertexHeapID;
+        v.address = mesh.vertexOffset + ( vertexID * CANON_VERTEX_STRIDE );
         return v;
     }
 
     public property float3 position {
-        get { return asfloat( gGlobalVertices.Load3( address ) ); }
+        get { return asfloat( getByteAddressBuffer( heapID ).Load3( address ) ); }
     }
 
     public property float3 normal {
-        get { return asfloat( gGlobalVertices.Load3( address + 12 ) ); }
+        get { return asfloat( getByteAddressBuffer( heapID ).Load3( address + 12 ) ); }
     }
 
     public property float2 uv {
-        get { return asfloat( gGlobalVertices.Load2( address + 24 ) ); }
+        get { return asfloat( getByteAddressBuffer( heapID ).Load2( address + 24 ) ); }
     }
 
     public property float4 tangent {
-        get { return asfloat( gGlobalVertices.Load4( address + 32 ) ); }
+        get { return asfloat( getByteAddressBuffer( heapID ).Load4( address + 32 ) ); }
     }
 
     public property float4 color {
-        get { return asfloat( gGlobalVertices.Load4( address + 48 ) ); }
+        get { return asfloat( getByteAddressBuffer( heapID ).Load4( address + 48 ) ); }
     }
 };
 
@@ -93,21 +99,22 @@ public struct Meshlet {
 };
 
 public Meshlet getMeshlet( MeshData mesh, uint meshletIndex ) {
-    return gGlobalMeshlets.Load<Meshlet>( mesh.meshletOffset + meshletIndex * MESHLET_STRIDE );
+    return getByteAddressBuffer( mesh.meshletHeapID ).Load<Meshlet>( mesh.meshletOffset + meshletIndex * MESHLET_STRIDE );
 }
 
 // Mesh local vertex index (feeds CanonVertex.fromIndex)
 public uint getMeshletVertexIndex( MeshData mesh, Meshlet meshlet, uint localVertex ) {
-    return gGlobalMeshletVertices.Load( mesh.meshletVertexOffset + ( meshlet.vertexOffset + localVertex ) * 4 ); // u32 indices
+    return getByteAddressBuffer( mesh.meshletVertexHeapID ).Load( mesh.meshletVertexOffset + ( meshlet.vertexOffset + localVertex ) * 4 ); // u32 indices
 }
 
 // Meshlet local triangle. u8 x3 packed, not 4 B aligned: may straddle two words
 public uint3 getMeshletTriangle( MeshData mesh, Meshlet meshlet, uint localTriangle ) {
-    uint byteAddress = mesh.meshletPrimitiveOffset + meshlet.triangleOffset + localTriangle * 3;
-    uint wordAddress = byteAddress & ~3u;
-    uint shift       = ( byteAddress & 3u ) * 8;
-    uint lo          = gGlobalMeshletPrimitives.Load( wordAddress );
-    uint hi          = gGlobalMeshletPrimitives.Load( wordAddress + 4 );
+    ByteAddressBuffer primitives  = getByteAddressBuffer( mesh.meshletPrimitiveHeapID );
+    uint              byteAddress = mesh.meshletPrimitiveOffset + meshlet.triangleOffset + localTriangle * 3;
+    uint              wordAddress = byteAddress & ~3u;
+    uint              shift       = ( byteAddress & 3u ) * 8;
+    uint              lo          = primitives.Load( wordAddress );
+    uint              hi          = primitives.Load( wordAddress + 4 );
     uint packed      = shift == 0 ? lo : ( lo >> shift ) | ( hi << ( 32 - shift ) );
     return uint3( packed & 0xFF, ( packed >> 8 ) & 0xFF, ( packed >> 16 ) & 0xFF );
 }

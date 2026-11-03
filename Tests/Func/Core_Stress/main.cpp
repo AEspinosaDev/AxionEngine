@@ -32,7 +32,7 @@ int main( /*int argc, char* argv[]*/ ) {
 
         Core::Platform::Window     wnd( {
                 .platformType = Graphics::PlatformType::Win32,
-                .name         = "100K Instances - Free Camera Test",
+                .name         = "200k Instances - Free Camera Test",
         } );
         Core::Assets::AssetManager assets;
         Core::Scene::Scene         scene( "TestScene", &assets );
@@ -97,7 +97,7 @@ int main( /*int argc, char* argv[]*/ ) {
         std::uniform_real_distribution<float> scaleDist( 0.5f, 1.2f );
         std::uniform_real_distribution<float> rotDist( 0.0f, 360.0f );
 
-        int   gridSize = 50;
+        int   gridSize = 58;
         float spacing  = 3.0f;
         float offset   = ( gridSize * spacing ) * 0.5f;
 
