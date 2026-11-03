@@ -41,8 +41,18 @@ enum class LayoutSetType : u32
 //-----------------------------------------------------------------------------
 
 // Space 0: Persistent global buffers (textures & samplers are bindless, heap indexed)
-constexpr u32 REG_GLOBAL_BUFFERS_BASE  = 0; // t0: gGlobalVertices, t1: gGlobalIndices, t2: gGlobalMaterials
-constexpr u32 REG_GLOBAL_BUFFERS_COUNT = 3;
+constexpr u32 REG_GLOBAL_BUFFERS_BASE = 0;
+enum class GlobalBuffer : u32 // Register offset from REG_GLOBAL_BUFFERS_BASE (must match GlobalLayouts.slang)
+{
+    Vertices          = 0, // t0: gGlobalVertices
+    Indices           = 1, // t1: gGlobalIndices
+    Meshlets          = 2, // t2: gGlobalMeshlets
+    MeshletVertices   = 3, // t3: gGlobalMeshletVertices
+    MeshletPrimitives = 4, // t4: gGlobalMeshletPrimitives
+    Materials         = 5, // t5: gGlobalMaterials
+    Count
+};
+constexpr u32 REG_GLOBAL_BUFFERS_COUNT = (u32)GlobalBuffer::Count;
 
 // Space 1: Frame data
 constexpr u32 REG_FRAME_CBV_BASE = 0; // b0: gFrame
@@ -69,6 +79,20 @@ constexpr u32 REG_PASS_UAV_BUFFER_BASE = Graphics::PassIO::rwBuffer( 0 );  // u8
 
 // Space 3: Push constants (declared by each pass / material shader)
 constexpr u32 REG_PUSH_CONSTANT_BASE = 0; // b0
+
+//-----------------------------------------------------------------------------
+// Geometry budget split (% of maxGeometryAlloc). Estimated from bytes per triangle:
+// vertex 64 B (~0.55/tri), index 12 B, meshlet 48 B (~1/110 tris), meshlet vertices ~2.3 B, meshlet primitives ~3 B
+//-----------------------------------------------------------------------------
+constexpr u64 GEOMETRY_BUDGET_VERTICES_PCT           = 64;
+constexpr u64 GEOMETRY_BUDGET_INDICES_PCT            = 22;
+constexpr u64 GEOMETRY_BUDGET_MESHLETS_PCT           = 2;
+constexpr u64 GEOMETRY_BUDGET_MESHLET_VERTICES_PCT   = 6;
+constexpr u64 GEOMETRY_BUDGET_MESHLET_PRIMITIVES_PCT = 6;
+static_assert( GEOMETRY_BUDGET_VERTICES_PCT + GEOMETRY_BUDGET_INDICES_PCT + GEOMETRY_BUDGET_MESHLETS_PCT +
+                       GEOMETRY_BUDGET_MESHLET_VERTICES_PCT + GEOMETRY_BUDGET_MESHLET_PRIMITIVES_PCT ==
+                   100,
+               "Geometry budget split must add up to 100%" );
 
 //-----------------------------------------------------------------------------
 // Rasterizer Caps

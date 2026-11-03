@@ -186,7 +186,7 @@ int main( /*int argc, char* argv[]*/ ) {
         fwPass.modelData.sampler = rnd->resources().sampler( "LinearSampler" ).create();
 
         // GEOMETRY (Procedural Meshlets)
-        auto  cubeHandle = assets.mesh( "MeshletErato" ).asMeshlet( true ).import( AXION_MESH_DIR "/erato/erato.obj" );
+        auto  cubeHandle = assets.mesh( "MeshletErato" ).import( AXION_MESH_DIR "/erato/erato.obj" ); // Meshlets cooked by default
         auto* cubeMesh   = assets.getMesh( cubeHandle );
         auto  geoData    = cubeMesh->getGeometryDataRef();
 

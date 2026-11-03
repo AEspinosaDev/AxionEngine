@@ -86,7 +86,18 @@ struct GPUMesh {
     u32 lastFrameUsed;
     u32 originalAssetID;
 
-    // Total: 80 bytes. (Multiple of 4, OK for StructuredBuffer).
+    // Meshlets (16 bytes) -> Byte offsets into the global meshlet buffers (0 count if not cooked as meshlets)
+    u32 meshletOffset;
+    u32 meshletVertexOffset;
+    u32 meshletPrimitiveOffset;
+    u32 meshletCount;
+
+    // Meshlet sizes (16 bytes) -> CPU bookkeeping, needed to release the allocations
+    u32 meshletVertexCount;
+    u32 meshletPrimitiveSize; ///< Bytes (u8 local indices)
+    u32 _pad[2];
+
+    // Total: 112 bytes. (Multiple of 4, OK for StructuredBuffer).
 };
 
 struct GPUMaterial {
@@ -128,6 +139,12 @@ struct PendingMeshFree {
     u32 vertexSize;
     u32 indexOffset;
     u32 indexSize;
+    u32 meshletOffset;
+    u32 meshletSize;
+    u32 meshletVertexOffset;
+    u32 meshletVertexSize;
+    u32 meshletPrimitiveOffset;
+    u32 meshletPrimitiveSize;
     u32 GPUMeshID; // Slot to recycle
 };
 

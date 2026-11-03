@@ -11,7 +11,7 @@ Graphics::PipelineLayoutHandle Rasterizer::Config::buildGlobalLayout( Graphics::
     return pip.layout( "Rasterizer_Global_Layout" )
         // Space 0: Persistent global buffers. Textures & samplers are bindless (heap indexed, no bindings)
         .addSet( {
-            { { .base = REG_GLOBAL_BUFFERS_BASE, .count = REG_GLOBAL_BUFFERS_COUNT }, Graphics::RHI::DescriptorType::SRV_Buffer, Graphics::RHI::ShaderStage::All, 1 }, // t0: gGlobalVertices, t1: gGlobalIndices, t2: gGlobalMaterials
+            { { .base = REG_GLOBAL_BUFFERS_BASE, .count = REG_GLOBAL_BUFFERS_COUNT }, Graphics::RHI::DescriptorType::SRV_Buffer, Graphics::RHI::ShaderStage::All, 1 }, // t0 - t5: see Config::GlobalBuffer
         } )
         // Space 1: Frame Transient (Scene Data Per-Frame)
         .addSet( {
@@ -19,6 +19,7 @@ Graphics::PipelineLayoutHandle Rasterizer::Config::buildGlobalLayout( Graphics::
             { { .base = REG_FRAME_SRV_BASE, .count = REG_FRAME_SRV_COUNT }, Graphics::RHI::DescriptorType::SRV_Buffer, Graphics::RHI::ShaderStage::All, 1 }, // t0: gMeshes t1: gMaterials t2: gInstances t3: gLights t4: gEnvs t5: gInstanceRedirection
         } )
         // Space 2: Transient I/O (Per-Pass, declared by each pass shader)
+        // Partially bound: each pass only writes the slots its shader declares
         .addSet( {
             // Input (Read-Only)
             { { .base = REG_PASS_SRV_IMAGE_BASE, .count = REG_PASS_SLOT_COUNT }, Graphics::RHI::DescriptorType::SRV_Image, Graphics::RHI::ShaderStage::All, 1 },   // t0 - t7
@@ -26,7 +27,7 @@ Graphics::PipelineLayoutHandle Rasterizer::Config::buildGlobalLayout( Graphics::
             // Output (Read-Write)
             { { .base = REG_PASS_UAV_IMAGE_BASE, .count = REG_PASS_SLOT_COUNT }, Graphics::RHI::DescriptorType::UAV_Image, Graphics::RHI::ShaderStage::All, 1 },   // u0 - u7
             { { .base = REG_PASS_UAV_BUFFER_BASE, .count = REG_PASS_SLOT_COUNT }, Graphics::RHI::DescriptorType::UAV_Buffer, Graphics::RHI::ShaderStage::All, 1 }, // u8 - u15
-        } )
+        }, Graphics::RHI::DescriptorSetFlags::PartiallyBound )
         // Space 3: Universal Push Constants (declared by each pass / material shader)
         // Maximum guaranteed size across all hardware is 128 bytes.
         .setPushConstants( MAX_PUSH_CONSTANTS_BYTES, REG_PUSH_CONSTANT_BASE, (u32)LayoutSetType::PushConstant )

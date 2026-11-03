@@ -259,6 +259,18 @@ AssetManager::~AssetManager() {
 #pragma endregion
 #pragma region Mesh
 
+// Meshlets are cooked on top of the classic index buffer (kept for raytracing BLAS and non mesh shading paths).
+// Only indexed triangle lists can be clusterized
+static Memory::OwnerPtr<MeshletData> cookMeshletsIfNeeded( bool                        cookMeshlets,
+                                                           Graphics::PrimitiveTopology topology,
+                                                           const STLW::Vector<Vertex>& vertices,
+                                                           const STLW::Vector<u32>&    indices ) {
+    if ( !cookMeshlets || topology != Graphics::PrimitiveTopology::TriangleList || indices.empty() )
+        return nullptr;
+
+    return Memory::makeOwned<MeshletData>( Loaders::cookMeshlets( vertices, indices ) );
+}
+
 MeshHandle AssetManager::importMesh( StringView name, StringView filepath, MeshImportFlags flags ) {
     std::scoped_lock lock( _impl->mutex );
 
@@ -322,19 +334,13 @@ MeshHandle AssetManager::importMesh( StringView name, StringView filepath, MeshI
         topology = Graphics::PrimitiveTopology::PointList;
     }
 
-    bool needsMeshlets = ( flags & MeshImportAsMeshlet ) && ( topology == Graphics::PrimitiveTopology::TriangleList );
-
-    auto mesh = needsMeshlets
-                    ? Mesh( meshName,
-                            std::move( meshData.vertices ),
-                            Loaders::cookMeshlets( meshData.vertices, meshData.indices ),
-                            topology,
-                            flags & MeshImportComputeBounds )
-                    : Mesh( meshName,
-                            std::move( meshData.vertices ),
-                            std::move( meshData.indices ),
-                            topology,
-                            flags & MeshImportComputeBounds );
+    auto meshlets = cookMeshletsIfNeeded( flags & MeshImportAsMeshlet, topology, meshData.vertices, meshData.indices );
+    auto mesh     = Mesh( meshName,
+                      std::move( meshData.vertices ),
+                      std::move( meshData.indices ),
+                      topology,
+                      flags & MeshImportComputeBounds,
+                      std::move( meshlets ) );
 
     auto handle = _impl->addMesh( std::move( mesh ), meshName );
 
@@ -346,7 +352,8 @@ MeshHandle AssetManager::importMesh( StringView name, StringView filepath, MeshI
 MeshHandle AssetManager::createMesh( StringView                  name,
                                      const STLW::Vector<Vertex>& vertices,
                                      const STLW::Vector<u32>&    indices,
-                                     Graphics::PrimitiveTopology topology ) {
+                                     Graphics::PrimitiveTopology topology,
+                                     bool                        cookMeshlets ) {
 
     std::scoped_lock lock( _impl->mutex );
     String64         meshName = name;
@@ -365,6 +372,7 @@ MeshHandle AssetManager::createMesh( StringView                  name,
     Mesh mesh( meshName );
     mesh._geoData->vertices = vertices;
     mesh._geoData->indices  = indices;
+    mesh._geoData->meshlets = cookMeshletsIfNeeded( cookMeshlets, topology, vertices, indices );
     mesh._topology          = topology;
 
     mesh.calculateBounds();
@@ -376,7 +384,7 @@ MeshHandle AssetManager::createMesh( StringView                  name,
     return handle;
 }
 
-MeshHandle AssetManager::createQuad( StringView name, u32 subdivisions, bool asMeshlet ) {
+MeshHandle AssetManager::createQuad( StringView name, u32 subdivisions, bool cookMeshlets ) {
     std::scoped_lock lock( _impl->mutex );
 
     String64 meshName = name;
@@ -443,11 +451,8 @@ MeshHandle AssetManager::createQuad( StringView name, u32 subdivisions, bool asM
         }
     }
 
-    STLW::Vector<Vertex> vertsCopy = vertices; // Copy for the meshlets function if needed
-
-    Mesh mesh = asMeshlet
-                    ? Mesh( meshName, std::move( vertices ), Assets::Loaders::cookMeshlets( vertsCopy, indices ), Graphics::PrimitiveTopology::TriangleList, false )
-                    : Mesh( meshName, std::move( vertices ), std::move( indices ), Graphics::PrimitiveTopology::TriangleList, false );
+    auto meshlets = cookMeshletsIfNeeded( cookMeshlets, Graphics::PrimitiveTopology::TriangleList, vertices, indices );
+    Mesh mesh( meshName, std::move( vertices ), std::move( indices ), Graphics::PrimitiveTopology::TriangleList, false, std::move( meshlets ) );
 
     mesh._aabb.min              = { -0.5f, -0.5f, 0.0f };
     mesh._aabb.max              = { 0.5f, 0.5f, 0.0f };
@@ -461,7 +466,7 @@ MeshHandle AssetManager::createQuad( StringView name, u32 subdivisions, bool asM
     return handle;
 }
 
-MeshHandle AssetManager::createCube( StringView name, bool asMeshlet ) {
+MeshHandle AssetManager::createCube( StringView name, bool cookMeshlets ) {
 
     std::scoped_lock lock( _impl->mutex );
 
@@ -563,11 +568,8 @@ MeshHandle AssetManager::createCube( StringView name, bool asMeshlet ) {
     };
 
     // 2. Safely construct the Mesh
-    STLW::Vector<Vertex> vertsCopy = vertices;
-
-    Mesh mesh = asMeshlet
-                    ? Mesh( meshName, std::move( vertices ), Assets::Loaders::cookMeshlets( vertsCopy, indices ), Graphics::PrimitiveTopology::TriangleList, false )
-                    : Mesh( meshName, std::move( vertices ), std::move( indices ), Graphics::PrimitiveTopology::TriangleList, false );
+    auto meshlets = cookMeshletsIfNeeded( cookMeshlets, Graphics::PrimitiveTopology::TriangleList, vertices, indices );
+    Mesh mesh( meshName, std::move( vertices ), std::move( indices ), Graphics::PrimitiveTopology::TriangleList, false, std::move( meshlets ) );
 
     // 3. Set exact bounds
     mesh._aabb.min              = { -0.5f, -0.5f, -0.5f };
@@ -581,7 +583,7 @@ MeshHandle AssetManager::createCube( StringView name, bool asMeshlet ) {
 
     return handle;
 }
-MeshHandle AssetManager::createSphere( StringView name, u32 segments, bool asMeshlet ) {
+MeshHandle AssetManager::createSphere( StringView name, u32 segments, bool cookMeshlets ) {
     std::scoped_lock lock( _impl->mutex );
 
     String64 meshName = name;
@@ -659,11 +661,8 @@ MeshHandle AssetManager::createSphere( StringView name, u32 segments, bool asMes
         }
     }
 
-    STLW::Vector<Vertex> vertsCopy = vertices;
-
-    Mesh mesh = asMeshlet
-                    ? Mesh( meshName, std::move( vertices ), Assets::Loaders::cookMeshlets( vertsCopy, indices ), Graphics::PrimitiveTopology::TriangleList, false )
-                    : Mesh( meshName, std::move( vertices ), std::move( indices ), Graphics::PrimitiveTopology::TriangleList, false );
+    auto meshlets = cookMeshletsIfNeeded( cookMeshlets, Graphics::PrimitiveTopology::TriangleList, vertices, indices );
+    Mesh mesh( meshName, std::move( vertices ), std::move( indices ), Graphics::PrimitiveTopology::TriangleList, false, std::move( meshlets ) );
 
     mesh._aabb.min              = { -radius, -radius, -radius };
     mesh._aabb.max              = { radius, radius, radius };

@@ -83,30 +83,17 @@ private:
 
     explicit Mesh( StringView                  name,
                    STLW::Vector<Vertex>&&      verts,
-                   STLW::Vector<u32>&&         inds,
-                   Graphics::PrimitiveTopology topology      = Graphics::PrimitiveTopology::TriangleList,
-                   bool                        computeBounds = true )
+                   STLW::Vector<u32>&&           inds,
+                   Graphics::PrimitiveTopology   topology      = Graphics::PrimitiveTopology::TriangleList,
+                   bool                          computeBounds = true,
+                   Memory::OwnerPtr<MeshletData> meshlets      = nullptr ) ///< Optional, cooked on top of the classic index buffer
         : _name( name )
         , _topology( topology ) {
 
         _geoData           = std::make_shared<GeometryData>();
         _geoData->vertices = std::move( verts );
         _geoData->indices  = std::move( inds );
-
-        if ( computeBounds )
-            calculateBounds();
-    }
-    explicit Mesh( StringView                  name,
-                   STLW::Vector<Vertex>&&      verts,
-                   MeshletData&&               meshletData,
-                   Graphics::PrimitiveTopology topology      = Graphics::PrimitiveTopology::TriangleList,
-                   bool                        computeBounds = true )
-        : _name( name )
-        , _topology( topology ) {
-
-        _geoData           = std::make_shared<GeometryData>();
-        _geoData->vertices = std::move( verts );
-        _geoData->meshlets = Memory::makeOwned<MeshletData>( std::move( meshletData ) );
+        _geoData->meshlets = std::move( meshlets );
 
         if ( computeBounds )
             calculateBounds();

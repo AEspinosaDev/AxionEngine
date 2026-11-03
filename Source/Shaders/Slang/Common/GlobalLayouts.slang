@@ -17,9 +17,12 @@ __exported import Bindless; // Textures & samplers access
 // ============================================================================
 // SPACE 0: PERSISTENT GLOBAL BUFFERS
 // ============================================================================
-public ByteAddressBuffer gGlobalVertices  : register( t0, SPACE_PERSISTENT );
-public ByteAddressBuffer gGlobalIndices   : register( t1, SPACE_PERSISTENT );
-public ByteAddressBuffer gGlobalMaterials : register( t2, SPACE_PERSISTENT );
+public ByteAddressBuffer gGlobalVertices          : register( t0, SPACE_PERSISTENT );
+public ByteAddressBuffer gGlobalIndices           : register( t1, SPACE_PERSISTENT );
+public ByteAddressBuffer gGlobalMeshlets          : register( t2, SPACE_PERSISTENT ); // Meshlet headers (48 B)
+public ByteAddressBuffer gGlobalMeshletVertices   : register( t3, SPACE_PERSISTENT ); // u32 -> mesh local vertex index
+public ByteAddressBuffer gGlobalMeshletPrimitives : register( t4, SPACE_PERSISTENT ); // u8 x3 -> meshlet local triangle
+public ByteAddressBuffer gGlobalMaterials         : register( t5, SPACE_PERSISTENT );
 
 // ============================================================================
 // SPACE 1: FRAME DATA (Updated Per-Frame)

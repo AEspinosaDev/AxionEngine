@@ -241,13 +241,19 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         //----------------------------
         UploadPass::Config upConfig;
         upConfig.outGlobalBufferHandles = {
-            .vertex    = builder.import( "GlobalVertexBuffer", _res.vertexBufferHandle ),
-            .index     = builder.import( "GlobalIndexBuffer", _res.indexBufferHandle ),
-            .materials = builder.import( "GlobalMaterialBuffer", _res.mtlBufferHandle ) };
-        upConfig.gpuScene          = &_gpuScene;
-        upConfig.vertexAllocator   = &_res.vertexAllocator;
-        upConfig.indexAllocator    = &_res.indexAllocator;
-        upConfig.matAllocator      = &_res.mtlAllocator;
+            .vertex            = builder.import( "GlobalVertexBuffer", _res.vertexBufferHandle ),
+            .index             = builder.import( "GlobalIndexBuffer", _res.indexBufferHandle ),
+            .meshlets          = builder.import( "GlobalMeshletBuffer", _res.meshletBufferHandle ),
+            .meshletVertices   = builder.import( "GlobalMeshletVertexBuffer", _res.meshletVertexBufferHandle ),
+            .meshletPrimitives = builder.import( "GlobalMeshletPrimitiveBuffer", _res.meshletPrimitiveBufferHandle ),
+            .materials         = builder.import( "GlobalMaterialBuffer", _res.mtlBufferHandle ) };
+        upConfig.gpuScene                  = &_gpuScene;
+        upConfig.vertexAllocator           = &_res.vertexAllocator;
+        upConfig.indexAllocator            = &_res.indexAllocator;
+        upConfig.meshletAllocator          = &_res.meshletAllocator;
+        upConfig.meshletVertexAllocator    = &_res.meshletVertexAllocator;
+        upConfig.meshletPrimitiveAllocator = &_res.meshletPrimitiveAllocator;
+        upConfig.matAllocator              = &_res.mtlAllocator;
         upConfig.maxAllocationSize = _settings.memory.shared.maxUploadAllocPerFrame;
 
         upConfig.mtlTextureHandles = &_res.materialTextureHandles;
@@ -303,12 +309,8 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                                        .extent( SCENE_RESOLUTION )
                                        .create();
 
-        visConfig.inGlobalBufferHandles = {
-            .vertex    = upConfig.outGlobalBufferHandles.vertex,
-            .index     = upConfig.outGlobalBufferHandles.index,
-            .materials = upConfig.outGlobalBufferHandles.materials,
-        },
-        visConfig.matLib           = &_mtlLib;
+        visConfig.inGlobalBufferHandles = upConfig.outGlobalBufferHandles;
+        visConfig.matLib                = &_mtlLib;
         visConfig.materialPassSlot = (u32)Config::MaterialPassType::Visibility;
 
         visConfig.indirectData                 = indirectCmdPayload;
@@ -330,11 +332,9 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                                        .format( Graphics::Format::RGBA16_FLOAT )
                                        .extent( SCENE_RESOLUTION )
                                        .create();
-        resConfig.inVisHandle       = visConfig.outVisHandle;
-        resConfig.inVertexHandle    = upConfig.outGlobalBufferHandles.vertex;
-        resConfig.inIndexHandle     = upConfig.outGlobalBufferHandles.index;
-        resConfig.inMaterialsHandle = upConfig.outGlobalBufferHandles.materials;
-        resConfig.indirectData = indirectCmdPayload; // One dispatch per material bundle
+        resConfig.inVisHandle           = visConfig.outVisHandle;
+        resConfig.inGlobalBufferHandles = upConfig.outGlobalBufferHandles;
+        resConfig.indirectData          = indirectCmdPayload; // One dispatch per material bundle
 
         resConfig.ioSetId = (u32)Config::LayoutSetType::PassBound;
 
@@ -450,8 +450,14 @@ void Rasterizer::createResources() {
     auto& r = _rnd->resources();
 
     //------------------------- A. GLOBAL BUFFERS (Persistent) -------------------
-    const u64 vertexBufferSize = ( _settings.memory.device.maxGeometryAlloc * 75 ) / 100;
-    const u64 indexBufferSize  = _settings.memory.device.maxGeometryAlloc - vertexBufferSize;
+    const u64 geometryBudget = _settings.memory.device.maxGeometryAlloc;
+    auto      geometrySplit  = [geometryBudget]( u64 pct ) { return ( geometryBudget * pct ) / 100; };
+
+    const u64 vertexBufferSize           = geometrySplit( Config::GEOMETRY_BUDGET_VERTICES_PCT );
+    const u64 indexBufferSize            = geometrySplit( Config::GEOMETRY_BUDGET_INDICES_PCT );
+    const u64 meshletBufferSize          = geometrySplit( Config::GEOMETRY_BUDGET_MESHLETS_PCT );
+    const u64 meshletVertexBufferSize    = geometrySplit( Config::GEOMETRY_BUDGET_MESHLET_VERTICES_PCT );
+    const u64 meshletPrimitiveBufferSize = geometrySplit( Config::GEOMETRY_BUDGET_MESHLET_PRIMITIVES_PCT );
 
     _res.vertexBufferHandle = r.buffer( "GlobalVertexBuffer" )
                                   .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
@@ -471,6 +477,33 @@ void Rasterizer::createResources() {
                                  .asIBO()
                                  .create();
     _res.indexAllocator = Graphics::BufferGPUFreeListAllocator( r.getBuffer( _res.indexBufferHandle ) );
+
+    _res.meshletBufferHandle = r.buffer( "GlobalMeshletBuffer" )
+                                   .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
+                                   .view( Graphics::BufferViewFlags::BufferViewShaderResource )
+                                   .size( meshletBufferSize )
+                                   .onGPU()
+                                   .asRaw()
+                                   .create();
+    _res.meshletAllocator = Graphics::BufferGPUFreeListAllocator( r.getBuffer( _res.meshletBufferHandle ) );
+
+    _res.meshletVertexBufferHandle = r.buffer( "GlobalMeshletVertexBuffer" )
+                                         .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
+                                         .view( Graphics::BufferViewFlags::BufferViewShaderResource )
+                                         .size( meshletVertexBufferSize )
+                                         .onGPU()
+                                         .asRaw()
+                                         .create();
+    _res.meshletVertexAllocator = Graphics::BufferGPUFreeListAllocator( r.getBuffer( _res.meshletVertexBufferHandle ) );
+
+    _res.meshletPrimitiveBufferHandle = r.buffer( "GlobalMeshletPrimitiveBuffer" )
+                                            .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
+                                            .view( Graphics::BufferViewFlags::BufferViewShaderResource )
+                                            .size( meshletPrimitiveBufferSize )
+                                            .onGPU()
+                                            .asRaw()
+                                            .create();
+    _res.meshletPrimitiveAllocator = Graphics::BufferGPUFreeListAllocator( r.getBuffer( _res.meshletPrimitiveBufferHandle ) );
 
     _res.mtlBufferHandle = r.buffer( "GlobalMaterialBuffer" )
                                .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage )
@@ -545,9 +578,14 @@ void Rasterizer::createResources() {
         Graphics::RHI::IDescriptorSet* persistentSet = _rnd->getDescriptorAllocator()->allocate( _rnd->pipelines().getLayout( _globalMtlLayoutHandle ), (u32)Config::LayoutSetType::Persistent );
 
         // Attach core persistent buffers
-        persistentSet->attach( 0, Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.vertexBufferHandle ) );
-        persistentSet->attach( 1, Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.indexBufferHandle ) );
-        persistentSet->attach( 2, Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.mtlBufferHandle ) );
+        auto globalSRV = []( Config::GlobalBuffer b ) { return Config::REG_GLOBAL_BUFFERS_BASE + (u32)b; };
+
+        persistentSet->attach( globalSRV( Config::GlobalBuffer::Vertices ), Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.vertexBufferHandle ) );
+        persistentSet->attach( globalSRV( Config::GlobalBuffer::Indices ), Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.indexBufferHandle ) );
+        persistentSet->attach( globalSRV( Config::GlobalBuffer::Meshlets ), Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.meshletBufferHandle ) );
+        persistentSet->attach( globalSRV( Config::GlobalBuffer::MeshletVertices ), Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.meshletVertexBufferHandle ) );
+        persistentSet->attach( globalSRV( Config::GlobalBuffer::MeshletPrimitives ), Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.meshletPrimitiveBufferHandle ) );
+        persistentSet->attach( globalSRV( Config::GlobalBuffer::Materials ), Graphics::RHI::DescriptorType::SRV_Buffer, r.getBuffer( _res.mtlBufferHandle ) );
 
         // Store Persistent Descriptor Set Ptr
         _res.frame[i].persistentDescriptorSetPtr = persistentSet;

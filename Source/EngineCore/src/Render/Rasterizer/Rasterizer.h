@@ -120,6 +120,15 @@ private:
         Graphics::BufferHandle               indexBufferHandle;
         Graphics::BufferGPUFreeListAllocator indexAllocator;
 
+        Graphics::BufferHandle               meshletBufferHandle;
+        Graphics::BufferGPUFreeListAllocator meshletAllocator;
+
+        Graphics::BufferHandle               meshletVertexBufferHandle;
+        Graphics::BufferGPUFreeListAllocator meshletVertexAllocator;
+
+        Graphics::BufferHandle               meshletPrimitiveBufferHandle;
+        Graphics::BufferGPUFreeListAllocator meshletPrimitiveAllocator;
+
         Graphics::BufferHandle               mtlBufferHandle;
         Graphics::BufferGPUFreeListAllocator mtlAllocator;
 

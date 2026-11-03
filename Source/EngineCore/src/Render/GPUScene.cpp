@@ -157,6 +157,11 @@ u32 GPUScene::processMesh( const Axion::Core::Assets::AssetManager* assets, cons
             gpuMesh.bsphere          = Math::Vec4( cpuMesh->getBoundingSphere().center, cpuMesh->getBoundingSphere().radius );
             gpuMesh.needsAS          = 1;
 
+            const auto* meshletData      = cpuMesh->getMeshletData();
+            gpuMesh.meshletCount         = meshletData ? (u32)meshletData->meshlets.size() : 0;
+            gpuMesh.meshletVertexCount   = meshletData ? (u32)meshletData->vertexIndices.size() : 0;
+            gpuMesh.meshletPrimitiveSize = meshletData ? (u32)meshletData->primitiveIndices.size() : 0;
+
             _pendingMeshUploads.push( { gpuCacheIndex, cpuMesh->getGeometryDataRef() } );
 
             gpuMesh.valid = true;
@@ -458,16 +463,21 @@ void GPUScene::runGC() {
         {
             if ( _currentFrameIndex - gpuMesh.lastFrameUsed > _resourceTTL )
             {
-                static const u32 VERTEX_STRIDE = sizeof( Assets::Vertex );
-                static const u32 INDEX_STRIDE  = sizeof( u32 );
+                static const u32 VERTEX_STRIDE  = sizeof( Assets::Vertex );
+                static const u32 INDEX_STRIDE   = sizeof( u32 );
+                static const u32 MESHLET_STRIDE = sizeof( Assets::Meshlet );
 
-                _pendingMeshReleases.push( {
-                    gpuMesh.vertexOffset,
-                    gpuMesh.vertexCount * VERTEX_STRIDE,
-                    gpuMesh.indexOffset,
-                    gpuMesh.indexCount * INDEX_STRIDE,
-                    (u32)i // Cache Slot Index
-                } );
+                _pendingMeshReleases.push( { .vertexOffset           = gpuMesh.vertexOffset,
+                                             .vertexSize             = gpuMesh.vertexCount * VERTEX_STRIDE,
+                                             .indexOffset            = gpuMesh.indexOffset,
+                                             .indexSize              = gpuMesh.indexCount * INDEX_STRIDE,
+                                             .meshletOffset          = gpuMesh.meshletOffset,
+                                             .meshletSize            = gpuMesh.meshletCount * MESHLET_STRIDE,
+                                             .meshletVertexOffset    = gpuMesh.meshletVertexOffset,
+                                             .meshletVertexSize      = gpuMesh.meshletVertexCount * INDEX_STRIDE,
+                                             .meshletPrimitiveOffset = gpuMesh.meshletPrimitiveOffset,
+                                             .meshletPrimitiveSize   = gpuMesh.meshletPrimitiveSize,
+                                             .GPUMeshID              = (u32)i } ); // Cache Slot Index
 
                 if ( gpuMesh.originalAssetID < _meshCache.assetToCacheLUT.size() )
                 {
@@ -480,6 +490,10 @@ void GPUScene::runGC() {
                 gpuMesh.vertexOffset = 0;
                 gpuMesh.indexOffset  = 0;
                 gpuMesh.vertexCount  = 0;
+
+                gpuMesh.meshletCount         = 0;
+                gpuMesh.meshletVertexCount   = 0;
+                gpuMesh.meshletPrimitiveSize = 0;
 
                 AXION_LOG_INFO( Logger::Module::Core, "GC: Recycled mesh slot {}", i );
             }

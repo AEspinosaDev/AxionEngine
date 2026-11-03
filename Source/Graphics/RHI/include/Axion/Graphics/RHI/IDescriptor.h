@@ -21,8 +21,18 @@ struct DescriptorBinding {
     u32             arraySize = 1; ///< -1 for unbounded
 };
 
+/// @brief Descriptor set (space) behaviour flags
+enum class DescriptorSetFlags : uint8_t
+{
+    None           = 0,
+    PartiallyBound = 1 << 0, ///< Not every binding is written before use (D3D12: DESCRIPTORS_VOLATILE | Vulkan: PARTIALLY_BOUND_BIT)
+};
+
+AXION_ENUM_CLASS_FLAG_OPERATORS( DescriptorSetFlags )
+
 struct DescriptorLayoutDesc {
     SmallVector<DescriptorBinding> bindings;
+    DescriptorSetFlags             flags = DescriptorSetFlags::None;
 };
 
 DEFINE_OWNER_PTR_FOR_TYPE( IDescriptorSet, DescriptorSet )

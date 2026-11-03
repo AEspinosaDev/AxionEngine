@@ -33,7 +33,7 @@ AXION_ENUM_CLASS_FLAG_OPERATORS( RendererFlags );
 struct MemoryBudget {
     struct Device {
         u64 maxTextureAlloc      = GIGABYTES( 2ull ); ///< Logical cap for loaded textures before forcing mipmap eviction.
-        u64 maxGeometryAlloc     = MBYTES( 512 );     ///< Memory reservation persistent static geometry buffer -Vertex/Index- (512MB default)
+        u64 maxGeometryAlloc     = MBYTES( 512 );     ///< Memory reservation persistent static geometry buffer -Vertex/Index/Meshlets- (512MB default)
         u64 maxMaterialAlloc     = MBYTES( 16 );      ///< Memory reservation persistent static material buffer (16MB default)
         u64 maxRenderTargetAlloc = MBYTES( 512 );     ///< Logical cap for G-Buffers, Depth Stencil, and Shadow Maps.
         u64 maxRaytracingAlloc   = MBYTES( 256 );     ///< Memory reservation for BVH structures (TLAS/BLAS) if applicable.

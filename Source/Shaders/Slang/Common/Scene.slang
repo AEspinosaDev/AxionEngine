@@ -68,6 +68,17 @@ public struct MeshData {
     public uint lastFrameUsed;
     public uint originalAssetID;
 
+    // Meshlets: byte offsets into gGlobalMeshlets / gGlobalMeshletVertices / gGlobalMeshletPrimitives
+    public uint meshletOffset;
+    public uint meshletVertexOffset;
+    public uint meshletPrimitiveOffset;
+    public uint meshletCount;
+
+    // Meshlet sizes (CPU bookkeeping, unused by shaders)
+    public uint  meshletVertexCount;
+    public uint  meshletPrimitiveSize;
+    public uint2 _pad;
+
     // --- Helpers ---
     public uint getTopology() { return (uint)aabbMaxTopology.w; }
 

@@ -73,7 +73,8 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
 
     for ( u32 setIndex = 0; setIndex < _desc.sets.size(); ++setIndex )
     {
-        const auto& set = _desc.sets[setIndex];
+        const auto& set            = _desc.sets[setIndex];
+        const bool  partiallyBound = ( set.flags & DescriptorSetFlags::PartiallyBound ) != DescriptorSetFlags::None;
 
         STLW::Vector<CD3DX12_DESCRIPTOR_RANGE1> viewRanges;
         STLW::Vector<CD3DX12_DESCRIPTOR_RANGE1> samplerRanges;
@@ -105,9 +106,11 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
             setBindingLUT.registerMappings[static_cast<u32>( rangeType )].pushBack( mapping );
 
             CD3DX12_DESCRIPTOR_RANGE1 range;
-            // Volatile descriptors: tables are partially filled (eg: pass I/O set uses a few of its slots),
-            // unused descriptors may stay uninitialized as long as the shader doesn't access them
-            D3D12_DESCRIPTOR_RANGE_FLAGS flags = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
+            // Static by default (RS 1.1): the driver can cache descriptors and promote table CBVs to root CBVs.
+            // Volatile only where the table may be partially written: partially bound sets (eg: pass I/O) and descriptor arrays
+            const bool                   isArray = binding.arraySize > 1;
+            D3D12_DESCRIPTOR_RANGE_FLAGS flags   = ( partiallyBound || isArray ) ? D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE
+                                                                                 : D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
 
             range.Init(
                 rangeType,

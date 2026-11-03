@@ -334,9 +334,10 @@ public:
     }
 
     /// @brief Defines a descriptor set (space) with a list of bindings.
-    LayoutBuilder& addSet( SmallVector<RHI::DescriptorBinding> bindings ) {
+    LayoutBuilder& addSet( SmallVector<RHI::DescriptorBinding> bindings, RHI::DescriptorSetFlags flags = RHI::DescriptorSetFlags::None ) {
         RHI::DescriptorLayoutDesc set;
         set.bindings = std::move( bindings );
+        set.flags    = flags;
         _desc.sets.push_back( std::move( set ) );
         return *this;
     }

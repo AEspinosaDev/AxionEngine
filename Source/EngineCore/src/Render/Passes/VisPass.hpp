@@ -3,6 +3,7 @@
 #include <Render/DrawIndirect.h>
 #include <Render/MaterialLibrary.h>
 #include <Render/PassManager.h>
+#include <Render/Passes/GlobalBufferHandles.h>
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
@@ -10,12 +11,6 @@ namespace Core::Render {
 class VisPass : public IRenderPass
 {
 public:
-    struct GlobalBufferHandles {
-        Graphics::RGResourceHandle vertex;
-        Graphics::RGResourceHandle index;
-        Graphics::RGResourceHandle materials;
-    };
-
     struct Config {
         IndirectCommandPayload indirectData;
 
@@ -48,9 +43,7 @@ public:
                                     data.outVelocityHandle  = pb.write( data.outVelocityHandle, Graphics::RHI::ResourceState::RenderTarget );
                                     data.outDepthHandle     = pb.write( data.outDepthHandle, Graphics::RHI::ResourceState::DepthWrite );
                                     //Global
-                                    data.inGlobalBufferHandles.vertex   = pb.read( data.inGlobalBufferHandles.vertex, Graphics::RHI::ResourceState::ShaderResource );
-                                    data.inGlobalBufferHandles.index    = pb.read( data.inGlobalBufferHandles.index, Graphics::RHI::ResourceState::ShaderResource );
-                                    data.inGlobalBufferHandles.materials = pb.read( data.inGlobalBufferHandles.materials, Graphics::RHI::ResourceState::ShaderResource );
+                                    data.inGlobalBufferHandles.read( pb );
                                     //Indirect
                                     if(data.useGPUCulling){
                                         data.inIndirectBufferHandle       = pb.read( data.inIndirectBufferHandle, Graphics::RHI::ResourceState::IndirectArgument );

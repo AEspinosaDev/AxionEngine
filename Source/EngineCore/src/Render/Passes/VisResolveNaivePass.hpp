@@ -1,6 +1,7 @@
 #pragma once
 #include "Axion/Graphics/Subsystems/IRenderGraph.h"
 #include <Render/PassManager.h>
+#include <Render/Passes/GlobalBufferHandles.h>
 #include <Render/Rasterizer/RasterizerConfig.h>
 
 AXION_NAMESPACE_BEGIN
@@ -12,10 +13,8 @@ public:
     struct Config {
         IndirectCommandPayload indirectData;
 
-        // Global buffers read by the resolve (vertices / indices for the triangle, materials payloads)
-        Graphics::RGResourceHandle inVertexHandle;
-        Graphics::RGResourceHandle inIndexHandle;
-        Graphics::RGResourceHandle inMaterialsHandle;
+        // Global buffers (persistent set): vertices / indices for the triangle, materials payloads
+        GlobalBufferHandles inGlobalBufferHandles;
 
         Graphics::RGResourceHandle inVisHandle;
         Graphics::RGResourceHandle outColorHandle;
@@ -38,9 +37,7 @@ public:
 
         builder.addPass<Config>( "Vis Resolve Pass", config, []( Graphics::RenderPassBuilder& pb, Config& data ) {
                 data.inVisHandle  = pb.read( data.inVisHandle, Graphics::RHI::ResourceState::ShaderResource  );
-                data.inVertexHandle    = pb.read( data.inVertexHandle, Graphics::RHI::ResourceState::ShaderResource );
-                data.inIndexHandle     = pb.read( data.inIndexHandle, Graphics::RHI::ResourceState::ShaderResource );
-                data.inMaterialsHandle = pb.read( data.inMaterialsHandle, Graphics::RHI::ResourceState::ShaderResource );
+                data.inGlobalBufferHandles.read( pb );
                 data.outColorHandle = pb.write( data.outColorHandle ); }, [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
     }
 
