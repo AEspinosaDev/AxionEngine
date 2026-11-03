@@ -2,6 +2,7 @@
 
 #include "Axion/Graphics/RHI/ICommandList.h"
 #include "DX12Common.h"
+#include "DX12Descriptor.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -13,6 +14,8 @@ class DX12CommandList : public ICommandList
 {
 public:
     DX12CommandList( const ComPtr<ID3D12Device2>& device,
+                     DX12DescriptorHeap&          gpuHeapSRV,
+                     DX12DescriptorHeap&          gpuHeapSamplers,
                      const CommandListDesc&       desc );
     ~DX12CommandList() override;
 
@@ -62,13 +65,19 @@ public:
                               IBuffer* countBuffer       = nullptr,
                               u64    countBufferOffset = 0 ) override;
 
+    void dispatchMeshIndirect( IBuffer* indirectBuffer,
+                               u64      bufferOffset,
+                               u32      maxDispatchCount,
+                               IBuffer* countBuffer       = nullptr,
+                               u64      countBufferOffset = 0 ) override;
+
     NativeObject getNativeObject( ObjectType objectType ) override;
     void         setDebugName( StringView name ) override;
     StringView   getDebugName() const override;
     STLW::String toString() const override;
 
 private:
-    void pushConstants( u32 setIndex, const void* data, u32 numValues32Bit, u32 offset32Bit = 0 ) override;
+    void pushConstantsRaw( const void* data, u32 numValues32Bit, u32 offset32Bit = 0 ) override;
     bool validateUpdateCompatibility( const IAccel* accel, const AccelDesc& newDesc );
 
     ComPtr<ID3D12GraphicsCommandList>            _cmdList;
@@ -79,11 +88,13 @@ private:
 
     PipelineBindPoint _bindPoint = PipelineBindPoint::None;
 
-    ID3D12DescriptorHeap* _currentViewHeap    = nullptr;
-    ID3D12DescriptorHeap* _currentSamplerHeap = nullptr;
+    ID3D12DescriptorHeap* _globalHeaps[2] = {}; ///< [0] CBV/SRV/UAV, [1] Samplers. Bound once at begin()
 
+    //TODO: Cache layout per bind point type (Compute + Graphics)
     IPipelineLayout* _currentLayout = nullptr;
 
+    //Extensions to the interface ->
+    
     // To support RTX
     ID3D12GraphicsCommandList4* _cmdList4 = nullptr;
     // To support Mesh Shading

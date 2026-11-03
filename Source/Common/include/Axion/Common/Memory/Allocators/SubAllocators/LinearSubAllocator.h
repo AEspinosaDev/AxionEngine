@@ -77,7 +77,7 @@ public:
     };
     virtual void free( SubAllocation<TContainer>& allocation ) override {
         AXION_UNUSED_PARAMETER( allocation );
-        AXION_LOG_ASSERT( true, Logger::Module::Common, "LinearSubAllocator does not support free()" );
+        AXION_LOG_ASSERT( false, Logger::Module::Common, "LinearSubAllocator does not support free()" );
     };
     virtual void reset() override {
         this->lock();

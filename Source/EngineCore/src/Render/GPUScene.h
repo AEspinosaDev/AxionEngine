@@ -3,9 +3,11 @@
 #include "Axion/Core/Scene/Entity.h"
 #include "Axion/Core/Scene/Scene.h"
 #include "Axion/Graphics/Handle.h"
-#include "GPUObjects.h"
-#include "MaterialSystem.h"
 #include <Axion/Common/Containers/STLWrapper/Lists.h>
+
+#include <Render/GPUObjects.h>
+#include <Render/MaterialLibrary.h>
+
 #include <span>
 
 AXION_NAMESPACE_BEGIN
@@ -67,10 +69,9 @@ public:
         u64 key;
         u32 originalInstanceIdx;
 
-        void unpack( u32& archID, u32& topology, u32& meshID ) const {
-            archID   = (u32)( ( key >> 48 ) & 0xFFFF );
-            topology = (u32)( ( key >> 44 ) & 0xF );
-            meshID   = (u32)( key & 0xFFFFFFFFFFF );
+        void unpack( u32& psoBundleID, u32& meshID ) const {
+            psoBundleID = (u32)( ( key >> 40 ) & 0xFFFFFF );
+            meshID   = (u32)( key & 0xFFFFFFFF );
         }
     };
 
@@ -86,12 +87,12 @@ public:
      * @param cameraEntity The point of view for this render pass (Culling/ViewProj).
      * @param flags Modifiers for the update pipeline (e.g., DX12 Transpose).
      */
-    void update( const Scene::Scene&    cpuScene,
-                 Scene::Entity&         cameraEntity,
-                 const MaterialLibrary& mtlLib,
-                 const Extent2D&        resolution,
-                 float                  deltaTime,
-                 GPUSceneUpdateFlags    flags = GPUSceneNone );
+    void update( const Scene::Scene& cpuScene,
+                 Scene::Entity&      cameraEntity,
+                 IMaterialLibrary&   mtlLib,
+                 const Extent2D&     resolution,
+                 float               deltaTime,
+                 GPUSceneUpdateFlags flags = GPUSceneNone );
 
     void setGCMode( Graphics::GCMode mode ) { _resourceTTL = (u32)mode; }
 
@@ -99,14 +100,14 @@ private:
     // -- Internal Pipeline Stages --
     void reset( float dt );
 
-    void processInstances( const Scene::Scene&    cpuScene,
-                           const MaterialLibrary& mtlLib,
-                           bool                   sort,
-                           bool                   transpose,
-                           bool                   forceRaytrace );
+    void processInstances( const Scene::Scene& cpuScene,
+                           IMaterialLibrary&   mtlLib,
+                           bool                sort,
+                           bool                transpose,
+                           bool                forceRaytrace );
     u32  processMesh( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::MeshHandle& cpuMeshHandle );
     u32  processMaterial( const Axion::Core::Assets::AssetManager*   assets,
-                          const MaterialLibrary&                     mtlLib,
+                          IMaterialLibrary&                          mtlLib,
                           std::pair<const byte*, size_t>&            dirtyLUT,
                           const Axion::Core::Assets::MaterialHandle& cpuMtlHandle );
     u32  processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle, u32 materialGpuCacheIndex );
@@ -117,11 +118,9 @@ private:
 
     void runGC();
 
-    AXION_FORCE_INLINE u64 makeSortKey( u32 archID, u32 topology, u32 meshID ) {
-        // [Archetype 16b] [Topology 4b] [Mesh 44b]
-        return ( (u64)archID << 48 ) |
-               ( (u64)topology << 44 ) |
-               ( (u64)meshID & 0xFFFFFFFFFFF );
+    AXION_FORCE_INLINE u64 makeSortKey( u32 psoBundleID, u32 meshID ) {
+        // [Bundle 24b] [Unused 8b] [Mesh 32b]
+        return ( ( (u64)psoBundleID & 0xFFFFFF ) << 40 ) | (u64)meshID;
     }
 
     // -- Transient Data (Cleared every frame) --
@@ -146,10 +145,11 @@ private:
     GPUCache<GPUMaterial> _materialCache;
     GPUCache<GPUTexture>  _textureCache;
 
+    // More material related
     constexpr static u64                               MAX_STACK_TEXTURES = 6ull;
     STLW::Vector<SmallVector<u32, MAX_STACK_TEXTURES>> _materialToTextureMap;
 
-    // -- Communication Queues --
+    // -- Deferred Queues --
     STLW::Queue<PendingMeshUpload>     _pendingMeshUploads;
     STLW::Queue<PendingMeshFree>       _pendingMeshReleases;
     STLW::Queue<PendingMaterialUpload> _pendingMtlUploads;

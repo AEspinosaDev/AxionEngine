@@ -69,7 +69,7 @@ class IShaderRegistry::Builder
 public:
     Builder( IShaderRegistry& reg, StringView name )
         : _registry( reg ) {
-        _desc.name =  name ;
+        _desc.name = name;
     }
 
     /// @brief Sets the source file path (e.g., "Assets/Shaders/MyShader.slang").
@@ -110,6 +110,16 @@ public:
 
         _desc.preprocessorDefines->push_back( std::move( define ) );
 
+        return *this;
+    }
+    /// @brief Adds a module.
+    Builder& addModule( StringView moduleName ) {
+        _desc.additionalModules.push_back( moduleName );
+        return *this;
+    }
+    /// @brief Adds a specialization type.
+    Builder& addSpecialization( StringView typeName ) {
+        _desc.spececializationTypeNames.push_back( typeName );
         return *this;
     }
 

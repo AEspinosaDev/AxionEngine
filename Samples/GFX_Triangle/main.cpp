@@ -64,7 +64,7 @@ struct TrianglePass {
         ctx.cmd->bindGraphicPipeline( pso );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, ubo, Graphics::RHI::ResourceState::ConstantBuffer );
+        set0->attach( 0,  Graphics::RHI::DescriptorType::CBV, ubo );
 
         ctx.cmd->bindDescriptorSet( 0, set0 );
 

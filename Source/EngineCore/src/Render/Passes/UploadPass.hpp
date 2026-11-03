@@ -1,7 +1,8 @@
 #pragma once
-#include "../GPUScene.h"
-#include "../PassSystem.h"
 #include "Axion/Graphics/Subsystems/IRenderGraph.h"
+#include <Render/GPUScene.h>
+#include <Render/PassManager.h>
+#include <Render/Passes/GlobalBufferHandles.h>
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
@@ -9,21 +10,17 @@ namespace Core::Render {
 class UploadPass : public IRenderPass
 {
 public:
-    struct GlobalBufferHandles {
-        Graphics::RGResourceHandle vertex;
-        Graphics::RGResourceHandle index;
-        Graphics::RGResourceHandle materials;
-    };
     struct Config {
         GlobalBufferHandles outGlobalBufferHandles;
 
-        Graphics::BufferGPUFreeListAllocator* vertexAllocator = nullptr;
-        Graphics::BufferGPUFreeListAllocator* indexAllocator  = nullptr;
-        Graphics::BufferGPUFreeListAllocator* matAllocator    = nullptr;
+        Graphics::BufferGPUFreeListAllocator* vertexAllocator           = nullptr;
+        Graphics::BufferGPUFreeListAllocator* indexAllocator            = nullptr;
+        Graphics::BufferGPUFreeListAllocator* meshletAllocator          = nullptr;
+        Graphics::BufferGPUFreeListAllocator* meshletVertexAllocator    = nullptr;
+        Graphics::BufferGPUFreeListAllocator* meshletPrimitiveAllocator = nullptr;
+        Graphics::BufferGPUFreeListAllocator* matAllocator              = nullptr;
 
-        SmallVector<Graphics::RHI::IDescriptorSet*, 2> allPersistentSets;
-
-        Vector<Graphics::TextureHandle>* mtlTextureHandles = nullptr;
+        Vector<Graphics::TextureHandle>* mtlTextureHandles = nullptr; ///< Owner handles of material textures, indexed by GPUScene texture slot
         GPUScene*                        gpuScene          = nullptr;
         u64                              maxAllocationSize = 0;
     };
@@ -40,13 +37,13 @@ public:
         builder.addPass<Config>( "UploadPass", seedData,
 
                                  []( Graphics::RenderPassBuilder& pb, Config& data ) {
-                data.outGlobalBufferHandles.vertex = pb.write( data.outGlobalBufferHandles.vertex, Graphics::RHI::ResourceState::CopyDest );
-                data.outGlobalBufferHandles.index = pb.write( data.outGlobalBufferHandles.index, Graphics::RHI::ResourceState::CopyDest );
-                data.outGlobalBufferHandles.materials  = pb.write( data.outGlobalBufferHandles.materials,  Graphics::RHI::ResourceState::CopyDest ); },
+                data.outGlobalBufferHandles.write( pb ); },
                                  [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
     }
 
 private:
+    static constexpr u64 RAW_BUFFER_ALIGNMENT = 4; ///< ByteAddressBuffer loads need 4 B aligned addresses
+
     void execute( const Config& data, Graphics::RenderPassContext& ctx ) {
 
         u32 totalUsedSpace = 0;
@@ -63,16 +60,24 @@ private:
         auto* allocator = ctx.transAllocator;
 
         auto* vb = ctx.getBuffer( data.outGlobalBufferHandles.vertex );
-        auto* ib = ctx.getBuffer( data.outGlobalBufferHandles.index );
+        auto* ib  = ctx.getBuffer( data.outGlobalBufferHandles.index );
+        auto* mb  = ctx.getBuffer( data.outGlobalBufferHandles.meshlets );
+        auto* mvb = ctx.getBuffer( data.outGlobalBufferHandles.meshletVertices );
+        auto* mpb = ctx.getBuffer( data.outGlobalBufferHandles.meshletPrimitives );
 
         // 1. UPLOAD QUEUE
         auto& uploadQueue = scene.pendingMeshUploads();
         while ( !uploadQueue.empty() )
         {
             const auto& nextUpload           = uploadQueue.front();
+            const auto* nextMeshlets         = nextUpload.geometryData->meshlets.get();
             u32         requiredVerticesSize = (u32)( nextUpload.geometryData->vertices.size() * sizeof( Assets::Vertex ) );
             u32         requiredIndicesSize  = (u32)( nextUpload.geometryData->indices.size() * sizeof( u32 ) );
-            u32         totalRequiredSpace   = requiredVerticesSize + requiredIndicesSize;
+            u32         requiredMeshletsSize = nextMeshlets ? (u32)( nextMeshlets->meshlets.size() * sizeof( Assets::Meshlet ) +
+                                                                    nextMeshlets->vertexIndices.size() * sizeof( u32 ) +
+                                                                    nextMeshlets->primitiveIndices.size() )
+                                                          : 0;
+            u32         totalRequiredSpace   = requiredVerticesSize + requiredIndicesSize + requiredMeshletsSize;
 
             if ( totalUsedSpace + totalRequiredSpace > (u32)data.maxAllocationSize )
                 break;
@@ -98,6 +103,31 @@ private:
                 gpuMesh.indexOffset = (u32)indexBufferSlice.offset;
             }
 
+            // C. Meshlets (only meshes cooked as meshlets)
+            if ( const auto* meshlets = uploadEntry.geometryData->meshlets.get() )
+            {
+                auto meshletSlice = data.meshletAllocator->allocate<Assets::Meshlet>( meshlets->meshlets.size() );
+                if ( meshletSlice.size > 0 )
+                {
+                    cmd->uploadBuffer( mb, meshlets->meshlets.data(), meshletSlice.size, meshletSlice.offset, *allocator, Graphics::RHI::BarrierPolicy::None );
+                    gpuMesh.meshletOffset = (u32)meshletSlice.offset;
+                }
+
+                auto meshletVertexSlice = data.meshletVertexAllocator->allocate<u32>( meshlets->vertexIndices.size() );
+                if ( meshletVertexSlice.size > 0 )
+                {
+                    cmd->uploadBuffer( mvb, meshlets->vertexIndices.data(), meshletVertexSlice.size, meshletVertexSlice.offset, *allocator, Graphics::RHI::BarrierPolicy::None );
+                    gpuMesh.meshletVertexOffset = (u32)meshletVertexSlice.offset;
+                }
+
+                auto meshletPrimitiveSlice = data.meshletPrimitiveAllocator->allocate( meshlets->primitiveIndices.size(), RAW_BUFFER_ALIGNMENT );
+                if ( meshletPrimitiveSlice.size > 0 )
+                {
+                    cmd->uploadBuffer( mpb, meshlets->primitiveIndices.data(), meshletPrimitiveSlice.size, meshletPrimitiveSlice.offset, *allocator, Graphics::RHI::BarrierPolicy::None );
+                    gpuMesh.meshletPrimitiveOffset = (u32)meshletPrimitiveSlice.offset;
+                }
+            }
+
             gpuMesh.valid = true;
             totalUsedSpace += totalRequiredSpace;
         }
@@ -109,24 +139,23 @@ private:
             auto deletionEntry = std::move( deletionQueue.front() );
             deletionQueue.pop();
 
-            if ( deletionEntry.vertexSize > 0 )
-            {
-                Graphics::BufferSlice vSlice;
-                vSlice.container = vb;
-                vSlice.offset    = deletionEntry.vertexOffset;
-                vSlice.size      = deletionEntry.vertexSize;
-                data.vertexAllocator->free( vSlice );
-            }
-
-            if ( deletionEntry.indexSize > 0 )
-            {
-                Graphics::BufferSlice iSlice;
-                iSlice.container = ib;
-                iSlice.offset    = deletionEntry.indexOffset;
-                iSlice.size      = deletionEntry.indexSize;
-                data.indexAllocator->free( iSlice );
-            }
+            releaseSlice( data.vertexAllocator, vb, deletionEntry.vertexOffset, deletionEntry.vertexSize );
+            releaseSlice( data.indexAllocator, ib, deletionEntry.indexOffset, deletionEntry.indexSize );
+            releaseSlice( data.meshletAllocator, mb, deletionEntry.meshletOffset, deletionEntry.meshletSize );
+            releaseSlice( data.meshletVertexAllocator, mvb, deletionEntry.meshletVertexOffset, deletionEntry.meshletVertexSize );
+            releaseSlice( data.meshletPrimitiveAllocator, mpb, deletionEntry.meshletPrimitiveOffset, deletionEntry.meshletPrimitiveSize );
         }
+    }
+
+    static void releaseSlice( Graphics::BufferGPUFreeListAllocator* allocator, Graphics::RHI::IBuffer* container, u32 offset, u32 size ) {
+        if ( size == 0 )
+            return;
+
+        Graphics::BufferSlice slice;
+        slice.container = container;
+        slice.offset    = offset;
+        slice.size      = size;
+        allocator->free( slice );
     }
 
     void processMaterials( const Config& data, Graphics::RenderPassContext& ctx, u32& totalUsedSpace ) {
@@ -154,7 +183,7 @@ private:
             // liberamos la memoria vieja antes de pedir nueva.
             // NOTA: Podrías intentar reutilizarla si el tamaño es igual,
             // pero Free+Alloc evita fragmentación si el tamaño cambia.
-            if ( gpuMtl.bufferOffset != 0 ) // Asumiendo que 0 es null/inválido
+            if ( gpuMtl.bufferOffset != AXION_INVALID_U32 ) // Already in VRAM (offset 0 is a valid offset)
             {
                 Graphics::BufferSlice oldSlice;
                 oldSlice.container = mtlb;
@@ -163,7 +192,7 @@ private:
 
                 data.matAllocator->free( oldSlice );
 
-                gpuMtl.bufferOffset = 0;
+                gpuMtl.bufferOffset = AXION_INVALID_U32;
             }
 
             auto mtlBufferView = data.matAllocator->allocate( uploadEntry.payload.size(), ALIGNMENT );
@@ -191,7 +220,7 @@ private:
             auto deletionEntry = std::move( deletionQueue.front() );
             deletionQueue.pop();
 
-            if ( deletionEntry.payloadSize > 0 )
+            if ( deletionEntry.payloadSize > 0 && deletionEntry.bufferOffset != AXION_INVALID_U32 ) // Never uploaded: nothing to free
             {
                 Graphics::BufferSlice mView;
                 mView.container = mtlb;
@@ -224,7 +253,7 @@ private:
                     pixelSize = std::get<STLW::Vector<float>>( *nextUpload.pixels ).size() * sizeof( float );
             }
 
-            u32 requiredSpace = (u32)pixelSize + TEXTURE_DATA_PLACEMENT_ALIGNMENT;
+            u32 requiredSpace = (u32)pixelSize + AXION_TEXTURE_DATA_PLACEMENT_ALIGNMENT;
 
             if ( totalUsedSpace + requiredSpace > (u32)data.maxAllocationSize )
                 break;
@@ -257,14 +286,9 @@ private:
                     cmd->uploadTexture( tex, pixelData, *allocator, 0, 0, Graphics::RHI::BarrierPolicy::None );
                     cmd->barrier( tex, Graphics::RHI::ResourceState::ShaderResource );
 
-                    gpuTex.slot = uploadEntry.slot;
+                    // Bindless: shaders reach it through gTextures[slot].heapID (visible from next frame's gTextures upload)
+                    gpuTex.heapID = tex->getBindlessSRVIdx();
                     totalUsedSpace += requiredSpace;
-
-                    // Update bindless slots
-                    for ( auto* pSet : data.allPersistentSets )
-                    {
-                        pSet->attachBindless( 3, uploadEntry.slot, tex, Graphics::RHI::ResourceState::ShaderResource );
-                    }
                 }
             }
         }
@@ -274,17 +298,11 @@ private:
         {
             auto deletionEntry = std::move( deletionQueue.front() );
             deletionQueue.pop();
-            
-            //Textures are always save to destroy here as its lifetime is bound bt TTL, and is always bigger than the frame in flight number
-            ctx.resources.destroyTexture( ( *data.mtlTextureHandles )[deletionEntry] );
-            
-            ( *data.mtlTextureHandles )[deletionEntry] = Graphics::TextureHandle();
 
-            // // Update bindless slots
-            // for ( auto* pSet : data.allPersistentSets )
-            // {
-            //     pSet->attachBindless( 3, deletionEntry, tex, Graphics::RHI::ResourceState::ShaderResource );
-            // }
+            // Textures are always save to destroy here as its lifetime is bound bt TTL, and is always bigger than the frame in flight number
+            ctx.resources.destroyTexture( ( *data.mtlTextureHandles )[deletionEntry] );
+
+            ( *data.mtlTextureHandles )[deletionEntry] = Graphics::TextureHandle();
         }
     }
 };

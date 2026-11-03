@@ -15,8 +15,31 @@ ShaderRegistry::~ShaderRegistry() {
 }
 
 void ShaderRegistry::initialize( const SubsystemInitContext& ctx ) {
-    AXION_LOG_INFO( Logger::Module::GFX, "Shader Registry Subsystem Initialized Succesfully" );
-    _compiler.begin();
+    _bindlessSupported = ctx.device->queryFeatureSupport( RHI::FeatureType::HeapDirectlyIndexed );
+
+    // Default settings target bindless-capable profiles: downgrade the profile of the active API if the device can't do it
+    ShaderCompiler::Settings compilerSettings;
+    switch ( ctx.device->getGraphicsAPI() )
+    {
+        case API::DirectX12:
+            if ( !_bindlessSupported )
+                compilerSettings.dxilProfile = "sm_6_5"; // No ResourceDescriptorHeap (needs SM 6.6)
+            break;
+        case API::Vulkan:
+            // TODO: Vulkan backend not implemented yet. Define the bindless SPIR-V profile (descriptor indexing) and its fallback here
+            break;
+        default:
+            AXION_LOG_ERROR( Logger::Module::GFX, "Shader Registry: unknown graphics API, using default shader profiles" );
+            break;
+    }
+    _compiler.begin( compilerSettings );
+
+    AXION_LOG_INFO( Logger::Module::GFX,
+                    "Shader Registry Subsystem Initialized Succesfully | Bindless: {} | Profiles -> DXIL: {} SPIR-V: {} GLSL: {}",
+                    _bindlessSupported,
+                    compilerSettings.dxilProfile,
+                    compilerSettings.spirvProfile,
+                    compilerSettings.glslProfile );
 }
 
 ShaderHandle ShaderRegistry::registerShader( const ShaderDesc& desc ) {

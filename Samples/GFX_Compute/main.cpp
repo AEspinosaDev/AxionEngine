@@ -16,9 +16,9 @@
  */
 #pragma once
 #include "Axion/Common/Common.h"
+#include "Axion/Graphics/IRenderer.h"
 #include "Axion/Graphics/Platforms/IGLFW.h"
 #include "Axion/Graphics/Platforms/IWin32.h"
-#include "Axion/Graphics/IRenderer.h"
 
 USING_AXION_NAMESPACE
 
@@ -46,11 +46,11 @@ struct GenerationPass {
         auto* texOut = ctx.getTexture( data.outputHDR );
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
+        set0->attach( 0, Graphics::RHI::DescriptorType::UAV_Image, texOut );
 
         ctx.cmd->bindComputePipeline( pso );
         ctx.cmd->bindDescriptorSet( 0, set0 );
-        ctx.cmd->pushConstants( 1, pushData );
+        ctx.cmd->pushConstants( pushData );
 
         ctx.cmd->dispatch( texOut->getDescription().size );
     }
@@ -78,12 +78,13 @@ struct ToneMappingPass {
         auto* texIn  = ctx.getTexture( data.inputHDR );
         auto* texOut = ctx.getTexture( data.outputLDR );
 
-        auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
-        set0->attach( 0, texIn, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 1, texOut, Graphics::RHI::ResourceState::UnorderedAccess );
+        // Tonemapping.slang declares its I/O in space 2 (DECLARE_* macros)
+        auto* ioSet = ctx.allocateSet( pso->getDescription().layout, Graphics::PassIO::SET_INDEX );
+        ioSet->attach( Graphics::PassIO::texture( 0 ), Graphics::RHI::DescriptorType::SRV_Image, texIn );
+        ioSet->attach( Graphics::PassIO::rwTexture( 0 ), Graphics::RHI::DescriptorType::UAV_Image, texOut );
 
         ctx.cmd->bindComputePipeline( pso );
-        ctx.cmd->bindDescriptorSet( 0, set0 );
+        ctx.cmd->bindDescriptorSet( Graphics::PassIO::SET_INDEX, ioSet );
 
         ctx.cmd->dispatch( texIn->getDescription().size );
     }

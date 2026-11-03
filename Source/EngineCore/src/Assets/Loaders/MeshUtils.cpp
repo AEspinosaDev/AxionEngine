@@ -57,8 +57,8 @@ MeshletData cookMeshlets( const STLW::Vector<Vertex>& vertices, const STLW::Vect
     Assets::MeshletData meshletData;
 
     // Hardware optimal settings for DX12 / Vulkan
-    const size_t maxVertices  = 64;
-    const size_t maxTriangles = 126;
+    const size_t maxVertices  = MESHLET_MAX_VERTICES;
+    const size_t maxTriangles = MESHLET_MAX_TRIANGLES;
     const float  coneWeight   = 0.0f;
 
     size_t maxMeshlets = meshopt_buildMeshletsBound( indices.size(), maxVertices, maxTriangles );

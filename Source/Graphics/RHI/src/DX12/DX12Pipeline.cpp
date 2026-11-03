@@ -5,10 +5,10 @@
 AXION_NAMESPACE_BEGIN
 namespace Graphics::RHI {
 
-DX12PipelineLayout::DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc )
+DX12PipelineLayout::DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc, bool heapDirectlyIndexed, bool meshShadingSupported )
     : _desc( desc ) {
-    buildRootSignature( device );
-    buildIndirectCommandSignature( device );
+    buildRootSignature( device, heapDirectlyIndexed );
+    buildIndirectCommandSignature( device, meshShadingSupported );
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 Pipeline Layout [{}] created", _desc.debugName );
 }
 DX12PipelineLayout::~DX12PipelineLayout() {
@@ -52,7 +52,7 @@ NativeObject DX12PipelineLayout::getNativeObject( ObjectType objectType ) {
     }
 }
 
-void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device ) {
+void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device, bool heapDirectlyIndexed ) {
     STLW::Vector<CD3DX12_ROOT_PARAMETER1>   rootParams;
     STLW::Vector<CD3DX12_DESCRIPTOR_RANGE1> allRanges;
 
@@ -73,29 +73,49 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
 
     for ( u32 setIndex = 0; setIndex < _desc.sets.size(); ++setIndex )
     {
-        const auto& set = _desc.sets[setIndex];
+        const auto& set            = _desc.sets[setIndex];
+        const bool  partiallyBound = ( set.flags & DescriptorSetFlags::PartiallyBound ) != DescriptorSetFlags::None;
 
         STLW::Vector<CD3DX12_DESCRIPTOR_RANGE1> viewRanges;
         STLW::Vector<CD3DX12_DESCRIPTOR_RANGE1> samplerRanges;
+        D3D12BindingMappingLUT                  setBindingLUT;
 
         for ( const auto& binding : set.bindings )
         {
-            if ( binding.type == DescriptorType::Sampler )
-                _samplerCountPerSet[setIndex] += binding.arraySize;
-            else
-                _viewCountPerSet[setIndex] += binding.arraySize;
+            u32 numDescriptors = binding.arraySize;
+            if ( numDescriptors != AXION_INVALID_U32 )
+            {
+                numDescriptors = binding.range.count * binding.arraySize;
+            }
 
-            D3D12_DESCRIPTOR_RANGE_TYPE  rangeType = DX12Translator::get( binding.type );
-            CD3DX12_DESCRIPTOR_RANGE1    range;
-            D3D12_DESCRIPTOR_RANGE_FLAGS flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
+            D3D12_DESCRIPTOR_RANGE_TYPE rangeType = DX12Translator::get( binding.type );
 
-            if ( binding.arraySize > 1 )
-                flags = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
+            u32                 countForMapping = ( numDescriptors == AXION_INVALID_U32 ) ? 1 : numDescriptors;
+            D3D12BindingMapping mapping         = { .hlslBase     = binding.range.base,
+                                                    .count        = numDescriptors,
+                                                    .globalOffset = rangeType == D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER ? _samplerCountPerSet[setIndex] : _viewCountPerSet[setIndex] };
+
+            if ( numDescriptors != AXION_INVALID_U32 )
+            {
+                if ( binding.type == DescriptorType::Sampler )
+                    _samplerCountPerSet[setIndex] += numDescriptors;
+                else
+                    _viewCountPerSet[setIndex] += numDescriptors;
+            }
+
+            setBindingLUT.registerMappings[static_cast<u32>( rangeType )].pushBack( mapping );
+
+            CD3DX12_DESCRIPTOR_RANGE1 range;
+            // Static by default (RS 1.1): the driver can cache descriptors and promote table CBVs to root CBVs.
+            // Volatile only where the table may be partially written: partially bound sets (eg: pass I/O) and descriptor arrays
+            const bool                   isArray = binding.arraySize > 1;
+            D3D12_DESCRIPTOR_RANGE_FLAGS flags   = ( partiallyBound || isArray ) ? D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE
+                                                                                 : D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
 
             range.Init(
                 rangeType,
-                binding.arraySize,
-                binding.binding,
+                numDescriptors,
+                binding.range.base,
                 setIndex, // Register Space
                 flags );
 
@@ -132,6 +152,8 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
 
             allRanges.insert( allRanges.end(), samplerRanges.begin(), samplerRanges.end() );
         }
+
+        _bindingMappingPerSet.pushBack( setBindingLUT );
     }
 
     for ( const auto& info : pendingTables )
@@ -169,13 +191,20 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
     rsDesc.Desc_1_1.pStaticSamplers            = nullptr;
     rsDesc.Desc_1_1.Flags                      = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
+    // SM 6.6: allow ResourceDescriptorHeap[] 
+    if ( heapDirectlyIndexed )
+        rsDesc.Desc_1_1.Flags |= D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | D3D12_ROOT_SIGNATURE_FLAG_SAMPLER_HEAP_DIRECTLY_INDEXED;
+
     ComPtr<ID3DBlob> serialized, error;
     HRESULT          hr = D3D12SerializeVersionedRootSignature( &rsDesc, &serialized, &error );
 
     if ( FAILED( hr ) )
     {
         if ( error )
+        {
             OutputDebugStringA( (char*)error->GetBufferPointer() );
+            AXION_LOG_ERROR( Logger::Module::RHI, "Root Signature serialization failed [{}]: {}", _desc.debugName, (char*)error->GetBufferPointer() );
+        }
         DX_CHECK( hr );
     }
 
@@ -183,7 +212,7 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
         0, serialized->GetBufferPointer(), serialized->GetBufferSize(), IID_PPV_ARGS( &_rootSignature ) ) );
 }
 
-void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Device2>& device ) {
+void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Device2>& device, bool meshShadingSupported ) {
 
     if ( !_desc.enableIndirectRendering )
         return;
@@ -196,9 +225,10 @@ void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Devic
         return;
     }
 
-    bool validSize = ( _desc.pushConstant.size == sizeof( u32 ) );
+    // Command signature only writes the first 32-bit value (baseInstanceID). Bigger push constant blocks are valid
+    bool validSize = ( _desc.pushConstant.size >= sizeof( u32 ) );
 
-    AXION_LOG_ASSERT( validSize, Logger::Module::RHI, "DX12 Pipeline Layout [{}]: Push constant size must be 4 bytes (1 uint) for baseInstanceID. Current size: {}", _desc.debugName, _desc.pushConstant.size );
+    AXION_LOG_ASSERT( validSize, Logger::Module::RHI, "DX12 Pipeline Layout [{}]: Push constant size must be at least 4 bytes (1 uint) for baseInstanceID. Current size: {}", _desc.debugName, _desc.pushConstant.size );
 
     if ( !validSize )
         return;
@@ -236,6 +266,21 @@ void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Devic
         DX_CHECK( device->CreateCommandSignature( &csDesc, _rootSignature.Get(), IID_PPV_ARGS( &_dispatchIndirectSignature ) ) );
 
         setNativeName( _dispatchIndirectSignature.Get(), _desc.debugName + " DispatchIndirectSig" );
+    }
+
+    if ( meshShadingSupported )
+    {
+        argDesc[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
+
+        D3D12_COMMAND_SIGNATURE_DESC csDesc = {};
+        csDesc.NumArgumentDescs             = 2;
+        csDesc.pArgumentDescs               = argDesc;
+
+        csDesc.ByteStride = sizeof( DispatchMeshIndirectCommand );
+
+        DX_CHECK( device->CreateCommandSignature( &csDesc, _rootSignature.Get(), IID_PPV_ARGS( &_dispatchMeshIndirectSignature ) ) );
+
+        setNativeName( _dispatchMeshIndirectSignature.Get(), _desc.debugName + " DispatchMeshIndirectSig" );
     }
 }
 

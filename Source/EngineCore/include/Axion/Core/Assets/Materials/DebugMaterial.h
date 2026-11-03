@@ -7,7 +7,10 @@ namespace Core::Assets {
 
 class DebugMaterial : public Material
 {
-    AXION_DECLARE_MATERIAL_ARCH_NAME( "Debug" );
+     AXION_DECLARE_MATERIAL_ARCH(
+        "Debug",
+        "Debug.slang",
+        "DebugMaterial" );
 
 public:
     struct alignas( 16 ) GPUPayload {
@@ -36,24 +39,8 @@ private:
         : Material(  name  ) {}
 };
 
+// AXION_REGISTER_MATERIAL( DebugMaterial );
 } // namespace Core::Assets
 
 AXION_NAMESPACE_END
 
-AXION_REGISTER_MATERIAL( DebugMaterial ) {
-
-    desc.name = Axion::Core::Assets::DebugMaterial::ARCHETYPE;
-
-    desc.payloadSize = sizeof( Axion::Core::Assets::DebugMaterial::GPUPayload );
-
-    desc.topologiesSupported = Axion::Core::Render::MaterialTopologyTriangles;
-
-    Axion::Core::Render::MaterialArchetypePassConfig pass;
-    pass.passType    = Axion::Core::Render::MaterialPassType::Opaque;
-    pass.shaderPath  = AXION_SHADER_DIR "/Slang/Materials/Debug.slang";
-    pass.entryPoints = {
-        { "vsForward", Axion::Graphics::ShaderType::Vertex },
-        { "psForward", Axion::Graphics::ShaderType::Pixel } };
-
-    desc.passConfigs.push_back( pass );
-}

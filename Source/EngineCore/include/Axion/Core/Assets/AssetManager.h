@@ -104,11 +104,12 @@ private:
     MeshHandle    importMesh( StringView name, StringView filepath, MeshImportFlags flags );
     MeshHandle    createMesh( StringView                  name,
                               const STLW::Vector<Vertex>& vertices,
-                              const STLW::Vector<u32>&    indices  = {},
-                              Graphics::PrimitiveTopology topology = Graphics::PrimitiveTopology::TriangleList );
-    MeshHandle    createQuad( StringView name, u32 subdivisions = 0, bool asMeshlet = false );
-    MeshHandle    createCube( StringView name, bool asMeshlet = false );
-    MeshHandle    createSphere( StringView name, u32 segments = 32, bool asMeshlet = false );
+                              const STLW::Vector<u32>&    indices      = {},
+                              Graphics::PrimitiveTopology topology     = Graphics::PrimitiveTopology::TriangleList,
+                              bool                        cookMeshlets = true );
+    MeshHandle    createQuad( StringView name, u32 subdivisions = 0, bool cookMeshlets = true );
+    MeshHandle    createCube( StringView name, bool cookMeshlets = true );
+    MeshHandle    createSphere( StringView name, u32 segments = 32, bool cookMeshlets = true );
     TextureHandle importTexture( StringView name, StringView filepath, TextureImportFlags flags );
     TextureHandle createTexture( StringView                                                   name,
                                  const Extent3D&                                              size,
@@ -153,41 +154,42 @@ public:
     /// @brief Imports a mesh from a file on disk (OBJ, GLTF, etc).
     MeshHandle import( StringView      path,
                        MeshImportFlags flags = MeshImportComputeBounds | MeshImportComputeTangents ) {
-        if ( _asMeshlet )
+        if ( _cookMeshlets )
             flags |= MeshImportAsMeshlet;
         return _manager.importMesh( _name, path, flags );
     }
 
     /// @brief Generates a procedural Unit Cube.
     MeshHandle createCube() {
-        return _manager.createCube( _name, _asMeshlet );
+        return _manager.createCube( _name, _cookMeshlets );
     }
 
     /// @brief Generates a procedural Sphere (UV Sphere).
     MeshHandle createSphere( u32 segments = 32 ) {
-        return _manager.createSphere( _name, segments, _asMeshlet );
+        return _manager.createSphere( _name, segments, _cookMeshlets );
     }
 
     /// @brief Generates a procedural Quad (Square).
     MeshHandle createQuad( u32 subdivisions = 0 ) {
-        return _manager.createQuad( _name, subdivisions, _asMeshlet );
+        return _manager.createQuad( _name, subdivisions, _cookMeshlets );
     }
 
     /// @brief Creates a mesh from raw vertex and index data.
     MeshHandle create( const STLW::Vector<Vertex>& vertices, const STLW::Vector<u32>& indices = {} ) {
-        return _manager.createMesh( _name, vertices, indices );
+        return _manager.createMesh( _name, vertices, indices, Graphics::PrimitiveTopology::TriangleList, _cookMeshlets );
     }
 
-    /// @brief Flags the builder to process the geometry into Meshlets.
-    MeshBuilder& asMeshlet( bool value = true ) {
-        _asMeshlet = value;
+    /// @brief Skips meshlet cooking. Meshlets are cooked by default (the Rasterizer draws through mesh shaders):
+    /// only disable it for meshes that are never rasterized (eg: raytracing only geometry)
+    MeshBuilder& disableMeshlets() {
+        _cookMeshlets = false;
         return *this;
     }
 
 private:
     AssetManager& _manager;
     StringView    _name;
-    bool          _asMeshlet = false;
+    bool          _cookMeshlets = true;
 };
 
 /// @brief Fluent builder for configuring and creating Textures.

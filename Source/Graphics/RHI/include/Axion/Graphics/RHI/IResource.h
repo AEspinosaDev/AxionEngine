@@ -43,6 +43,8 @@ public:
     virtual const ITexture::Description& getDescription() const   = 0;
     virtual ResourceState                getCurrentState() const  = 0;
     virtual u64                          getDeviceAddress() const = 0;
+    virtual BindlessIndex                getBindlessSRVIdx() const = 0; ///< INVALID if no SRV view
+    virtual BindlessIndex                getBindlessUAVIdx() const = 0; ///< INVALID if no UAV view
 };
 
 typedef ITexture::Description TextureDesc;
@@ -89,6 +91,9 @@ public:
 
     virtual u64   getDeviceAddress() const = 0;
     virtual void* getHostAddress() const   = 0;
+
+    virtual BindlessIndex getBindlessSRVIdx() const = 0; ///< Raw or structured, depending on the buffer desc. INVALID if no SRV view
+    virtual BindlessIndex getBindlessUAVIdx() const = 0; ///< INVALID if no UAV view
 
     virtual void copyData( const void* data, u64 size, u64 offset = 0 ) = 0;
 
@@ -145,6 +150,8 @@ public:
 
     virtual u64 getUpdateScratchSize() const = 0;
     virtual u64 getBuildScratchSize() const  = 0;
+
+    virtual BindlessIndex getBindlessSRVIdx() const = 0; ///< RaytracingAccelerationStructure through the heap. INVALID if no SRV view
 };
 
 using AccelDesc = IAccel::Description;
@@ -193,6 +200,7 @@ public:
         }
     };
     virtual const Description& getDescription() const = 0;
+    virtual BindlessIndex      getBindlessIdx() const = 0; ///< Index inside the global sampler heap
 };
 
 using SamplerDesc = ISampler::Description;

@@ -1,8 +1,8 @@
 #pragma once
-#include "Axion/Common/Defines.h"
-#include "Axion/Graphics/Platforms/GLFW.h"
-#include "Axion/Graphics/Platforms/Win32.h"
-#include "Axion/Graphics/Renderer.h"
+#include "Axion/Common/Common.h"
+#include "Axion/Graphics/Platforms/IGLFW.h"
+#include "Axion/Graphics/Platforms/IWin32.h"
+#include "Axion/Graphics/IRenderer.h"
 
 USING_AXION_NAMESPACE
 
@@ -49,7 +49,7 @@ int main( /*int argc, char* argv[]*/ ) {
             // rnd->render();
         };
 
-    } catch ( const std::exception& e )
+    } catch ( const std::exception& /*e*/ )
     {
         return EXIT_FAILURE;
     }

@@ -3,7 +3,8 @@
 #include <Axion/Common/Math.h>
 #include <Axion/Common/Memory/Pointers/OwnerPtr.h>
 #include <Axion/Common/Memory/Pointers/SharedPtr.h>
-#include <Axion/Core/Render/Common.h>
+#include <Axion/Core/Assets/Common.h>
+
 
 
 AXION_NAMESPACE_BEGIN
@@ -21,6 +22,10 @@ struct Vertex {
     Math::Vec4 color;
 };
 
+// Meshlet cooking limits (must match MESHLET_MAX_* in Constants.slang)
+constexpr u32 MESHLET_MAX_VERTICES  = 64;
+constexpr u32 MESHLET_MAX_TRIANGLES = 126;
+
 // Meshlet metadata matching the GPU structure (Aligned to 48 bytes)
 struct Meshlet {
     u32 vertexOffset;
@@ -37,6 +42,7 @@ struct Meshlet {
     s8    coneAxis[3];
     s8    coneCutoff;
 };
+AXION_STATIC_ASSERT( sizeof( Meshlet ) == 48, "Meshlet layout must match MESHLET_STRIDE in Constants.slang" );
 
 // Meshlet data
 struct MeshletData {
@@ -82,30 +88,17 @@ private:
 
     explicit Mesh( StringView                  name,
                    STLW::Vector<Vertex>&&      verts,
-                   STLW::Vector<u32>&&         inds,
-                   Graphics::PrimitiveTopology topology      = Graphics::PrimitiveTopology::TriangleList,
-                   bool                        computeBounds = true )
+                   STLW::Vector<u32>&&           inds,
+                   Graphics::PrimitiveTopology   topology      = Graphics::PrimitiveTopology::TriangleList,
+                   bool                          computeBounds = true,
+                   Memory::OwnerPtr<MeshletData> meshlets      = nullptr ) ///< Optional, cooked on top of the classic index buffer
         : _name( name )
         , _topology( topology ) {
 
         _geoData           = std::make_shared<GeometryData>();
         _geoData->vertices = std::move( verts );
         _geoData->indices  = std::move( inds );
-
-        if ( computeBounds )
-            calculateBounds();
-    }
-    explicit Mesh( StringView                  name,
-                   STLW::Vector<Vertex>&&      verts,
-                   MeshletData&&               meshletData,
-                   Graphics::PrimitiveTopology topology      = Graphics::PrimitiveTopology::TriangleList,
-                   bool                        computeBounds = true )
-        : _name( name )
-        , _topology( topology ) {
-
-        _geoData           = std::make_shared<GeometryData>();
-        _geoData->vertices = std::move( verts );
-        _geoData->meshlets = Memory::makeOwned<MeshletData>( std::move( meshletData ) );
+        _geoData->meshlets = std::move( meshlets );
 
         if ( computeBounds )
             calculateBounds();

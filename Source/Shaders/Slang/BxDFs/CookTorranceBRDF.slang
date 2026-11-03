@@ -1,5 +1,5 @@
 // BxDFs/CookTorrance.slang
-#include "BxDF.slang"
+#include "IBxDF.slang"
 #include "BxDF_Math.slang"
 
 // ------------------------------------------------------------------

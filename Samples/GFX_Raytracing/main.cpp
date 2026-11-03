@@ -42,7 +42,7 @@ struct Scene {
         Math::Mat4 invView;
         Math::Mat4 invProj;
         Math::Mat4 model;
-        u32       frameIndex;
+        u32        frameIndex;
     };
 };
 
@@ -52,8 +52,8 @@ struct Cube {
     Graphics::BufferHandle ibo;
     Graphics::AccelHandle  accel;
 
-   FixedArray<Vertex, 24> vertices = cubeVertices;
-   FixedArray<u32, 36>   indices  = cubeIndices;
+    FixedArray<Vertex, 24> vertices = cubeVertices;
+    FixedArray<u32, 36>    indices  = cubeIndices;
 };
 
 struct RTXPass {
@@ -90,10 +90,13 @@ struct RTXPass {
 
         auto* set0 = ctx.allocateSet( pso->getDescription().layout, 0 );
         set0->attach( 0, accel );
-        set0->attach( 1, vb, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 2, ib, Graphics::RHI::ResourceState::ShaderResource );
-        set0->attach( 3, targetTex, Graphics::RHI::ResourceState::UnorderedAccess );
-        set0->attach( 4, ubo, Graphics::RHI::ResourceState::ConstantBuffer );
+        set0->attach( 1, Graphics::RHI::DescriptorType::SRV_Buffer, vb );
+        set0->attach( 2, Graphics::RHI::DescriptorType::SRV_Buffer, ib );
+
+        set0->attach( 0, Graphics::RHI::DescriptorType::UAV_Image, targetTex );
+
+        set0->attach( 0, Graphics::RHI::DescriptorType::CBV, ubo );
+        
         ctx.cmd->bindDescriptorSet( 0, set0 );
 
         Graphics::RHI::SBT sbt;
@@ -110,11 +113,11 @@ struct RTXPass {
 };
 
 Axion::Graphics::RHI::AccelInstanceDesc createInstance(
-    u32              id,
-    u32              hitGroup,
+    u32               id,
+    u32               hitGroup,
     const Math::Vec3& pos,
     const Math::Vec3& scale,
-    u64             blasAddress );
+    u64               blasAddress );
 int main( /*int argc, char* argv[]*/ ) {
 
     try
@@ -125,13 +128,13 @@ int main( /*int argc, char* argv[]*/ ) {
 
         auto wnd = Axion::Graphics::createWindowForWin32( GetModuleHandle( nullptr ), { .name = "GFX Raytracing Sample" } );
 
-        auto       bufferingType    = Graphics::BufferingType::Double;
+        auto      bufferingType    = Graphics::BufferingType::Double;
         const u32 FRAMES_IN_FLIGHT = (size_t)bufferingType + 1;
-        auto       rnd              = Axion::Graphics::createRenderer( wnd.get(),
-                                                                       { .gfxApi        = Graphics::API::DirectX12,
-                                                                         .bufferingType = bufferingType,
-                                                                         .presentMode   = Graphics::PresentMode::Immediate,
-                                                                         .autoSync      = true } );
+        auto      rnd              = Axion::Graphics::createRenderer( wnd.get(),
+                                                                      { .gfxApi        = Graphics::API::DirectX12,
+                                                                        .bufferingType = bufferingType,
+                                                                        .presentMode   = Graphics::PresentMode::Immediate,
+                                                                        .autoSync      = true } );
 
         //-------------------------------------
         // Declaring Shaders & Pipelines
@@ -260,8 +263,8 @@ int main( /*int argc, char* argv[]*/ ) {
         static Axion::Math::Vec3 target = { 0, 0, 0 };
 
         // Events
-        u64 frameCount = 0;
-        auto  evnt       = wnd->onKey().subscribe( [&scn, &frameCount]( const Event::KeyEvent& e ) {
+        u64  frameCount = 0;
+        auto evnt       = wnd->onKey().subscribe( [&scn, &frameCount]( const Event::KeyEvent& e ) {
             if ( e.keyCode == Event::KeyCode::W && e.pressed )
             {
                 scn.camPos.z += 0.1f;
@@ -294,7 +297,7 @@ int main( /*int argc, char* argv[]*/ ) {
                 frameCount = 0;
             }
         } );
-        auto  evnt2      = wnd->onResize().subscribe( [&frameCount]( const Event::WindowResizeEvent& e ) {
+        auto evnt2      = wnd->onResize().subscribe( [&frameCount]( const Event::WindowResizeEvent& e ) {
             frameCount = 0;
         } );
 
@@ -396,11 +399,11 @@ int main( /*int argc, char* argv[]*/ ) {
 }
 
 Axion::Graphics::RHI::AccelInstanceDesc createInstance(
-    u32              id,
-    u32              hitGroup,
+    u32               id,
+    u32               hitGroup,
     const Math::Vec3& pos,
     const Math::Vec3& scale,
-    u64             blasAddress ) {
+    u64               blasAddress ) {
     Axion::Graphics::RHI::AccelInstanceDesc inst = {};
     inst.instanceID                              = id;
     inst.instanceMask                            = 0xFF;

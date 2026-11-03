@@ -19,26 +19,26 @@ using RGResourceHandle                   = u32;
 const RGResourceHandle RG_INVALID_HANDLE = UINT32_MAX;
 
 /// @brief Context passed to the execution lambda of a render pass.
-/// Provides access to physical resources and command recording.
+/// Provides access to physical resources and fram context for command recording.
 struct RenderPassContext {
-    RHI::ICommandList*           cmd;            ///< Command list for recording GPU commands.
-    RHI::IDescriptorAllocator*   descriptors;    ///< Descriptor Allocate to register GPU visible DescriptorSets.
+    RHI::ICommandList* cmd; ///< Command list for recording GPU commands.
+
+    RHI::IDescriptorAllocator*   descAllocator;  ///< Descriptor Allocator to register GPU visible DescriptorSets.
     RHI::ISBTAllocator*          sbtAllocator;   ///< SBT AllocatOR to register GPU visible Shader Groups for RTX.
     RHI::TransientDataAllocator* transAllocator; ///< Transient Resource AllocatOR to upload data.
 
-    const IRenderGraph& graph;     ///< Reference to the graph for handle resolution.
-    IPipelineRegistry&  pipelines; ///< Access to compiled PSOs.
-    IGPUResourcePool&   resources; ///< Access to physical GPU resources.
+    const IRenderGraph& graph; ///< Reference to the graph for handle resolution.
+
+    IPipelineRegistry& pipelines; ///< Access to compiled PSOs Pool.
+    IGPUResourcePool&  resources; ///< Access to physical GPU resources Pool.
 
     /// @brief Resolves a logical buffer handle to its physical pointer.
     RHI::IBuffer* getBuffer( RGResourceHandle handle ) const;
-
     /// @brief Resolves a logical texture handle to its physical pointer.
     RHI::ITexture* getTexture( RGResourceHandle handle ) const;
 
     RHI::IDescriptorSet* allocateSet( RHI::IPipelineLayout* layout, u32 setIndex ) const;
     RHI::SBT::Allocation allocateSBT( const RHI::SBT& sbt, RHI::IRayTracingPipeline* pip ) const;
-    BufferSlice          uploadDynamic( const void* data, u64 size, u64 alignment = 256 ) const;
 };
 
 /// @brief Helper class to declare resource usage during the Setup phase.
@@ -63,11 +63,12 @@ private:
 };
 
 /// @brief Main entry point for defining the frame graph structure.
+/// GPU Resources and Descriptors can be created and set ready for the RDG usage
 class RenderGraphBuilder
 {
 public:
-    RenderGraphBuilder( IRenderGraph& graph )
-        : _graph( graph ) {}
+    RenderGraphBuilder( IRenderGraph& graph, RHI::IDescriptorAllocator& descAlloc )
+        : _graph( graph ), _descAllocator( descAlloc ){}
 
     class TextureBuilder;
     class BufferBuilder;
@@ -83,6 +84,8 @@ public:
 
     /// @brief Imports an existing physical buffer into the graph.
     RGResourceHandle import( StringView name, BufferHandle handle );
+
+    RHI::IDescriptorSet* allocateDescriptorSet( RHI::IPipelineLayout* layout, u32 setIndex );
 
     /// @brief Adds a new render pass to the graph.
     /// @tparam PassData Struct type to hold pass-specific data (handles, settings).
@@ -116,6 +119,8 @@ private:
     RGResourceHandle create( StringView name, const RHI::TextureDesc& desc );
     RGResourceHandle create( StringView name, const RHI::BufferDesc& desc );
     IRenderGraph&    _graph;
+    RHI::IDescriptorAllocator& _descAllocator;
+
 };
 
 /// @brief Function signature for the user-defined frame setup logic.
@@ -127,13 +132,7 @@ class IRenderGraph
 {
 public:
     struct Description {
-        u32  framesInFlight;
         u64  passDataAllocSize;
-        u32  desciptorSetAllocSize;
-        u32  descriptorMaxViews    = 256;
-        u32  descriptorMaxSamplers = 64;
-        u64  sbtAllocSize          = 0;
-        u64  transientAllocSize    = 64 * 1024 * 1024;
         u32  resourceTTL;
         bool autoSync = true;
     };
@@ -147,14 +146,17 @@ public:
 
     /// @brief Compiles and executes the frame graph.
     /// @param setup User lambda defining the passes.
-    /// @param cmd Command list to record into.
-    virtual void execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) = 0;
+    /// @param frameCtx Current frame context.
+    virtual void execute( RenderGraphSetupFunc         setup,
+                          RHI::ICommandList*           cmd,
+                          RHI::IDescriptorAllocator*   descAlloc,
+                          RHI::ISBTAllocator*          sbtAlloc,
+                          RHI::TransientDataAllocator* transAlloc ) = 0;
 
     // -- Internal Access (Virtual) --
 
-    virtual RHI::IBuffer*              getPhysicalBuffer( RGResourceHandle handle ) const  = 0;
-    virtual RHI::ITexture*             getPhysicalTexture( RGResourceHandle handle ) const = 0;
-    virtual RHI::IDescriptorAllocator* getDescriptorAllocator( u32 frameIndex )            = 0;
+    virtual RHI::IBuffer*  getPhysicalBuffer( RGResourceHandle handle ) const  = 0;
+    virtual RHI::ITexture* getPhysicalTexture( RGResourceHandle handle ) const = 0;
 
     /// @brief Sets the Time-To-Live for cached transient resources.
     virtual void setGarbageCollectionTTL( u32 frames ) = 0;

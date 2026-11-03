@@ -7,7 +7,10 @@ namespace Core::Assets {
 
 class StandardPBRMaterial : public Material
 {
-    AXION_DECLARE_MATERIAL_ARCH_NAME( "StandardPBR" );
+    AXION_DECLARE_MATERIAL_ARCH(
+        "StandardPBR",
+        "StandardPBR.slang",
+        "StandardPBRMaterial" );
 
 public:
     // Total: 64 bytes
@@ -23,12 +26,12 @@ public:
         // Chunk 2
         float normalScale;
         float aoStrength;
-        u32  albedoTexIndex;
-        u32  normalTexIndex;
+        u32   albedoTexIndex;
+        u32   normalTexIndex;
 
         // Chunk 3
-        u32  armTexIndex;      // Packed (AO, Roughness, Metallic)
-        u32  emissiveTexIndex; // Texture ID
+        u32   armTexIndex;      // Packed (AO, Roughness, Metallic)
+        u32   emissiveTexIndex; // Texture ID
         float padding[2];
     };
 
@@ -84,7 +87,7 @@ public:
     }
 
     void setNormalTexture( TextureHandle handle ) {
-        if ( _normalMapHandle!= handle )
+        if ( _normalMapHandle != handle )
         {
             _normalMapHandle = handle;
             markDirty();
@@ -135,13 +138,13 @@ public:
         std::memcpy( dest, &p, sizeof( GPUPayload ) );
     }
 
-    STLW::Vector<TextureHandle> getTextureHandles() const override { return { _albedoMapHandle, _normalMapHandle, _armMapHandle, _emissiveMapHandle}; };
+    STLW::Vector<TextureHandle> getTextureHandles() const override { return { _albedoMapHandle, _normalMapHandle, _armMapHandle, _emissiveMapHandle }; };
 
 private:
     friend class AssetManager;
 
     explicit StandardPBRMaterial( StringView name )
-        : Material(  name  ) {}
+        : Material( name ) {}
 
     Math::Vec3 _albedo      = { 0.5f, 0.5f, 0.5f };
     Math::Vec3 _emissive    = { 0.0f, 0.0f, 0.0f };
@@ -155,26 +158,8 @@ private:
     TextureHandle _emissiveMapHandle;
 };
 
+AXION_REGISTER_MATERIAL( StandardPBRMaterial );
+
 } // namespace Core::Assets
 
 AXION_NAMESPACE_END
-
-AXION_REGISTER_MATERIAL( StandardPBRMaterial ) {
-
-    desc.name = Axion::Core::Assets::StandardPBRMaterial::ARCHETYPE;
-
-    desc.payloadSize = sizeof( Axion::Core::Assets::StandardPBRMaterial::GPUPayload );
-
-    desc.topologiesSupported = Axion::Core::Render::MaterialTopologyTriangles;
-
-    Axion::Core::Render::MaterialArchetypePassConfig pass;
-    pass.passType   = Axion::Core::Render::MaterialPassType::Opaque;
-    pass.shaderPath = AXION_SHADER_DIR "/Slang/Materials/StandardPBR.slang";
-
-    pass.entryPoints = {
-        { "vsForward", Axion::Graphics::ShaderType::Vertex },
-        { "psForward", Axion::Graphics::ShaderType::Pixel } };
-    pass.customIncludePath = AXION_SHADER_DIR "/Slang/BxDFs";
-
-    desc.passConfigs.push_back( pass );
-}

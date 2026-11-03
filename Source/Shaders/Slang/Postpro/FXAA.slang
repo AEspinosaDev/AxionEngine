@@ -18,21 +18,21 @@
 // ============================================================================
 // High-Quality FXAA 3.11 Compute Shader (PC Preset)
 // ============================================================================
-#include "Defines.slang"
+#include "Defines.slang" // PUSH_CONSTANT / SPACE_* / DECLARE_* macros
+import Bindless;
 
-Texture2D<float4>   gInput : register( t0, space0 );
-RWTexture2D<float4> gOutput : register( u1, space0 );
-SamplerState gSampler: register(s0, space0);
+DECLARE_TEXTURE( Texture2D<float4>, gInput, 0 );
+DECLARE_RW_TEXTURE( RWTexture2D<float4>, gOutput, 0 );
 
 public struct PushConstant {
     float  subpix;
     float  edgeThreshold;
     float  edgeThresholdMin;
-    float  pad;
+    uint   samplerID; // Bindless linear sampler (space 2 has no sampler range)
     float2 inverseTexSize;
 };
 
-PUSH_CONSTANT( PushConstant, gPush, b0, space1 );
+DECLARE_PUSH_CONSTANT( PushConstant, gPush );
 
 #if defined( FXAA_QUALITY_LOW )
 #define FXAA_SEARCH_STEPS 4
@@ -60,6 +60,8 @@ float getLuma(float3 rgb) {
 [shader( "compute" )]
 [numthreads( 8, 8, 1 )]
 void computeMain( uint3 dispatchThreadId : SV_DispatchThreadID) {
+    SamplerState linearSampler = getSampler( gPush.samplerID );
+
     uint  width, height;
     gOutput.GetDimensions( width, height );
 
@@ -70,13 +72,13 @@ void computeMain( uint3 dispatchThreadId : SV_DispatchThreadID) {
     float2 uv = ( float2( pixelCoord ) + 0.5 ) * gPush.inverseTexSize;
 
     // 1. Local Contrast Check
-    float3 rgbM  = gInput.SampleLevel( gSampler, uv, 0 ).rgb;
+    float3 rgbM  = gInput.SampleLevel( linearSampler, uv, 0 ).rgb;
     float  lumaM = getLuma( rgbM );
 
-    float lumaS = getLuma( gInput.SampleLevel( gSampler, uv + float2( 0, 1 ) * gPush.inverseTexSize, 0 ).rgb );
-    float lumaN = getLuma( gInput.SampleLevel( gSampler, uv + float2( 0, -1 ) * gPush.inverseTexSize, 0 ).rgb );
-    float lumaE = getLuma( gInput.SampleLevel( gSampler, uv + float2( 1, 0 ) * gPush.inverseTexSize, 0 ).rgb );
-    float lumaW = getLuma( gInput.SampleLevel( gSampler, uv + float2( -1, 0 ) * gPush.inverseTexSize, 0 ).rgb );
+    float lumaS = getLuma( gInput.SampleLevel( linearSampler, uv + float2( 0, 1 ) * gPush.inverseTexSize, 0 ).rgb );
+    float lumaN = getLuma( gInput.SampleLevel( linearSampler, uv + float2( 0, -1 ) * gPush.inverseTexSize, 0 ).rgb );
+    float lumaE = getLuma( gInput.SampleLevel( linearSampler, uv + float2( 1, 0 ) * gPush.inverseTexSize, 0 ).rgb );
+    float lumaW = getLuma( gInput.SampleLevel( linearSampler, uv + float2( -1, 0 ) * gPush.inverseTexSize, 0 ).rgb );
 
     float lumaMax   = max( lumaM, max( max( lumaN, lumaS ), max( lumaW, lumaE ) ) );
     float lumaMin   = min( lumaM, min( min( lumaN, lumaS ), min( lumaW, lumaE ) ) );
@@ -88,10 +90,10 @@ void computeMain( uint3 dispatchThreadId : SV_DispatchThreadID) {
     }
 
     // 2. Sub-pixel aliasing test 
-    float lumaNW = getLuma( gInput.SampleLevel( gSampler, uv + float2( -1, -1 ) * gPush.inverseTexSize, 0 ).rgb );
-    float lumaNE = getLuma( gInput.SampleLevel( gSampler, uv + float2( 1, -1 ) * gPush.inverseTexSize, 0 ).rgb );
-    float lumaSW = getLuma( gInput.SampleLevel( gSampler, uv + float2( -1, 1 ) * gPush.inverseTexSize, 0 ).rgb );
-    float lumaSE = getLuma( gInput.SampleLevel( gSampler, uv + float2( 1, 1 ) * gPush.inverseTexSize, 0 ).rgb );
+    float lumaNW = getLuma( gInput.SampleLevel( linearSampler, uv + float2( -1, -1 ) * gPush.inverseTexSize, 0 ).rgb );
+    float lumaNE = getLuma( gInput.SampleLevel( linearSampler, uv + float2( 1, -1 ) * gPush.inverseTexSize, 0 ).rgb );
+    float lumaSW = getLuma( gInput.SampleLevel( linearSampler, uv + float2( -1, 1 ) * gPush.inverseTexSize, 0 ).rgb );
+    float lumaSE = getLuma( gInput.SampleLevel( linearSampler, uv + float2( 1, 1 ) * gPush.inverseTexSize, 0 ).rgb );
 
     // Filtro de sub-píxel de bajo coste (3x3 Box Filter)
     float lumaL       = ( lumaN + lumaS + lumaE + lumaW );
@@ -134,8 +136,8 @@ void computeMain( uint3 dispatchThreadId : SV_DispatchThreadID) {
     float2 uv1 = currentUv - offset;
     float2 uv2 = currentUv + offset;
 
-    float lumaEnd1 = getLuma( gInput.SampleLevel( gSampler, uv1, 0 ).rgb ) - lumaLocalAvg;
-    float lumaEnd2 = getLuma( gInput.SampleLevel( gSampler, uv2, 0 ).rgb ) - lumaLocalAvg;
+    float lumaEnd1 = getLuma( gInput.SampleLevel( linearSampler, uv1, 0 ).rgb ) - lumaLocalAvg;
+    float lumaEnd2 = getLuma( gInput.SampleLevel( linearSampler, uv2, 0 ).rgb ) - lumaLocalAvg;
 
     bool reached1 = abs(lumaEnd1) >= gradientScaled;
     bool reached2 = abs(lumaEnd2) >= gradientScaled;
@@ -149,12 +151,12 @@ void computeMain( uint3 dispatchThreadId : SV_DispatchThreadID) {
         if (reachedBoth) break;
         
         if (!reached1) {
-            lumaEnd1 = getLuma(gInput.SampleLevel(gSampler, uv1, 0).rgb) - lumaLocalAvg;
+            lumaEnd1 = getLuma(gInput.SampleLevel(linearSampler, uv1, 0).rgb) - lumaLocalAvg;
             reached1 = abs(lumaEnd1) >= gradientScaled;
             if (!reached1) uv1 -= offset * FXAA_SEARCH_ACCELERATION;
         }
         if (!reached2) {
-            lumaEnd2 = getLuma(gInput.SampleLevel(gSampler, uv2, 0).rgb) - lumaLocalAvg;
+            lumaEnd2 = getLuma(gInput.SampleLevel(linearSampler, uv2, 0).rgb) - lumaLocalAvg;
             reached2 = abs(lumaEnd2) >= gradientScaled;
             if (!reached2) uv2 += offset * FXAA_SEARCH_ACCELERATION;
         }
@@ -183,6 +185,6 @@ void computeMain( uint3 dispatchThreadId : SV_DispatchThreadID) {
         finalUv.x += finalOffset * stepDirection;
     }
 
-    float3 finalColor = gInput.SampleLevel( gSampler, finalUv, 0 ).rgb;
+    float3 finalColor = gInput.SampleLevel( linearSampler, finalUv, 0 ).rgb;
     gOutput[pixelCoord] = float4(finalColor, 1.0);
 }

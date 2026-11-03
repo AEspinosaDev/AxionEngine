@@ -13,7 +13,14 @@ using namespace slang;
 class ShaderCompiler
 {
 public:
-    void begin();
+    /// @brief General settings for shader compiler.
+    struct Settings {
+        String32 dxilProfile  = "sm_6_6";   ///< DirectX 12
+        String32 spirvProfile = "glsl_450"; ///< Vulkan
+        String32 glslProfile  = "glsl_450"; ///< OpenGL 
+    };
+
+    void begin( const Settings& settings );
     bool compileFile( const ShaderDesc& desc, ShaderBundle& outBundle );
     void end();
 
@@ -27,6 +34,7 @@ private:
     void extractVertexAttributes( slang::IComponentType* program, STLW::Vector<RHI::VertexAttribute>& outAttribs );
 
     Slang::ComPtr<IGlobalSession> _globalSession = nullptr;
+    Settings                   _settings;
 
 }; // namespace ShaderCompiler
 

@@ -17,11 +17,14 @@ public:
     const Description& getDescription() const override { return _desc; }
 
     void reset() override;
-    void execute( RenderGraphSetupFunc setup, RHI::ICommandList* cmd ) override;
+    void execute( RenderGraphSetupFunc         setup,
+                  RHI::ICommandList*           cmd,
+                  RHI::IDescriptorAllocator*   descAlloc,
+                  RHI::ISBTAllocator*          sbtAlloc,
+                  RHI::TransientDataAllocator* transAlloc ) override;
 
-    RHI::IBuffer*              getPhysicalBuffer( RGResourceHandle handle ) const override;
-    RHI::ITexture*             getPhysicalTexture( RGResourceHandle handle ) const override;
-    RHI::IDescriptorAllocator* getDescriptorAllocator( u32 frameIndex ) override;
+    RHI::IBuffer*  getPhysicalBuffer( RGResourceHandle handle ) const override;
+    RHI::ITexture* getPhysicalTexture( RGResourceHandle handle ) const override;
 
     void setGarbageCollectionTTL( u32 frames ) override;
     void setAutoSync( bool enable ) override;
@@ -44,11 +47,8 @@ private:
 
     void compile();
 
-    IGPUResourcePool*                                _pool      = nullptr;
-    IPipelineRegistry*                               _pipelines = nullptr;
-    SmallVector<RHI::DescriptorAllocatorOwnerPtr, 3> _descriptorAllocators;
-    SmallVector<RHI::SBTAllocatorOwnerPtr, 3>        _sbtAllocators;
-    SmallVector<RHI::TransientDataAllocator, 3>      _transientAllocators;
+    IGPUResourcePool*  _pool      = nullptr;
+    IPipelineRegistry* _pipelines = nullptr;
 
     RenderGraphDesc _desc;
 

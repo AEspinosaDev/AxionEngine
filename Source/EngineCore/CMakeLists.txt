@@ -5,11 +5,16 @@
 file(GLOB CORE_SOURCES
     "src/*.hpp"
     "src/*.cpp"
+    # Scene
     "src/Scene/*.cpp"
+    # Platform
     "src/Platform/*.cpp"
+    # Assets
     "src/Assets/*.cpp"
     "src/Assets/Loaders/*.cpp"
+    # Render
     "src/Render/*.cpp"
+    "src/Render/Rasterizer/*.cpp"
 )
 
 add_library(AxionCore STATIC ${CORE_SOURCES})

@@ -1,7 +1,7 @@
 #pragma once
 #include "Axion/Common/Common.h"
-#include "Axion/Common/Math.h"
 #include "Axion/Common/Containers/String.h"
+#include "Axion/Common/Math.h"
 
 AXION_NAMESPACE_BEGIN
 
@@ -15,6 +15,7 @@ enum class API : u32
 {
     DirectX12,
     Vulkan,
+    Metal,
     Invalid
 };
 enum class PlatformType : u32
@@ -274,7 +275,7 @@ enum class AddressMode
 struct ClearValue {
     Math::Vec4 color   = { 0.0, 0.0, 0.0, 1.0 }; // RGBA for RTV/UAV
     float      depth   = 1.0f;                   // depth for DSV
-    byte      stencil = 0;                      // stencil for DSV
+    byte       stencil = 0;                      // stencil for DSV
 
     inline bool operator==( const ClearValue o ) const {
         return color == o.color && depth == o.depth && stencil == o.stencil;
@@ -294,7 +295,31 @@ enum class PrimitiveTopology : byte
     TriangleStrip,
     TriangleFan,
     PatchList,
+    Count
 };
+
+AXION_ENUM_CLASS_FLAG_OPERATORS( PrimitiveTopology )
+
+// String32 getTopologyString( PrimitiveTopology type ) {
+//     switch ( type )
+//     {
+//         case PrimitiveTopology::TriangleList:
+//             return "TriList";
+//         case PrimitiveTopology::TriangleStrip:
+//             return "TriStrip";
+//         case PrimitiveTopology::TriangleFan:
+//             return "TriFan";
+//         case PrimitiveTopology::LineList:
+//             return "LineList";
+//         case PrimitiveTopology::LineStrip:
+//             return "LineStrip";
+//         case PrimitiveTopology::PointList:
+//             return "PntList";
+
+//         default:
+//             return "Unknown";
+//     }
+// }
 
 enum class FillMode : byte
 {
@@ -443,5 +468,58 @@ struct PreprocessorDefine {
 };
 
 } // namespace Shader
+
+struct RenderState {
+    Graphics::PrimitiveTopology topology   = Graphics::PrimitiveTopology::TriangleList;
+    Graphics::FillMode          fillMode   = Graphics::FillMode::Solid;
+    Graphics::CullMode          cullMode   = Graphics::CullMode::Front;
+    Graphics::BlendOp           blendOp    = Graphics::BlendOp::Add;
+    Graphics::CompareOp         depthOp    = Graphics::CompareOp::LessEqual;
+    bool                        depthWrite = true;
+    bool                        depthTest  = true;
+    // To be extended later ...
+
+    bool operator==( const RenderState& o ) const {
+        return topology == o.topology &&
+               fillMode == o.fillMode &&
+               cullMode == o.cullMode &&
+               blendOp == o.blendOp &&
+               depthOp == o.depthOp &&
+               depthWrite == o.depthWrite &&
+               depthTest == o.depthTest;
+    };
+    bool operator!=( const RenderState& o ) const {
+        return !operator==( o );
+    };
+};
+
+struct RendererMemoryBudget {
+    struct Device {
+        u64  maxTextureAlloc      = GIGABYTES( 1ull ); ///< Logical cap for loaded textures VRAM Pool (SRV, UAV).
+        u64  maxBufferAlloc       = MBYTES( 512 );     ///< Logical cap for loaded buffers VRAM Pool (CBV, SRV, UAV).
+        u64  maxRenderTargetAlloc = MBYTES( 256 );     ///< Logical cap for render tartgets VRAM Pool (RTV, DSV).
+        u64  maxUploadAlloc       = MBYTES( 256 );     ///< Logical cap for CPU visible data Pool.
+        bool strict               = false;             ///< If memory request surpass the limits, strict mode doesnt let device allocate new memory
+    };
+    struct Host {
+        u64  maxPersistentAlloc        = MBYTES( 64 ); ///< Memory reservation for persistent data allocations.
+        u64  maxTransientAllocPerFrame = MBYTES( 16 ); ///< Memory reservation for transient data allocations per frame.
+        bool useOS                     = true;         ///< Strict mode use optimized custom allocators instead of OS,
+    };
+
+    Device device {};
+    Host   host {};
+};
+
+struct RendererDescriptorBudget {
+    u32 maxDescriptorsPerFrame = 2048; ///< Initial memory reservation for per-frame DescriptorSet data.
+    u32 maxViewsPerFrame       = 256;  ///< Initial view count reservation for per-frame Descriptor Pools.
+    u32 maxSamplersPerFrame    = 128;  ///< Initial sampler count reservation for per-frame Descriptor Pools.
+
+    u32 maxPersistentDescriptors = 256;  ///< DescriptorSets that live for the whole renderer lifetime (never reset).
+    u32 maxPersistentViews       = 1024; ///< View count reserved for persistent DescriptorSets.
+    u32 maxPersistentSamplers    = 64;   ///< Sampler count reserved for persistent DescriptorSets.
+};
+
 } // namespace Graphics
 AXION_NAMESPACE_END

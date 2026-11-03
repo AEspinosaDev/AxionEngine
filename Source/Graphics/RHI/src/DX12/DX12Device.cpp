@@ -1,6 +1,7 @@
 #include "DX12Device.h"
 #include "DX12CommandList.h"
 #include "DX12Debug.h"
+#include "DX12GUIBackend.h"
 #include "DX12Pipeline.h"
 #include "DX12Resource.h"
 #include "DX12SBTAllocator.h"
@@ -42,18 +43,34 @@ DX12Device::DX12Device( const IDX12Device::Description& desc ) {
         _ctx.computeQueue = createCommandQueue( QueueType::Compute, "Compute Queue" );
         _ctx.copyQueue    = createCommandQueue( QueueType::Transfer, "Copy Queue" );
 
-        // Default global desc heaps
-        _ctx.heapSRV.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::CBV_SRV_UAV, desc.shaderResourceViewHeapSize );
-        _ctx.heapRTV.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::RTV, desc.renderTargetViewHeapSize );
-        _ctx.heapDSV.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::DSV, desc.depthStencilViewHeapSize );
-        _ctx.heapSamplers.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::Sampler, desc.samplerHeapSize );
+        // CPU-only
+        {
+            _ctx.cpuHeapSRV.initialize( _ctx.device.Get(),      DX12DescriptorHeap::Type::CBV_SRV_UAV,  desc.cpuShaderResourceViewHeapSize, DX12DescriptorHeap::AllocationPolicy::FreeList );
+            _ctx.cpuHeapSRV.setDebugName( "Device CPU SRV Heap" );
+            _ctx.cpuHeapRTV.initialize( _ctx.device.Get(),      DX12DescriptorHeap::Type::RTV,          desc.cpuRenderTargetViewHeapSize,   DX12DescriptorHeap::AllocationPolicy::FreeList );
+            _ctx.cpuHeapRTV.setDebugName( "Device CPU RTV Heap" );
+            _ctx.cpuHeapDSV.initialize( _ctx.device.Get(),      DX12DescriptorHeap::Type::DSV,          desc.cpuDepthStencilViewHeapSize,   DX12DescriptorHeap::AllocationPolicy::FreeList );
+            _ctx.cpuHeapDSV.setDebugName( "Device CPU DSV Heap" );
+            _ctx.cpuHeapSamplers.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::Sampler,      desc.cpuSamplerHeapSize,            DX12DescriptorHeap::AllocationPolicy::FreeList );
+            _ctx.cpuHeapSamplers.setDebugName( "Device CPU Samplers Heap" );
+        }
+
+        // GPU-visible desc heaps
+        {
+            AXION_LOG_ASSERT( desc.gpuShaderResourceViewHeapSize <= D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_2, Logger::Module::RHI, "gpuShaderResourceViewHeapSize exceeds D3D12 limit" );
+            AXION_LOG_ASSERT( desc.gpuSamplerHeapSize <= D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE,                      Logger::Module::RHI, "gpuSamplerHeapSize exceeds D3D12 limit (2048)" );
+            _ctx.gpuHeapSRV.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::CBV_SRV_UAV,   desc.gpuShaderResourceViewHeapSize, DX12DescriptorHeap::AllocationPolicy::FreeList, true );
+            _ctx.gpuHeapSRV.setDebugName( "Devuce GPU SRV Heap" );
+            _ctx.gpuHeapSamplers.initialize( _ctx.device.Get(), DX12DescriptorHeap::Type::Sampler,  desc.gpuSamplerHeapSize,            DX12DescriptorHeap::AllocationPolicy::FreeList, true );
+            _ctx.gpuHeapSamplers.setDebugName( "Devuice GPU Samplers Heap" );
+        }
 
         // Memory Allocator and Pools
         createMasterAllocator( );
         createDefaultMemoryPools( );
 
         // Upload subcontext
-        _ctx.uploadContext.initialize( _ctx.device );
+        _ctx.uploadContext.initialize( _ctx.device, _ctx.gpuHeapSRV, _ctx.gpuHeapSamplers );
     }
 
     _initialized = true;
@@ -86,7 +103,7 @@ SwapchainOwnerPtr DX12Device::createSwapchain( const NativeObject& Ptr, const Sw
 }
 
 CommandListOwnerPtr DX12Device::createCommandList( const CommandListDesc& desc ) {
-    return Memory::makeOwned<DX12CommandList>( _ctx.device, desc );
+    return Memory::makeOwned<DX12CommandList>( _ctx.device, _ctx.gpuHeapSRV, _ctx.gpuHeapSamplers, desc );
 }
 
 TextureOwnerPtr DX12Device::createTexture( const TextureDesc& desc, const void* initialData ) {
@@ -105,8 +122,12 @@ AccelOwnerPtr DX12Device::createAccel( const AccelDesc& desc, bool immediateBuil
     return Memory::makeOwned<DX12Accel>( desc, _ctx, immediateBuild );
 }
 
+GUIBackendOwnerPtr DX12Device::createGUIBackend( const GUIBackendDesc& desc ) {
+    return Memory::makeOwned<DX12GUIBackend>( desc, _ctx );
+}
+
 PipelineLayoutOwnerPtr DX12Device::createPipelineLayout( const PipelineLayoutDesc& desc ) {
-    return Memory::makeOwned<DX12PipelineLayout>( _ctx.device, desc );
+    return Memory::makeOwned<DX12PipelineLayout>( _ctx.device, desc, _ext.heapDirectlyIndexedEnabled, _ext.meshletsSupported );
 }
 
 GraphicPipelineOwnerPtr DX12Device::createGraphicPipeline( const GraphicPipelineDesc& desc ) {
@@ -126,7 +147,7 @@ MeshPipelineOwnerPtr DX12Device::createMeshPipeline( const MeshPipelineDesc& des
 }
 
 DescriptorAllocatorOwnerPtr DX12Device::createDescriptorAllocator( const DescriptorAllocatorDesc& desc ) {
-    return Memory::makeOwned<DX12DescriptorAllocator>( _ctx.device.Get(), desc );
+    return Memory::makeOwned<DX12DescriptorAllocator>( _ctx.device.Get(), _ctx.gpuHeapSRV, _ctx.gpuHeapSamplers, desc );
 }
 
 SBTAllocatorOwnerPtr DX12Device::createSBTAllocator( const SBTAllocatorDesc& desc ) {
@@ -207,6 +228,8 @@ bool DX12Device::queryFeatureSupport( FeatureType feature, void* /*pInfo*/, size
     {
         case FeatureType::DeferredCommandLists:
             return true;
+        case FeatureType::HeapDirectlyIndexed:
+            return _ext.heapDirectlyIndexedEnabled;
         case FeatureType::SinglePassStereo:
             return _ext.singlePassStereoSupported;
         case FeatureType::RayTracingAccelStruct:
@@ -514,20 +537,24 @@ STLW::String RHI::DX12Device::toString() const {
                     "  Feature Level: 0x{:X}\n"
                     "  Enable Debug Layer: {}\n"
                     "  Use WARP: {}\n"
-                    "  RTV Heap Size: {}\n"
-                    "  DSV Heap Size: {}\n"
-                    "  SRV Heap Size: {}\n"
-                    "  Sampler Heap Size: {}\n"
+                    "  CPU RTV Heap Size: {}\n"
+                    "  CPU DSV Heap Size: {}\n"
+                    "  CPU SRV Heap Size: {}\n"
+                    "  CPU Sampler Heap Size: {}\n"
+                    "  GPU SRV Heap Size: {}\n"
+                    "  GPU Sampler Heap Size: {}\n"
                     "  Heap Directly Indexed: {}\n",
                     _desc.debugName.cstr(),
                     _gpuAdapterName.cstr(),
                     static_cast<int>( _desc.featureLevel ),
                     _desc.enableDebugLayer,
                     _desc.useWarp,
-                    _desc.renderTargetViewHeapSize,
-                    _desc.depthStencilViewHeapSize,
-                    _desc.shaderResourceViewHeapSize,
-                    _desc.samplerHeapSize,
+                    _desc.cpuRenderTargetViewHeapSize,
+                    _desc.cpuDepthStencilViewHeapSize,
+                    _desc.cpuShaderResourceViewHeapSize,
+                    _desc.cpuSamplerHeapSize,
+                    _desc.gpuShaderResourceViewHeapSize,
+                    _desc.gpuSamplerHeapSize,
                     _desc.enableHeapDirectlyIndexed );
 
     fmt::format_to( std::back_inserter( out ), "  Extensions:\n" );
@@ -563,10 +590,12 @@ DX12Device::Queue* DX12Device::getQueueRW( const QueueType& type ) {
     return const_cast<DX12Device::Queue*>( constThis->getQueue( type ) );
 }
 
-void DX12Device::UploadContext::initialize( const ComPtr<ID3D12Device2>& device ) {
+void DX12Device::UploadContext::initialize( const ComPtr<ID3D12Device2>& device, DX12DescriptorHeap& gpuHeapSRV, DX12DescriptorHeap& gpuHeapSamplers ) {
 
     _cmdList = Memory::makeOwned<DX12CommandList>(
         device,
+        gpuHeapSRV,
+        gpuHeapSamplers,
         CommandListDesc {
             .queueType = QueueType::Graphics,
             .numFrames = 1,

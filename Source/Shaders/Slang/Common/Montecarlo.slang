@@ -1,5 +1,5 @@
 
-#include "Defines.slang"
+import Constants;
 
 // -----------------------------------------------------------------
 // Basis Operations

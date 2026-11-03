@@ -5,7 +5,9 @@ AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
 
-void ShaderCompiler::begin() {
+void ShaderCompiler::begin( const Settings& settings ) {
+    _settings = settings;
+
     // 1. Create Only One Slang Session for performance
     // CAUTION ! MONO-THREAD
     if ( !_globalSession )
@@ -27,15 +29,15 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
     {
         case Shader::NativeFormat::DXIL:
             targetDesc.format  = SLANG_DXIL;
-            targetDesc.profile = _globalSession->findProfile( "sm_6_5" );
+            targetDesc.profile = _globalSession->findProfile( _settings.dxilProfile.cstr() );
             break;
         case Shader::NativeFormat::SPIR_V:
             targetDesc.format  = SLANG_SPIRV;
-            targetDesc.profile = _globalSession->findProfile( "glsl_450" );
+            targetDesc.profile = _globalSession->findProfile( _settings.spirvProfile.cstr() );
             break;
         case Shader::NativeFormat::GLSL:
             targetDesc.format  = SLANG_GLSL;
-            targetDesc.profile = _globalSession->findProfile( "glsl_450" );
+            targetDesc.profile = _globalSession->findProfile( _settings.glslProfile.cstr() );
             break;
         default:
             break;
@@ -103,11 +105,36 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
         return false;
     }
 
-    STLW::Vector<Slang::ComPtr<slang::IEntryPoint>> entryPointsKeepAlive;
-    STLW::Vector<slang::IComponentType*>            rawComponents;
+    STLW::Vector<Slang::ComPtr<slang::IEntryPoint>>    entryPointsKeepAlive;
+    STLW::Vector<Slang::ComPtr<slang::IModule>>        extraModulesKeepAlive;
+    STLW::Vector<Slang::ComPtr<slang::IComponentType>> componentsKeepAlive;
+    STLW::Vector<slang::IComponentType*>               rawComponents;
 
-    rawComponents.reserve( desc.entryPoints.size() + 1 );
+    rawComponents.reserve( desc.entryPoints.size() + 1 + desc.additionalModules.size() );
     rawComponents.push_back( module.get() );
+
+    // Load additional modules
+    // 2. Load and add all additional modules (e.g., Material implementations)
+    for ( const auto& extraModName : desc.additionalModules )
+    {
+        Slang::ComPtr<slang::IBlob>   extraDiagnostics;
+        Slang::ComPtr<slang::IModule> extraModule( session->loadModule( extraModName.cstr(), extraDiagnostics.writeRef() ) );
+
+        if ( extraDiagnostics )
+        {
+            const char* diagText = (const char*)extraDiagnostics->getBufferPointer();
+            AXION_LOG_WARN( Logger::Module::Shader, "Diagnostics for module {}: {}", extraModName, diagText );
+        }
+
+        if ( !extraModule )
+        {
+            AXION_LOG_ERROR( Logger::Module::Shader, "Slang failed to load additional module '{}'", extraModName );
+            return false;
+        }
+
+        extraModulesKeepAlive.push_back( extraModule );
+        rawComponents.push_back( extraModule.get() );
+    }
 
     if ( desc.entryPoints.empty() )
     {
@@ -126,11 +153,47 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
             return false;
         }
 
-        // 2. Guardamos el ComPtr para que el objeto no muera al terminar esta iteración del for
-        entryPointsKeepAlive.push_back( entryPoint );
+        // Look for specialization args
+        SmallVector<slang::SpecializationArg, 2> specializationArgs;
+        for ( const auto& specType : desc.spececializationTypeNames )
+        {
+            if ( specType.empty() )
+                continue;
 
-        // 3. Añadimos el puntero crudo a la lista de componentes
-        rawComponents.push_back( entryPoint.get() );
+            slang::TypeReflection* specReflType = module->getLayout()->findTypeByName( specType.cstr() );
+            // The concrete type usually lives in an additional module (eg: material implementation)
+            for ( size_t m = 0; !specReflType && m < extraModulesKeepAlive.size(); ++m )
+                specReflType = extraModulesKeepAlive[m]->getLayout()->findTypeByName( specType.cstr() );
+
+            if ( !specReflType )
+            {
+                AXION_LOG_ERROR( Logger::Module::Shader, "Failed to find concrete type '{}' in pass module or additional modules for specialization.", specType );
+                return false;
+            }
+            specializationArgs.pushBack( { slang::SpecializationArg::Kind::Type, specReflType } );
+        }
+        // Specialize the entry point
+        Slang::ComPtr<slang::IComponentType> specializedEntryPoint = nullptr;
+        if ( !specializationArgs.isEmpty() )
+        {
+            Slang::ComPtr<slang::IBlob> diagnosticsBlob;
+            SlangResult                 res = entryPoint->specialize(
+                specializationArgs.data(),
+                specializationArgs.size(),
+                specializedEntryPoint.writeRef(),
+                diagnosticsBlob.writeRef() );
+
+            if ( diagnosticsBlob )
+            {
+                const char* diagText = (const char*)diagnosticsBlob->getBufferPointer();
+                AXION_LOG_ERROR( Logger::Module::Shader, "Specialization Diagnostics: {}", diagText );
+            }
+            SLANG_RETURN_ON_FAIL( res );
+        }
+
+        entryPointsKeepAlive.push_back( entryPoint );
+        componentsKeepAlive.push_back( specializedEntryPoint );
+        rawComponents.push_back( specializedEntryPoint ? specializedEntryPoint.get() : entryPoint.get() );
     }
 
     Slang::ComPtr<slang::IComponentType> composedProgram;
@@ -237,7 +300,7 @@ RHI::DescriptorType ShaderCompiler::slangTypeToRHI( slang::TypeReflection* type 
     switch ( kind )
     {
         case TypeReflection::Kind::ConstantBuffer:
-            return RHI::DescriptorType::UniformBuffer; // cbuffer { ... }
+            return RHI::DescriptorType::CBV; // cbuffer { ... }
 
         case TypeReflection::Kind::Resource: {
             SlangResourceShape  shape  = type->getResourceShape();
@@ -246,17 +309,17 @@ RHI::DescriptorType ShaderCompiler::slangTypeToRHI( slang::TypeReflection* type 
             // 0. Accel
             if ( shape == SLANG_ACCELERATION_STRUCTURE )
             {
-                return RHI::DescriptorType::AccelerationStructure;
+                return RHI::DescriptorType::SRV_Accel;
             }
             // 1. Texturas
             if ( shape & SLANG_RESOURCE_BASE_SHAPE_MASK )
             {
                 // Si es escritura (RWTexture) -> StorageImage (UAV)
                 if ( access == SLANG_RESOURCE_ACCESS_READ_WRITE || access == SLANG_RESOURCE_ACCESS_WRITE )
-                    return RHI::DescriptorType::StorageImage;
+                    return RHI::DescriptorType::UAV_Image;
 
                 // Si es lectura -> SampledImage (SRV)
-                return RHI::DescriptorType::SampledImage;
+                return RHI::DescriptorType::SRV_Image;
             }
 
             // 2. Buffers (Structured, ByteAddress, etc.)
@@ -265,9 +328,9 @@ RHI::DescriptorType ShaderCompiler::slangTypeToRHI( slang::TypeReflection* type 
             if ( shape & SLANG_STRUCTURED_BUFFER ||
                  shape & SLANG_BYTE_ADDRESS_BUFFER )
             {
-                return RHI::DescriptorType::StorageBuffer;
+                return RHI::DescriptorType::UAV_Buffer;
             }
-            return RHI::DescriptorType::SampledImage; // Fallback
+            return RHI::DescriptorType::SRV_Image; // Fallback
         }
 
         case TypeReflection::Kind::SamplerState:
@@ -275,10 +338,10 @@ RHI::DescriptorType ShaderCompiler::slangTypeToRHI( slang::TypeReflection* type 
 
         // Nota: ParameterBlock se trataría aquí si decides usarlo en el futuro
         case TypeReflection::Kind::ParameterBlock:
-            return RHI::DescriptorType::UniformBuffer; // Ojo: Esto depende de cómo lo implementes
+            return RHI::DescriptorType::CBV; // Ojo: Esto depende de cómo lo implementes
 
         default:
-            return RHI::DescriptorType::UniformBuffer; // Fallback
+            return RHI::DescriptorType::CBV; // Fallback
     }
 }
 
@@ -313,85 +376,85 @@ Format ShaderCompiler::slangFormatToRHI( slang::TypeReflection* type ) {
 }
 
 void ShaderCompiler::reflectParameter(
-    slang::VariableLayoutReflection*                       varLayout,
+    slang::VariableLayoutReflection*                      varLayout,
     STLW::Map<u32, STLW::Vector<RHI::DescriptorBinding>>& tempSets ) {
     slang::TypeReflection*      type = varLayout->getType();
     slang::TypeReflection::Kind kind = type->getKind();
 
-    // --- CASO 1: Es un recurso directo (Buffer, Texture, Sampler) ---
-    // Reutilizamos la lógica de detección de tipo que te di antes
-    // Desentrañamos arrays primero
-    slang::TypeReflection* checkType = type;
-    while ( checkType->getKind() == slang::TypeReflection::Kind::Array )
-    {
-        checkType = checkType->getElementType();
-    }
-    slang::TypeReflection::Kind realKind = checkType->getKind();
+    // // --- CASO 1: Es un recurso directo (Buffer, Texture, Sampler) ---
+    // // Reutilizamos la lógica de detección de tipo que te di antes
+    // // Desentrañamos arrays primero
+    // slang::TypeReflection* checkType = type;
+    // while ( checkType->getKind() == slang::TypeReflection::Kind::Array )
+    // {
+    //     checkType = checkType->getElementType();
+    // }
+    // slang::TypeReflection::Kind realKind = checkType->getKind();
 
-    bool isResource =
-        ( realKind == slang::TypeReflection::Kind::Resource ) ||
-        ( realKind == slang::TypeReflection::Kind::SamplerState ) ||
-        ( realKind == slang::TypeReflection::Kind::ConstantBuffer );
+    // bool isResource =
+    //     ( realKind == slang::TypeReflection::Kind::Resource ) ||
+    //     ( realKind == slang::TypeReflection::Kind::SamplerState ) ||
+    //     ( realKind == slang::TypeReflection::Kind::ConstantBuffer );
 
-    if ( isResource )
-    {
-        u32 bindingIdx = (u32)varLayout->getBindingIndex();
-        u32 spaceIdx   = (u32)varLayout->getBindingSpace();
+    // if ( isResource )
+    // {
+    //     u32 bindingIdx = (u32)varLayout->getBindingIndex();
+    //     u32 spaceIdx   = (u32)varLayout->getBindingSpace();
 
-        // Si Slang dice "sin binding", lo ignoramos (o es un error del shader)
-        if ( bindingIdx == -1 )
-            return;
+    //     // Si Slang dice "sin binding", lo ignoramos (o es un error del shader)
+    //     if ( bindingIdx == -1 )
+    //         return;
 
-        RHI::DescriptorBinding bindingInfo;
-        bindingInfo.binding   = bindingIdx;
-        bindingInfo.type      = slangTypeToRHI( type ); // Tu función de mapeo
-        bindingInfo.stageMask = RHI::ShaderStage::All;  // Asumimos visibilidad total
-        bindingInfo.arraySize = (u32)type->getElementCount();
-        if ( bindingInfo.arraySize == 0 )
-            bindingInfo.arraySize = 1;
+    //     RHI::DescriptorBinding bindingInfo;
+    //     bindingInfo.binding   = bindingIdx;
+    //     bindingInfo.type      = slangTypeToRHI( type ); // Tu función de mapeo
+    //     bindingInfo.stageMask = RHI::ShaderStage::All;  // Asumimos visibilidad total
+    //     bindingInfo.arraySize = (u32)type->getElementCount();
+    //     if ( bindingInfo.arraySize == 0 )
+    //         bindingInfo.arraySize = 1;
 
-        // IMPORTANTE: Evitar duplicados si Slang reporta el mismo recurso en Global y en EntryPoint
-        // Simplemente sobrescribimos (o chequeamos si existe)
-        auto& bindings = tempSets[spaceIdx];
-        bool  exists   = false;
-        for ( auto& b : bindings )
-        {
-            if ( b.binding == bindingInfo.binding )
-            {
-                exists = true;
-                break;
-            }
-        }
-        if ( !exists )
-            bindings.push_back( bindingInfo );
+    //     // IMPORTANTE: Evitar duplicados si Slang reporta el mismo recurso en Global y en EntryPoint
+    //     // Simplemente sobrescribimos (o chequeamos si existe)
+    //     auto& bindings = tempSets[spaceIdx];
+    //     bool  exists   = false;
+    //     for ( auto& b : bindings )
+    //     {
+    //         if ( b.binding == bindingInfo.binding )
+    //         {
+    //             exists = true;
+    //             break;
+    //         }
+    //     }
+    //     if ( !exists )
+    //         bindings.push_back( bindingInfo );
 
-        return; // Ya procesamos este nodo, no necesitamos entrar más
-    }
+    //     return; // Ya procesamos este nodo, no necesitamos entrar más
+    // }
 
-    // --- CASO 2: Es un Struct o Constant Buffer Block ---
-    // Si Slang ha agrupado cosas (o usamos ParameterBlock), entramos recursivamente.
-    if ( kind == slang::TypeReflection::Kind::Struct ||
-         kind == slang::TypeReflection::Kind::ParameterBlock )
-    {
-        // Un ParameterBlock tiene su propio sub-layout de campos
-        unsigned fieldCount = type->getFieldCount();
-        for ( unsigned i = 0; i < fieldCount; i++ )
-        {
-            // OJO: type->getFieldByIndex da TypeLayout, pero varLayout->getTypeLayout()->getFieldByIndex...
-            // La forma correcta de navegar la JERARQUÍA DE VARIABLES es usar getFieldByIndex del type
-            // pero necesitamos el VariableLayout correspondiente (offset/binding relativo).
+    // // --- CASO 2: Es un Struct o Constant Buffer Block ---
+    // // Si Slang ha agrupado cosas (o usamos ParameterBlock), entramos recursivamente.
+    // if ( kind == slang::TypeReflection::Kind::Struct ||
+    //      kind == slang::TypeReflection::Kind::ParameterBlock )
+    // {
+    //     // Un ParameterBlock tiene su propio sub-layout de campos
+    //     unsigned fieldCount = type->getFieldCount();
+    //     for ( unsigned i = 0; i < fieldCount; i++ )
+    //     {
+    //         // OJO: type->getFieldByIndex da TypeLayout, pero varLayout->getTypeLayout()->getFieldByIndex...
+    //         // La forma correcta de navegar la JERARQUÍA DE VARIABLES es usar getFieldByIndex del type
+    //         // pero necesitamos el VariableLayout correspondiente (offset/binding relativo).
 
-            // Slang a veces expone los hijos directamente si es un ParameterBlock
-            // Si es un struct normal usado como uniform, no tiene bindings dentro.
-            // PERO si es un struct usado como ParameterBlock, sí.
+    //         // Slang a veces expone los hijos directamente si es un ParameterBlock
+    //         // Si es un struct normal usado como uniform, no tiene bindings dentro.
+    //         // PERO si es un struct usado como ParameterBlock, sí.
 
-            // Simplificación: En tu caso (Global Resources), suelen ser top-level.
-            // Si ese 'paramCount == 1' es un struct anónimo, esto lo cazaría.
+    //         // Simplificación: En tu caso (Global Resources), suelen ser top-level.
+    //         // Si ese 'paramCount == 1' es un struct anónimo, esto lo cazaría.
 
-            // Nota: Navegar sub-campos de variables en Slang puede ser complejo porque
-            // depende de si es Offset-based (Uniforms) o Register-based.
-        }
-    }
+    //         // Nota: Navegar sub-campos de variables en Slang puede ser complejo porque
+    //         // depende de si es Offset-based (Uniforms) o Register-based.
+    //     }
+    // }
 }
 void ShaderCompiler::extractReflection( StringView name, IComponentType* program, RHI::PipelineLayoutDesc& outDesc ) {
 
@@ -462,8 +525,8 @@ void ShaderCompiler::extractReflection( StringView name, IComponentType* program
 
             outDesc.pushConstant.size           = (u32)sizeBytes;
             outDesc.pushConstant.stageMask      = RHI::ShaderStage::All;
-            u32 assignedRegister               = varLayout->getBindingIndex();
-            u32 assignedSpace                  = varLayout->getBindingSpace();
+            u32 assignedRegister                = varLayout->getBindingIndex();
+            u32 assignedSpace                   = varLayout->getBindingSpace();
             outDesc.pushConstant.customRegister = assignedRegister;
             outDesc.pushConstant.customSpace    = assignedSpace;
 
@@ -497,9 +560,10 @@ void ShaderCompiler::extractReflection( StringView name, IComponentType* program
         }
 
         RHI::DescriptorBinding bindingInfo;
-        bindingInfo.binding   = (u32)bindingIdx;
-        bindingInfo.type      = slangTypeToRHI( type );
-        bindingInfo.stageMask = RHI::ShaderStage::All;
+        bindingInfo.range.base  = (u32)bindingIdx;
+        bindingInfo.range.count = 1;
+        bindingInfo.type        = slangTypeToRHI( type );
+        bindingInfo.stageMask   = RHI::ShaderStage::All;
 
         bindingInfo.arraySize = (u32)type->getElementCount();
         if ( bindingInfo.arraySize == 0 )

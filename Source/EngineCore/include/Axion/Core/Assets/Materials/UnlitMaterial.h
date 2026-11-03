@@ -7,8 +7,10 @@ namespace Core::Assets {
 
 class UnlitMaterial : public Material
 {
-    AXION_DECLARE_MATERIAL_ARCH_NAME( "Unlit" );
-
+    AXION_DECLARE_MATERIAL_ARCH(
+        "Unlit",
+        "Unlit.slang",
+        "UnlitMaterial" );
 public:
     struct alignas( 16 ) GPUPayload {
         Math::Vec3 color;
@@ -90,24 +92,8 @@ private:
     TextureHandle _colorTextureHandle;
 };
 
+AXION_REGISTER_MATERIAL( UnlitMaterial );
 } // namespace Core::Assets
 
 AXION_NAMESPACE_END
 
-AXION_REGISTER_MATERIAL( UnlitMaterial ) {
-
-    desc.name = Axion::Core::Assets::UnlitMaterial::ARCHETYPE;
-
-    desc.payloadSize = sizeof( Axion::Core::Assets::UnlitMaterial::GPUPayload );
-
-    desc.topologiesSupported = Axion::Core::Render::MaterialTopologyTriangles;
-
-    Axion::Core::Render::MaterialArchetypePassConfig pass;
-    pass.passType    = Axion::Core::Render::MaterialPassType::Opaque;
-    pass.shaderPath  = AXION_SHADER_DIR "/Slang/Materials/Unlit.slang";
-    pass.entryPoints = {
-        { "vsForward", Axion::Graphics::ShaderType::Vertex },
-        { "psForward", Axion::Graphics::ShaderType::Pixel } };
-
-    desc.passConfigs.push_back( pass );
-}

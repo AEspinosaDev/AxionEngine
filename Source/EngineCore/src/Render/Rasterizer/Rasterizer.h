@@ -1,28 +1,33 @@
 #pragma once
-#include "Axion/Graphics/Passes/Utilitary.hpp"
 #include <Axion/Common/Containers/STLWrapper/String.h>
 #include <Axion/Common/Memory/VMemoryArena.h>
 #include <Axion/Core/Assets/Material.h>
 #include <Axion/Core/Render/IRasterizer.h>
 #include <Axion/Graphics/IRenderer.h>
+#include <Axion/Graphics/Passes/Utilitary.hpp>
 
-#include "DrawIndirect.h"
-#include "GPUScene.h"
-#include "MaterialSystem.h"
-#include "PassSystem.h"
+// Private
+// -------------------
+#include <Render/DrawIndirect.h>
+#include <Render/Rasterizer/RasterizerConfig.h>
+
+// Modules
+#include <Render/GPUScene.h>
+#include <Render/MaterialLibrary.h>
+#include <Render/PassManager.h>
 
 // High Level Passes
-#include "Passes/CullingPass.hpp"
-#include "Passes/DepthPass.hpp"
-#include "Passes/FXAAPass.hpp"
-#include "Passes/ForwardPass.hpp"
-#include "Passes/IndirectUploadPass.hpp"
-#include "Passes/TonemappingPass.hpp"
-#include "Passes/UploadPass.hpp"
+#include <Render/Passes/CullingPass.hpp>
+#include <Render/Passes/FXAAPass.hpp>
+#include <Render/Passes/IndirectUploadPass.hpp>
+#include <Render/Passes/TonemappingPass.hpp>
+#include <Render/Passes/UploadPass.hpp>
+#include <Render/Passes/VisPass.hpp>
+#include <Render/Passes/VisResolveNaivePass.hpp>
 
 AXION_NAMESPACE_BEGIN
 
-namespace Core::Render {
+namespace Core::Render::Rasterizer {
 
 class Rasterizer final : public IRasterizer
 {
@@ -50,12 +55,9 @@ public:
     STLW::String toString() const override;
 
 private:
-    void setupMaterialLibrary();
     void registerMaterials();
     void registerPasses();
     void createResources();
-
-    Graphics::IRenderer::MemoryBudget convertMemoryBudget();
 
     struct TransientPayload {
         Graphics::BufferSlice frameSlice;
@@ -65,6 +67,7 @@ private:
         Graphics::BufferSlice lightsSlice;
         Graphics::BufferSlice envsSlice;
         Graphics::BufferSlice redirectSlice;
+        Graphics::BufferSlice texturesSlice;
     };
 
     TransientPayload       uploadTransientData( Graphics::BufferLinearAllocator<>& currentUBOAlloc,
@@ -75,19 +78,19 @@ private:
     Platform::Window*  _window = nullptr;
     RasterizerSettings _settings;
 
-    // Memory Management
+    // CPU Memory Management
     // Memory::VMemoryArena _memoryArena;
 
     // Passes
     PassManager _passes;
     // Backend Passes
-    Axion::Graphics::Passes::BlitToBackBuffer _cpypass {};
-    Axion::Graphics::Passes::GUIPass          _guipass {};
-    Axion::Graphics::Passes::PresentPass      _presentpass {};
+    Graphics::Passes::BlitToBackBuffer _cpypass {};
+    Graphics::Passes::GUIPass          _guipass {};
+    Graphics::Passes::PresentPass      _presentpass {};
 
     // Material Library & Global Shader Contract
-    MaterialLibrary                _mtlLib;
-    Graphics::PipelineLayoutHandle _globalMtlLayoutHandle;
+    MaterialLibrary<(u32)Config::MaterialPassType::Count> _mtlLib;
+    Graphics::PipelineLayoutHandle                        _globalMtlLayoutHandle;
 
     // Graphics & GPU Resources Logic and Handles
     GPUScene _gpuScene;
@@ -102,7 +105,6 @@ private:
         // Indirect Rendering
         Graphics::BufferHandle            indirectStagingBufferHandle;
         Graphics::BufferLinearAllocator<> indirectAllocator;
-        Graphics::BufferHandle            indirectTemplateBufferHandle;
         Graphics::BufferHandle            indirectBufferHandle;
         Graphics::BufferHandle            culledInstanceBufferHandle;
 
@@ -117,12 +119,20 @@ private:
         Graphics::BufferHandle               indexBufferHandle;
         Graphics::BufferGPUFreeListAllocator indexAllocator;
 
+        Graphics::BufferHandle               meshletBufferHandle;
+        Graphics::BufferGPUFreeListAllocator meshletAllocator;
+
+        Graphics::BufferHandle               meshletVertexBufferHandle;
+        Graphics::BufferGPUFreeListAllocator meshletVertexAllocator;
+
+        Graphics::BufferHandle               meshletPrimitiveBufferHandle;
+        Graphics::BufferGPUFreeListAllocator meshletPrimitiveAllocator;
+
         Graphics::BufferHandle               mtlBufferHandle;
         Graphics::BufferGPUFreeListAllocator mtlAllocator;
 
-        Vector<Graphics::TextureHandle> textureHandles;
+        Vector<Graphics::TextureHandle> materialTextureHandles; ///< Indexed by GPUScene texture slot
         Graphics::TextureHandle         fallbackTexture2DHandle;
-        Vector<Graphics::SamplerHandle> samplerHandles;
         Graphics::SamplerHandle         fallbackSamplerHandle;
 
         SmallVector<FrameResources, 3> frame;
@@ -131,11 +141,9 @@ private:
 
     Graphics::RendererOwnerPtr _rnd = nullptr;
 
-    IndirectCommandPayload::Cache _indirectCommandDataCache;
-
     const u32 _FRAMES_IN_FLIGHT;
 };
 
-} // namespace Core::Render
+} // namespace Core::Render::Rasterizer
 
 AXION_NAMESPACE_END

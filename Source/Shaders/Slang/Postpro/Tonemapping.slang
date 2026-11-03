@@ -1,14 +1,14 @@
-#include "Defines.slang"
+#include "Defines.slang" // PUSH_CONSTANT / SPACE_* / DECLARE_* macros
 #include "Tonemappers.slang"
 
-Texture2D<float4>   gInput : register( t0, space0 );
-RWTexture2D<float4> gOutput : register( u1, space0 );
+DECLARE_TEXTURE( Texture2D<float4>, gInput, 0 );
+DECLARE_RW_TEXTURE( RWTexture2D<float4>, gOutput, 0 );
 
 public struct PushConstant {
     public float exposure;
 };
 
-PUSH_CONSTANT( PushConstant, gPush, b0, space1 );
+DECLARE_PUSH_CONSTANT( PushConstant, gPush );
 
 [shader( "compute" )]
 [numthreads( 8, 8, 1 )]

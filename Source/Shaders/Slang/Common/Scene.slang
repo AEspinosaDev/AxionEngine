@@ -1,3 +1,4 @@
+// MODULE: GPU scene data types (mirror of GPUObjects.h). import it.
 // ------------------------------------------------------------------
 // FRAME DATA (Global Per-Frame Constants)
 // ------------------------------------------------------------------
@@ -15,6 +16,10 @@ public struct FrameData {
     public float4 sceneAABBMax; // .xyz = Max (w unused)
 
     public float4 frustrumPlanes[6];
+
+    public uint  fallbackTex2DID; // Bindless defaults (renderer)
+    public uint  linearSamplerID;
+    public uint2 _pad;
 
     // --- Helper Methods (Getters) ---
 
@@ -63,6 +68,17 @@ public struct MeshData {
     public uint lastFrameUsed;
     public uint originalAssetID;
 
+    // Meshlets: byte offsets into gGlobalMeshlets / gGlobalMeshletVertices / gGlobalMeshletPrimitives
+    public uint meshletOffset;
+    public uint meshletVertexOffset;
+    public uint meshletPrimitiveOffset;
+    public uint meshletCount;
+
+    // Meshlet sizes (CPU bookkeeping, unused by shaders)
+    public uint  meshletVertexCount;
+    public uint  meshletPrimitiveSize;
+    public uint2 _pad;
+
     // --- Helpers ---
     public uint getTopology() { return (uint)aabbMaxTopology.w; }
 
@@ -76,7 +92,7 @@ public struct MeshData {
 public struct MaterialData {
     public uint bufferOffset; // Pointer to the big ByteAddressBuffer
     public uint payloadSize;
-    public uint archetypeID; // For validation or branching if needed
+    public uint psoBundleID; // MaterialLibrary pipeline bundle (archetype + render state)
     public uint valid;
 
     public uint lastFrameUsed;
@@ -85,48 +101,58 @@ public struct MaterialData {
 };
 
 // ------------------------------------------------------------------
+// TEXTURE DATA (GPUScene texture cache: payloads store the cache slot)
+// ------------------------------------------------------------------
+public struct TextureData {
+    public uint heapID; // Bindless index in the global heap (INVALID while not uploaded)
+    public uint valid;
+    public uint refCount;
+    public uint originalAssetID;
+};
+
+// ------------------------------------------------------------------
 // LIGHT DATA
 // ------------------------------------------------------------------
 
-#define LIGHT_TYPE_DIR 0
-#define LIGHT_TYPE_POINT 1
-#define LIGHT_TYPE_SPOT 2
-#define LIGHT_TYPE_AREA 3
+public static const uint LIGHT_TYPE_DIR   = 0;
+public static const uint LIGHT_TYPE_POINT = 1;
+public static const uint LIGHT_TYPE_SPOT  = 2;
+public static const uint LIGHT_TYPE_AREA  = 3;
 
 public struct LightData {
-    float4 pos_Intensity;
-    float4 col_Range;
-    float4 dir_Type;
-    float4 params;
+    public float4 pos_Intensity;
+    public float4 col_Range;
+    public float4 dir_Type;
+    public float4 params;
 
     // --- Getters Semánticos ---
 
-    property float3 position {
+    public property float3 position {
         get { return pos_Intensity.xyz; }
     }
-    property float intensity {
+    public property float intensity {
         get { return pos_Intensity.w; }
     }
-    property float3 color {
+    public property float3 color {
         get { return col_Range.xyz; }
     }
-    property float range {
+    public property float range {
         get { return col_Range.w; }
     }
-    property float3 direction {
+    public property float3 direction {
         get { return dir_Type.xyz; }
     } // Directional/Spot only
-    property uint type {
+    public property uint type {
         get { return (uint)dir_Type.w; }
     }
-    property bool isActive {
+    public property bool isActive {
         get { return params.w > 0.5; }
     }
 
-    property float spotInnerCos {
+    public property float spotInnerCos {
         get { return params.x; }
     }
-    property float spotOuterCos {
+    public property float spotOuterCos {
         get { return params.y; }
     }
 
@@ -137,30 +163,30 @@ public struct LightData {
 // ENVIROMENT DATA
 // ------------------------------------------------------------------
 
-#define ENV_TYPE_CONST 0
-#define ENV_TYPE_PROC 1
-#define ENV_TYPE_HDRI 2
+public static const uint ENV_TYPE_CONST = 0;
+public static const uint ENV_TYPE_PROC  = 1;
+public static const uint ENV_TYPE_HDRI  = 2;
 
 public struct EnvData {
-    float4 skyColor_Intensity;
-    float4 groundColor_Type;
-    uint   colorCubeMapID;
-    uint   irradianceMapID;
-    uint   prefilteredMapID;
-    uint   brdfLUTID;
-    float4 rotation_Blend;
-    float4 procSettings;
+    public float4 skyColor_Intensity;
+    public float4 groundColor_Type;
+    public uint   colorCubeMapID;
+    public uint   irradianceMapID;
+    public uint   prefilteredMapID;
+    public uint   brdfLUTID;
+    public float4 rotation_Blend;
+    public float4 procSettings;
 
-    property float3 skyColor {
+    public property float3 skyColor {
         get { return skyColor_Intensity.xyz; }
     }
-    property float3 groundColor {
+    public property float3 groundColor {
         get { return groundColor_Type.xyz; }
     }
-    property float intensity {
+    public property float intensity {
         get { return skyColor_Intensity.w; }
     }
-    property uint type {
+    public property uint type {
         get { return (uint)groundColor_Type.w; }
     }
 };

@@ -11,7 +11,7 @@ DEFINE_OWNER_PTR_FOR_TYPE( DX12PipelineLayout, DX12PipelineLayout )
 class DX12PipelineLayout final : public IPipelineLayout
 {
 public:
-    DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc );
+    DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc, bool heapDirectlyIndexed, bool meshShadingSupported );
     ~DX12PipelineLayout() override;
 
     const Description& getDescription() const override { return _desc; }
@@ -23,17 +23,21 @@ public:
     StringView         getDebugName() const override;
     STLW::String       toString() const override;
 
+    const D3D12BindingMappingLUT& getBindingMappingLUT( u32 setIndex ) const { return _bindingMappingPerSet[setIndex]; }
+
     std::pair<int, int> getRootIndices( u32 setIndex ) const {
         if ( setIndex >= _rootIndexMap.size() )
             return { -1, -1 };
         return _rootIndexMap[setIndex];
     }
+    int                     getPushConstantRootIndex() const { return _pushConstantRootIndex; } ///< -1 if the layout has no push constants
     ID3D12CommandSignature* getIndirectCommandSignature() const { return _drawIndexedIndirectSignature.Get(); }
     ID3D12CommandSignature* getDispatchIndirectSignature() const { return _dispatchIndirectSignature.Get(); }
+    ID3D12CommandSignature* getDispatchMeshIndirectSignature() const { return _dispatchMeshIndirectSignature.Get(); } ///< Null without mesh shading support
 
 private:
-    void                           buildRootSignature( const ComPtr<ID3D12Device2>& device );
-    void                           buildIndirectCommandSignature( const ComPtr<ID3D12Device2>& device );
+    void                           buildRootSignature( const ComPtr<ID3D12Device2>& device, bool heapDirectlyIndexed );
+    void                           buildIndirectCommandSignature( const ComPtr<ID3D12Device2>& device, bool meshShadingSupported );
     static D3D12_SHADER_VISIBILITY getShaderVisibility( const SmallVector<DescriptorBinding>& bindings );
 
     PipelineLayoutDesc          _desc;
@@ -43,12 +47,16 @@ private:
     int                            _pushConstantRootIndex = -1;
     ComPtr<ID3D12CommandSignature> _drawIndexedIndirectSignature;
     ComPtr<ID3D12CommandSignature> _dispatchIndirectSignature;
+    ComPtr<ID3D12CommandSignature> _dispatchMeshIndirectSignature;
 
-    SmallVector<u32, 4> _viewCountPerSet;
-    SmallVector<u32, 4> _samplerCountPerSet;
-    SmallVector<u32, 4> _accelCountPerSet;
+    SmallVector<u32, MAX_STACK_DESCRIPTOR_SET_COUNT> _viewCountPerSet;
+    SmallVector<u32, MAX_STACK_DESCRIPTOR_SET_COUNT> _samplerCountPerSet;
+    SmallVector<u32, MAX_STACK_DESCRIPTOR_SET_COUNT> _accelCountPerSet;
 
-    SmallVector<std::pair<int, int>, 4> _rootIndexMap;
+    SmallVector<std::pair<int, int>, MAX_STACK_DESCRIPTOR_SET_COUNT> _rootIndexMap;
+
+    // Binging LUT for easy interop with descriptors
+    SmallVector<D3D12BindingMappingLUT, MAX_STACK_DESCRIPTOR_SET_COUNT> _bindingMappingPerSet {};
 };
 
 DEFINE_OWNER_PTR_FOR_TYPE( DX12GraphicPipeline, DX12GraphicPipeline )

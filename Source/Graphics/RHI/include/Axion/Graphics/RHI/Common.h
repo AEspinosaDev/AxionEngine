@@ -15,19 +15,23 @@
 #include <Axion/Common/Memory/Allocators/SubAllocators/FreeListSubAllocator.h>
 #include <Axion/Common/Memory/Allocators/SubAllocators/LinearSubAllocator.h>
 
+#include <optional>
 
 #define ALIGN( _size, _alignment ) ( ( ( _size ) + ( _alignment ) - 1 ) & ~( ( _alignment ) - 1 ) )
-#define TEXTURE_DATA_PLACEMENT_ALIGNMENT ( 512 )
+#define AXION_TEXTURE_DATA_PLACEMENT_ALIGNMENT ( 512 )
 
 AXION_NAMESPACE_BEGIN
 
 namespace Graphics {
+
+constexpr u32 MAX_STACK_DESCRIPTOR_SET_COUNT = 4;
 
 ////////////////////////////////////////////////////////////////////////
 // Device Buffer Sub Allocator
 ////////////////////////////////////////////////////////////////////////
 
 namespace RHI {
+
 class IBuffer;
 }
 
@@ -64,6 +68,10 @@ using LockedBufferLinearAllocator = Memory::LinearSubAllocator<RHI::IBuffer, Vis
 
 namespace RHI {
 
+/// Index of a resource view inside the device global shader-visible heap (SM 6.6 ResourceDescriptorHeap[index])
+using BindlessIndex                            = u32;
+constexpr BindlessIndex INVALID_BINDLESS_INDEX = AXION_INVALID_U32;
+
 struct DrawIndexedIndirectCommand {
     u32 baseInstanceID; ///< Current Instance ID + offset
 
@@ -82,6 +90,9 @@ struct DispatchIndirectCommand {
     u32 threadGroupCountY;
     u32 threadGroupCountZ;
 };
+
+/// @brief Same layout as a compute dispatch: root constant + mesh shading grid
+using DispatchMeshIndirectCommand = DispatchIndirectCommand;
 
 enum class BarrierPolicy
 {
@@ -207,16 +218,25 @@ enum class FormatSupport : u32
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( FormatSupport )
 
+/**
+ * Ordered by register type
+ *
+ */
 enum class DescriptorType : byte
 {
-    UniformBuffer = 0,     // Constant buffer / UBO
-    StorageBuffer,         // RW buffer / SSBO
-    ReadonlyStorageBuffer, // RO buffer / SSBO
-    SampledImage,          // Texture SRV
-    StorageImage,          // RW texture / UAV
-    Sampler,               // Sampler object
-    AccelerationStructure, // For raytracing
-    CombinedImageSampler   // For Vulkan convenience (DX12 splits)
+    // CBO
+    CBV = 0, // D3D12_DESCRIPTOR_RANGE_TYPE_CBV (b) <-> VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+
+    SRV_Image,  // D3D12_DESCRIPTOR_RANGE_TYPE_SRV (t) <-> VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
+    SRV_Buffer, // D3D12_DESCRIPTOR_RANGE_TYPE_SRV (t) <-> VK_DESCRIPTOR_TYPE_STORAGE_BUFFER (Read-only)
+    SRV_Accel,  // D3D12_DESCRIPTOR_RANGE_TYPE_SRV (t) <-> VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR
+
+    UAV_Image,  // D3D12_DESCRIPTOR_RANGE_TYPE_UAV (u) <-> VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+    UAV_Buffer, // D3D12_DESCRIPTOR_RANGE_TYPE_UAV (u) <-> VK_DESCRIPTOR_TYPE_STORAGE_BUFFER (Read-Write
+
+    Sampler, // D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER (s) <-> VK_DESCRIPTOR_TYPE_SAMPLER
+
+    CombinedImageSampler // Especial: For Vulkan convenience (DX12 splits)
 };
 
 enum class ShaderStage : uint8_t
@@ -259,7 +279,8 @@ enum class PipelineBindPoint : byte
     None,
     Compute,
     Graphic,
-    RTX
+    RTX,
+    Mesh
 };
 
 enum class AccelType

@@ -12,8 +12,8 @@ namespace Graphics {
  */
 template <typename T>
 struct Handle {
-    uint32_t id = UINT32_MAX;
-    bool     isValid() const { return id != UINT32_MAX; }
+    u32 id = AXION_INVALID_U32;
+    bool     isValid() const { return id != AXION_INVALID_U32; }
 
     bool operator==( const Handle& other ) {
         return id == other.id;
