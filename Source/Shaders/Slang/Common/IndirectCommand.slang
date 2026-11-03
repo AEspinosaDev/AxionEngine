@@ -12,4 +12,11 @@ public struct DrawIndexedIndirectCommand {
     uint _padding[2];
 };
 
+public struct DispatchMeshIndirectCommand {
+    public uint baseInstanceID;    ///< Root constant (first push constant field)
+    public uint threadGroupCountX; ///< Meshlets of the mesh
+    public uint threadGroupCountY; ///< Instances (visible ones when GPU culling: atomically filled)
+    public uint threadGroupCountZ;
+};
+
 // -----------------------------------------------------------------

@@ -98,8 +98,9 @@ public:
 
     virtual u32 updateArchetypeState( u32 archetypeID, const Graphics::RenderState& state ) = 0;
 
-    virtual const MaterialPassProfile& getPassProfile( u32 passSlot ) const                 = 0;
-    virtual Graphics::PipelineHandle   getPipelineHandle( u32 bundleID, u32 passSlot ) const = 0;
+    virtual const MaterialPassProfile& getPassProfile( u32 passSlot ) const                    = 0;
+    virtual Graphics::PipelineHandle   getPipelineHandle( u32 psoBundleID, u32 passSlot ) const = 0;
+    virtual Graphics::RenderState      getBundleRenderState( u32 psoBundleID ) const          = 0; ///< Material render state the bundle was built with
 
     virtual u32  getArchetypeID( StringView name ) const = 0;
     virtual u64  getArchetypesCount() const              = 0;
@@ -196,11 +197,18 @@ public:
 
     /**
      * @brief Fetches a specific pipeline handle from the cache without throwing exceptions.
-     * @param bundleID The ID of the pipeline bundle.
+     * @param psoBundleID The ID of the pipeline bundle.
      * @param passSlot The specific pass slot index to retrieve the PSO for.
      * @return Graphics::PipelineHandle The pipeline handle, or Invalid if not found.
      */
-    Graphics::PipelineHandle getPipelineHandle( u32 bundleID, u32 passSlot ) const override;
+    Graphics::PipelineHandle getPipelineHandle( u32 psoBundleID, u32 passSlot ) const override;
+
+    /**
+     * @brief Material render state (cull mode, depth, etc) a pipeline bundle was built with.
+     * @param psoBundleID The ID of the pipeline bundle.
+     * @return Graphics::RenderState The bundle render state, or a default one if not found.
+     */
+    Graphics::RenderState getBundleRenderState( u32 psoBundleID ) const override;
 
 private:
     STLW::UnorderedMap<String64, u32>          _archetypeLookup; ///< Fast name-to-ID mapping for archetypes.

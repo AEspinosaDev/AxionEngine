@@ -46,6 +46,10 @@
 #if defined( _DEBUG ) || !defined( NDEBUG )
 #define AXION_DEBUG
 #endif
+
+/// @brief Compile time assertion (all build configurations)
+#define AXION_STATIC_ASSERT( cond, msg ) static_assert( cond, msg )
+
 #define AXION_ENUM_CLASS_FLAG_OPERATORS( T )                                                                                \
     inline T  operator|( T a, T b ) { return T( uint32_t( a ) | uint32_t( b ) ); }                                          \
     inline T  operator&( T a, T b ) { return T( uint32_t( a ) & uint32_t( b ) ); } /* NOLINT(bugprone-macro-parentheses) */ \

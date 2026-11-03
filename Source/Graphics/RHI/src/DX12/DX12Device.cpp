@@ -127,7 +127,7 @@ GUIBackendOwnerPtr DX12Device::createGUIBackend( const GUIBackendDesc& desc ) {
 }
 
 PipelineLayoutOwnerPtr DX12Device::createPipelineLayout( const PipelineLayoutDesc& desc ) {
-    return Memory::makeOwned<DX12PipelineLayout>( _ctx.device, desc, _ext.heapDirectlyIndexedEnabled );
+    return Memory::makeOwned<DX12PipelineLayout>( _ctx.device, desc, _ext.heapDirectlyIndexedEnabled, _ext.meshletsSupported );
 }
 
 GraphicPipelineOwnerPtr DX12Device::createGraphicPipeline( const GraphicPipelineDesc& desc ) {

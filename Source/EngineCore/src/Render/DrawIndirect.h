@@ -10,21 +10,15 @@ namespace Core::Render {
 // -----------------------------------------------------------------------------
 
 struct IndirectDrawBatch {
-    u32 bundleID; ///< MaterialLibrary pipeline bundle (archetype + render state)
-    u32 bufferOffset;
+    u32 psoBundleID;  ///< MaterialLibrary pipeline bundle (archetype + render state)
+    u32 bufferOffset; ///< Bytes, relative to the start of the command list
     u32 drawCount;
 };
 
 struct IndirectCommandPayload {
-    Graphics::BufferSlice           commandBufferSlice;
-    Graphics::BufferSlice           batchMapSlice;
+    Graphics::BufferSlice           commandBufferSlice; ///< DispatchMeshIndirectCommand list (CPU upload)
+    Graphics::BufferSlice           batchMapSlice;      ///< Sorted instance -> command (GPU culling only)
     STLW::Vector<IndirectDrawBatch> batches;
-    bool                            dirty = true;
-
-    struct Cache {
-        STLW::Vector<Graphics::RHI::DrawIndexedIndirectCommand> commands;
-        STLW::Vector<u32>                                       batchMap;
-    };
 };
 
 } // namespace Core::Render

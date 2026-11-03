@@ -1,72 +1,44 @@
-#include "Defines.slang"
-#include "IndirectCommand.slang"
-#include "Scene.slang"
+#include "Defines.slang" // PUSH_CONSTANT / SPACE_* / DECLARE_* macros
+import MaterialCommon;   // gFrame, gMeshes, gInstances, gInstanceRedirection (full sorted list)
+import IndirectCommand;
 
-// Space 0: Inputs
-ConstantBuffer<FrameData>      gFrame : register( b0, space0 );
-StructuredBuffer<MeshData>     gMeshes : register( t0, space0 );
-StructuredBuffer<InstanceData> gInstances : register( t1, space0 );
-StructuredBuffer<uint>         gInstanceRedirection : register( t2, space0 );
-StructuredBuffer<uint>         gBatchMap : register( t3, space0 );
+static const uint  CULLING_GROUP_SIZE    = 64;  // Must match CullingPass::GROUP_SIZE
+static const float CULLING_RADIUS_MARGIN = 1.2; // Conservative bounding sphere
 
-// Space 1: Outputs
-RWStructuredBuffer<DrawIndexedIndirectCommand> gDrawCmds : register( u0, space1 );
-RWStructuredBuffer<uint>                       gCulledRedirect : register( u1, space1 );
+// -----------------------------------------------------------
+// PASS I/O (Space 2)
+// -----------------------------------------------------------
+DECLARE_BUFFER( StructuredBuffer<uint>, gCommandMap, 0 );                            // Sorted instance -> indirect command
+DECLARE_RW_BUFFER( RWStructuredBuffer<DispatchMeshIndirectCommand>, gCommands, 0 ); // threadGroupCountY: visible instances
+DECLARE_RW_BUFFER( RWStructuredBuffer<uint>, gVisibleInstances, 1 );                // Compacted per command (from its baseInstanceID)
 
-// Space 2: Push Constants
-public struct PushConstant {
-    public uint totalInstanceCount;
+struct CullingPushConstant {
+    uint instanceCount;
 };
-
-PUSH_CONSTANT( PushConstant, gPush, b0, space2 );
+DECLARE_PUSH_CONSTANT( CullingPushConstant, gPush );
 
 [shader( "compute" )]
-[numthreads( 64, 1, 1 )]
-void computeMain( uint3 dispatchThreadId: SV_DispatchThreadID ) {
-    uint tID = dispatchThreadId.x;
-
-    if ( tID >= gPush.totalInstanceCount )
+[numthreads( CULLING_GROUP_SIZE, 1, 1 )]
+void csCulling( uint3 dispatchThreadID: SV_DispatchThreadID ) {
+    uint sortedIdx = dispatchThreadID.x;
+    if ( sortedIdx >= gPush.instanceCount )
         return;
 
-    uint         realEntityID = gInstanceRedirection[tID];
-    InstanceData instance     = gInstances[realEntityID];
-
+    uint         instanceID = gInstanceRedirection[sortedIdx];
+    InstanceData instance   = getInstanceData( instanceID );
     if ( instance.active == 0 )
         return;
 
-    MeshData mesh        = gMeshes[instance.meshID];
-    float4   localCenter = float4( mesh.bsphere.xyz, 1.0 );
-    float3   worldCenter = mul( instance.modelMatrix, localCenter ).xyz;
+    // Frustum vs world bounding sphere
+    MeshData mesh        = getMeshData( instance.meshID );
+    float3   worldCenter = mul( instance.modelMatrix, float4( mesh.bsphere.xyz, 1.0 ) ).xyz;
+    float    worldRadius = mesh.bsphere.w * getMaxScale( instance.modelMatrix ) * CULLING_RADIUS_MARGIN;
+    if ( !isSphereInFrustum( worldCenter, worldRadius ) )
+        return;
 
-    float3 scale;
-    scale.x           = length( instance.modelMatrix[0].xyz );
-    scale.y           = length( instance.modelMatrix[1].xyz );
-    scale.z           = length( instance.modelMatrix[2].xyz );
-    float maxScale    = max( scale.x, max( scale.y, scale.z ) );
-    float worldRadius = mesh.bsphere.w * maxScale * 1.2;
-
-    bool isVisible = true;
-
-    [unroll]
-    for ( int i = 0; i < 6; i++ )
-    {
-        float4 plane = gFrame.frustrumPlanes[i];
-        if ( dot( float4( worldCenter, 1.0 ), plane ) < -worldRadius )
-        {
-            isVisible = false;
-            break;
-        }
-    }
-
-    if ( isVisible )
-    {
-        uint cmdIndex = gBatchMap[tID];
-
-        uint mySlotIndex;
-        InterlockedAdd( gDrawCmds[cmdIndex].instanceCount, 1, mySlotIndex );
-
-        uint writePos = gDrawCmds[cmdIndex].baseInstanceID + mySlotIndex;
-
-        gCulledRedirect[writePos] = realEntityID;
-    }
+    // Append to its command
+    uint cmd = gCommandMap[sortedIdx];
+    uint slot;
+    InterlockedAdd( gCommands[cmd].threadGroupCountY, 1, slot );
+    gVisibleInstances[gCommands[cmd].baseInstanceID + slot] = instanceID;
 }

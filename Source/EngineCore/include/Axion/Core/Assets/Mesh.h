@@ -22,6 +22,10 @@ struct Vertex {
     Math::Vec4 color;
 };
 
+// Meshlet cooking limits (must match MESHLET_MAX_* in Constants.slang)
+constexpr u32 MESHLET_MAX_VERTICES  = 64;
+constexpr u32 MESHLET_MAX_TRIANGLES = 126;
+
 // Meshlet metadata matching the GPU structure (Aligned to 48 bytes)
 struct Meshlet {
     u32 vertexOffset;
@@ -38,6 +42,7 @@ struct Meshlet {
     s8    coneAxis[3];
     s8    coneCutoff;
 };
+AXION_STATIC_ASSERT( sizeof( Meshlet ) == 48, "Meshlet layout must match MESHLET_STRIDE in Constants.slang" );
 
 // Meshlet data
 struct MeshletData {

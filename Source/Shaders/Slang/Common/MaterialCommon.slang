@@ -77,6 +77,82 @@ public struct CanonVertex {
 };
 
 // -----------------------------------------------------------
+// MESHLETS (cooked by meshoptimizer, see Assets::Meshlet)
+// -----------------------------------------------------------
+
+public struct Meshlet {
+    public uint vertexOffset;   // Into the mesh meshlet vertices (elements)
+    public uint vertexCount;
+    public uint triangleOffset; // Into the mesh meshlet primitives (bytes)
+    public uint triangleCount;
+
+    public float3 center; // Culling bounds
+    public float  radius;
+    public float3 coneApex;
+    public uint   packedCone; // s8 x3 axis | s8 cutoff
+};
+
+public Meshlet getMeshlet( MeshData mesh, uint meshletIndex ) {
+    return gGlobalMeshlets.Load<Meshlet>( mesh.meshletOffset + meshletIndex * MESHLET_STRIDE );
+}
+
+// Mesh local vertex index (feeds CanonVertex.fromIndex)
+public uint getMeshletVertexIndex( MeshData mesh, Meshlet meshlet, uint localVertex ) {
+    return gGlobalMeshletVertices.Load( mesh.meshletVertexOffset + ( meshlet.vertexOffset + localVertex ) * 4 ); // u32 indices
+}
+
+// Meshlet local triangle. u8 x3 packed, not 4 B aligned: may straddle two words
+public uint3 getMeshletTriangle( MeshData mesh, Meshlet meshlet, uint localTriangle ) {
+    uint byteAddress = mesh.meshletPrimitiveOffset + meshlet.triangleOffset + localTriangle * 3;
+    uint wordAddress = byteAddress & ~3u;
+    uint shift       = ( byteAddress & 3u ) * 8;
+    uint lo          = gGlobalMeshletPrimitives.Load( wordAddress );
+    uint hi          = gGlobalMeshletPrimitives.Load( wordAddress + 4 );
+    uint packed      = shift == 0 ? lo : ( lo >> shift ) | ( hi << ( 32 - shift ) );
+    return uint3( packed & 0xFF, ( packed >> 8 ) & 0xFF, ( packed >> 16 ) & 0xFF );
+}
+
+public uint packVisibilityTriangle( uint meshletIndex, uint localTriangle ) {
+    return ( meshletIndex << VIS_TRIANGLE_BITS ) | localTriangle;
+}
+
+public void unpackVisibilityTriangle( uint packed, out uint meshletIndex, out uint localTriangle ) {
+    meshletIndex  = packed >> VIS_TRIANGLE_BITS;
+    localTriangle = packed & VIS_TRIANGLE_MASK;
+}
+
+// -----------------------------------------------------------
+// CULLING
+// -----------------------------------------------------------
+
+// Max axis scale of a model matrix (bounding sphere radius to world)
+public float getMaxScale( float4x4 modelMatrix ) {
+    return max( length( modelMatrix[0].xyz ), max( length( modelMatrix[1].xyz ), length( modelMatrix[2].xyz ) ) );
+}
+
+// World space sphere vs camera frustum
+public bool isSphereInFrustum( float3 center, float radius ) {
+    [unroll]
+    for ( uint i = 0; i < 6; ++i )
+    {
+        if ( dot( float4( center, 1.0 ), gFrame.frustrumPlanes[i] ) < -radius )
+            return false;
+    }
+    return true;
+}
+
+// Meshlet normal cone (meshoptimizer s8 SNORM, decode x / 127): xyz = axis, w = cutoff
+public float4 unpackMeshletCone( uint packedCone ) {
+    int4 c = int4( (int)( packedCone << 24 ) >> 24, (int)( packedCone << 16 ) >> 24, (int)( packedCone << 8 ) >> 24, (int)packedCone >> 24 );
+    return float4( c ) / 127.0;
+}
+
+// Every triangle of the cluster faces away from the camera (perspective formula, meshoptimizer docs)
+public bool isConeBackfacing( float3 apex, float3 axis, float cutoff, float3 cameraPos ) {
+    return dot( normalize( apex - cameraPos ), axis ) >= cutoff;
+}
+
+// -----------------------------------------------------------
 // LIGHT EVALUATION
 // -----------------------------------------------------------
 

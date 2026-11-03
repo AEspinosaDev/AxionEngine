@@ -105,7 +105,6 @@ private:
         // Indirect Rendering
         Graphics::BufferHandle            indirectStagingBufferHandle;
         Graphics::BufferLinearAllocator<> indirectAllocator;
-        Graphics::BufferHandle            indirectTemplateBufferHandle;
         Graphics::BufferHandle            indirectBufferHandle;
         Graphics::BufferHandle            culledInstanceBufferHandle;
 
@@ -141,8 +140,6 @@ private:
     GPUResources _res;
 
     Graphics::RendererOwnerPtr _rnd = nullptr;
-
-    IndirectCommandPayload::Cache _indirectCommandDataCache;
 
     const u32 _FRAMES_IN_FLIGHT;
 };

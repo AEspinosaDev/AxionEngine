@@ -104,7 +104,7 @@ struct GPUMaterial {
     // Offsets y Counts (32 bytes)
     u32 bufferOffset;
     u32 payloadSize;
-    u32 bundleID; ///< MaterialLibrary pipeline bundle (archetype + render state)
+    u32 psoBundleID; ///< MaterialLibrary pipeline bundle (archetype + render state)
     u32 valid;
 
     u32 lastFrameUsed;

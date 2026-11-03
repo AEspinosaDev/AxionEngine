@@ -91,6 +91,9 @@ struct DispatchIndirectCommand {
     u32 threadGroupCountZ;
 };
 
+/// @brief Same layout as a compute dispatch: root constant + mesh shading grid
+using DispatchMeshIndirectCommand = DispatchIndirectCommand;
+
 enum class BarrierPolicy
 {
     Auto, // CommandList checks and emits barriers if its necessary for utility functions (Seguro)

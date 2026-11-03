@@ -65,6 +65,12 @@ public:
                               IBuffer* countBuffer       = nullptr,
                               u64    countBufferOffset = 0 ) override;
 
+    void dispatchMeshIndirect( IBuffer* indirectBuffer,
+                               u64      bufferOffset,
+                               u32      maxDispatchCount,
+                               IBuffer* countBuffer       = nullptr,
+                               u64      countBufferOffset = 0 ) override;
+
     NativeObject getNativeObject( ObjectType objectType ) override;
     void         setDebugName( StringView name ) override;
     StringView   getDebugName() const override;

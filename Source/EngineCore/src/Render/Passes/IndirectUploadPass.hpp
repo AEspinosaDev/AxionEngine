@@ -10,9 +10,8 @@ class IndirectUploadPass : public IRenderPass
 {
 public:
     struct Config {
-        IndirectCommandPayload        indirectData;
+        IndirectCommandPayload     indirectData;
         Graphics::RGResourceHandle inOutIndirectBufferHandle;
-        Graphics::BufferHandle     inOutIndirectTemplateBufferHandle;
     };
 
     void registerShaders( Graphics::IShaderRegistry& /*shaders*/ ) override { /*NO OP*/ }
@@ -30,34 +29,12 @@ public:
 private:
     void execute( const Config& data, Graphics::RenderPassContext& ctx ) {
 
-        auto* cmd            = ctx.cmd;
-        auto* activeBuffer   = ctx.getBuffer( data.inOutIndirectBufferHandle );
-        auto* templateBuffer = ctx.resources.getBuffer( data.inOutIndirectTemplateBufferHandle );
+        auto* cmd          = ctx.cmd;
+        auto* activeBuffer = ctx.getBuffer( data.inOutIndirectBufferHandle );
 
-        // CPU --> GPU
-        if ( data.indirectData.dirty )
-        {
-
-            cmd->barrier( templateBuffer, Graphics::RHI::ResourceState::CopyDest );
-
-            cmd->copyBuffer( templateBuffer,
-                             data.indirectData.commandBufferSlice.container,
-                             data.indirectData.commandBufferSlice.size,
-                             0,
-                             0,
-                             Graphics::RHI::BarrierPolicy::None );
-
-            cmd->barrier( templateBuffer, Graphics::RHI::ResourceState::CopySource );
-        }
-
-        // Fast
-        // GPU -> GPU
-        cmd->copyBuffer( activeBuffer,
-                         data.indirectData.commandBufferSlice.container,
-                         data.indirectData.commandBufferSlice.size,
-                         0,
-                         0,
-                         Graphics::RHI::BarrierPolicy::None );
+        // Command templates (instance counts = 0) -> GPU buffer, where the culling fills them
+        const auto& commands = data.indirectData.commandBufferSlice;
+        cmd->copyBuffer( activeBuffer, commands.container, commands.size, 0, commands.offset, Graphics::RHI::BarrierPolicy::None );
     }
 };
 

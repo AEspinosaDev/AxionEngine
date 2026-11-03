@@ -89,14 +89,20 @@ constexpr u64 GEOMETRY_BUDGET_INDICES_PCT            = 22;
 constexpr u64 GEOMETRY_BUDGET_MESHLETS_PCT           = 2;
 constexpr u64 GEOMETRY_BUDGET_MESHLET_VERTICES_PCT   = 6;
 constexpr u64 GEOMETRY_BUDGET_MESHLET_PRIMITIVES_PCT = 6;
-static_assert( GEOMETRY_BUDGET_VERTICES_PCT + GEOMETRY_BUDGET_INDICES_PCT + GEOMETRY_BUDGET_MESHLETS_PCT +
-                       GEOMETRY_BUDGET_MESHLET_VERTICES_PCT + GEOMETRY_BUDGET_MESHLET_PRIMITIVES_PCT ==
-                   100,
-               "Geometry budget split must add up to 100%" );
+AXION_STATIC_ASSERT( GEOMETRY_BUDGET_VERTICES_PCT + GEOMETRY_BUDGET_INDICES_PCT + GEOMETRY_BUDGET_MESHLETS_PCT +
+                             GEOMETRY_BUDGET_MESHLET_VERTICES_PCT + GEOMETRY_BUDGET_MESHLET_PRIMITIVES_PCT ==
+                         100,
+                     "Geometry budget split must add up to 100%" );
 
 //-----------------------------------------------------------------------------
 // Rasterizer Caps
 //-----------------------------------------------------------------------------
+// Mesh shading dispatch limits (D3D12: groups per grid dimension and total groups per DispatchMesh)
+constexpr u32 MAX_MESH_DISPATCH_GROUPS_PER_DIMENSION = 65535;
+constexpr u32 MAX_MESH_DISPATCH_GROUPS               = 1u << 22;
+// Meshlets culled per amplification group in the vis pass (must match AS_GROUP_SIZE in VisPass.slang)
+constexpr u32 VIS_AMPLIFICATION_GROUP_SIZE = 32;
+
 constexpr u64 MAX_SHADER_RESOURCE_VIEWS = 16384;
 constexpr u64 MAX_SAMPLER_VIEWS         = 512;
 

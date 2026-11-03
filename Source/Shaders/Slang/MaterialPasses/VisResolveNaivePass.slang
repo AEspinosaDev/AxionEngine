@@ -10,7 +10,7 @@ DECLARE_RW_TEXTURE( RWTexture2D<float4>, gOutColor, 0 );
 
 // Naive resolve: one full-screen dispatch per material bundle, each one only shades its own pixels
 struct ResolvePushConstant {
-    uint bundleID;
+    uint psoBundleID;
 };
 DECLARE_PUSH_CONSTANT( ResolvePushConstant, gPush );
 
@@ -48,7 +48,7 @@ void csResolve<T : IMaterial>( uint3 dispatchThreadID: SV_DispatchThreadID ) {
         return;
 
     uint2 visData     = gVisBuffer.Load( int3( pixelCoord, 0 ) );
-    uint  primitiveID = visData.x;
+    uint  triangleID  = visData.x; // ( meshlet << VIS_TRIANGLE_BITS ) | meshlet local triangle
     uint  instanceID  = visData.y; // Offset by 1 (0 = background)
 
     if ( instanceID == 0 )
@@ -58,15 +58,19 @@ void csResolve<T : IMaterial>( uint3 dispatchThreadID: SV_DispatchThreadID ) {
     }
 
     InstanceData instance = getInstanceData( instanceID - 1u );
-    if ( getMaterialData( instance.materialID ).bundleID != gPush.bundleID )
+    if ( getMaterialData( instance.materialID ).psoBundleID != gPush.psoBundleID )
         return; // Pixel belongs to another material bundle
 
     MeshData mesh = getMeshData( instance.meshID );
 
-    uint        baseIndexOffset = mesh.indexOffset + primitiveID * 3 * 4; // Bytes
-    CanonVertex v0              = CanonVertex.fromIndex( gGlobalIndices.Load( baseIndexOffset ), mesh.vertexOffset );
-    CanonVertex v1              = CanonVertex.fromIndex( gGlobalIndices.Load( baseIndexOffset + 4 ), mesh.vertexOffset );
-    CanonVertex v2              = CanonVertex.fromIndex( gGlobalIndices.Load( baseIndexOffset + 8 ), mesh.vertexOffset );
+    uint meshletIndex, localTriangle;
+    unpackVisibilityTriangle( triangleID, meshletIndex, localTriangle );
+    Meshlet meshlet = getMeshlet( mesh, meshletIndex );
+    uint3   tri     = getMeshletTriangle( mesh, meshlet, localTriangle );
+
+    CanonVertex v0 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.x ), mesh.vertexOffset );
+    CanonVertex v1 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.y ), mesh.vertexOffset );
+    CanonVertex v2 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.z ), mesh.vertexOffset );
 
     // TODO: WPO is applied in the vis pass but not here (no material uses it yet)
     float4 wp0 = mul( instance.modelMatrix, float4( v0.position, 1.0 ) );

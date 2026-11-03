@@ -78,17 +78,17 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, IMaterialLibrary&
 
         if ( sort )
         {
-            u32 bundleID = _materialCache.cache[gpuMaterialID].bundleID;
+            u32 psoBundleID = _materialCache.cache[gpuMaterialID].psoBundleID;
 
             // Unregistered archetype: instance data exists but it is never drawn
-            if ( bundleID == AXION_INVALID_U32 )
+            if ( psoBundleID == AXION_INVALID_U32 )
             {
                 AXION_LOG_WARN_ONCE( Logger::Module::Core, "GPUScene: instance with invalid material bundle skipped" );
                 continue;
             }
 
             SortKey key;
-            key.key                 = makeSortKey( bundleID, gpuMeshID );
+            key.key                 = makeSortKey( psoBundleID, gpuMeshID );
             key.originalInstanceIdx = (u32)_instances.size() - 1;
 
             _sortedKeys.pushBack( key );
@@ -158,7 +158,9 @@ u32 GPUScene::processMesh( const Axion::Core::Assets::AssetManager* assets, cons
             gpuMesh.needsAS          = 1;
 
             const auto* meshletData      = cpuMesh->getMeshletData();
-            gpuMesh.meshletCount         = meshletData ? (u32)meshletData->meshlets.size() : 0;
+            if ( !meshletData )
+                AXION_LOG_ERROR( Logger::Module::Core, "Mesh [{}] has no meshlets (disableMeshlets / non indexed triangle list): mesh shading passes will skip it", cpuMesh->getName() );
+            gpuMesh.meshletCount        = meshletData ? (u32)meshletData->meshlets.size() : 0;
             gpuMesh.meshletVertexCount   = meshletData ? (u32)meshletData->vertexIndices.size() : 0;
             gpuMesh.meshletPrimitiveSize = meshletData ? (u32)meshletData->primitiveIndices.size() : 0;
 
@@ -239,7 +241,7 @@ u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets
 
         gpuMtl.payloadSize   = cpuMaterial->getPayloadSize();
         const char* archName = cpuMaterial->getArchetypeInfo().name; // Subscribe bundle to matlib given archetype and renderstate
-        gpuMtl.bundleID      = mtlLib.updateArchetypeState( mtlLib.getArchetypeID( archName ), cpuMaterial->getRenderState() );
+        gpuMtl.psoBundleID   = mtlLib.updateArchetypeState( mtlLib.getArchetypeID( archName ), cpuMaterial->getRenderState() );
 
         Assets::Material::TextureResolver resolver = [&]( const Axion::Core::Assets::TextureHandle& h ) -> u32 {
             return processTexture( assets, h, gpuCacheIndex );
@@ -552,7 +554,7 @@ void GPUScene::runGC() {
                 gpuMat.valid        = false;
                 gpuMat.bufferOffset = AXION_INVALID_U32;
                 gpuMat.payloadSize  = 0;
-                gpuMat.bundleID     = AXION_INVALID_U32;
+                gpuMat.psoBundleID  = AXION_INVALID_U32;
 
                 AXION_LOG_INFO( Logger::Module::Core, "GC: Recycled material slot {}", i );
             }

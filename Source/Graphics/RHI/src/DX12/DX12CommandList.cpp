@@ -774,6 +774,26 @@ void DX12CommandList::drawIndexedIndirect( IBuffer* indirectBuffer, u64 bufferOf
         countBufferOffset );
 }
 
+void DX12CommandList::dispatchMeshIndirect( IBuffer* indirectBuffer, u64 bufferOffset, u32 maxDispatchCount, IBuffer* countBuffer, u64 countBufferOffset ) {
+    AXION_LOG_ASSERT( indirectBuffer, Logger::Module::RHI, "Indirect command buffer cannot be null" );
+    AXION_LOG_ASSERT( maxDispatchCount > 0, Logger::Module::RHI, "Max dispatch count must be > 0" );
+    AXION_LOG_ASSERT( _bindPoint == PipelineBindPoint::Graphic, Logger::Module::RHI, "DispatchMeshIndirect called without Graphic Pipeline" );
+
+    auto*                   dxLayout  = static_cast<DX12PipelineLayout*>( _currentLayout );
+    ID3D12CommandSignature* signature = dxLayout->getDispatchMeshIndirectSignature();
+    AXION_LOG_ASSERT( signature, Logger::Module::RHI, "DispatchMeshIndirect: layout without mesh indirect signature (no mesh shading support or indirect rendering disabled)" );
+
+    ID3D12Resource* dxCountResource = countBuffer ? countBuffer->getNativeObject( ObjectTypes::DX12_Resource ) : nullptr;
+
+    _cmdList->ExecuteIndirect(
+        signature,
+        maxDispatchCount,
+        indirectBuffer->getNativeObject( ObjectTypes::DX12_Resource ),
+        bufferOffset,
+        dxCountResource,
+        countBufferOffset );
+}
+
 NativeObject DX12CommandList::getNativeObject( ObjectType objectType ) {
     switch ( objectType )
     {

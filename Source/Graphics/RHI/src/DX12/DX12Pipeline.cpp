@@ -5,10 +5,10 @@
 AXION_NAMESPACE_BEGIN
 namespace Graphics::RHI {
 
-DX12PipelineLayout::DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc, bool heapDirectlyIndexed )
+DX12PipelineLayout::DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc, bool heapDirectlyIndexed, bool meshShadingSupported )
     : _desc( desc ) {
     buildRootSignature( device, heapDirectlyIndexed );
-    buildIndirectCommandSignature( device );
+    buildIndirectCommandSignature( device, meshShadingSupported );
     AXION_LOG_INFO( Logger::Module::RHI, "DX12 Pipeline Layout [{}] created", _desc.debugName );
 }
 DX12PipelineLayout::~DX12PipelineLayout() {
@@ -212,7 +212,7 @@ void DX12PipelineLayout::buildRootSignature( const ComPtr<ID3D12Device2>& device
         0, serialized->GetBufferPointer(), serialized->GetBufferSize(), IID_PPV_ARGS( &_rootSignature ) ) );
 }
 
-void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Device2>& device ) {
+void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Device2>& device, bool meshShadingSupported ) {
 
     if ( !_desc.enableIndirectRendering )
         return;
@@ -266,6 +266,21 @@ void DX12PipelineLayout::buildIndirectCommandSignature( const ComPtr<ID3D12Devic
         DX_CHECK( device->CreateCommandSignature( &csDesc, _rootSignature.Get(), IID_PPV_ARGS( &_dispatchIndirectSignature ) ) );
 
         setNativeName( _dispatchIndirectSignature.Get(), _desc.debugName + " DispatchIndirectSig" );
+    }
+
+    if ( meshShadingSupported )
+    {
+        argDesc[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
+
+        D3D12_COMMAND_SIGNATURE_DESC csDesc = {};
+        csDesc.NumArgumentDescs             = 2;
+        csDesc.pArgumentDescs               = argDesc;
+
+        csDesc.ByteStride = sizeof( DispatchMeshIndirectCommand );
+
+        DX_CHECK( device->CreateCommandSignature( &csDesc, _rootSignature.Get(), IID_PPV_ARGS( &_dispatchMeshIndirectSignature ) ) );
+
+        setNativeName( _dispatchMeshIndirectSignature.Get(), _desc.debugName + " DispatchMeshIndirectSig" );
     }
 }
 

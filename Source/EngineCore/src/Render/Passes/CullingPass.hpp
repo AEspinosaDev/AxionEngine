@@ -1,7 +1,7 @@
 #pragma once
 #include <Render/DrawIndirect.h>
-#include <Render/GPUScene.h>
 #include <Render/PassManager.h>
+#include <Render/Rasterizer/RasterizerConfig.h>
 #include "Axion/Graphics/Subsystems/IRenderGraph.h"
 
 AXION_NAMESPACE_BEGIN
@@ -10,34 +10,28 @@ namespace Core::Render {
 class CullingPass : public IRenderPass
 {
 public:
+    static constexpr u32 GROUP_SIZE = 64; ///< Must match CULLING_GROUP_SIZE in Culling.slang
+
     struct Config {
+        Graphics::RGResourceHandle outIndirectBufferHandle;       ///< DispatchMesh commands (instance counts filled here)
+        Graphics::RGResourceHandle outCulledRedirectBufferHandle; ///< Visible instances, packed per command
 
-        Graphics::RGResourceHandle outIndirectBufferHandle;
-        Graphics::RGResourceHandle outCulledRedirectBufferHandle;
-
-        Graphics::BufferSlice inFrameSlice;
-        Graphics::BufferSlice inMeshesSlice;
-        Graphics::BufferSlice inInstancesSlice;
-        Graphics::BufferSlice inRedirectionSlice;
-
-        IndirectCommandPayload indirectData;
-
-        u32 instanceCount;
+        Graphics::BufferSlice          inCommandMapSlice;                ///< Sorted instance -> command (CPU upload)
+        Graphics::RHI::IDescriptorSet* transientDescriptorSet = nullptr; ///< Frame set: gFrame, gMeshes, gInstances, sorted gInstanceRedirection
+        u32                            instanceCount          = 0;       ///< Sorted (drawable) instances
     };
 
     void registerShaders( Graphics::IShaderRegistry& shaders ) override {
-        _shHandle = shaders
-                        .shader( "CullingShader" )
+        _shHandle = shaders.shader( "CullingShader" )
                         .asDXIL()
                         .path( AXION_SHADER_DIR "/Slang/Preprocess/Culling.slang" )
                         .include( AXION_SHADER_DIR "/Slang/Common" )
-                        .cs( "computeMain" )
+                        .cs( "csCulling" )
+                        .autoReflect( false ) // Global layout
                         .load();
-
-        // Thanks to slang auto reflect layoutis automatically generated
     }
     void createPipelines( Graphics::IPipelineRegistry& pipelines ) override {
-        _pipHandle = pipelines.compute( "CullingPipeline" ).shader( "CullingShader" ).create();
+        _pipHandle = pipelines.compute( "CullingPipeline" ).shader( _shHandle ).setLayout( _globalLayout ).create();
     }
 
     void addToGraph( Graphics::RenderGraphBuilder& builder, const Config& seedData ) {
@@ -45,50 +39,32 @@ public:
         builder.addPass<Config>( "CullingPass", seedData,
 
                                  []( Graphics::RenderPassBuilder& pb, Config& data ) {
-        data.outIndirectBufferHandle = pb.write(data.outIndirectBufferHandle,  Graphics::RHI::ResourceState::UnorderedAccess);
-        data.outCulledRedirectBufferHandle    = pb.write(data.outCulledRedirectBufferHandle,  Graphics::RHI::ResourceState::UnorderedAccess); },
+        data.outIndirectBufferHandle       = pb.write( data.outIndirectBufferHandle, Graphics::RHI::ResourceState::UnorderedAccess );
+        data.outCulledRedirectBufferHandle = pb.write( data.outCulledRedirectBufferHandle, Graphics::RHI::ResourceState::UnorderedAccess ); },
                                  [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
     }
 
 private:
     void execute( const Config& data, Graphics::RenderPassContext& ctx ) {
 
-        auto* cmd = ctx.cmd;
+        auto* cmd    = ctx.cmd;
+        auto* pso    = ctx.pipelines.getComputePipeline( _pipHandle );
+        auto* layout = pso->getDescription().layout;
 
-        auto* pso = ctx.pipelines.getComputePipeline( _pipHandle );
+        cmd->bindComputePipeline( pso );
 
-        auto* pipLayout = pso->getDescription().layout;
-        // BINDING
-        ctx.cmd->bindComputePipeline( pso );
+        // SPACE 1: Frame data (sorted instances, meshes, frustum)
+        cmd->bindDescriptorSet( (u32)Rasterizer::Config::LayoutSetType::FrameBound, data.transientDescriptorSet, layout, Graphics::RHI::PipelineBindPoint::Compute );
 
-        // SET 0: INPUTS (ReadOnly) -> Space 0
-        auto* set0 = ctx.allocateSet( pipLayout, 0 );
-
-        // set0->attachBufferSlice( 0, data.inFrameSlice, Graphics::RHI::ResourceState::ConstantBuffer );
-        // set0->attachBufferSlice( 1, data.inMeshesSlice, Graphics::RHI::ResourceState::ShaderResource );
-        // set0->attachBufferSlice( 2, data.inInstancesSlice, Graphics::RHI::ResourceState::ShaderResource );
-        // set0->attachBufferSlice( 3, data.inRedirectionSlice, Graphics::RHI::ResourceState::ShaderResource );
-        // set0->attachBufferSlice( 4, data.indirectData.batchMapSlice, Graphics::RHI::ResourceState::ShaderResource );
-
-        cmd->bindDescriptorSet( 0, set0 );
-
-        // SET 1: OUTPUTS (ReadWrite / UAV) -> Space 1
-        auto* set1 = ctx.allocateSet( pipLayout, 1 );
-
-        auto* indirectCmdBufer     = ctx.getBuffer( data.outIndirectBufferHandle );
-        auto* culledRedirectBuffer = ctx.getBuffer( data.outCulledRedirectBufferHandle );
-        // set1->attach( 0, indirectCmdBufer, Graphics::RHI::ResourceState::UnorderedAccess );
-        // set1->attach( 1, culledRedirectBuffer, Graphics::RHI::ResourceState::UnorderedAccess );
-
-        cmd->bindDescriptorSet( 1, set1 );
+        // SPACE 2: Command map in, commands + visible instances out
+        auto* ioSet = ctx.allocateSet( layout, Graphics::PassIO::SET_INDEX );
+        ioSet->attachBufferSlice( Graphics::PassIO::buffer( 0 ), Graphics::RHI::DescriptorType::SRV_Buffer, data.inCommandMapSlice );
+        ioSet->attach( Graphics::PassIO::rwBuffer( 0 ), Graphics::RHI::DescriptorType::UAV_Buffer, ctx.getBuffer( data.outIndirectBufferHandle ) );
+        ioSet->attach( Graphics::PassIO::rwBuffer( 1 ), Graphics::RHI::DescriptorType::UAV_Buffer, ctx.getBuffer( data.outCulledRedirectBufferHandle ) );
+        cmd->bindDescriptorSet( Graphics::PassIO::SET_INDEX, ioSet, layout, Graphics::RHI::PipelineBindPoint::Compute );
 
         cmd->pushConstants( data.instanceCount );
-
-        // DISPATCH
-
-        u32 groupSize  = 64;
-        u32 groupCount = ( data.instanceCount + groupSize - 1 ) / groupSize;
-        ctx.cmd->dispatch( { groupCount, 1, 1 } );
+        cmd->dispatch( { ( data.instanceCount + GROUP_SIZE - 1 ) / GROUP_SIZE, 1, 1 } );
     }
 
     Graphics::PipelineHandle _pipHandle;

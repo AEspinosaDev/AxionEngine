@@ -45,15 +45,15 @@ inline u32 MaterialLibrary<PassCount>::updateArchetypeState( u32 archetypeID, co
         return it->second;
     }
 
-    u32 newBundleID = (u32)_pipelineCache.size();
+    u32 newPsoBundleID = (u32)_pipelineCache.size();
 
-    _pipelineLookup[hashKey] = newBundleID;
+    _pipelineLookup[hashKey] = newPsoBundleID;
     _pipelineCache.emplace_back();
     _bundleKeys.push_back( entry );
 
     _pendingArchetypeStates.push( entry );
 
-    return newBundleID;
+    return newPsoBundleID;
 }
 template <u32 PassCount>
 const MaterialPassProfile& MaterialLibrary<PassCount>::getPassProfile( u32 passSlot ) const {
@@ -75,14 +75,19 @@ u32 MaterialLibrary<PassCount>::getArchetypeID( StringView name ) const {
     return AXION_INVALID_U32;
 }
 template <u32 PassCount>
-inline Graphics::PipelineHandle MaterialLibrary<PassCount>::getPipelineHandle( u32 bundleID, u32 passSlot ) const {
+inline Graphics::PipelineHandle MaterialLibrary<PassCount>::getPipelineHandle( u32 psoBundleID, u32 passSlot ) const {
 
-    if ( bundleID < _pipelineCache.size() )
+    if ( psoBundleID < _pipelineCache.size() )
     {
-        return _pipelineCache[bundleID].getHandleForPass( passSlot );
+        return _pipelineCache[psoBundleID].getHandleForPass( passSlot );
     }
 
     return Graphics::PipelineHandle();
+}
+
+template <u32 PassCount>
+inline Graphics::RenderState MaterialLibrary<PassCount>::getBundleRenderState( u32 psoBundleID ) const {
+    return psoBundleID < _bundleKeys.size() ? _bundleKeys[psoBundleID].state : Graphics::RenderState {};
 }
 
 template <u32 PassCount>
@@ -134,10 +139,10 @@ void MaterialLibrary<PassCount>::updatePipelines( Graphics::IPipelineRegistry& p
         if ( lookupIt == _pipelineLookup.end() )
             continue;
 
-        u32 bundleID = lookupIt->second;
+        u32 psoBundleID = lookupIt->second;
 
         // Is compiled ??
-        if ( _pipelineCache[bundleID].built )
+        if ( _pipelineCache[psoBundleID].built )
             continue;
 
         // If it doesn't exist, create it.
@@ -274,7 +279,7 @@ void MaterialLibrary<PassCount>::updatePipelines( Graphics::IPipelineRegistry& p
             }
 
             newBundle.built          = true;
-            _pipelineCache[bundleID] = std::move( newBundle );
+            _pipelineCache[psoBundleID] = std::move( newBundle );
         }
     }
 }

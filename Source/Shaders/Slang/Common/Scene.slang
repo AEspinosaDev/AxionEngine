@@ -92,7 +92,7 @@ public struct MeshData {
 public struct MaterialData {
     public uint bufferOffset; // Pointer to the big ByteAddressBuffer
     public uint payloadSize;
-    public uint bundleID; // MaterialLibrary pipeline bundle (archetype + render state)
+    public uint psoBundleID; // MaterialLibrary pipeline bundle (archetype + render state)
     public uint valid;
 
     public uint lastFrameUsed;

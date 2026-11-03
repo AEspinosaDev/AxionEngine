@@ -11,7 +11,7 @@ DEFINE_OWNER_PTR_FOR_TYPE( DX12PipelineLayout, DX12PipelineLayout )
 class DX12PipelineLayout final : public IPipelineLayout
 {
 public:
-    DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc, bool heapDirectlyIndexed );
+    DX12PipelineLayout( const ComPtr<ID3D12Device2>& device, const PipelineLayoutDesc& desc, bool heapDirectlyIndexed, bool meshShadingSupported );
     ~DX12PipelineLayout() override;
 
     const Description& getDescription() const override { return _desc; }
@@ -33,10 +33,11 @@ public:
     int                     getPushConstantRootIndex() const { return _pushConstantRootIndex; } ///< -1 if the layout has no push constants
     ID3D12CommandSignature* getIndirectCommandSignature() const { return _drawIndexedIndirectSignature.Get(); }
     ID3D12CommandSignature* getDispatchIndirectSignature() const { return _dispatchIndirectSignature.Get(); }
+    ID3D12CommandSignature* getDispatchMeshIndirectSignature() const { return _dispatchMeshIndirectSignature.Get(); } ///< Null without mesh shading support
 
 private:
     void                           buildRootSignature( const ComPtr<ID3D12Device2>& device, bool heapDirectlyIndexed );
-    void                           buildIndirectCommandSignature( const ComPtr<ID3D12Device2>& device );
+    void                           buildIndirectCommandSignature( const ComPtr<ID3D12Device2>& device, bool meshShadingSupported );
     static D3D12_SHADER_VISIBILITY getShaderVisibility( const SmallVector<DescriptorBinding>& bindings );
 
     PipelineLayoutDesc          _desc;
@@ -46,6 +47,7 @@ private:
     int                            _pushConstantRootIndex = -1;
     ComPtr<ID3D12CommandSignature> _drawIndexedIndirectSignature;
     ComPtr<ID3D12CommandSignature> _dispatchIndirectSignature;
+    ComPtr<ID3D12CommandSignature> _dispatchMeshIndirectSignature;
 
     SmallVector<u32, MAX_STACK_DESCRIPTOR_SET_COUNT> _viewCountPerSet;
     SmallVector<u32, MAX_STACK_DESCRIPTOR_SET_COUNT> _samplerCountPerSet;

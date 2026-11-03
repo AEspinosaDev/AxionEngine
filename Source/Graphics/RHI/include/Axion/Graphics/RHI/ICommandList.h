@@ -149,6 +149,12 @@ public:
                                       IBuffer* countBuffer       = nullptr,
                                       u64      countBufferOffset = 0 ) = 0;
 
+    virtual void dispatchMeshIndirect( IBuffer* indirectBuffer,
+                                       u64      bufferOffset,
+                                       u32      maxDispatchCount,
+                                       IBuffer* countBuffer       = nullptr,
+                                       u64      countBufferOffset = 0 ) = 0;
+
     /// @brief Pushes 32-bit constants to the push constant block of the currently bound pipeline layout (Root Constants).
     /// @tparam T The struct type to push. Must be 4-byte aligned.
     template <typename T>

@@ -206,8 +206,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         const Extent3D SCENE_RESOLUTION  = _window->getSettings().size.to3D();
         const Extent3D SCREEN_RESOLUTION = _window->getSettings().size.to3D();
         
-        // const bool     GPU_CULLING_ENABLED = _settings.common.flags & RendererEnableGPUCulling;
-        const bool GPU_CULLING_ENABLED = false;
+        const bool GPU_CULLING_ENABLED = ( _settings.common.flags & RendererEnableGPUCulling ) && !indirectCmdPayload.batches.empty();
 
         //----------------------------
         // 0. Allocate Frame Descriptor Set
@@ -223,18 +222,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::Lights ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.lightsSlice );
         transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::Envs ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.envsSlice );
         transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::Textures ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.texturesSlice );
-
-        if ( GPU_CULLING_ENABLED )
-        {
-
-            // Graphics::BufferSlice culledSlice;
-            // culledSlice.container = culledBuf;
-            // culledSlice.offset    = 0;
-            // culledSlice.size      = data.inRedirectionSlice.size;
-            // culledSlice.stride    = data.inRedirectionSlice.stride;
-            // transientSetPtr->attachBufferSlice( 6, culledSlice, Graphics::RHI::ResourceState::ShaderResource );
-        } else
-            transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::InstanceRedirection ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.redirectSlice );
+        transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::InstanceRedirection ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.redirectSlice ); // Always the full sorted list
 
         //----------------------------
         // A. Upload Global Data
@@ -267,23 +255,17 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         if ( GPU_CULLING_ENABLED )
         {
             IndirectUploadPass::Config indUpConfig;
-            indUpConfig.inOutIndirectBufferHandle         = builder.import( "IndirectCommandBuffer", currentFrameRes.indirectBufferHandle );
-            indUpConfig.inOutIndirectTemplateBufferHandle = currentFrameRes.indirectTemplateBufferHandle;
-            indUpConfig.indirectData                      = indirectCmdPayload;
+            indUpConfig.inOutIndirectBufferHandle = builder.import( "IndirectCommandBuffer", currentFrameRes.indirectBufferHandle );
+            indUpConfig.indirectData              = indirectCmdPayload;
 
             _passes.getPass<IndirectUploadPass>()->addToGraph( builder, indUpConfig );
 
             cullConfig.outIndirectBufferHandle       = indUpConfig.inOutIndirectBufferHandle;
             cullConfig.outCulledRedirectBufferHandle = builder.import( "IndirectCulledInstanceBuffer", currentFrameRes.culledInstanceBufferHandle );
 
-            cullConfig.inFrameSlice       = transientPayload.frameSlice;
-            cullConfig.inMeshesSlice      = transientPayload.meshesSlice;
-            cullConfig.inInstancesSlice   = transientPayload.instancesSlice;
-            cullConfig.inRedirectionSlice = transientPayload.redirectSlice;
-
-            cullConfig.indirectData = indirectCmdPayload;
-
-            cullConfig.instanceCount = (u32)_gpuScene.instances().size();
+            cullConfig.inCommandMapSlice      = indirectCmdPayload.batchMapSlice;
+            cullConfig.transientDescriptorSet = transientSetPtr;
+            cullConfig.instanceCount          = (u32)_gpuScene.getSortedKeys().size(); // Drawable instances only (invalid bundles are not sorted)
 
             _passes.getPass<CullingPass>()->addToGraph( builder, cullConfig );
         }
@@ -316,6 +298,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         visConfig.indirectData                 = indirectCmdPayload;
         visConfig.inIndirectBufferHandle       = cullConfig.outIndirectBufferHandle;
         visConfig.inCulledRedirectBufferHandle = cullConfig.outCulledRedirectBufferHandle;
+        visConfig.inInstanceListSlice          = transientPayload.redirectSlice;
         visConfig.useGPUCulling                = GPU_CULLING_ENABLED;
 
         visConfig.persistentDescriptorSet = currentFrameRes.persistentDescriptorSetPtr;
@@ -559,19 +542,15 @@ void Rasterizer::createResources() {
         _res.frame[i].indirectBufferHandle = r.buffer( "IndirectCommandBuffer_" + std::to_string( i ) )
                                                  .size( _settings.memory.shared.maxExecutableAlloc )
                                                  .asSSBO()
-                                                 .stride( sizeof( Graphics::RHI::DrawIndexedIndirectCommand ) )
+                                                 .stride( sizeof( Graphics::RHI::DispatchMeshIndirectCommand ) )
                                                  .create();
-        _res.frame[i].indirectTemplateBufferHandle = r.buffer( "IndirectTemplateCommandBuffer_" + std::to_string( i ) )
-                                                         .size( _settings.memory.shared.maxExecutableAlloc )
-                                                         .asSSBO()
-                                                         .stride( sizeof( Graphics::RHI::DrawIndexedIndirectCommand ) )
-                                                         .create();
 
         _res.frame[i].culledInstanceBufferHandle = r.buffer( "IndirectCulledInstanceBuffer_" + std::to_string( i ) )
                                                        .size( _settings.memory.shared.maxConstantAllocPerFrame )
                                                        .stride( sizeof( u32 ) )
                                                        .onGPU()
                                                        .asSSBO()
+                                                       .view( Graphics::BufferViewFlags::BufferViewUnorderedAccess | Graphics::BufferViewFlags::BufferViewShaderResource ) // Written by culling, read by the vis pass
                                                        .create();
 
         // ----------------------- E. PER-FRAME DESCRIPTOR SET (Persistent) -------------------
@@ -805,24 +784,36 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
     // 1. ALLOCATIONS
     // =================================================================================
 
-    size_t maxPossibleCommands = meshes.size() * _mtlLib.getArchetypesCount();
-    maxPossibleCommands        = std::max<size_t>( maxPossibleCommands, 1 );
+    // One command per (pso bundle, mesh), plus the splits of instance runs bigger than a single DispatchMesh
+    constexpr u32 MIN_INSTANCES_PER_COMMAND = Config::MAX_MESH_DISPATCH_GROUPS / Config::MAX_MESH_DISPATCH_GROUPS_PER_DIMENSION;
+    size_t        maxPossibleCommands       = meshes.size() * _mtlLib.getArchetypesCount() + sortedKeys.size() / MIN_INSTANCES_PER_COMMAND;
+    maxPossibleCommands                     = std::max<size_t>( maxPossibleCommands, 1 );
 
-    auto cmdAlloc = currentIndirectAlloc.allocate<Graphics::RHI::DrawIndexedIndirectCommand>( maxPossibleCommands );
+    auto cmdAlloc = currentIndirectAlloc.allocate<Graphics::RHI::DispatchMeshIndirectCommand>( maxPossibleCommands );
 
     if ( !cmdAlloc.isValid() )
         return payload;
 
-    auto*      cmdPtr       = (Graphics::RHI::DrawIndexedIndirectCommand*)cmdAlloc.cpuAddress;
-    const auto RHI_CMD_SIZE = sizeof( Graphics::RHI::DrawIndexedIndirectCommand );
+    auto*      cmdPtr       = (Graphics::RHI::DispatchMeshIndirectCommand*)cmdAlloc.cpuAddress;
+    const auto RHI_CMD_SIZE = sizeof( Graphics::RHI::DispatchMeshIndirectCommand );
+
+    // Amplification groups per instance: each one culls a chunk of meshlets
+    auto meshletChunks = []( u32 meshletCount ) { return ( meshletCount + Config::VIS_AMPLIFICATION_GROUP_SIZE - 1 ) / Config::VIS_AMPLIFICATION_GROUP_SIZE; };
+
+    // DispatchMesh grid = ( meshlet chunks, instances, 1 ) is limited per dimension and in total groups
+    auto maxInstancesPerCommand = [&]( u32 meshletCount ) {
+        const u32 chunks = meshletChunks( meshletCount );
+        return chunks == 0 ? Config::MAX_MESH_DISPATCH_GROUPS_PER_DIMENSION
+                           : std::min( Config::MAX_MESH_DISPATCH_GROUPS_PER_DIMENSION, Config::MAX_MESH_DISPATCH_GROUPS / chunks );
+    };
 
     payload.batches.reserve( _mtlLib.getArchetypesCount() ); // Optimistic
 
     // 2. LOOP
     // =================================================================================
 
-    u32 currentBundle = 0, currentMeshID = 0;
-    sortedKeys[0].unpack( currentBundle, currentMeshID );
+    u32 currentPsoBundle = 0, currentMeshID = 0;
+    sortedKeys[0].unpack( currentPsoBundle, currentMeshID );
 
     auto lastMesh = meshes[instances[sortedKeys[0].originalInstanceIdx].meshID];
 
@@ -836,32 +827,29 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
 
     u32*                  indirectCmdMapPtr = nullptr;
     Graphics::BufferSlice cmdMapAlloc {};
-    // bool                  useGPUCulling = _settings.common.flags & RendererEnableGPUCulling;
-    bool useGPUCulling = false;
+    const bool useGPUCulling = _settings.common.flags & RendererEnableGPUCulling;
     if ( useGPUCulling )
     {
-        cmdMapAlloc       = currentSSBOAlloc.allocate<u32>( instances.size() );
+        cmdMapAlloc       = currentSSBOAlloc.allocate<u32>( sortedKeys.size() );
         indirectCmdMapPtr = (u32*)cmdMapAlloc.cpuAddress;
     }
 
     for ( size_t i = 0; i < sortedKeys.size(); ++i )
     {
-        u32 bundleID, meshID;
-        sortedKeys[i].unpack( bundleID, meshID );
+        u32 psoBundleID, meshID;
+        sortedKeys[i].unpack( psoBundleID, meshID );
 
         bool breakInstancing = ( meshID != currentMeshID ) ||
-                               ( bundleID != currentBundle );
+                               ( psoBundleID != currentPsoBundle ) ||
+                               ( instanceAccumulator == maxInstancesPerCommand( lastMesh.meshletCount ) );
 
         if ( breakInstancing && instanceAccumulator > 0 )
         {
-            Graphics::RHI::DrawIndexedIndirectCommand cmd;
-            cmd.indexCount    = lastMesh.indexCount;
-            cmd.instanceCount = useGPUCulling ? 0 : instanceAccumulator;
-            cmd.firstIndex    = lastMesh.indexOffset / 4;
-            cmd.vertexOffset  = (int)( lastMesh.vertexOffset / sizeof( Assets::Vertex ) );
-            cmd.firstInstance = 0;
-
-            cmd.baseInstanceID = batchStartOffsetInRedirect;
+            Graphics::RHI::DispatchMeshIndirectCommand cmd;
+            cmd.baseInstanceID    = batchStartOffsetInRedirect;
+            cmd.threadGroupCountX = meshletChunks( lastMesh.meshletCount );
+            cmd.threadGroupCountY = useGPUCulling ? 0 : instanceAccumulator; // GPU culling fills it with the visible ones
+            cmd.threadGroupCountZ = 1;
 
             cmdPtr[cmdWriteIdx] = cmd;
 
@@ -878,13 +866,13 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
             lastMesh        = meshes[instances[originalIdx].meshID];
         }
 
-        if ( bundleID != currentBundle )
+        if ( psoBundleID != currentPsoBundle )
         {
-            payload.batches.push_back( { .bundleID     = currentBundle,
-                                         .bufferOffset = (u32)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
+            payload.batches.push_back( { .psoBundleID  = currentPsoBundle,
+                                         .bufferOffset = (u32)( archBatchStartCmdIdx * RHI_CMD_SIZE ),
                                          .drawCount    = cmdsInCurrentArch } );
 
-            currentBundle        = bundleID;
+            currentPsoBundle     = psoBundleID;
             cmdsInCurrentArch    = 0;
             archBatchStartCmdIdx = cmdWriteIdx;
         }
@@ -900,14 +888,11 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
 
     if ( instanceAccumulator > 0 )
     {
-        Graphics::RHI::DrawIndexedIndirectCommand cmd;
-        cmd.indexCount    = lastMesh.indexCount;
-        cmd.instanceCount = useGPUCulling ? 0 : instanceAccumulator;
-        cmd.firstIndex    = lastMesh.indexOffset / 4;
-        cmd.vertexOffset  = (int)( lastMesh.vertexOffset / sizeof( Assets::Vertex ) );
-        cmd.firstInstance = 0;
-
-        cmd.baseInstanceID = batchStartOffsetInRedirect;
+        Graphics::RHI::DispatchMeshIndirectCommand cmd;
+        cmd.baseInstanceID    = batchStartOffsetInRedirect;
+        cmd.threadGroupCountX = meshletChunks( lastMesh.meshletCount );
+        cmd.threadGroupCountY = useGPUCulling ? 0 : instanceAccumulator; // GPU culling fills it with the visible ones
+        cmd.threadGroupCountZ = 1;
 
         cmdPtr[cmdWriteIdx++] = cmd;
         cmdsInCurrentArch++;
@@ -916,8 +901,8 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
     // Last Render Batch
     if ( cmdsInCurrentArch > 0 )
     {
-        payload.batches.push_back( { .bundleID     = currentBundle,
-                                     .bufferOffset = (u32)( cmdAlloc.offset + ( archBatchStartCmdIdx * RHI_CMD_SIZE ) ),
+        payload.batches.push_back( { .psoBundleID  = currentPsoBundle,
+                                     .bufferOffset = (u32)( archBatchStartCmdIdx * RHI_CMD_SIZE ),
                                      .drawCount    = cmdsInCurrentArch } );
     }
 
@@ -927,47 +912,6 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
     payload.commandBufferSlice      = cmdAlloc;
     payload.commandBufferSlice.size = cmdWriteIdx * RHI_CMD_SIZE;
     payload.batchMapSlice           = cmdMapAlloc;
-
-    if ( !useGPUCulling )
-        return payload;
-
-#ifdef AXION_DEBUG
-    payload.dirty = true;
-
-#else
-    size_t currentCmdCount = cmdWriteIdx;
-    size_t currentMapCount = instances.size();
-
-    bool structuralChanges = false;
-
-    if ( currentCmdCount != _indirectCommandDataCache.commands.size() )
-        structuralChanges = true;
-    else if ( std::memcmp( cmdPtr, _indirectCommandDataCache.commands.data(), currentCmdCount * sizeof( Graphics::RHI::DrawIndexedIndirectCommand ) ) != 0 )
-        structuralChanges = true;
-
-    if ( !structuralChanges )
-    {
-        if ( currentMapCount != _indirectCommandDataCache.batchMap.size() )
-            structuralChanges = true;
-        else if ( std::memcmp( indirectCmdMapPtr, _indirectCommandDataCache.batchMap.data(), currentMapCount * sizeof( u32 ) ) != 0 )
-            structuralChanges = true;
-    }
-
-    if ( structuralChanges )
-    {
-        _indirectCommandDataCache.commands.assign( cmdPtr, cmdPtr + currentCmdCount );
-
-        _indirectCommandDataCache.batchMap.assign( indirectCmdMapPtr, indirectCmdMapPtr + currentMapCount );
-
-        //  CPU->GPU
-        payload.dirty = true;
-    } else
-    {
-        // CPU->GPU
-        payload.dirty = false;
-    }
-
-#endif
 
     return payload;
 }

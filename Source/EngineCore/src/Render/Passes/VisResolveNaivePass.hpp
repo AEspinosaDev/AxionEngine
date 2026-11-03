@@ -79,7 +79,7 @@ private:
             if ( batch.drawCount == 0 )
                 continue;
 
-            Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( batch.bundleID, data.materialPassSlot );
+            Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( batch.psoBundleID, data.materialPassSlot );
             if ( !psoHandle.isValid() )
                 continue;
 
@@ -91,7 +91,7 @@ private:
             }
 
             // Compute PSO is shared by every bundle of the archetype: the bundle filter goes in the push constant
-            cmd->pushConstants( batch.bundleID );
+            cmd->pushConstants( batch.psoBundleID );
 
             auto size = texIn->getDescription().size;
             u32  wgs  = data.workgroupSize;

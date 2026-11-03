@@ -18,6 +18,7 @@ public:
         GlobalBufferHandles        inGlobalBufferHandles;
         Graphics::RGResourceHandle inIndirectBufferHandle;
         Graphics::RGResourceHandle inCulledRedirectBufferHandle;
+        Graphics::BufferSlice      inInstanceListSlice; ///< Full sorted instance list (GPU culling off)
         bool                       useGPUCulling = false;
 
         // Out RTOs
@@ -87,13 +88,21 @@ private:
         auto* set1 = data.transientDescriptorSet;
         cmd->bindDescriptorSet( 1, set1, matLayout );
 
+        // SPACE 2: instances to draw (culled list or the full sorted one)
+        auto* ioSet = ctx.allocateSet( matLayout, Graphics::PassIO::SET_INDEX );
+        if ( data.useGPUCulling )
+            ioSet->attach( Graphics::PassIO::buffer( 0 ), Graphics::RHI::DescriptorType::SRV_Buffer, ctx.getBuffer( data.inCulledRedirectBufferHandle ) );
+        else
+            ioSet->attachBufferSlice( Graphics::PassIO::buffer( 0 ), Graphics::RHI::DescriptorType::SRV_Buffer, data.inInstanceListSlice );
+        cmd->bindDescriptorSet( Graphics::PassIO::SET_INDEX, ioSet, matLayout );
+
         // -----------------------------------------------------
-        // 3. DRAW LOOP
+        // 3. DISPATCH LOOP
         // -----------------------------------------------------
 
-        auto* ib = ctx.getBuffer( data.inGlobalBufferHandles.index );
-        cmd->bindIndexBuffer( ib );
-        auto* indirectBuffer = data.useGPUCulling ? ctx.getBuffer( data.inIndirectBufferHandle ) : data.indirectData.commandBufferSlice.container;
+        // Commands: GPU copy filled by the culling, or the CPU upload slice (instance counts already written)
+        auto* argBuffer = data.useGPUCulling ? ctx.getBuffer( data.inIndirectBufferHandle ) : data.indirectData.commandBufferSlice.container;
+        u64   argOffset = data.useGPUCulling ? 0 : data.indirectData.commandBufferSlice.offset;
 
         // Cache PSO
         Graphics::PipelineHandle currentPsoHandle;
@@ -102,21 +111,23 @@ private:
             if ( batch.drawCount == 0 )
                 continue;
 
-            Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( batch.bundleID, data.materialPassSlot );
+            Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( batch.psoBundleID, data.materialPassSlot );
             if ( !psoHandle.isValid() )
                 continue;
 
             if ( currentPsoHandle != psoHandle )
             {
-                auto* pso = ctx.pipelines.getGraphicPipeline( psoHandle );
-                cmd->bindGraphicPipeline( pso );
+                auto* pso = ctx.pipelines.getMeshPipeline( psoHandle );
+                cmd->bindMeshPipeline( pso );
                 currentPsoHandle = psoHandle;
             }
 
-            cmd->drawIndexedIndirect(
-                indirectBuffer,
-                batch.bufferOffset,
-                batch.drawCount );
+            // Meshlet cone culling only when the PSO culls back faces (CullMode::Front keeps the outer faces in the engine convention)
+            const u32 meshletConeCulling = data.matLib->getBundleRenderState( batch.psoBundleID ).cullMode == Graphics::CullMode::Front ? 1u : 0u;
+            cmd->pushConstants( meshletConeCulling, 1 ); // Offset 1: baseInstanceID (offset 0) is written by the command signature
+
+            // One mesh shading dispatch per command: x = meshlet chunk (amplification), y = instance
+            cmd->dispatchMeshIndirect( argBuffer, argOffset + batch.bufferOffset, batch.drawCount );
         }
 
         cmd->endRendering();

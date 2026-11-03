@@ -122,12 +122,12 @@ struct MemoryBudget {
         lowLevelBudget.device.maxRenderTargetAlloc = budget.device.maxRenderTargetAlloc;
 
         u64 totalGPUBufferSize =
-            budget.device.maxGeometryAlloc + // GlobalVertexBuffer & GlobalIndexBuffer
+            budget.device.maxGeometryAlloc + // GlobalVertexBuffer, GlobalIndexBuffer & Global Meshlet Buffers
             budget.device.maxMaterialAlloc;  // GlobalMaterialBuffer
 
         // Add volatile GPU-side buffers that exist per-frame (like Indirect/Culling targets)
         u64 perFrameGPUBufferSize =
-            ( budget.shared.maxExecutableAlloc * 50 ) +                                    // indirectBufferHandle & indirectTemplateBufferHandle
+            ( budget.shared.maxExecutableAlloc * 50 ) +                                    // indirectBufferHandle
             budget.shared.maxConstantAllocPerFrame + budget.shared.maxUploadAllocPerFrame; // culledInstanceBufferHandle
 
         totalGPUBufferSize += ( perFrameGPUBufferSize * framesInFlight );
