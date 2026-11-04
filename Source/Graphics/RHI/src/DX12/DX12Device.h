@@ -20,6 +20,7 @@ public:
     TextureOwnerPtr            createTexture( const TextureDesc& desc, const void* initialData = nullptr ) override;
     BufferOwnerPtr             createBuffer( const BufferDesc& desc, const void* initialData = nullptr ) override;
     SamplerOwnerPtr            createSampler( const SamplerDesc& desc ) override;
+    TimeQueryPoolOwnerPtr      createTimeQueryPool( const TimeQueryPoolDesc& desc ) override;
     AccelOwnerPtr              createAccel( const AccelDesc& desc, bool immediateBuild = false ) override;
     GUIBackendOwnerPtr         createGUIBackend( const GUIBackendDesc& desc ) override;
     PipelineLayoutOwnerPtr     createPipelineLayout( const PipelineLayoutDesc& desc ) override;

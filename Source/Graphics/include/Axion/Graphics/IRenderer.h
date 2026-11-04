@@ -43,6 +43,8 @@ public:
         GCMode GCMode   = GCMode::AvgMemory; ///< Garbage Collection aggressiveness for transient resources.
         bool   autoSync = true;              ///< Automatic Barrier Insertion by RenderGraph.
 
+        bool enableTimeQueries = false; ///< GPU time queries around every RenderGraph pass (getPassTimings).
+
         u32 selectedDeviceID = UINT32_MAX; ///<  Index of the GPU adapter to use. Set to UINT32_MAX for auto-selection (best dedicated GPU).
 
         bool enableGui = true; ///< Enable ImGui integration (Requires additional setup in the render loop).
@@ -97,6 +99,9 @@ public:
 
     /// @brief Returns the total number of frames rendered since initialization.
     virtual u64 getTotalFrameNumber() const = 0;
+
+    /// @brief GPU time per pass of the last finished frame. Requires Settings::enableTimeQueries.
+    virtual const STLW::Vector<GPUPassTiming>& getPassTimings() const = 0;
 
     /// @brief Returns the low-level RHI Device. Use only for advanced/raw access.
     virtual const RHI::DeviceOwnerPtr& getDevice() const = 0;

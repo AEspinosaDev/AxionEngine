@@ -134,7 +134,9 @@ public:
     struct Description {
         u64  passDataAllocSize;
         u32  resourceTTL;
-        bool autoSync = true;
+        bool autoSync          = true;
+        bool enableTimeQueries = false; ///< GPU time queries around every pass (getPassTimings)
+        u32  framesInFlight    = 1;
     };
 
     virtual ~IRenderGraph() = default;
@@ -163,6 +165,9 @@ public:
 
     /// @brief Enables Automatic Barriers.
     virtual void setAutoSync( bool enable ) = 0;
+
+    /// @brief GPU time per pass of the last finished frame. Empty if time queries are disabled or no frame finished yet.
+    virtual const STLW::Vector<GPUPassTiming>& getPassTimings() const = 0;
 
 protected:
     // -- Bridge Methods (Implemented by Concrete Class) --

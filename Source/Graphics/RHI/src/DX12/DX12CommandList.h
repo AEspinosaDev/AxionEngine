@@ -71,6 +71,9 @@ public:
                                IBuffer* countBuffer       = nullptr,
                                u64      countBufferOffset = 0 ) override;
 
+    void writeTimeQuery( ITimeQueryPool* pool, u32 index ) override;
+    void resolveTimeQueries( ITimeQueryPool* pool, u32 count ) override;
+
     NativeObject getNativeObject( ObjectType objectType ) override;
     void         setDebugName( StringView name ) override;
     StringView   getDebugName() const override;

@@ -3,6 +3,7 @@
 #include "DX12Debug.h"
 #include "DX12GUIBackend.h"
 #include "DX12Pipeline.h"
+#include "DX12Query.h"
 #include "DX12Resource.h"
 #include "DX12SBTAllocator.h"
 #include "DX12Swapchain.h"
@@ -116,6 +117,10 @@ BufferOwnerPtr DX12Device::createBuffer( const BufferDesc& desc, const void* ini
 
 SamplerOwnerPtr DX12Device::createSampler( const SamplerDesc& desc ) {
     return Memory::makeOwned<DX12Sampler>( desc, _ctx );
+}
+
+TimeQueryPoolOwnerPtr DX12Device::createTimeQueryPool( const TimeQueryPoolDesc& desc ) {
+    return Memory::makeOwned<DX12TimeQueryPool>( desc, _ctx );
 }
 
 AccelOwnerPtr DX12Device::createAccel( const AccelDesc& desc, bool immediateBuild ) {

@@ -2,6 +2,7 @@
 #include "Axion/Common/Math.h"
 #include "Axion/Graphics/RHI/Common.h"
 #include "Axion/Graphics/RHI/IPipeline.h"
+#include "Axion/Graphics/RHI/IQuery.h"
 #include "Axion/Graphics/RHI/IResource.h"
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
 #include "Axion/Graphics/RHI/TransientDataAllocator.h"
@@ -154,6 +155,16 @@ public:
                                        u32      maxDispatchCount,
                                        IBuffer* countBuffer       = nullptr,
                                        u64      countBufferOffset = 0 ) = 0;
+
+    // -------------------------------------------------------------------------
+    // GPU TIME QUERIES
+    // -------------------------------------------------------------------------
+
+    /// @brief Writes the GPU clock at this point of the command stream. Index inside the current frame range of the pool.
+    virtual void writeTimeQuery( ITimeQueryPool* pool, u32 index ) = 0;
+
+    /// @brief Makes the first `count` queries of this frame readable by the CPU. Once per frame, after the last write.
+    virtual void resolveTimeQueries( ITimeQueryPool* pool, u32 count ) = 0;
 
     /// @brief Pushes 32-bit constants to the push constant block of the currently bound pipeline layout (Root Constants).
     /// @tparam T The struct type to push. Must be 4-byte aligned.

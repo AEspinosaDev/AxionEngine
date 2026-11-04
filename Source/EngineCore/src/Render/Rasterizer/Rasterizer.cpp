@@ -61,6 +61,7 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
         .RDGmaxAlloc      = KBYTES( 1024 ),
         .GCMode           = settings.common.GCMode,
         .autoSync         = true,
+        .enableTimeQueries = ( settings.common.flags & RendererEnableGPUTimeQueries ) != RendererNone,
         .selectedDeviceID = settings.common.selectedDeviceID,
         .enableGui        = ( settings.common.flags & RendererEnableGUI ) != RendererNone };
 

@@ -66,7 +66,9 @@ HeadlessRenderer::HeadlessRenderer( const RendererSettings& settings )
     RenderGraphDesc RGDesc = {
         .passDataAllocSize = _setts.RDGmaxAlloc,
         .resourceTTL       = (u32)_setts.GCMode,
-        .autoSync          = _setts.autoSync };
+        .autoSync          = _setts.autoSync,
+        .enableTimeQueries = _setts.enableTimeQueries,
+        .framesInFlight    = _FRAMES_IN_FLIGHT };
     _renderGraph.initialize( ctx, RGDesc );
     _renderGraph.initialize( ctx, RGDesc );
 }

@@ -29,6 +29,8 @@ public:
     virtual const u32       getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
     virtual u32             getCurrentFrameIndex() const override;
 
+    virtual const STLW::Vector<GPUPassTiming>& getPassTimings() const override { return _renderGraph.getPassTimings(); }
+
     virtual const RHI::DeviceOwnerPtr&       getDevice() const override;
     virtual const RHI::IGUIBackend*          getGUIBackend() const override;
     virtual RHI::IDescriptorAllocator* const getDescriptorAllocator() override;

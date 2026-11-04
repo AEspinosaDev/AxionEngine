@@ -29,6 +29,8 @@ public:
     void setGarbageCollectionTTL( u32 frames ) override;
     void setAutoSync( bool enable ) override;
 
+    const STLW::Vector<GPUPassTiming>& getPassTimings() const override { return _passTimings; }
+
 private:
     // Bridge methods
     RGResourceHandle createTexture( StringView name, const RHI::TextureDesc& desc ) override;
@@ -46,6 +48,8 @@ private:
     void runGC();
 
     void compile();
+
+    void readPassTimings( u32 frame );
 
     IGPUResourcePool*  _pool      = nullptr;
     IPipelineRegistry* _pipelines = nullptr;
@@ -91,6 +95,17 @@ private:
 
     STLW::Vector<byte> _frameMemory;
     size_t             _frameOffset = 0;
+
+    //--------------------------
+    // GPU TIME QUERIES
+    //--------------------------
+
+    static constexpr u32 MAX_TIMED_PASSES = 64;
+
+    RHI::TimeQueryPoolOwnerPtr           _timeQueryPool;
+    STLW::Vector<STLW::Vector<String64>> _timedPassNames; ///< Per frame in flight: passes timed by its last submission
+    STLW::Vector<u64>                    _timeQueryTicks;
+    STLW::Vector<GPUPassTiming>          _passTimings;
 
     //--------------------------
     // CACHED DATA

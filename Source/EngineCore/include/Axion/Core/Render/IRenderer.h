@@ -41,6 +41,9 @@ public:
     virtual u64       getTotalFrameNumber() const    = 0;
     virtual const u32 getTotalFramesInFlight() const = 0;
 
+    /// @brief GPU time per pass of the last finished frame. Requires RendererEnableGPUTimeQueries.
+    virtual const STLW::Vector<Graphics::GPUPassTiming>& getGPUPassTimings() const = 0;
+
     virtual STLW::String toString() const = 0;
 };
 

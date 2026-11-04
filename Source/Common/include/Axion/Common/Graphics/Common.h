@@ -493,6 +493,12 @@ struct RenderState {
     };
 };
 
+/// @brief GPU time of a RenderGraph pass, its barriers included
+struct GPUPassTiming {
+    String64 name;
+    float    milliseconds = 0.0f;
+};
+
 struct RendererMemoryBudget {
     struct Device {
         u64  maxTextureAlloc      = GIGABYTES( 1ull ); ///< Logical cap for loaded textures VRAM Pool (SRV, UAV).

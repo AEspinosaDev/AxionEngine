@@ -69,10 +69,20 @@ RenderGraph::RenderGraph()
 
 void RenderGraph::initialize( const SubsystemInitContext& ctx, const RenderGraphDesc& desc ) {
     RendererSubsystem::initialize( ctx );
+    _desc      = desc;
     _pool      = ctx.pool;
     _pipelines = ctx.pipelines;
 
     _frameMemory.resize( desc.passDataAllocSize );
+
+    if ( desc.enableTimeQueries )
+    {
+        _timeQueryPool = ctx.device->createTimeQueryPool( { .capacity  = MAX_TIMED_PASSES * 2, // Begin + end per pass
+                                                            .numFrames = desc.framesInFlight,
+                                                            .debugName = "RenderGraph Time Queries" } );
+        _timedPassNames.resize( desc.framesInFlight );
+        _timeQueryTicks.resize( MAX_TIMED_PASSES * 2 );
+    }
 
     AXION_LOG_INFO( Logger::Module::GFX, "RenderGraph Subsystem Initialized Succesfully" );
 }
@@ -126,6 +136,11 @@ void RenderGraph::execute( RenderGraphSetupFunc         setup,
                            RHI::ISBTAllocator*          sbtAlloc,
                            RHI::TransientDataAllocator* transAlloc ) {
 
+    // This frame slot fence was already waited: its previous submission is complete
+    const u32 frame = cmd->getCurrentFrame();
+    if ( _timeQueryPool )
+        readPassTimings( frame );
+
     reset();
     RenderGraphBuilder builder( *this, *descAlloc );
     setup( builder );
@@ -147,8 +162,17 @@ void RenderGraph::execute( RenderGraphSetupFunc         setup,
                             *_pipelines,
                             *_pool };
 
+    u32 timeQueryCount = 0;
+
     for ( const auto& pass : _passes )
     {
+        const bool timed = _timeQueryPool && timeQueryCount < MAX_TIMED_PASSES * 2;
+        if ( timed )
+        {
+            cmd->writeTimeQuery( _timeQueryPool.get(), timeQueryCount++ );
+            _timedPassNames[frame].push_back( pass.name );
+        }
+
         // Call barriers
         if ( _desc.autoSync )
             for ( const auto& b : pass.barriers )
@@ -167,7 +191,32 @@ void RenderGraph::execute( RenderGraphSetupFunc         setup,
             }
 
         pass.executor( ctx );
+
+        if ( timed )
+            cmd->writeTimeQuery( _timeQueryPool.get(), timeQueryCount++ );
     }
+
+    if ( _timeQueryPool )
+        cmd->resolveTimeQueries( _timeQueryPool.get(), timeQueryCount );
+}
+
+void RenderGraph::readPassTimings( u32 frame ) {
+    auto& names = _timedPassNames[frame];
+    if ( names.empty() )
+        return;
+
+    _timeQueryPool->readResults( frame, (u32)names.size() * 2, _timeQueryTicks.data() );
+
+    const double msPerTick = 1000.0 / (double)_timeQueryPool->getFrequency();
+
+    _passTimings.resize( names.size() );
+    for ( size_t i = 0; i < names.size(); ++i )
+    {
+        _passTimings[i].name         = names[i];
+        _passTimings[i].milliseconds = (float)( ( _timeQueryTicks[i * 2 + 1] - _timeQueryTicks[i * 2] ) * msPerTick );
+    }
+
+    names.clear();
 }
 
 void RenderGraph::compile() {

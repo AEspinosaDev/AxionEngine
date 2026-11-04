@@ -3,6 +3,7 @@
 #include "Axion/Graphics/RHI/ICommandList.h"
 #include "Axion/Graphics/RHI/IGUIBackend.h"
 #include "Axion/Graphics/RHI/IPipeline.h"
+#include "Axion/Graphics/RHI/IQuery.h"
 #include "Axion/Graphics/RHI/IResource.h"
 #include "Axion/Graphics/RHI/ShaderBindingTable.h"
 #include "Axion/Graphics/RHI/ISwapchain.h"
@@ -45,6 +46,8 @@ public:
     virtual BufferOwnerPtr createBuffer( const BufferDesc& desc, const void* initialData = nullptr ) = 0;
 
     virtual SamplerOwnerPtr createSampler( const SamplerDesc& desc ) = 0;
+
+    virtual TimeQueryPoolOwnerPtr createTimeQueryPool( const TimeQueryPoolDesc& desc ) = 0;
 
     /// @brief Allocates a Raytracing Acceleration Structure.
     /// @param immediateBuild If true, blocks CPU to perform an immediate build/upload (useful for static scenes or tests).

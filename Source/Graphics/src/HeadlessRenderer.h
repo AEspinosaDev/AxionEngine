@@ -33,6 +33,8 @@ public:
     virtual IShaderRegistry&   shaders() override;
     virtual IPipelineRegistry& pipelines() override;
 
+    virtual const STLW::Vector<GPUPassTiming>& getPassTimings() const override { return _renderGraph.getPassTimings(); }
+
     virtual const RHI::DeviceOwnerPtr&       getDevice() const override;
     virtual  RHI::IDescriptorAllocator* const getDescriptorAllocator() override;
     virtual const RHI::IGUIBackend*          getGUIBackend() const override;

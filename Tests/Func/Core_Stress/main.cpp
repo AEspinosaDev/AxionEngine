@@ -40,14 +40,14 @@ int main( /*int argc, char* argv[]*/ ) {
         Core::Render::RasterizerSettings rastDesc {};
         rastDesc.common.name             = "TestRasterizer";
         rastDesc.common.selectedDeviceID = 0;
-        rastDesc.common.flags |= Core::Render::RendererEnableFXAA;
+        rastDesc.common.flags |= Core::Render::RendererEnableFXAA | Core::Render::RendererEnableGPUTimeQueries;
 
         auto rasterizer = Core::Render::createRasterizer( &wnd, rastDesc );
         rasterizer->compileShaders();
 
         // 1. ASSETS & MATERIALS
         auto cubeHandle   = assets.mesh( "Cube" ).createCube();
-        auto sphereHandle = assets.mesh( "Sphere" ).createSphere();
+        auto sphereHandle = assets.mesh( "Sphere" ).createSphere( 16 );
 
         auto matGoldH = assets.material( "Gold" ).create<Core::Assets::StandardPBRMaterial>();
         auto matGold  = assets.getMaterial<Core::Assets::StandardPBRMaterial>( matGoldH );
@@ -198,6 +198,12 @@ int main( /*int argc, char* argv[]*/ ) {
 
                 OutputDebugStringW( buffer );
                 OutputDebugStringW( L"\n" );
+
+                for ( const auto& timing : rasterizer->getGPUPassTimings() )
+                {
+                    swprintf_s( buffer, 256, L"GPU %S: %.3f ms\n", timing.name.cstr(), timing.milliseconds );
+                    OutputDebugStringW( buffer );
+                }
 
                 frameCounter   = 0;
                 elapsedSeconds = 0.0;

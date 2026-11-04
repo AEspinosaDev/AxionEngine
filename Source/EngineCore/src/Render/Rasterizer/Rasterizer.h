@@ -52,6 +52,8 @@ public:
     u64 getCurrentFrameIndex() const override;
     u64 getTotalFrameNumber() const override;
 
+    const STLW::Vector<Graphics::GPUPassTiming>& getGPUPassTimings() const override { return _rnd->getPassTimings(); }
+
     const u32 getTotalFramesInFlight() const override { return _FRAMES_IN_FLIGHT; };
 
     STLW::String toString() const override;

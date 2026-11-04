@@ -1,6 +1,7 @@
 #include "DX12CommandList.h"
 #include "DX12Debug.h"
 #include "DX12Pipeline.h"
+#include "DX12Query.h"
 #include "DX12Resource.h"
 #include "DX12TranslatorUnit.h"
 
@@ -69,6 +70,17 @@ void DX12CommandList::end() {
 void DX12CommandList::setCurrentFrame( u32 index ) {
     AXION_LOG_ASSERT( index < _cmdAllocators.size(), Logger::Module::RHI, "Invalid frame index in setCurrentFrame()" );
     _currentFrame = index;
+}
+
+void DX12CommandList::writeTimeQuery( ITimeQueryPool* pool, u32 index ) {
+    auto* dxPool = static_cast<DX12TimeQueryPool*>( pool );
+    _cmdList->EndQuery( dxPool->getHeap(), D3D12_QUERY_TYPE_TIMESTAMP, dxPool->getFrameBase( _currentFrame ) + index );
+}
+
+void DX12CommandList::resolveTimeQueries( ITimeQueryPool* pool, u32 count ) {
+    auto*     dxPool = static_cast<DX12TimeQueryPool*>( pool );
+    const u32 base   = dxPool->getFrameBase( _currentFrame );
+    _cmdList->ResolveQueryData( dxPool->getHeap(), D3D12_QUERY_TYPE_TIMESTAMP, base, count, dxPool->getReadbackBuffer(), base * sizeof( u64 ) );
 }
 
 u32 DX12CommandList::getCurrentFrame() const {
