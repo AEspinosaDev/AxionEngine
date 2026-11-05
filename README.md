@@ -59,7 +59,7 @@ Axion is designed with strict modularity in mind. You are not forced to use the 
 ### Prerequisites
 
 - **OS:** Windows 10/11.
-- **SDKs:** Vulkan SDK 1.4.*.
+- **SDKs:** Windows SDK (installed with Visual Studio). Vulkan SDK 1.4.* only when building with `-DAXION_ENABLE_VULKAN=ON`.
 - **Tools:** CMake (3.20+), Ninja 🥷 (Optional, recommended for speed).´
 - **Git LFS:** Required to download binary assets (textures, meshes). 
     *(If you clone the repo and assets appear as 1KB text files, run `git lfs pull`)*.
@@ -81,7 +81,7 @@ Axion is designed with strict modularity in mind. You are not forced to use the 
    cmake ..
    ```
 
-   Note: The CMake configuration automatically locates and links system dependencies (except Vulkan SDK). It is designed to work out-of-the-box with VS Code or Visual Studio.
+   Note: The CMake configuration automatically locates and links system dependencies (except Vulkan SDK, if enabled). It is designed to work out-of-the-box with VS Code or Visual Studio.
    
 3. **Options: To disable building tests, examples or specific engine modules:**
    ```bash

@@ -1,5 +1,6 @@
 #pragma once
 #include "Axion/Common/Common.h"
+#include "Axion/Common/Memory/Pointers/OwnerPtr.h"
 #include "Axion/Graphics/Handle.h"
 #include "Axion/Graphics/ShaderCommon.h"
 #include <optional>
@@ -49,6 +50,27 @@ public:
 
     /// @brief Returns the total number of registered shaders.
     virtual u32 size() const = 0;
+
+    // -------------------------------------------------------------------------
+    // SHADER CACHE
+    // -------------------------------------------------------------------------
+
+    /// @brief Loads a precompiled shader cache for the graphics API of the device (see Tools/ShaderCacheBuilder).
+    /// From then on, compileShader() takes the bytecode from the cache instead of invoking the compiler.
+    /// @note Failing to load it, or a shader that can't be resolved from it, aborts in distribution builds.
+    /// Otherwise those shaders fall back to the compiler.
+    /// @param directory Folder that holds the cache files.
+    /// @param cacheName Prefix of the cache files (eg: "Rasterizer").
+    /// @return True if the cache is ready to be used.
+    virtual bool loadShaderCache( StringView directory, StringView cacheName ) = 0;
+
+#ifdef AXION_TOOLS_BUILD
+    /// @brief Writes all the registered shaders to a shader cache. Nothing is written unless all of them are compiled.
+    /// @param directory Output folder. Created if it doesn't exist.
+    /// @param cacheName Prefix of the cache files (eg: "Rasterizer").
+    /// @return True if the cache files were written.
+    virtual bool exportShaderCache( StringView directory, StringView cacheName ) = 0;
+#endif
 
 protected:
     IShaderRegistry() = default;
@@ -120,6 +142,12 @@ public:
     /// @brief Adds a specialization type.
     Builder& addSpecialization( StringView typeName ) {
         _desc.spececializationTypeNames.push_back( typeName );
+        return *this;
+    }
+    /// @brief Tags the shader with the material pass and archetype it belongs to. Only stored as shader cache metadata.
+    Builder& materialPass( StringView pass, StringView archetype ) {
+        _desc.materialPass      = pass;
+        _desc.materialArchetype = archetype;
         return *this;
     }
 
@@ -219,6 +247,22 @@ private:
     IShaderRegistry& _registry;
     ShaderDesc       _desc;
 };
+
+#ifdef AXION_TOOLS_BUILD
+
+DEFINE_OWNER_PTR_FOR_TYPE( IShaderRegistry, ShaderRegistry )
+
+/// @brief Configuration of a shader registry that works without a device.
+struct OfflineShaderRegistrySettings {
+    Shader::NativeFormat format = Shader::DXIL; ///< Target of every registered shader, whatever format its builder asked for.
+    String32             profile;               ///< Target profile (eg: "sm_6_6"). Empty for the default profile of the format.
+};
+
+/// @brief Factory function to create a shader registry that compiles without a device, window or GPU.
+/// Only useful to generate shader caches.
+ShaderRegistryOwnerPtr createOfflineShaderRegistry( const OfflineShaderRegistrySettings& settings = {} );
+
+#endif
 
 } // namespace Graphics
 AXION_NAMESPACE_END

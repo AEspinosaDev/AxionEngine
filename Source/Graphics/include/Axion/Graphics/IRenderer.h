@@ -26,7 +26,11 @@ public:
     struct Settings {
         API           gfxApi           = API::DirectX12;        ///< Underlying Graphics API backend.
         BufferingType bufferingType    = BufferingType::Double; ///< Swapchain buffering (Double/Triple).
+#ifdef AXION_DISTRIBUTION
+        bool          debugMode        = false;                 ///< Enable API validation layers and debug markers. They need the Windows Graphics Tools, which a clean machine doesn't have.
+#else
         bool          debugMode        = true;                  ///< Enable API validation layers and debug markers.
+#endif
         PresentMode   presentMode      = PresentMode::Vsync;    ///< Presentation mode (Vsync/Immediate/Mailbox).
         Format        backbufferFormat = Format::RGBA8_UNORM;   ///< Swapchain backbuffer format.
 

@@ -138,7 +138,8 @@ AXION_NAMESPACE_END
 // Macros for convenience
 // -------------------------------------------------
 
-#ifdef AXION_DEBUG
+// Tools run from a console in any configuration: their logs are their output
+#if defined( AXION_DEBUG ) || defined( AXION_TOOLS_BUILD )
 
 #define AXION_LOG_INFO( module, fmt_str, ... ) \
     Axion::Logger::log(                        \

@@ -1,6 +1,25 @@
 #include "RasterizerConfig.h"
 #include <Render/Rasterizer/RasterizerConfig.h>
 
+#include <Axion/Core/Assets/Material.h>
+
+// Generic Passes
+#include <Render/GenericPasses/FXAAPass.hpp>
+#include <Render/GenericPasses/IndirectUploadPass.hpp>
+#include <Render/GenericPasses/ToneMappingPass.hpp>
+// Rasterizer Passes
+#include <Render/Rasterizer/Passes/CullingPass.hpp>
+#include <Render/Rasterizer/Passes/UploadPass.hpp>
+#include <Render/Rasterizer/Passes/VisPass.hpp>
+#include <Render/Rasterizer/Passes/VisResolveNaivePass.hpp>
+
+#ifdef AXION_TOOLS_BUILD
+#include <Render/ShaderCacheCompiler.h>
+// AXION_REGISTER_MATERIAL lives in the headers: the archetypes included here are the ones that get cooked.
+// Add a material here once its shader implements IMaterial
+#include <Axion/Core/Assets/Materials/StandardPBRMaterial.h>
+#endif
+
 AXION_NAMESPACE_BEGIN
 
 namespace Core::Render {
@@ -80,10 +99,63 @@ void matLibConfig( Graphics::PipelineLayoutHandle globalLayoutHandle, Rasterizer
         .overrideMask = StateOverrideFlags::All } );
 }
 
+void registerMaterials( MaterialLibrary<(u32)MaterialPassType::Count>& matLib ) {
+
+    Assets::GlobalMaterialRegistry::enumerate(
+        [&]( StringView name, Assets::MaterialArchetypeInfo info ) {
+            AXION_UNUSED_PARAMETER( name );
+            matLib.registerArchetype( info.name, info.shaderModule, info.shaderSpcecializationType );
+        } );
+
+    // matLib.beginMaterial( "ErrorMaterial" )
+    //     .addPass( MaterialPassType::Opaque,
+    //               AXION_SHADER_DIR "/Slang/Materials/Test.slang",
+    //               { { "vsForward", Graphics::ShaderType::Vertex },
+    //                 { "psForward", Graphics::ShaderType::Pixel } } )
+    //     .finish();
+}
+
+void registerPasses( PassManager& passes ) {
+    passes.registerPass<UploadPass>();
+    passes.registerPass<IndirectUploadPass>();
+    passes.registerPass<CullingPass>();
+    passes.registerPass<VisPass>();
+    // TBD
+    //  passes.registerPass<BinningPass>();
+    passes.registerPass<VisResolvePass>();
+    passes.registerPass<ToneMappingPass>();
+    passes.registerPass<FXAAPass>();
+}
+
 // void createDefaultResources( Renderer* rnd, GPUResources& outRes ) {
 // }
 
 } // namespace Rasterizer::Config
+
+#ifdef AXION_TOOLS_BUILD
+
+ShaderCacheCompilerOwnerPtr createRasterizerShaderCacheCompiler( const IShaderCacheCompiler::Settings& settings ) {
+
+    auto recipe = []( Graphics::IShaderRegistry& shaders ) {
+        // Same registrations as the runtime. PSOs are never created here, so no layout is needed
+        RasterizerSettings  rasterizerSettings {};
+        MaterialLibraryDesc matLibDesc;
+        Rasterizer::Config::matLibConfig( {}, rasterizerSettings, matLibDesc );
+
+        MaterialLibrary<(u32)Rasterizer::Config::MaterialPassType::Count> matLib;
+        matLib.initialize( matLibDesc );
+        Rasterizer::Config::registerMaterials( matLib );
+        matLib.registerShaders( shaders );
+
+        PassManager passes;
+        Rasterizer::Config::registerPasses( passes );
+        passes.registerShaders( shaders );
+    };
+
+    return Memory::makeOwned<ShaderCacheCompiler>( Rasterizer::Config::SHADER_CACHE_NAME, settings, recipe );
+}
+
+#endif
 
 } // namespace Core::Render
 

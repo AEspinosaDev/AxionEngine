@@ -6,6 +6,17 @@ namespace Graphics {
 
 static const ShaderBundle INVALID_BUNDLE = {};
 
+/// @brief Handles a shader that can't be taken from the shader cache.
+/// Distribution builds don't ship shader sources, so there is no fallback. As logs are compiled out in Release, stderr is the only channel left.
+static void reportShaderCacheFailure( StringView message ) {
+#ifdef AXION_DISTRIBUTION
+    fmt::println( stderr, "[AXION][FATAL] Shader cache: {}", message );
+    std::abort();
+#else
+    AXION_LOG_WARN( Logger::Module::GFX, "Shader cache: {}. Falling back to the shader compiler", message );
+#endif
+}
+
 ShaderRegistry::ShaderRegistry() : RendererSubsystem() {
 }
 
@@ -18,28 +29,28 @@ void ShaderRegistry::initialize( const SubsystemInitContext& ctx ) {
     _bindlessSupported = ctx.device->queryFeatureSupport( RHI::FeatureType::HeapDirectlyIndexed );
 
     // Default settings target bindless-capable profiles: downgrade the profile of the active API if the device can't do it
-    ShaderCompiler::Settings compilerSettings;
     switch ( ctx.device->getGraphicsAPI() )
     {
         case API::DirectX12:
+            _targetFormat = Shader::DXIL;
             if ( !_bindlessSupported )
-                compilerSettings.dxilProfile = "sm_6_5"; // No ResourceDescriptorHeap (needs SM 6.6)
+                _compilerSettings.dxilProfile = "sm_6_5"; // No ResourceDescriptorHeap (needs SM 6.6)
             break;
         case API::Vulkan:
+            _targetFormat = Shader::SPIR_V;
             // TODO: Vulkan backend not implemented yet. Define the bindless SPIR-V profile (descriptor indexing) and its fallback here
             break;
         default:
             AXION_LOG_ERROR( Logger::Module::GFX, "Shader Registry: unknown graphics API, using default shader profiles" );
             break;
     }
-    _compiler.begin( compilerSettings );
 
     AXION_LOG_INFO( Logger::Module::GFX,
                     "Shader Registry Subsystem Initialized Succesfully | Bindless: {} | Profiles -> DXIL: {} SPIR-V: {} GLSL: {}",
                     _bindlessSupported,
-                    compilerSettings.dxilProfile,
-                    compilerSettings.spirvProfile,
-                    compilerSettings.glslProfile );
+                    _compilerSettings.dxilProfile,
+                    _compilerSettings.spirvProfile,
+                    _compilerSettings.glslProfile );
 }
 
 ShaderHandle ShaderRegistry::registerShader( const ShaderDesc& desc ) {
@@ -60,6 +71,10 @@ ShaderHandle ShaderRegistry::registerShader( const ShaderDesc& desc ) {
         id = (u32)_shaders.size();
         _shaders.push_back( { {}, desc, /*std::move( layout ),*/ ShaderState::Uncompiled, true } );
     }
+#ifdef AXION_TOOLS_BUILD
+    if ( _offline )
+        _shaders[id].desc.format = _targetFormat;
+#endif
     // Map name
     if ( !desc.name.empty() )
         _nameToHandle[desc.name] = { id };
@@ -116,8 +131,21 @@ const ShaderBundle& ShaderRegistry::compileShader( ShaderHandle handle ) {
         return record.bundle;
     }
 
+    if ( _cache.isLoaded() )
+    {
+        std::string cacheError;
+        if ( _cache.resolve( record.desc, record.bundle, cacheError ) )
+        {
+            record.state = ShaderState::Ready;
+            AXION_LOG_INFO( Logger::Module::GFX, "Loaded Shader [{}] from the shader cache", record.desc.name );
+            return record.bundle;
+        }
+        reportShaderCacheFailure( cacheError );
+    }
+
     AXION_LOG_INFO( Logger::Module::GFX, "Compiling Shader [{}] with path: {}", record.desc.name, record.desc.path );
 
+    _compiler.begin( _compilerSettings );
     if ( _compiler.compileFile( record.desc, record.bundle ) )
     {
         record.state = ShaderState::Ready;
@@ -158,6 +186,86 @@ void ShaderRegistry::compileAllShaders( u32 threadCount ) {
         }
     }
 }
+
+bool ShaderRegistry::loadShaderCache( StringView directory, StringView cacheName ) {
+    std::scoped_lock lock( _mutex );
+
+    std::string error;
+    if ( !_cache.load( directory, cacheName, _targetFormat, error ) )
+    {
+        reportShaderCacheFailure( error );
+        return false;
+    }
+    AXION_LOG_INFO( Logger::Module::GFX, "Loaded Shader Cache [{}] from: {}", cacheName, directory );
+    return true;
+}
+
+#ifdef AXION_TOOLS_BUILD
+
+void ShaderRegistry::initializeOffline( const OfflineShaderRegistrySettings& settings ) {
+    _offline      = true;
+    _targetFormat = settings.format;
+
+    if ( !settings.profile.empty() )
+    {
+        switch ( settings.format )
+        {
+            case Shader::DXIL:
+                _compilerSettings.dxilProfile = settings.profile;
+                break;
+            case Shader::SPIR_V:
+                _compilerSettings.spirvProfile = settings.profile;
+                break;
+            case Shader::GLSL:
+                _compilerSettings.glslProfile = settings.profile;
+                break;
+        }
+    }
+}
+
+bool ShaderRegistry::exportShaderCache( StringView directory, StringView cacheName ) {
+    std::scoped_lock lock( _mutex );
+
+    STLW::Vector<ShaderCache::ExportEntry> entries;
+    entries.reserve( _shaders.size() );
+
+    bool allCompiled = true;
+    for ( const ShaderRecord& record : _shaders )
+    {
+        if ( !record.alive )
+            continue;
+
+        if ( record.state != ShaderState::Ready )
+        {
+            AXION_LOG_ERROR( Logger::Module::GFX, "Can't export the shader cache: shader [{}] is not compiled", record.desc.name );
+            allCompiled = false;
+            continue;
+        }
+        entries.push_back( { &record.desc, &record.bundle } );
+    }
+    if ( !allCompiled )
+        return false;
+
+    const String32 profile = _targetFormat == Shader::DXIL     ? _compilerSettings.dxilProfile
+                             : _targetFormat == Shader::SPIR_V ? _compilerSettings.spirvProfile
+                                                               : _compilerSettings.glslProfile;
+
+    std::string error;
+    if ( !ShaderCache::write( directory, cacheName, _targetFormat, profile, entries, error ) )
+    {
+        AXION_LOG_ERROR( Logger::Module::GFX, "Can't export the shader cache: {}", error );
+        return false;
+    }
+    return true;
+}
+
+ShaderRegistryOwnerPtr createOfflineShaderRegistry( const OfflineShaderRegistrySettings& settings ) {
+    auto registry = Memory::makeOwned<ShaderRegistry>();
+    registry->initializeOffline( settings );
+    return registry;
+}
+
+#endif
 
 } // namespace Graphics
 AXION_NAMESPACE_END

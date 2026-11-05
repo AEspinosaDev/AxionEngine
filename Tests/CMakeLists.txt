@@ -1,5 +1,9 @@
 
-get_filename_component(ABS_TEST_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources" ABSOLUTE)
+if(AXION_DISTRIBUTION)
+    set(ABS_TEST_RESOURCE_DIR "../Assets/Tests")
+else()
+    get_filename_component(ABS_TEST_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources" ABSOLUTE)
+endif()
 
 add_library(TestsConfig INTERFACE)
 target_compile_definitions(TestsConfig INTERFACE

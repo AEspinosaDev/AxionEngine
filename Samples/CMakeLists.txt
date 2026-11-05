@@ -1,5 +1,9 @@
 
-get_filename_component(ABS_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources" ABSOLUTE)
+if(AXION_DISTRIBUTION)
+    set(ABS_RESOURCE_DIR "../Assets/Samples")
+else()
+    get_filename_component(ABS_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources" ABSOLUTE)
+endif()
 
 add_library(SamplesConfig INTERFACE)
 target_compile_definitions(SamplesConfig INTERFACE

@@ -117,20 +117,35 @@
             }
         },
         {
-            "name": "distribution",
-            "displayName": "For Distribution (Ninja)",
+            "name": "ninja-tools-msvc",
+            "displayName": "MSVC + Ninja (Offline Tools)",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build/${presetName}",
+            "binaryDir": "${sourceDir}/Build/${presetName}",
             "cacheVariables": {
-                "CMAKE_CXX_COMPILER": "clang++",
-                "CMAKE_C_COMPILER": "clang",
-                "CMAKE_CXX_STANDARD": "17",
-                "CMAKE_CXX_STANDARD_REQUIRED": "ON",
-                "CMAKE_CXX_EXTENSIONS": "OFF",
+                "CMAKE_C_COMPILER": "cl",
+                "CMAKE_CXX_COMPILER": "cl",
                 "CMAKE_BUILD_TYPE": "Release",
-                "DISTRIBUTION_MODE": "ON",
-                "BUILD_TESTS": "OFF",
-                "BUILD_EXAMPLES": "ON"
+                "CMAKE_SYSTEM_VERSION": "10.0.22621.0",
+                "AXION_BUILD_TOOLS": "ON",
+                "AXION_BUILD_EDITOR": "OFF",
+                "AXION_BUILD_SAMPLES": "OFF",
+                "AXION_BUILD_TESTS": "OFF"
+            }
+        },
+        {
+            "name": "ninja-dist-msvc",
+            "displayName": "MSVC + Ninja (Distribution)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/Build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cl",
+                "CMAKE_CXX_COMPILER": "cl",
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_SYSTEM_VERSION": "10.0.22621.0",
+                "AXION_DISTRIBUTION": "ON",
+                "AXION_BUILD_EDITOR": "OFF",
+                "AXION_BUILD_SAMPLES": "ON",
+                "AXION_BUILD_TESTS": "OFF"
             }
         }
     ],
@@ -176,9 +191,12 @@
             "configuration": "Release"
         },
         {
-            "name": "distribution",
-            "configurePreset": "distribution",
-            "configuration": "Release"
+            "name": "ninja-tools-msvc",
+            "configurePreset": "ninja-tools-msvc"
+        },
+        {
+            "name": "ninja-dist-msvc",
+            "configurePreset": "ninja-dist-msvc"
         }
     ]
 }

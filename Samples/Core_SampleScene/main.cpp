@@ -9,7 +9,7 @@
 
 USING_AXION_NAMESPACE
 
-int main( /*int argc, char* argv[]*/ ) {
+int main( int argc, char* argv[] ) {
 
     try
     {
@@ -26,6 +26,16 @@ int main( /*int argc, char* argv[]*/ ) {
         rastDesc.common.name             = "MyRasterizer";
         rastDesc.common.selectedDeviceID = 0;
         rastDesc.common.flags |= Core::Render::RendererEnableFXAA;
+
+        // Precompiled shaders (see Tools/ShaderCacheBuilder). Distribution builds don't ship shader sources
+#ifdef AXION_DISTRIBUTION
+#endif
+rastDesc.common.flags |= Core::Render::RendererUseShaderCache;
+        for ( int i = 1; i < argc; ++i )
+        {
+            if ( StringView( argv[i] ) == "--use-shader-cache" )
+                rastDesc.common.flags |= Core::Render::RendererUseShaderCache;
+        }
 
         auto rasterizer = Core::Render::createRasterizer( &wnd, rastDesc );
         rasterizer->compileShaders();

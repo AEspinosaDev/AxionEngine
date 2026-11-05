@@ -1,8 +1,8 @@
 #pragma once
 #include <Axion/Graphics/RHI/Common.h>
 #include <Axion/Graphics/Subsystems/IShaderRegistry.h>
-#include <slang/slang-com-ptr.h>
-#include <slang/slang.h>
+#include <slang-com-ptr.h>
+#include <slang.h>
 
 AXION_NAMESPACE_BEGIN
 
@@ -16,7 +16,7 @@ public:
     /// @brief General settings for shader compiler.
     struct Settings {
         String32 dxilProfile  = "sm_6_6";   ///< DirectX 12
-        String32 spirvProfile = "glsl_450"; ///< Vulkan
+        String32 spirvProfile = "spirv_1_5"; ///< Vulkan. Mesh shaders need SPIR-V 1.4 or later
         String32 glslProfile  = "glsl_450"; ///< OpenGL 
     };
 

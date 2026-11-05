@@ -75,8 +75,11 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
     _mtlLib.initialize( matLibDesc );
 
     // Registrations
-    registerMaterials();
-    registerPasses();
+    Config::registerMaterials( _mtlLib );
+    Config::registerPasses( _passes );
+
+    // Every pass works on the global layout contract (before createPipelines)
+    _passes.setGlobalLayout( _globalMtlLayoutHandle );
 
     // GPU Resurce Creation
     createResources();
@@ -112,6 +115,10 @@ void Rasterizer::compileShaders( u32 threadCount ) {
 
     auto startTime = std::chrono::high_resolution_clock::now();
     AXION_LOG_INFO( Logger::Module::Core, "Start of shader compilation for Renderer [{}] | Num Threads: {}", _settings.common.name, threadCount );
+
+    // Precompiled shaders: compileAllShaders takes them from the cache
+    if ( _settings.common.flags & RendererUseShaderCache )
+        _rnd->shaders().loadShaderCache( _settings.common.shaderCacheDir, Config::SHADER_CACHE_NAME );
 
     // Register Material & Pass Shaders
     _mtlLib.registerShaders( _rnd->shaders() );
@@ -393,37 +400,6 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
 #pragma endregion
 #pragma region Resources
-
-void Rasterizer::registerMaterials() {
-
-    Assets::GlobalMaterialRegistry::enumerate(
-        [&]( StringView name, Assets::MaterialArchetypeInfo info ) {
-            AXION_UNUSED_PARAMETER( name );
-            _mtlLib.registerArchetype( info.name, info.shaderModule, info.shaderSpcecializationType );
-        } );
-
-    // _mtlLib.beginMaterial( "ErrorMaterial" )
-    //     .addPass( MaterialPassType::Opaque,
-    //               AXION_SHADER_DIR "/Slang/Materials/Test.slang",
-    //               { { "vsForward", Graphics::ShaderType::Vertex },
-    //                 { "psForward", Graphics::ShaderType::Pixel } } )
-    //     .finish();
-}
-
-void Rasterizer::registerPasses() {
-    _passes.registerPass<UploadPass>();
-    _passes.registerPass<IndirectUploadPass>();
-    _passes.registerPass<CullingPass>();
-    _passes.registerPass<VisPass>();
-    // TBD
-    //  _passes.registerPass<BinningPass>();
-    _passes.registerPass<VisResolvePass>();
-    _passes.registerPass<ToneMappingPass>();
-    _passes.registerPass<FXAAPass>();
-
-    // Every pass works on the global layout contract (before createPipelines)
-    _passes.setGlobalLayout( _globalMtlLayoutHandle );
-}
 
 void Rasterizer::createResources() {
 

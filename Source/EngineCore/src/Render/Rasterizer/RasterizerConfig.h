@@ -4,6 +4,7 @@
 #include <Axion/Graphics/ShaderCommon.h>
 
 #include <Render/MaterialLibrary.h>
+#include <Render/PassManager.h>
 
 AXION_NAMESPACE_BEGIN
 
@@ -98,6 +99,8 @@ constexpr u64 MAX_SAMPLER_VIEWS         = 512;
 constexpr u64 MAX_GLOBAL_UBO_BYTES     = 1024;
 constexpr u64 MAX_PUSH_CONSTANTS_BYTES = 128;
 
+constexpr const char* SHADER_CACHE_NAME = "RasterizerShaders"; ///< Prefix of the rasterizer shader cache files
+
 //-----------------------------------------------------------------------------
 // Rasterizer Config
 //-----------------------------------------------------------------------------
@@ -106,6 +109,12 @@ Graphics::PipelineLayoutHandle buildGlobalLayout( Graphics::IPipelineRegistry& p
 void matLibConfig( Graphics::PipelineLayoutHandle globalLayoutHandle,
                    RasterizerSettings&            settings,
                    MaterialLibraryDesc&           matLibDesc );
+
+/// @brief Registers every material archetype known by the engine. Shared by the rasterizer and its shader cache compiler.
+void registerMaterials( MaterialLibrary<(u32)MaterialPassType::Count>& matLib );
+
+/// @brief Declares the render passes of the rasterizer. Shared by the rasterizer and its shader cache compiler.
+void registerPasses( PassManager& passes );
 
 // void createDefaultResources( Renderer* rnd, GPUResources& outRes );
 

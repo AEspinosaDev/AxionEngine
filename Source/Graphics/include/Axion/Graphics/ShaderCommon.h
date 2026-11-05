@@ -48,6 +48,10 @@ struct Description {
     bool                                              autoReflect = true; ///< Whether to generate reflection data.
 
     String64 name;
+
+    // Shader cache metadata
+    String64 materialPass;      ///< Material pass this shader belongs to. Empty for non material shaders.
+    String64 materialArchetype; ///< Material archetype this shader is specialized for. Empty if it isn't specialized.
 };
 
 } // namespace Shader

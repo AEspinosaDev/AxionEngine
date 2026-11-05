@@ -10,11 +10,30 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 # ----------------------------------------------------------------------------
 # Vulkan (prebuilt from VulkanSDK)
 # ----------------------------------------------------------------------------
-find_package(Vulkan REQUIRED)
-if(NOT Vulkan_FOUND)
-message(FATAL_ERROR "Vulkan SDK not found! Install Vulkan SDK 1.3.296+")
+if(AXION_ENABLE_VULKAN)
+    find_package(Vulkan REQUIRED)
+    if(NOT Vulkan_FOUND)
+        message(FATAL_ERROR "Vulkan SDK not found! Install Vulkan SDK 1.3.296+")
+    endif()
+    message(STATUS "Using Vulkan SDK at: ${Vulkan_INCLUDE_DIRS}")
 endif()
-message(STATUS "Using Vulkan SDK at: ${Vulkan_INCLUDE_DIRS}")
+
+# ----------------------------------------------------------------------------
+# DXC (prebuilt from the Windows SDK)
+# ----------------------------------------------------------------------------
+# Distribution builds take their shaders from the shader cache: they can't rely on an SDK being installed
+if(WIN32 AND NOT AXION_DISTRIBUTION)
+    get_filename_component(WINDOWS_KITS_DIR "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots;KitsRoot10]" ABSOLUTE)
+    file(GLOB WINDOWS_SDK_BIN_DIRS LIST_DIRECTORIES true "${WINDOWS_KITS_DIR}/bin/10.*")
+    list(SORT WINDOWS_SDK_BIN_DIRS ORDER DESCENDING) # Newest SDK first: old ones don't ship DXC
+    list(TRANSFORM WINDOWS_SDK_BIN_DIRS APPEND "/x64")
+
+    find_path(AXION_DXC_DIR dxcompiler.dll PATHS ${WINDOWS_SDK_BIN_DIRS} NO_DEFAULT_PATH DOC "Folder of the DXC used to compile shaders")
+    if(NOT AXION_DXC_DIR)
+        message(FATAL_ERROR "dxcompiler.dll not found in the Windows SDK (${WINDOWS_KITS_DIR}). Install a recent Windows SDK or set AXION_DXC_DIR")
+    endif()
+    message(STATUS "Using DXC at: ${AXION_DXC_DIR}")
+endif()
 
 # ----------------------------------------------------------------------------
 # Slang (Custom Prebuilt)
@@ -109,6 +128,11 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/tiny_obj_loader)
 # MESH OPTIMIZER
 # ----------------------------------------------------------------------------
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/meshoptimizer)
+
+# ----------------------------------------------------------------------------
+# NLOHMANN JSON (header only)
+# ----------------------------------------------------------------------------
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/nlohmann-json)
 
 # ----------------------------------------------------------------------------
 # D3D12 VMA 

@@ -59,8 +59,6 @@ public:
     STLW::String toString() const override;
 
 private:
-    void registerMaterials();
-    void registerPasses();
     void createResources();
 
     struct TransientPayload {

@@ -2,6 +2,7 @@
 #pragma once
 #include "Axion/Graphics/RHI/IPipeline.h"
 #include "RendererSubsystem.h"
+#include "ShaderCache.h"
 #include "ShaderCompiler.h"
 
 AXION_NAMESPACE_BEGIN
@@ -16,6 +17,13 @@ public:
 
     void initialize( const SubsystemInitContext& ctx ) override;
 
+#ifdef AXION_TOOLS_BUILD
+    /// @brief Initializes the registry without a device: every registered shader targets the given format and profile.
+    void initializeOffline( const OfflineShaderRegistrySettings& settings );
+
+    bool exportShaderCache( StringView directory, StringView cacheName ) override;
+#endif
+
     Builder shader( StringView name ) override { return Builder( *this, name ); }
 
     const ShaderBundle&         getBundle( ShaderHandle handle ) const override;
@@ -24,6 +32,7 @@ public:
     const ShaderBundle&         compileShader( StringView name ) override;
     void                        compileAllShaders( u32 threadCount = 1 ) override;
     u32                         size() const override { return (u32)_shaders.size(); };
+    bool                        loadShaderCache( StringView directory, StringView cacheName ) override;
 
 private:
     ShaderHandle registerShader( const ShaderDesc& desc ) override;
@@ -42,8 +51,14 @@ private:
         bool         alive = false;
     };
 
-    ShaderCompiler _compiler;
-    bool           _bindlessSupported = false; ///< Device supports pure bindless
+    ShaderCompiler           _compiler;
+    ShaderCompiler::Settings _compilerSettings;                ///< The compiler only starts when a shader really has to be compiled
+    ShaderCache              _cache;                           ///< Precompiled shaders. compileShader() looks here first once loaded
+    Shader::NativeFormat     _targetFormat      = Shader::DXIL; ///< Native format of the active graphics API
+    bool                     _bindlessSupported = false;       ///< Device supports pure bindless
+#ifdef AXION_TOOLS_BUILD
+    bool _offline = false; ///< No device: shaders are forced to _targetFormat
+#endif
 
     STLW::Vector<ShaderRecord>                 _shaders;
     STLW::UnorderedMap<String64, ShaderHandle> _nameToHandle;

@@ -366,10 +366,14 @@ ComPtr<ID3D12Device2> DX12Device::createDevice( const ComPtr<IDXGIAdapter4>& gpu
     ComPtr<ID3D12Device2> device;
     DX_CHECK( D3D12CreateDevice( gpuAdapter.Get(), static_cast<D3D_FEATURE_LEVEL>( _desc.featureLevel ), IID_PPV_ARGS( &device ) ) );
 
-    if ( !_desc.enableDebugLayer )
+    if ( _desc.enableDebugLayer )
     {
         ComPtr<ID3D12InfoQueue> pInfoQueue;
-        if ( SUCCEEDED( _ctx.device.As( &pInfoQueue ) ) )
+        if ( FAILED( device.As( &pInfoQueue ) ) )
+            return device;
+
+        // Without a debugger attached a break would kill the application
+        if ( IsDebuggerPresent() )
         {
             pInfoQueue->SetBreakOnSeverity( D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE );
             pInfoQueue->SetBreakOnSeverity( D3D12_MESSAGE_SEVERITY_ERROR, TRUE );

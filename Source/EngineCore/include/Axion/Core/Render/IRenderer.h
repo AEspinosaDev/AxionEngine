@@ -19,7 +19,13 @@ struct CommonSettings {
     Graphics::GCMode        GCMode           = Graphics::GCMode::AvgMemory;
     u32                     selectedDeviceID = UINT32_MAX;
 
+#ifdef AXION_DISTRIBUTION
+    RendererFlags flags = RendererEnableGPUCulling; ///< The debug layer needs the Windows Graphics Tools, which a clean machine doesn't have.
+#else
     RendererFlags flags = RendererEnableDebug | RendererEnableGPUCulling;
+#endif
+
+    STLW::String shaderCacheDir = AXION_SHADER_CACHE_DIR; ///< Folder of the precompiled shaders. Only read with RendererUseShaderCache.
 };
 
 

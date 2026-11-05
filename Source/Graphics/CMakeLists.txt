@@ -26,7 +26,14 @@ target_link_libraries(AxionGFX
 PUBLIC
 Slang::Slang
 AxionCommon
-AxionRHI)
+AxionRHI
+PRIVATE
+nlohmann_json)
+
+# Shaders are always compiled with the DXC of the Windows SDK, whatever the PATH finds first
+if(AXION_DXC_DIR)
+    target_compile_definitions(AxionGFX PRIVATE AXION_DXC_DIR="${AXION_DXC_DIR}")
+endif()
 
 
 

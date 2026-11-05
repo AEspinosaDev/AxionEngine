@@ -23,6 +23,7 @@ enum RendererFlags : u32
     RendererEnableDLSS           = 1 << 8,
     RendererEnableGPUCulling     = 1 << 9,
     RendererEnableGPUTimeQueries = 1 << 10, ///< GPU time per render graph pass (IRenderer::getGPUPassTimings)
+    RendererUseShaderCache       = 1 << 11, ///< Take shaders from CommonSettings::shaderCacheDir instead of compiling them (see Tools/ShaderCacheBuilder)
 };
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( RendererFlags );

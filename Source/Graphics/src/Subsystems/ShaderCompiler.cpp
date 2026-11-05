@@ -15,6 +15,11 @@ void ShaderCompiler::begin( const Settings& settings ) {
         SlangGlobalSessionDesc desc = {};
         desc.enableGLSL             = true;
         createGlobalSession( &desc, _globalSession.writeRef() );
+
+#ifdef AXION_DXC_DIR
+        // Fixed DXC: the result doesn't depend on which dxcompiler.dll the PATH finds first
+        _globalSession->setDownstreamCompilerPath( SLANG_PASS_THROUGH_DXC, AXION_DXC_DIR );
+#endif
     }
 }
 
@@ -188,7 +193,8 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
                 const char* diagText = (const char*)diagnosticsBlob->getBufferPointer();
                 AXION_LOG_ERROR( Logger::Module::Shader, "Specialization Diagnostics: {}", diagText );
             }
-            SLANG_RETURN_ON_FAIL( res );
+            if ( SLANG_FAILED( res ) )
+                return false;
         }
 
         entryPointsKeepAlive.push_back( entryPoint );
@@ -210,7 +216,8 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
             const char* diagText = (const char*)diagnostics->getBufferPointer();
             AXION_LOG_ERROR( Logger::Module::Shader, "{}", diagText );
         }
-        SLANG_RETURN_ON_FAIL( result );
+        if ( SLANG_FAILED( result ) )
+            return false;
     }
 
     Slang::ComPtr<slang::IComponentType> linkedProgram;
@@ -222,7 +229,8 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
             const char* diagText = (const char*)diagnostics->getBufferPointer();
             AXION_LOG_ERROR( Logger::Module::Shader, "Link Error: {}", diagText );
         }
-        SLANG_RETURN_ON_FAIL( result );
+        if ( SLANG_FAILED( result ) )
+            return false;
     }
 
     if ( desc.autoReflect )
@@ -256,7 +264,11 @@ bool ShaderCompiler::compileFile( const ShaderDesc& desc, ShaderBundle& outBundl
             const char* diagText = (const char*)diagnostics->getBufferPointer();
             AXION_LOG_ERROR( Logger::Module::Shader, "{}", diagText );
         }
-        SLANG_RETURN_ON_FAIL( result );
+        if ( SLANG_FAILED( result ) )
+        {
+            outBundle.stageBlobs.clear(); // Don't leave a partial program behind
+            return false;
+        }
 
         STLW::Vector<byte> bytecode( kernelBlob->getBufferSize() );
         std::memcpy( bytecode.data(), kernelBlob->getBufferPointer(), bytecode.size() );

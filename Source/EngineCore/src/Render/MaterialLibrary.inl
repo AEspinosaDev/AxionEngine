@@ -104,6 +104,7 @@ void MaterialLibrary<PassCount>::registerShaders( Graphics::IShaderRegistry& sha
                                .path( passProfile.shaderPath )
                                .entryPoints( passProfile.entryPoints )
                                .include( AXION_SHADER_DIR "/Slang/Common" )
+                               .materialPass( passProfile.name, passProfile.needsSpecialization ? StringView( arch.name ) : StringView() )
                                .autoReflect( false ); // As defined layouts should be used
 
             for ( const auto& includePath : passProfile.includePaths )
