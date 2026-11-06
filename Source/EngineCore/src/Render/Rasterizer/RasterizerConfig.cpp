@@ -83,6 +83,25 @@ void matLibConfig( Graphics::PipelineLayoutHandle globalLayoutHandle, Rasterizer
         .defaultState = {},
         .overrideMask = StateOverrideFlags::CullMode } ); // Topology is defined by the mesh shader output
 
+    // Particles visibility pass: same outputs and state as the visibility one, without amplification
+    matLibDesc.passProfiles.pushBack( MaterialPassProfile {
+        .name          = "VisibilityParticle",
+        .layoutHandle  = globalLayoutHandle,
+        .bindPointType = Graphics::RHI::PipelineBindPoint::Mesh,
+        // Pass shader
+        .shaderPath          = AXION_SHADER_DIR "/Slang/MaterialPasses/VisParticlePass.slang",
+        .includePaths        = includePaths,
+        .entryPoints         = { { "msVisParticle", Axion::Graphics::ShaderType::Mesh },
+                                 { "psVis", Axion::Graphics::ShaderType::Pixel } },
+        .needsSpecialization = true,
+        // Pass fmts
+        .renderTargetFormats = { Graphics::Format::RG32_UINT,
+                                 Graphics::Format::RG16_FLOAT },
+        .depthTargetFormat   = settings.depthFormat,
+        // Pass state
+        .defaultState = {},
+        .overrideMask = StateOverrideFlags::CullMode } ); // Topology is defined by the mesh shader output
+
     // Resolve pass
     matLibDesc.passProfiles.pushBack( MaterialPassProfile {
         .name          = "VisibilityResolve",

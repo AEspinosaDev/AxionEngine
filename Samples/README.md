@@ -26,6 +26,7 @@ Samples that demonstrate the **Low-Level Rendering Framework**. These examples d
 Samples focused on OS interaction, file systems, and engine subsystems without rendering complex graphics.
 
 * **`Core_SampleScene`**: Creation and managing of sample Scene.
+* **`Core_ParticleSystem`**: Asteroid belt orbiting a planet, simulated on the GPU, with its settings in an ImGui menu.
 
 
 ---

@@ -40,11 +40,15 @@ public:
     u32               getSeed() const { return _seed; }
     Behavior          getBehavior() const { return _behavior; }
     float             getSize() const { return _size; }
+    float             getSizeVariation() const { return _sizeVariation; }
     float             getSpeed() const { return _speed; }
     const Math::Vec3& getExtent() const { return _extent; }
     bool              isVisible() const { return _visible; }
     bool              isUpdating() const { return _update; }
     bool              facesCamera() const { return _faceCamera; }
+
+    /// @brief Changes with the settings only read when the particles are seeded: the GPU has to seed them again.
+    u32 getSeedingVersion() const { return _seedingVersion; }
 
     /// @brief Particles with their own state in the GPU buffer: the rest share it, in groups of atomicity.
     u32 getSimulatedCount() const { return ( _count + _atomicity - 1 ) / _atomicity; }
@@ -53,11 +57,29 @@ public:
     void setMaterial( const Assets::MaterialHandle& materialHandle ) { _material = materialHandle; }
     void setCount( u32 count ) { _count = count; }
     void setAtomicity( u32 atomicity ) { _atomicity = std::max( atomicity, 1u ); }
-    void setSeed( u32 seed ) { _seed = seed; }
-    void setBehavior( Behavior behavior ) { _behavior = behavior; }
+    void setSeed( u32 seed ) {
+        if ( _seed != seed )
+            _seedingVersion++;
+        _seed = seed;
+    }
+    void setBehavior( Behavior behavior ) {
+        if ( _behavior != behavior )
+            _seedingVersion++;
+        _behavior = behavior;
+    }
     void setSize( float size ) { _size = size; }
+    void setSizeVariation( float sizeVariation ) {
+        sizeVariation = std::max( sizeVariation, 1.0f );
+        if ( _sizeVariation != sizeVariation )
+            _seedingVersion++;
+        _sizeVariation = sizeVariation;
+    }
     void setSpeed( float speed ) { _speed = speed; }
-    void setExtent( const Math::Vec3& extent ) { _extent = extent; }
+    void setExtent( const Math::Vec3& extent ) {
+        if ( _extent != extent )
+            _seedingVersion++;
+        _extent = extent;
+    }
     void setVisible( bool visible ) { _visible = visible; }
     void setUpdating( bool update ) { _update = update; }
     void setFaceCamera( bool faceCamera ) { _faceCamera = faceCamera; }
@@ -73,6 +95,10 @@ private:
     float      _size      = 1.0f;              ///< Uniform scale of the mesh.
     float      _speed     = 1.0f;              ///< Base speed multiplier.
     Math::Vec3 _extent    = { 1.0f, 1.0f, 1.0f }; ///< Volume the particles live in, in entity space.
+
+    float _sizeVariation = 1.0f; ///< Each particle is seeded between size / variation and size * variation. 1 = all the same.
+
+    u32 _seedingVersion = 0; ///< See getSeedingVersion.
 
     bool _visible    = true;  ///< Drawn this frame.
     bool _update     = true;  ///< Simulated this frame.

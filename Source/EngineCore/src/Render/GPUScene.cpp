@@ -18,7 +18,7 @@ void GPUScene::update( const Scene::Scene& cpuScene,
     reset( deltaTime );
 
     processInstances( cpuScene, mtlLib, sortInstances, transposeMatrices, forceRaytrace );
-    processParticles( cpuScene, mtlLib, transposeMatrices );
+    processParticles( cpuScene, mtlLib, sortInstances, transposeMatrices );
     processLights( cpuScene );
     processEnvironments( cpuScene );
     processFrame( cameraEntity, resolution, transposeMatrices );
@@ -114,7 +114,7 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, IMaterialLibrary&
 #pragma region Particles
 #pragma endregion
 
-void GPUScene::processParticles( const Scene::Scene& cpuScene, IMaterialLibrary& mtlLib, bool transpose ) {
+void GPUScene::processParticles( const Scene::Scene& cpuScene, IMaterialLibrary& mtlLib, bool sort, bool transpose ) {
 
     _particleSystems.reserve( cpuScene.getRegistry().view<Scene::ParticleSystemComponent>().size() );
 
@@ -160,6 +160,9 @@ void GPUScene::processParticles( const Scene::Scene& cpuScene, IMaterialLibrary&
         gpuSystem.atomicity   = systemComp.getAtomicity();
         gpuSystem.behavior    = (u32)systemComp.getBehavior();
         gpuSystem.seed        = systemComp.getSeed();
+
+        gpuSystem.sizeVariation = systemComp.getSizeVariation();
+
         gpuSystem.visible     = systemComp.isVisible();
         gpuSystem.update      = systemComp.isUpdating();
         gpuSystem.faceCamera  = systemComp.facesCamera();
@@ -173,10 +176,24 @@ void GPUScene::processParticles( const Scene::Scene& cpuScene, IMaterialLibrary&
         gpuSystem.bufferUAVHeapID      = buffer.uavHeapID;
         gpuSystem.visibleListSRVHeapID = buffer.visibleListSRVHeapID;
         gpuSystem.visibleListUAVHeapID = buffer.visibleListUAVHeapID;
-        gpuSystem.reset                = buffer.needsReset;
-        buffer.needsReset              = false;
+
+        if ( buffer.seedingVersion != systemComp.getSeedingVersion() )
+        {
+            buffer.seedingVersion = systemComp.getSeedingVersion();
+            buffer.needsReset     = true;
+        }
+        gpuSystem.reset   = buffer.needsReset;
+        buffer.needsReset = false;
 
         _particleSystems.pushBack( gpuSystem );
+    }
+
+    // Quick sort. The systems themselves, not keys: their index (commands, visible counts, VisBuffer) only lives one frame
+    if ( sort )
+    {
+        std::sort( _particleSystems.begin(), _particleSystems.end(), [this]( const GPUParticleSystem& a, const GPUParticleSystem& b ) {
+            return _materialCache.cache[a.materialID].psoBundleID < _materialCache.cache[b.materialID].psoBundleID;
+        } );
     }
 }
 

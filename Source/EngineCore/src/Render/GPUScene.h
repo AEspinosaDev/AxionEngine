@@ -21,7 +21,7 @@ enum GPUSceneUpdateFlags : u32
     GPUSceneForceRaytrace     = 1 << 1, // Force all objects to be marked for Raytracing AS
     GPUSceneTransposeMatrices = 1 << 2, // Required for DX12 (Row-Major vs Col-Major mismatch)
     GPUSceneForgetCache       = 1 << 3, // Force a full cache rebuild (useful for level reload)
-    GPUSceneSortInstances     = 1 << 4, // Instances will be sorted by material archetype, primitive and distance if needed
+    GPUSceneSortInstances     = 1 << 4, // Instances will be sorted by material archetype, primitive and distance if needed. Particle systems, by material bundle
 };
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( GPUSceneUpdateFlags );
@@ -110,7 +110,7 @@ private:
                            bool                sort,
                            bool                transpose,
                            bool                forceRaytrace );
-    void processParticles( const Scene::Scene& cpuScene, IMaterialLibrary& mtlLib, bool transpose );
+    void processParticles( const Scene::Scene& cpuScene, IMaterialLibrary& mtlLib, bool sort, bool transpose );
     u32  processMesh( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::MeshHandle& cpuMeshHandle );
     u32  processMaterial( const Axion::Core::Assets::AssetManager*   assets,
                           IMaterialLibrary&                          mtlLib,

@@ -46,13 +46,25 @@ void updateOrbital( ParticleSystemData system, inout ParticleData particle ) {
 // -----------------------------------------------------------
 // BEHAVIORS
 // -----------------------------------------------------------
+// Uniformly distributed over all the orientations (Shoemake)
+float4 randomOrientation( inout uint rng ) {
+    const float u = randomFloat( rng );
+    const float a = randomFloat( rng ) * TWO_PI;
+    const float b = randomFloat( rng ) * TWO_PI;
+
+    const float r0 = sqrt( 1.0 - u );
+    const float r1 = sqrt( u );
+    return float4( r0 * sin( a ), r0 * cos( a ), r1 * sin( b ), r1 * cos( b ) );
+}
+
 ParticleData seedParticle( ParticleSystemData system, uint particleIndex ) {
     uint rng = ( particleIndex * 1664525u + 1013904223u ) ^ system.seed;
     nextRandom( rng );
 
     ParticleData particle;
     particle.position      = float3( 0.0 );
-    particle.spin          = randomFloat( rng ) * TWO_PI;
+    particle.scale         = pow( system.sizeVariation, randomFloat( rng ) * 2.0 - 1.0 ); // Log-uniform: as many below the size of the system as above it
+    particle.orientation   = randomOrientation( rng );
     particle.behaviorState = float4( 0.0 );
 
     switch ( system.behavior )
@@ -81,10 +93,12 @@ void updateParticle( ParticleSystemData system, inout ParticleData particle ) {
 // CULLING
 // -----------------------------------------------------------
 bool isParticleVisible( ParticleSystemData system, ParticleData particle ) {
-    MeshData    mesh   = getMeshData( system.meshID );
-    const float size   = system.getSize();
-    float3      center = mul( system.modelMatrix, float4( particle.position + mesh.bsphere.xyz * size, 1.0 ) ).xyz;
-    return isSphereInFrustum( center, mesh.bsphere.w * size * getMaxScale( system.modelMatrix ) );
+    MeshData mesh = getMeshData( system.meshID );
+
+    // Sphere around the particle that holds the mesh with any orientation: no need of a matrix per particle
+    const float radius = ( length( mesh.bsphere.xyz ) + mesh.bsphere.w ) * system.getSize() * particle.scale;
+    float3      center = mul( system.modelMatrix, float4( particle.position, 1.0 ) ).xyz;
+    return isSphereInFrustum( center, radius * getMaxScale( system.modelMatrix ) );
 }
 
 // -----------------------------------------------------------

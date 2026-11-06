@@ -128,6 +128,15 @@ public void unpackVisibilityTriangle( uint packed, out uint meshletIndex, out ui
     localTriangle = packed & VIS_TRIANGLE_MASK;
 }
 
+public uint packVisibilityParticle( uint systemIndex, uint particleIndex ) {
+    return VIS_PARTICLE_FLAG | ( systemIndex << VIS_PARTICLE_INDEX_BITS ) | particleIndex;
+}
+
+public void unpackVisibilityParticle( uint packed, out uint systemIndex, out uint particleIndex ) {
+    systemIndex   = ( packed & ~VIS_PARTICLE_FLAG ) >> VIS_PARTICLE_INDEX_BITS;
+    particleIndex = packed & VIS_PARTICLE_INDEX_MASK;
+}
+
 // -----------------------------------------------------------
 // CULLING
 // -----------------------------------------------------------

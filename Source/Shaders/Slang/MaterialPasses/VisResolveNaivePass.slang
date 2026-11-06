@@ -1,6 +1,7 @@
 #include "Defines.slang" // PUSH_CONSTANT / SPACE_* / DECLARE_* macros
 import MaterialCommon;
 import IMaterial;
+import VisObject;
 
 // -----------------------------------------------------------
 // PASS I/O (Space 1)
@@ -35,6 +36,41 @@ float3 computeBarycentrics( float4 p0, float4 p1, float4 p2, float2 ndc ) {
                              delta.x * ddx.z + delta.y * ddy.z );
 }
 
+// Surface of a pixel, seen through its owner. Specialized per owner at compile time: no more questions about what it is
+// False if the pixel belongs to another material bundle
+bool loadVisSurface<O : IVisObject>( O object, uint triangleID, float2 ndc, out SurfaceData surface, out uint materialID ) {
+    surface    = {};
+    materialID = object.getMaterialID();
+    if ( getMaterialData( materialID ).psoBundleID != gPush.psoBundleID )
+        return false;
+
+    MeshData mesh = getMeshData( object.getMeshID() );
+
+    uint meshletIndex, localTriangle;
+    unpackVisibilityTriangle( triangleID, meshletIndex, localTriangle );
+    Meshlet meshlet = getMeshlet( mesh, meshletIndex );
+    uint3   tri     = getMeshletTriangle( mesh, meshlet, localTriangle );
+
+    CanonVertex v0 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.x ), mesh );
+    CanonVertex v1 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.y ), mesh );
+    CanonVertex v2 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.z ), mesh );
+
+    // TODO: WPO is applied in the vis pass but not here (no material uses it yet)
+    float4 wp0 = object.placePosition( v0.position );
+    float4 wp1 = object.placePosition( v1.position );
+    float4 wp2 = object.placePosition( v2.position );
+
+    float3 bary = computeBarycentrics( mul( gFrame.viewProj, wp0 ), mul( gFrame.viewProj, wp1 ), mul( gFrame.viewProj, wp2 ), ndc );
+
+    float3 localNrm = v0.normal * bary.x + v1.normal * bary.y + v2.normal * bary.z;
+
+    surface.worldPos = wp0.xyz * bary.x + wp1.xyz * bary.y + wp2.xyz * bary.z;
+    surface.shNormal = normalize( object.placeNormal( localNrm ) );
+    surface.uv       = v0.uv * bary.x + v1.uv * bary.y + v2.uv * bary.z;
+    surface.V        = normalize( gFrame.getCameraPos() - surface.worldPos );
+    return true;
+}
+
 // -----------------------------------------------------------
 // SHADER WITH SPECIALIZATION PER MATERIAL !
 [shader( "compute" )]
@@ -49,7 +85,7 @@ void csResolve<T : IMaterial>( uint3 dispatchThreadID: SV_DispatchThreadID ) {
 
     uint2 visData     = gVisBuffer.Load( int3( pixelCoord, 0 ) );
     uint  triangleID  = visData.x; // ( meshlet << VIS_TRIANGLE_BITS ) | meshlet local triangle
-    uint  instanceID  = visData.y; // Offset by 1 (0 = background)
+    uint  instanceID  = visData.y; // Instance offset by 1 (0 = background), or particle
 
     if ( instanceID == 0 )
     {
@@ -57,40 +93,23 @@ void csResolve<T : IMaterial>( uint3 dispatchThreadID: SV_DispatchThreadID ) {
         return;
     }
 
-    InstanceData instance = getInstanceData( instanceID - 1u );
-    if ( getMaterialData( instance.materialID ).psoBundleID != gPush.psoBundleID )
+    // Pixel center to NDC (D3D: screen Y goes down, NDC Y goes up)
+    float2 ndc = ( ( float2( pixelCoord ) + 0.5 ) / resolution ) * float2( 2.0, -2.0 ) + float2( -1.0, 1.0 );
+
+    // The only question per pixel
+    SurfaceData surface;
+    uint        materialID;
+    bool        ownPixel;
+    if ( isVisParticle( instanceID ) )
+        ownPixel = loadVisSurface( VisParticle( instanceID ), triangleID, ndc, surface, materialID );
+    else
+        ownPixel = loadVisSurface( VisInstance( instanceID - 1u ), triangleID, ndc, surface, materialID );
+
+    if ( !ownPixel )
         return; // Pixel belongs to another material bundle
 
-    MeshData mesh = getMeshData( instance.meshID );
-
-    uint meshletIndex, localTriangle;
-    unpackVisibilityTriangle( triangleID, meshletIndex, localTriangle );
-    Meshlet meshlet = getMeshlet( mesh, meshletIndex );
-    uint3   tri     = getMeshletTriangle( mesh, meshlet, localTriangle );
-
-    CanonVertex v0 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.x ), mesh );
-    CanonVertex v1 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.y ), mesh );
-    CanonVertex v2 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.z ), mesh );
-
-    // TODO: WPO is applied in the vis pass but not here (no material uses it yet)
-    float4 wp0 = mul( instance.modelMatrix, float4( v0.position, 1.0 ) );
-    float4 wp1 = mul( instance.modelMatrix, float4( v1.position, 1.0 ) );
-    float4 wp2 = mul( instance.modelMatrix, float4( v2.position, 1.0 ) );
-
-    // Pixel center to NDC (D3D: screen Y goes down, NDC Y goes up)
-    float2 ndc  = ( ( float2( pixelCoord ) + 0.5 ) / resolution ) * float2( 2.0, -2.0 ) + float2( -1.0, 1.0 );
-    float3 bary = computeBarycentrics( mul( gFrame.viewProj, wp0 ), mul( gFrame.viewProj, wp1 ), mul( gFrame.viewProj, wp2 ), ndc );
-
-    float3 localNrm = v0.normal * bary.x + v1.normal * bary.y + v2.normal * bary.z;
-
-    SurfaceData surface;
-    surface.worldPos = wp0.xyz * bary.x + wp1.xyz * bary.y + wp2.xyz * bary.z;
-    surface.shNormal = normalize( mul( (float3x3)instance.modelMatrix, localNrm ) );
-    surface.uv       = v0.uv * bary.x + v1.uv * bary.y + v2.uv * bary.z;
-    surface.V        = normalize( gFrame.getCameraPos() - surface.worldPos );
-
     T material;
-    material.init( instance.materialID );
+    material.init( materialID );
 
     gOutColor[pixelCoord] = float4( material.evalColor( surface ), 1.0 );
 }

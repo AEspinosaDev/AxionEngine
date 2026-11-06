@@ -19,6 +19,7 @@ struct IndirectCommandPayload {
     Graphics::BufferSlice           commandBufferSlice; ///< DispatchMeshIndirectCommand list (CPU upload)
     Graphics::BufferSlice           batchMapSlice;      ///< Sorted instance -> command (GPU culling only)
     STLW::Vector<IndirectDrawBatch> batches;
+    STLW::Vector<IndirectDrawBatch> particleBatches; ///< One per PSO bundle. Offset from the start of the GPU buffer, the only place where their commands exist
 };
 
 } // namespace Core::Render

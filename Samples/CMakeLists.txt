@@ -14,6 +14,7 @@ set(CMAKE_FOLDER "Samples")
 
 # Core Module (Core)
 add_subdirectory(Core_SampleScene)
+add_subdirectory(Core_ParticleSystem)
 
 # GFX and Interop samples compile their own shaders at runtime: distribution builds have no shader compiler
 if(NOT AXION_DISTRIBUTION)

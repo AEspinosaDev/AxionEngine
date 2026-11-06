@@ -293,7 +293,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         const bool hasParticleSystems = !_gpuScene.particleSystems().isEmpty();
 
         // Instance commands (GPU culling) and particle commands share it
-        Graphics::RGResourceHandle indirectBufferHandle;
+        Graphics::RGResourceHandle indirectBufferHandle = Graphics::RG_INVALID_HANDLE;
         if ( GPU_CULLING_ENABLED || hasParticleSystems )
             indirectBufferHandle = builder.import( "IndirectCommandBuffer", currentFrameRes.indirectBufferHandle );
 
@@ -319,10 +319,10 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         //----------------------------
         // B.2 Particle Systems Update
         //----------------------------
-        const auto& particleSystems = _gpuScene.particleSystems();
+        const auto&                      particleSystems = _gpuScene.particleSystems();
+        UpdateParticleSystemPass::Config particleConfig;
         if ( !particleSystems.isEmpty() )
         {
-            UpdateParticleSystemPass::Config particleConfig;
             particleConfig.outVisibleCountsHandle = builder.import( "ParticleVisibleCountBuffer", currentFrameRes.particleVisibleCountBufferHandle );
             particleConfig.inResetCountsSlice     = transientPayload.particleCountsResetSlice;
             particleConfig.transientDescriptorSet = transientSetPtr;
@@ -350,6 +350,23 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
             commandsConfig.firstCommand            = (u32)( indirectCmdPayload.commandBufferSlice.size / sizeof( Graphics::RHI::DispatchMeshIndirectCommand ) );
 
             _passes.getPass<WriteParticleCommandsPass>()->addToGraph( builder, commandsConfig );
+
+            // The systems come sorted by PSO bundle (GPUScene), so their commands are consecutive: one batch per bundle.
+            // Systems without buffers or not visible have 0 groups in their command
+            auto& particleBatches = indirectCmdPayload.particleBatches;
+            for ( u32 i = 0; i < commandsConfig.systemCount; ++i )
+            {
+                const u32 psoBundleID = _gpuScene.materials()[particleSystems[i].materialID].psoBundleID;
+                if ( !particleBatches.empty() && particleBatches.back().psoBundleID == psoBundleID )
+                {
+                    particleBatches.back().drawCount++;
+                    continue;
+                }
+
+                particleBatches.push_back( { .psoBundleID  = psoBundleID,
+                                             .bufferOffset = (u32)( ( commandsConfig.firstCommand + i ) * sizeof( Graphics::RHI::DispatchMeshIndirectCommand ) ),
+                                             .drawCount    = 1 } );
+            }
         }
 
         //----------------------------
@@ -376,12 +393,16 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         visConfig.inGlobalBufferHandles = upConfig.outGlobalBufferHandles;
         visConfig.matLib                = &_mtlLib;
         visConfig.materialPassSlot = (u32)Config::MaterialPassType::Visibility;
+        visConfig.particleMaterialPassSlot = (u32)Config::MaterialPassType::VisibilityParticle;
 
         visConfig.indirectData                 = indirectCmdPayload;
-        visConfig.inIndirectBufferHandle       = cullConfig.outIndirectBufferHandle;
+        visConfig.inIndirectBufferHandle       = indirectBufferHandle;
         visConfig.inCulledRedirectBufferHandle = cullConfig.outCulledRedirectBufferHandle;
         visConfig.inInstanceListSlice          = transientPayload.redirectSlice;
         visConfig.useGPUCulling                = GPU_CULLING_ENABLED;
+
+        visConfig.inParticleVisibleCountsHandle = particleConfig.outVisibleCountsHandle;
+        visConfig.inParticleBufferHandles       = particleConfig.outParticleBufferHandles;
 
         visConfig.transientDescriptorSet = transientSetPtr;
 
@@ -399,6 +420,8 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         resConfig.inVisHandle           = visConfig.outVisHandle;
         resConfig.inGlobalBufferHandles = upConfig.outGlobalBufferHandles;
         resConfig.indirectData          = indirectCmdPayload; // One dispatch per material bundle
+
+        resConfig.inParticleBufferHandles = particleConfig.outParticleBufferHandles;
 
         resConfig.ioSetId = (u32)Config::LayoutSetType::PassBound;
 

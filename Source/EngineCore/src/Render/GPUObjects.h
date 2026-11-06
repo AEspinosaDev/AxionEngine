@@ -96,9 +96,13 @@ struct GPUParticleSystem {
     u32 visibleListSRVHeapID = AXION_INVALID_U32; ///< Visible particles. Read by the drawing.
     u32 visibleListUAVHeapID = AXION_INVALID_U32; ///< Visible particles. Written by the culling.
 
-    // Total: 144 bytes. (Multiple of 4, OK for StructuredBuffer).
+    // Seeding (16 bytes)
+    float sizeVariation = 1.0f;
+    u32   _pad[3]       = {};
+
+    // Total: 160 bytes. (Multiple of 4, OK for StructuredBuffer).
 };
-AXION_STATIC_ASSERT( sizeof( GPUParticleSystem ) == 144, "GPUParticleSystem must mirror ParticleSystemData (Scene.slang)" );
+AXION_STATIC_ASSERT( sizeof( GPUParticleSystem ) == 160, "GPUParticleSystem must mirror ParticleSystemData (Scene.slang)" );
 
 // -----------------------------------------------------------------------------
 // PERSISTENT DATA (CACHE METADATA)
@@ -176,8 +180,9 @@ struct GPUParticleBuffer {
     u32  particleCount        = 0;                 ///< Simulated particles the buffers hold
     u32  lastFrameUsed        = 0;
     u32  ownerEntity          = AXION_INVALID_U32;
+    u32  seedingVersion       = 0;                 ///< Version of the settings the particles were seeded with
     bool valid                = false;
-    bool needsReset           = false;             ///< The buffers were just created: nothing has initialized them yet
+    bool needsReset           = false;             ///< The buffers were just created, or the seeding settings changed
 };
 
 // -----------------------------------------------------------------------------

@@ -79,15 +79,21 @@ public struct ParticleSystemData {
     public uint visibleListSRVHeapID; // Visible particles. Read by the drawing
     public uint visibleListUAVHeapID; // Visible particles. Written by the culling
 
+    public float sizeVariation; // Each particle is seeded between size / variation and size * variation
+    public uint  _pad0;
+    public uint  _pad1;
+    public uint  _pad2;
+
     public float3 getExtent() { return extent_Size.xyz; }
     public float  getSize() { return extent_Size.w; }
 };
 
 // State of one simulated particle: element of a particle buffer. GPU only.
-// 32 bytes: must match Config::PARTICLE_DATA_STRIDE
+// 48 bytes: must match Config::PARTICLE_DATA_STRIDE
 public struct ParticleData {
     public float3 position;      // Entity space
-    public float  spin;          // Orientation (radians)
+    public float  scale;         // Over the size of the system
+    public float4 orientation;   // Unit quaternion
     public float4 behaviorState; // Depends on the behavior
 };
 
