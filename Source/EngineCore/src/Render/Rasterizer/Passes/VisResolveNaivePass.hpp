@@ -3,6 +3,7 @@
 #include <Render/PassManager.h>
 #include <Render/Rasterizer/RasterizerConfig.h>
 #include <Render/Rasterizer/RasterizerResources.h>
+#include <algorithm>
 
 AXION_NAMESPACE_BEGIN
 namespace Core::Render {
@@ -15,6 +16,8 @@ public:
 
         // Global buffers (bindless): geometry pages for the triangle, materials payloads
         Rasterizer::Resources::GlobalBufferHandles inGlobalBufferHandles;
+
+        STLW::Vector<Graphics::RGResourceHandle> inParticleBufferHandles; ///< Data + visible list of every system. Read through the bindless heap: invisible to the graph
 
         Graphics::RGResourceHandle inVisHandle;
         Graphics::RGResourceHandle outColorHandle;
@@ -37,6 +40,8 @@ public:
         builder.addPass<Config>( "Vis Resolve Pass", config, []( Graphics::RenderPassBuilder& pb, Config& data ) {
                 data.inVisHandle  = pb.read( data.inVisHandle, Graphics::RHI::ResourceState::ShaderResource  );
                 data.inGlobalBufferHandles.read( pb );
+                for ( auto& handle : data.inParticleBufferHandles )
+                    handle = pb.read( handle, Graphics::RHI::ResourceState::ShaderResource );
                 data.outColorHandle = pb.write( data.outColorHandle ); }, [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
     }
 
@@ -69,14 +74,10 @@ private:
         cmd->bindDescriptorSet( data.ioSetId, ioSet, matLayout, Graphics::RHI::PipelineBindPoint::Compute );
 
         Graphics::PipelineHandle currentPsoHandle;
-        for ( const auto& batch : data.indirectData.batches )
-        {
-            if ( batch.drawCount == 0 )
-                continue;
-
-            Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( batch.psoBundleID, data.materialPassSlot );
+        auto                     resolveBundle = [&]( u32 psoBundleID ) {
+            Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( psoBundleID, data.materialPassSlot );
             if ( !psoHandle.isValid() )
-                continue;
+                return;
 
             if ( currentPsoHandle != psoHandle )
             {
@@ -86,11 +87,26 @@ private:
             }
 
             // Compute PSO is shared by every bundle of the archetype: the bundle filter goes in the push constant
-            cmd->pushConstants( batch.psoBundleID );
+            cmd->pushConstants( psoBundleID );
 
             auto size = texIn->getDescription().size;
             u32  wgs  = data.workgroupSize;
             cmd->dispatch( { ( size.width + wgs - 1 ) / wgs, ( size.height + wgs - 1 ) / wgs, 1 } );
+        };
+
+        const auto& batches = data.indirectData.batches;
+        for ( const auto& batch : batches )
+        {
+            if ( batch.drawCount != 0 )
+                resolveBundle( batch.psoBundleID );
+        }
+
+        // Bundles only used by particles: the rest were resolved above
+        for ( const auto& particleBatch : data.indirectData.particleBatches )
+        {
+            const bool resolved = std::any_of( batches.begin(), batches.end(), [&]( const IndirectDrawBatch& batch ) { return batch.psoBundleID == particleBatch.psoBundleID; } );
+            if ( !resolved )
+                resolveBundle( particleBatch.psoBundleID );
         }
     }
 };

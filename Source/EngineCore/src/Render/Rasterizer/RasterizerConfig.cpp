@@ -9,9 +9,11 @@
 #include <Render/GenericPasses/ToneMappingPass.hpp>
 // Rasterizer Passes
 #include <Render/Rasterizer/Passes/CullingPass.hpp>
+#include <Render/Rasterizer/Passes/UpdateParticleSystemPass.hpp>
 #include <Render/Rasterizer/Passes/UploadPass.hpp>
 #include <Render/Rasterizer/Passes/VisPass.hpp>
 #include <Render/Rasterizer/Passes/VisResolveNaivePass.hpp>
+#include <Render/Rasterizer/Passes/WriteParticleCommandsPass.hpp>
 
 #ifdef AXION_TOOLS_BUILD
 #include <Render/ShaderCacheCompiler.h>
@@ -81,6 +83,25 @@ void matLibConfig( Graphics::PipelineLayoutHandle globalLayoutHandle, Rasterizer
         .defaultState = {},
         .overrideMask = StateOverrideFlags::CullMode } ); // Topology is defined by the mesh shader output
 
+    // Particles visibility pass: same outputs and state as the visibility one, without amplification
+    matLibDesc.passProfiles.pushBack( MaterialPassProfile {
+        .name          = "VisibilityParticle",
+        .layoutHandle  = globalLayoutHandle,
+        .bindPointType = Graphics::RHI::PipelineBindPoint::Mesh,
+        // Pass shader
+        .shaderPath          = AXION_SHADER_DIR "/Slang/MaterialPasses/VisParticlePass.slang",
+        .includePaths        = includePaths,
+        .entryPoints         = { { "msVisParticle", Axion::Graphics::ShaderType::Mesh },
+                                 { "psVis", Axion::Graphics::ShaderType::Pixel } },
+        .needsSpecialization = true,
+        // Pass fmts
+        .renderTargetFormats = { Graphics::Format::RG32_UINT,
+                                 Graphics::Format::RG16_FLOAT },
+        .depthTargetFormat   = settings.depthFormat,
+        // Pass state
+        .defaultState = {},
+        .overrideMask = StateOverrideFlags::CullMode } ); // Topology is defined by the mesh shader output
+
     // Resolve pass
     matLibDesc.passProfiles.pushBack( MaterialPassProfile {
         .name          = "VisibilityResolve",
@@ -119,6 +140,8 @@ void registerPasses( PassManager& passes ) {
     passes.registerPass<UploadPass>();
     passes.registerPass<IndirectUploadPass>();
     passes.registerPass<CullingPass>();
+    passes.registerPass<UpdateParticleSystemPass>();
+    passes.registerPass<WriteParticleCommandsPass>();
     passes.registerPass<VisPass>();
     // TBD
     //  passes.registerPass<BinningPass>();

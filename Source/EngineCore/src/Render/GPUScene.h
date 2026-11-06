@@ -21,7 +21,7 @@ enum GPUSceneUpdateFlags : u32
     GPUSceneForceRaytrace     = 1 << 1, // Force all objects to be marked for Raytracing AS
     GPUSceneTransposeMatrices = 1 << 2, // Required for DX12 (Row-Major vs Col-Major mismatch)
     GPUSceneForgetCache       = 1 << 3, // Force a full cache rebuild (useful for level reload)
-    GPUSceneSortInstances     = 1 << 4, // Instances will be sorted by material archetype, primitive and distance if needed
+    GPUSceneSortInstances     = 1 << 4, // Instances will be sorted by material archetype, primitive and distance if needed. Particle systems, by material bundle
 };
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( GPUSceneUpdateFlags );
@@ -45,10 +45,11 @@ public:
 
     // -- Read-Write Accessors for the Renderer --
     // The Renderer consumes these vectors to fill the Volatile Allocators (LinearAllocators)
-    GPUFrame&               frame() { return _frame; }
-    Vector<GPUInstance>&    instances() { return _instances; }
-    Vector<GPULight>&       lights() { return _lights; }
-    Vector<GPUEnvironment>& environments() { return _environments; }
+    GPUFrame&                  frame() { return _frame; }
+    Vector<GPUInstance>&       instances() { return _instances; }
+    Vector<GPULight>&          lights() { return _lights; }
+    Vector<GPUEnvironment>&    environments() { return _environments; }
+    Vector<GPUParticleSystem>& particleSystems() { return _particleSystems; }
 
     // Persistent cache access (Used to bind SRVs for geometry)
     STLW::Vector<GPUMesh>& meshes() { return _meshCache.cache; }
@@ -56,14 +57,18 @@ public:
     STLW::Vector<GPUMaterial>& materials() { return _materialCache.cache; }
     // Persistent cache access (Used to bind SRVs for textures)
     STLW::Vector<GPUTexture>& textures() { return _textureCache.cache; }
+    // Persistent cache access (Used to create and release the particle buffers)
+    STLW::Vector<GPUParticleBuffer>& particleBuffers() { return _particleBufferCache.cache; }
 
     // Command Queues consumption
-    STLW::Queue<PendingMeshUpload>&     pendingMeshUploads() { return _pendingMeshUploads; }
-    STLW::Queue<PendingMeshFree>&       pendingMeshReleases() { return _pendingMeshReleases; }
-    STLW::Queue<PendingMaterialUpload>& pendingMaterialUploads() { return _pendingMtlUploads; }
-    STLW::Queue<PendingMaterialFree>&   pendingMaterialReleases() { return _pendingMtlReleases; }
-    STLW::Queue<PendingTextureUpload>&  pendingTextureUploads() { return _pendingTextureUploads; }
-    STLW::Queue<u32>&                   pendingTextureReleases() { return _pendingTextureReleases; }
+    STLW::Queue<PendingMeshUpload>&           pendingMeshUploads() { return _pendingMeshUploads; }
+    STLW::Queue<PendingMeshFree>&             pendingMeshReleases() { return _pendingMeshReleases; }
+    STLW::Queue<PendingMaterialUpload>&       pendingMaterialUploads() { return _pendingMtlUploads; }
+    STLW::Queue<PendingMaterialFree>&         pendingMaterialReleases() { return _pendingMtlReleases; }
+    STLW::Queue<PendingTextureUpload>&        pendingTextureUploads() { return _pendingTextureUploads; }
+    STLW::Queue<u32>&                         pendingTextureReleases() { return _pendingTextureReleases; }
+    STLW::Queue<PendingParticleBufferUpload>& pendingParticleBufferUploads() { return _pendingParticleBufferUploads; }
+    STLW::Queue<u32>&                         pendingParticleBufferReleases() { return _pendingParticleBufferReleases; }
 
     struct SortKey {
         u64 key;
@@ -71,7 +76,7 @@ public:
 
         void unpack( u32& psoBundleID, u32& meshID ) const {
             psoBundleID = (u32)( ( key >> 40 ) & 0xFFFFFF );
-            meshID   = (u32)( key & 0xFFFFFFFF );
+            meshID      = (u32)( key & 0xFFFFFFFF );
         }
     };
 
@@ -105,12 +110,15 @@ private:
                            bool                sort,
                            bool                transpose,
                            bool                forceRaytrace );
+    void processParticles( const Scene::Scene& cpuScene, IMaterialLibrary& mtlLib, bool sort, bool transpose );
     u32  processMesh( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::MeshHandle& cpuMeshHandle );
     u32  processMaterial( const Axion::Core::Assets::AssetManager*   assets,
                           IMaterialLibrary&                          mtlLib,
                           std::pair<const byte*, size_t>&            dirtyLUT,
                           const Axion::Core::Assets::MaterialHandle& cpuMtlHandle );
     u32  processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle, u32 materialGpuCacheIndex );
+
+    u32 processParticleBuffer( ECS::EntityID entity, u32 particleCount );
 
     void processLights( const Scene::Scene& cpuScene );
     void processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose );
@@ -124,10 +132,11 @@ private:
     }
 
     // -- Transient Data (Cleared every frame) --
-    GPUFrame               _frame;
-    Vector<GPUInstance>    _instances;
-    Vector<GPULight>       _lights;
-    Vector<GPUEnvironment> _environments;
+    GPUFrame                  _frame;
+    Vector<GPUInstance>       _instances;
+    Vector<GPULight>          _lights;
+    Vector<GPUEnvironment>    _environments;
+    Vector<GPUParticleSystem> _particleSystems;
 
     Vector<SortKey> _sortedKeys;
 
@@ -141,21 +150,24 @@ private:
         // O(1) Look-Up Table mapping [CPU_AssetID] -> [GPU_CacheSlot]
         STLW::Vector<int> assetToCacheLUT;
     };
-    GPUCache<GPUMesh>     _meshCache;
-    GPUCache<GPUMaterial> _materialCache;
-    GPUCache<GPUTexture>  _textureCache;
+    GPUCache<GPUMesh>           _meshCache;
+    GPUCache<GPUMaterial>       _materialCache;
+    GPUCache<GPUTexture>        _textureCache;
+    GPUCache<GPUParticleBuffer> _particleBufferCache; ///< Its LUT is indexed by entity
 
     // More material related
     constexpr static u64                               MAX_STACK_TEXTURES = 6ull;
     STLW::Vector<SmallVector<u32, MAX_STACK_TEXTURES>> _materialToTextureMap;
 
     // -- Deferred Queues --
-    STLW::Queue<PendingMeshUpload>     _pendingMeshUploads;
-    STLW::Queue<PendingMeshFree>       _pendingMeshReleases;
-    STLW::Queue<PendingMaterialUpload> _pendingMtlUploads;
-    STLW::Queue<PendingMaterialFree>   _pendingMtlReleases;
-    STLW::Queue<PendingTextureUpload>  _pendingTextureUploads;
-    STLW::Queue<u32>                   _pendingTextureReleases;
+    STLW::Queue<PendingMeshUpload>           _pendingMeshUploads;
+    STLW::Queue<PendingMeshFree>             _pendingMeshReleases;
+    STLW::Queue<PendingMaterialUpload>       _pendingMtlUploads;
+    STLW::Queue<PendingMaterialFree>         _pendingMtlReleases;
+    STLW::Queue<PendingTextureUpload>        _pendingTextureUploads;
+    STLW::Queue<u32>                         _pendingTextureReleases;
+    STLW::Queue<PendingParticleBufferUpload> _pendingParticleBufferUploads;
+    STLW::Queue<u32>                         _pendingParticleBufferReleases;
 
     // -- State --
     bool  _forceRaytrace     = false;

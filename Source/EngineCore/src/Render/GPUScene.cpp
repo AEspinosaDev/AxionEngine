@@ -18,6 +18,7 @@ void GPUScene::update( const Scene::Scene& cpuScene,
     reset( deltaTime );
 
     processInstances( cpuScene, mtlLib, sortInstances, transposeMatrices, forceRaytrace );
+    processParticles( cpuScene, mtlLib, sortInstances, transposeMatrices );
     processLights( cpuScene );
     processEnvironments( cpuScene );
     processFrame( cameraEntity, resolution, transposeMatrices );
@@ -31,6 +32,7 @@ void GPUScene::reset( float dt ) {
     _instances.clear();
     _lights.clear();
     _environments.clear();
+    _particleSystems.clear();
     _sortedKeys.clear();
 }
 
@@ -58,6 +60,13 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, IMaterialLibrary&
     {
         const auto& meshComp  = meshesView.get<Scene::MeshComponent>( entity );
         const auto& transComp = meshesView.get<Scene::TransformComponent>( entity );
+
+        // An invalid handle can't index the asset LUTs
+        if ( !meshComp.getMesh().isValid() || !meshComp.getMaterial().isValid() )
+        {
+            AXION_LOG_WARN_ONCE( Logger::Module::Core, "GPUScene: instance without mesh or material skipped" );
+            continue;
+        }
 
         u32 gpuMeshID     = processMesh( assets, meshComp.getMesh() );
         u32 gpuMaterialID = processMaterial( assets, mtlLib, mtlDirtyLUT, meshComp.getMaterial() );
@@ -100,6 +109,132 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, IMaterialLibrary&
     {
         std::sort( _sortedKeys.begin(), _sortedKeys.end(), []( const SortKey& a, const SortKey& b ) { return a.key < b.key; } );
     }
+}
+
+#pragma region Particles
+#pragma endregion
+
+void GPUScene::processParticles( const Scene::Scene& cpuScene, IMaterialLibrary& mtlLib, bool sort, bool transpose ) {
+
+    _particleSystems.reserve( cpuScene.getRegistry().view<Scene::ParticleSystemComponent>().size() );
+
+    auto* assets      = cpuScene.assets();
+    auto  mtlDirtyLUT = assets->getMaterialDirtyLUT();
+    auto  systemsView = cpuScene.getRegistry().multiView<const Scene::ParticleSystemComponent, const Scene::TransformComponent>();
+
+    for ( ECS::EntityID entity : systemsView )
+    {
+        const auto& systemComp = systemsView.get<Scene::ParticleSystemComponent>( entity );
+        const auto& transComp  = systemsView.get<Scene::TransformComponent>( entity );
+
+        if ( !systemComp.getMesh().isValid() || !systemComp.getMaterial().isValid() || systemComp.getCount() == 0 )
+            continue;
+
+        if ( _particleSystems.size() >= MAX_GPU_PARTICLE_SYSTEMS || systemComp.getCount() > MAX_PARTICLES_PER_SYSTEM )
+        {
+            AXION_LOG_WARN_ONCE( Logger::Module::Core, "GPUScene: particle system skipped, limits are {} systems and {} particles per system", MAX_GPU_PARTICLE_SYSTEMS, MAX_PARTICLES_PER_SYSTEM );
+            continue;
+        }
+
+        u32 gpuMeshID     = processMesh( assets, systemComp.getMesh() );
+        u32 gpuMaterialID = processMaterial( assets, mtlLib, mtlDirtyLUT, systemComp.getMaterial() );
+
+        // Unregistered archetype: it could never be drawn
+        if ( _materialCache.cache[gpuMaterialID].psoBundleID == AXION_INVALID_U32 )
+        {
+            AXION_LOG_WARN_ONCE( Logger::Module::Core, "GPUScene: particle system with invalid material bundle skipped" );
+            continue;
+        }
+
+        GPUParticleSystem gpuSystem;
+        gpuSystem.modelMatrix = transComp.getMatrix();
+
+        if ( transpose )
+            gpuSystem.modelMatrix = Math::MTX::transpose( gpuSystem.modelMatrix );
+
+        gpuSystem.meshID      = gpuMeshID;
+        gpuSystem.materialID  = gpuMaterialID;
+        gpuSystem.count       = systemComp.getCount();
+        gpuSystem.extent_Size = Math::Vec4( systemComp.getExtent(), systemComp.getSize() );
+        gpuSystem.speed       = systemComp.getSpeed();
+        gpuSystem.atomicity   = systemComp.getAtomicity();
+        gpuSystem.behavior    = (u32)systemComp.getBehavior();
+        gpuSystem.seed        = systemComp.getSeed();
+
+        gpuSystem.sizeVariation = systemComp.getSizeVariation();
+
+        gpuSystem.visible     = systemComp.isVisible();
+        gpuSystem.update      = systemComp.isUpdating();
+        gpuSystem.faceCamera  = systemComp.facesCamera();
+
+        // Atomicity is not supported yet: every particle has its own state
+        const u32 bufferSlot = processParticleBuffer( entity, systemComp.getCount() );
+        auto&     buffer     = _particleBufferCache.cache[bufferSlot];
+
+        gpuSystem.bufferSlot           = bufferSlot;
+        gpuSystem.bufferSRVHeapID      = buffer.srvHeapID;
+        gpuSystem.bufferUAVHeapID      = buffer.uavHeapID;
+        gpuSystem.visibleListSRVHeapID = buffer.visibleListSRVHeapID;
+        gpuSystem.visibleListUAVHeapID = buffer.visibleListUAVHeapID;
+
+        if ( buffer.seedingVersion != systemComp.getSeedingVersion() )
+        {
+            buffer.seedingVersion = systemComp.getSeedingVersion();
+            buffer.needsReset     = true;
+        }
+        gpuSystem.reset   = buffer.needsReset;
+        buffer.needsReset = false;
+
+        _particleSystems.pushBack( gpuSystem );
+    }
+
+    // Quick sort. The systems themselves, not keys: their index (commands, visible counts, VisBuffer) only lives one frame
+    if ( sort )
+    {
+        std::sort( _particleSystems.begin(), _particleSystems.end(), [this]( const GPUParticleSystem& a, const GPUParticleSystem& b ) {
+            return _materialCache.cache[a.materialID].psoBundleID < _materialCache.cache[b.materialID].psoBundleID;
+        } );
+    }
+}
+
+u32 GPUScene::processParticleBuffer( ECS::EntityID entity, u32 particleCount ) {
+
+    if ( entity >= _particleBufferCache.assetToCacheLUT.size() )
+        _particleBufferCache.assetToCacheLUT.resize( entity + 1, -1 );
+
+    int cachedIndex = _particleBufferCache.assetToCacheLUT[entity];
+
+    // Another count needs another buffer. The old one may be in use by frames in flight:
+    // nobody refreshes it anymore, so the GC frees it once it is safe
+    if ( cachedIndex != -1 && _particleBufferCache.cache[cachedIndex].particleCount != particleCount )
+        cachedIndex = -1;
+
+    u32 slot = (u32)cachedIndex;
+    if ( cachedIndex == -1 )
+    {
+        if ( !_particleBufferCache.freeIndexQueue.empty() )
+        {
+            slot = (u32)_particleBufferCache.freeIndexQueue.front();
+            _particleBufferCache.freeIndexQueue.pop();
+        } else
+        {
+            slot = (u32)_particleBufferCache.cache.size();
+            _particleBufferCache.cache.emplace_back();
+        }
+
+        _particleBufferCache.assetToCacheLUT[entity] = (int)slot;
+
+        GPUParticleBuffer& buffer = _particleBufferCache.cache[slot];
+        buffer                    = {};
+        buffer.ownerEntity        = entity;
+        buffer.particleCount      = particleCount;
+        buffer.valid              = true;
+
+        _pendingParticleBufferUploads.push( { slot, particleCount } );
+    }
+
+    _particleBufferCache.cache[slot].lastFrameUsed = _currentFrameIndex;
+    return slot;
 }
 
 #pragma region Mesh
@@ -568,6 +703,23 @@ void GPUScene::runGC() {
                 AXION_LOG_INFO( Logger::Module::Core, "GC: Recycled material slot {}", i );
             }
         }
+    }
+
+    for ( u64 i = 0; i < _particleBufferCache.cache.size(); ++i )
+    {
+        auto& buffer = _particleBufferCache.cache[i];
+        if ( !buffer.valid || _currentFrameIndex - buffer.lastFrameUsed <= _resourceTTL )
+            continue;
+
+        _pendingParticleBufferReleases.push( (u32)i );
+
+        // The entity may own a newer buffer already (its particle count changed)
+        auto& lut = _particleBufferCache.assetToCacheLUT;
+        if ( buffer.ownerEntity < lut.size() && lut[buffer.ownerEntity] == (int)i )
+            lut[buffer.ownerEntity] = -1;
+
+        _particleBufferCache.freeIndexQueue.push( i );
+        buffer.valid = false;
     }
 }
 

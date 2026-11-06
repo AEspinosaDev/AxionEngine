@@ -79,6 +79,54 @@ public:
         return uploads;
     }
 
+    /// @brief CPU phase, like reserveMeshes: destroys the buffers the GC released and creates the pending ones.
+    /// There are no copies: new buffers are initialized by the simulation, from the seed.
+    void reserveParticleBuffers( GPUScene& scene, Rasterizer::Resources::GPUResources& res, Graphics::IGPUResourcePool& r ) {
+
+        auto& buffers = scene.particleBuffers();
+        res.particleBuffers.resize( buffers.size() );
+
+        // Their lifetime is bound to the TTL, always bigger than the frames in flight: safe to destroy here
+        auto& releaseQueue = scene.pendingParticleBufferReleases();
+        while ( !releaseQueue.empty() )
+        {
+            const u32 slot = releaseQueue.front();
+            releaseQueue.pop();
+
+            r.destroyBuffer( res.particleBuffers[slot].dataBufferHandle );
+            r.destroyBuffer( res.particleBuffers[slot].visibleListBufferHandle );
+            res.particleBuffers[slot] = {};
+        }
+
+        auto& uploadQueue = scene.pendingParticleBufferUploads();
+        while ( !uploadQueue.empty() )
+        {
+            const PendingParticleBufferUpload entry = uploadQueue.front();
+            uploadQueue.pop();
+
+            const auto systemBuffers = Rasterizer::Resources::createParticleSystemBuffers( r, entry.slot, entry.particleCount );
+            if ( !systemBuffers.dataBufferHandle.isValid() || !systemBuffers.visibleListBufferHandle.isValid() )
+            {
+                r.destroyBuffer( systemBuffers.dataBufferHandle );
+                r.destroyBuffer( systemBuffers.visibleListBufferHandle );
+                AXION_LOG_ERROR( Logger::Module::Core, "Failed to create the buffers of a particle system ({} particles)", entry.particleCount );
+                AXION_LOG_FATAL_ERROR( Logger::Module::Core, "Failed to create the buffers of a particle system ({} particles)", entry.particleCount );
+                continue;
+            }
+            res.particleBuffers[entry.slot] = systemBuffers;
+
+            auto* dataBuffer        = r.getBuffer( systemBuffers.dataBufferHandle );
+            auto* visibleListBuffer = r.getBuffer( systemBuffers.visibleListBufferHandle );
+
+            auto& buffer                = buffers[entry.slot];
+            buffer.srvHeapID            = dataBuffer->getBindlessSRVIdx();
+            buffer.uavHeapID            = dataBuffer->getBindlessUAVIdx();
+            buffer.visibleListSRVHeapID = visibleListBuffer->getBindlessSRVIdx();
+            buffer.visibleListUAVHeapID = visibleListBuffer->getBindlessUAVIdx();
+            buffer.needsReset           = true;
+        }
+    }
+
     void addToGraph( Graphics::RenderGraphBuilder& builder, const Config& seedData ) {
         // Early Exit (mesh queues are already drained by reserveMeshes)
         if ( !seedData.gpuScene ||

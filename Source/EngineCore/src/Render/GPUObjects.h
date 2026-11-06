@@ -64,6 +64,46 @@ struct GPULight {
     // Total: 64 bytes. (Multiple of 4, OK for StructuredBuffer).
 };
 
+// Limits of a particle identifier in the visibility buffer: 1 bit flag | 8 bits system | 23 bits particle
+constexpr u32 MAX_GPU_PARTICLE_SYSTEMS = 1u << 8;
+constexpr u32 MAX_PARTICLES_PER_SYSTEM = 1u << 23;
+
+struct GPUParticleSystem {
+    Math::Mat4 modelMatrix; // 64 bytes
+
+    // Drawing (16 bytes)
+    u32 meshID;
+    u32 materialID;
+    u32 count;
+    u32 bufferSRVHeapID = AXION_INVALID_U32; ///< Read by the drawing. INVALID until the buffer exists.
+
+    // Simulation (32 bytes)
+    Math::Vec4 extent_Size; // Packed: xyz = extent, w = size
+    float      speed;
+    u32        atomicity;
+    u32        behavior;
+    u32        seed;
+
+    // Flags (16 bytes)
+    u32 visible;
+    u32 update;
+    u32 reset = 0; ///< First frame with a new buffer: the simulation starts from the seed.
+    u32 faceCamera;
+
+    // Particle buffers (16 bytes)
+    u32 bufferUAVHeapID      = AXION_INVALID_U32; ///< Written by the simulation. INVALID until the buffer exists.
+    u32 bufferSlot           = AXION_INVALID_U32; ///< Same index in GPUScene::particleBuffers() and GPUResources::particleBuffers.
+    u32 visibleListSRVHeapID = AXION_INVALID_U32; ///< Visible particles. Read by the drawing.
+    u32 visibleListUAVHeapID = AXION_INVALID_U32; ///< Visible particles. Written by the culling.
+
+    // Seeding (16 bytes)
+    float sizeVariation = 1.0f;
+    u32   _pad[3]       = {};
+
+    // Total: 160 bytes. (Multiple of 4, OK for StructuredBuffer).
+};
+AXION_STATIC_ASSERT( sizeof( GPUParticleSystem ) == 160, "GPUParticleSystem must mirror ParticleSystemData (Scene.slang)" );
+
 // -----------------------------------------------------------------------------
 // PERSISTENT DATA (CACHE METADATA)
 // -----------------------------------------------------------------------------
@@ -130,6 +170,21 @@ struct GPUTexture {
     u32 originalAssetID;
 };
 
+// Persistent side of a particle system: its GPU buffer outlives the per frame GPUParticleSystem.
+// CPU only: never uploaded, its heap IDs are copied to GPUParticleSystem every frame.
+struct GPUParticleBuffer {
+    u32  srvHeapID            = AXION_INVALID_U32;
+    u32  uavHeapID            = AXION_INVALID_U32;
+    u32  visibleListSRVHeapID = AXION_INVALID_U32;
+    u32  visibleListUAVHeapID = AXION_INVALID_U32;
+    u32  particleCount        = 0;                 ///< Simulated particles the buffers hold
+    u32  lastFrameUsed        = 0;
+    u32  ownerEntity          = AXION_INVALID_U32;
+    u32  seedingVersion       = 0;                 ///< Version of the settings the particles were seeded with
+    bool valid                = false;
+    bool needsReset           = false;             ///< The buffers were just created, or the seeding settings changed
+};
+
 // -----------------------------------------------------------------------------
 // MESSAGE QUEUES (RHI COMMANDS)
 // -----------------------------------------------------------------------------
@@ -178,6 +233,12 @@ struct PendingTextureUpload {
     Graphics::Format                       format;
     Extent3D                               extent;
     String64                               name;
+};
+
+// Order: "Please create the GPU buffer of this slot and tell me its heap IDs"
+struct PendingParticleBufferUpload {
+    u32 slot;          // Destination Slot in _particleBufferCache
+    u32 particleCount;
 };
 
 } // namespace Core::Render

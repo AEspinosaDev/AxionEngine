@@ -51,6 +51,53 @@ public struct InstanceData {
 };
 
 // ------------------------------------------------------------------
+// PARTICLE SYSTEM DATA (Per-System)
+// ------------------------------------------------------------------
+public static const uint PARTICLE_BEHAVIOR_ORBITALS = 0;
+
+public struct ParticleSystemData {
+    public float4x4 modelMatrix;
+
+    public uint meshID;
+    public uint materialID;
+    public uint count;
+    public uint bufferSRVHeapID; // Read by the drawing
+
+    public float4 extent_Size; // .xyz = Extent, .w = Size
+    public float  speed;
+    public uint   atomicity;
+    public uint   behavior;
+    public uint   seed;
+
+    public uint visible;
+    public uint update;
+    public uint reset;
+    public uint faceCamera;
+
+    public uint bufferUAVHeapID;      // Written by the simulation
+    public uint bufferSlot;           // CPU bookkeeping, unused by shaders
+    public uint visibleListSRVHeapID; // Visible particles. Read by the drawing
+    public uint visibleListUAVHeapID; // Visible particles. Written by the culling
+
+    public float sizeVariation; // Each particle is seeded between size / variation and size * variation
+    public uint  _pad0;
+    public uint  _pad1;
+    public uint  _pad2;
+
+    public float3 getExtent() { return extent_Size.xyz; }
+    public float  getSize() { return extent_Size.w; }
+};
+
+// State of one simulated particle: element of a particle buffer. GPU only.
+// 48 bytes: must match Config::PARTICLE_DATA_STRIDE
+public struct ParticleData {
+    public float3 position;      // Entity space
+    public float  scale;         // Over the size of the system
+    public float4 orientation;   // Unit quaternion
+    public float4 behaviorState; // Depends on the behavior
+};
+
+// ------------------------------------------------------------------
 // MESH DATA (Geometry Metadata)
 // ------------------------------------------------------------------
 public struct MeshData {

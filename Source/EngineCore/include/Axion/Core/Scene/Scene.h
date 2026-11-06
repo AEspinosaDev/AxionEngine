@@ -7,6 +7,7 @@
 #include <Axion/Core/Scene/Components/EnvironmentComponent.h>
 #include <Axion/Core/Scene/Components/LightComponent.h>
 #include <Axion/Core/Scene/Components/MeshComponent.h>
+#include <Axion/Core/Scene/Components/ParticleSystemComponent.h>
 #include <Axion/Core/Scene/Components/TagComponent.h>
 #include <Axion/Core/Scene/Components/TransformComponent.h>
 

@@ -25,3 +25,4 @@ public StructuredBuffer<LightData>    gLights              : register( t3, SPACE
 public StructuredBuffer<EnvData>      gEnvs                : register( t4, SPACE_FRAME );
 public StructuredBuffer<uint>         gInstanceRedirection : register( t5, SPACE_FRAME );
 public StructuredBuffer<TextureData>  gTextures            : register( t6, SPACE_FRAME );
+public StructuredBuffer<ParticleSystemData> gParticleSystems : register( t7, SPACE_FRAME );

@@ -22,6 +22,10 @@ public:
         Graphics::BufferSlice                      inInstanceListSlice; ///< Full sorted instance list (GPU culling off)
         bool                                       useGPUCulling = false;
 
+        // In Particles
+        Graphics::RGResourceHandle               inParticleVisibleCountsHandle;
+        STLW::Vector<Graphics::RGResourceHandle> inParticleBufferHandles; ///< Data + visible list of every system. Read through the bindless heap: invisible to the graph
+
         // Out RTOs
         Graphics::RGResourceHandle outVisHandle;
         Graphics::RGResourceHandle outVelocityHandle;
@@ -31,6 +35,7 @@ public:
         Graphics::RHI::IDescriptorSet* transientDescriptorSet = nullptr;
 
         u32               materialPassSlot;
+        u32               particleMaterialPassSlot;
         IMaterialLibrary* matLib;
     };
 
@@ -46,9 +51,16 @@ public:
                                     //Global
                                     data.inGlobalBufferHandles.read( pb );
                                     //Indirect
-                                    if(data.useGPUCulling){
+                                    const bool drawsParticles = !data.indirectData.particleBatches.empty();
+                                    if(data.useGPUCulling || drawsParticles)
                                         data.inIndirectBufferHandle       = pb.read( data.inIndirectBufferHandle, Graphics::RHI::ResourceState::IndirectArgument );
+                                    if(data.useGPUCulling)
                                         data.inCulledRedirectBufferHandle = pb.read( data.inCulledRedirectBufferHandle, Graphics::RHI::ResourceState::ShaderResource );
+                                    //Particles
+                                    if(drawsParticles){
+                                        data.inParticleVisibleCountsHandle = pb.read( data.inParticleVisibleCountsHandle, Graphics::RHI::ResourceState::ShaderResource );
+                                        for ( auto& handle : data.inParticleBufferHandles )
+                                            handle = pb.read( handle, Graphics::RHI::ResourceState::ShaderResource );
                                     } },
 
                                  [this]( const Config& data, Graphics::RenderPassContext& ctx ) { this->execute( data, ctx ); } );
@@ -124,6 +136,37 @@ private:
 
             // One mesh shading dispatch per command: x = meshlet chunk (amplification), y = instance
             cmd->dispatchMeshIndirect( argBuffer, argOffset + batch.bufferOffset, batch.drawCount );
+        }
+
+        // -----------------------------------------------------
+        // 4. PARTICLES DISPATCH LOOP
+        // -----------------------------------------------------
+
+        if ( !data.indirectData.particleBatches.empty() )
+        {
+            // SPACE 1: visible particles per system
+            auto* particleIOSet = ctx.allocateSet( matLayout, Graphics::PassIO::SET_INDEX );
+            particleIOSet->attach( Graphics::PassIO::buffer( 0 ), Graphics::RHI::DescriptorType::SRV_Buffer, ctx.getBuffer( data.inParticleVisibleCountsHandle ) );
+            cmd->bindDescriptorSet( Graphics::PassIO::SET_INDEX, particleIOSet, matLayout );
+
+            // Their commands are always in the GPU buffer, with or without GPU culling
+            auto* particleArgBuffer = ctx.getBuffer( data.inIndirectBufferHandle );
+
+            for ( const auto& batch : data.indirectData.particleBatches )
+            {
+                Graphics::PipelineHandle psoHandle = data.matLib->getPipelineHandle( batch.psoBundleID, data.particleMaterialPassSlot );
+                if ( !psoHandle.isValid() )
+                    continue;
+
+                if ( currentPsoHandle != psoHandle )
+                {
+                    cmd->bindMeshPipeline( ctx.pipelines.getMeshPipeline( psoHandle ) );
+                    currentPsoHandle = psoHandle;
+                }
+
+                // One command per system of the batch. The command signature writes baseInstanceID (the system) in the first push constant
+                cmd->dispatchMeshIndirect( particleArgBuffer, batch.bufferOffset, batch.drawCount );
+            }
         }
 
         cmd->endRendering();

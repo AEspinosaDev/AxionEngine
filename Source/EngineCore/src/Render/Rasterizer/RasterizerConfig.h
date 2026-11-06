@@ -16,10 +16,11 @@ namespace Config {
 //-----------------------------------------------------------------------------
 enum class MaterialPassType : u32
 {
-    Visibility        = 0,
-    VisibilityResolve = 1,
-    // Shadow             = 2,
-    // ForwardTransparent = 3,
+    Visibility         = 0,
+    VisibilityParticle = 1,
+    VisibilityResolve  = 2,
+    // Shadow             = 3,
+    // ForwardTransparent = 4,
 
     Count
 };
@@ -56,6 +57,7 @@ enum class FrameSRV : u32 // Register offset from REG_FRAME_SRV_BASE (must match
     Envs                = 4, // t4: gEnvs
     InstanceRedirection = 5, // t5: gInstanceRedirection
     Textures            = 6, // t6: gTextures
+    ParticleSystems     = 7, // t7: gParticleSystems
     Count
 };
 constexpr u32 REG_FRAME_SRV_COUNT = (u32)FrameSRV::Count;
@@ -98,6 +100,8 @@ constexpr u64 MAX_SAMPLER_VIEWS         = 512;
 
 constexpr u64 MAX_GLOBAL_UBO_BYTES     = 1024;
 constexpr u64 MAX_PUSH_CONSTANTS_BYTES = 128;
+
+constexpr u32 PARTICLE_DATA_STRIDE = 48; ///< Bytes per simulated particle in a particle buffer (must match the simulation shader)
 
 constexpr const char* SHADER_CACHE_NAME = "RasterizerShaders"; ///< Prefix of the rasterizer shader cache files
 
