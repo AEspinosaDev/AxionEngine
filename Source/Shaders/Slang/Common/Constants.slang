@@ -18,3 +18,7 @@ public static const float PI_OVER_4     = PI / 4.0;
 public static const float INV_PI        = 1.0 / PI;
 public static const float INV_PI_OVER_2 = 1.0 / PI_OVER_2;
 public static const float INV_PI_OVER_4 = 1.0 / PI_OVER_4;
+
+// DispatchMesh limits (must match MAX_MESH_DISPATCH_GROUPS* in RasterizerConfig.h)
+public static const uint MESH_DISPATCH_MAX_GROUPS               = 1u << 22;
+public static const uint MESH_DISPATCH_MAX_GROUPS_PER_DIMENSION = 65535;

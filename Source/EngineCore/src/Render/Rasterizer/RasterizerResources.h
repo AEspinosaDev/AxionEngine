@@ -71,6 +71,15 @@ struct FrameResources {
     Graphics::BufferLinearAllocator<> indirectAllocator;
     Graphics::BufferHandle            indirectBufferHandle;
     Graphics::BufferHandle            culledInstanceBufferHandle;
+
+    // Particle systems
+    Graphics::BufferHandle particleVisibleCountBufferHandle; ///< Visible particles per system (written by their update)
+};
+
+/// @brief GPU buffers of one particle system (bindless, heap IDs stored per GPUParticleSystem)
+struct ParticleSystemBuffers {
+    Graphics::BufferHandle dataBufferHandle;        ///< State of every particle. Written by the simulation, read by the drawing
+    Graphics::BufferHandle visibleListBufferHandle; ///< Indices of the visible particles. Written by the culling, read by the drawing
 };
 
 struct GPUResources {
@@ -85,8 +94,8 @@ struct GPUResources {
     Graphics::TextureHandle         fallbackTexture2DHandle;
     Graphics::SamplerHandle         fallbackSamplerHandle;
 
-    // Particle systems (bindless, heap IDs stored per GPUParticleSystem)
-    Vector<Graphics::BufferHandle> particleBufferHandles; ///< Indexed by GPUScene particle buffer slot
+    // Particle systems
+    Vector<ParticleSystemBuffers> particleBuffers; ///< Indexed by GPUScene particle buffer slot
 
     SmallVector<FrameResources, 3> frame;
 };
@@ -98,8 +107,8 @@ u32 createGeometryPage( Graphics::IGPUResourcePool& r, const GeometryPageSizes& 
 /// @brief Per frame in flight buffers (UBO / SSBO rings and indirect rendering)
 void createFrameResources( Graphics::IGPUResourcePool& r, const MemoryBudget& budget, u32 framesInFlight, GPUResources& res );
 
-/// @brief Creates the bindless buffer of a particle system: written by its simulation, read by its drawing
-Graphics::BufferHandle createParticleBuffer( Graphics::IGPUResourcePool& r, u32 slot, u32 particleCount );
+/// @brief Creates the bindless buffers of a particle system. A handle is invalid if its creation failed
+ParticleSystemBuffers createParticleSystemBuffers( Graphics::IGPUResourcePool& r, u32 slot, u32 particleCount );
 
 //-----------------------------------------------------------------------------
 // Render Graph Handles

@@ -270,6 +270,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::Lights ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.lightsSlice );
         transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::Envs ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.envsSlice );
         transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::Textures ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.texturesSlice );
+        transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::ParticleSystems ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.particleSystemsSlice );
         transientSetPtr->attachBufferSlice( frameSRV( Config::FrameSRV::InstanceRedirection ), Graphics::RHI::DescriptorType::SRV_Buffer, transientPayload.redirectSlice ); // Always the full sorted list
 
         //----------------------------
@@ -289,11 +290,18 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         //----------------------------
         // B. GPU-Culling
         //----------------------------
+        const bool hasParticleSystems = !_gpuScene.particleSystems().isEmpty();
+
+        // Instance commands (GPU culling) and particle commands share it
+        Graphics::RGResourceHandle indirectBufferHandle;
+        if ( GPU_CULLING_ENABLED || hasParticleSystems )
+            indirectBufferHandle = builder.import( "IndirectCommandBuffer", currentFrameRes.indirectBufferHandle );
+
         CullingPass::Config cullConfig;
         if ( GPU_CULLING_ENABLED )
         {
             IndirectUploadPass::Config indUpConfig;
-            indUpConfig.inOutIndirectBufferHandle = builder.import( "IndirectCommandBuffer", currentFrameRes.indirectBufferHandle );
+            indUpConfig.inOutIndirectBufferHandle = indirectBufferHandle;
             indUpConfig.indirectData              = indirectCmdPayload;
 
             _passes.getPass<IndirectUploadPass>()->addToGraph( builder, indUpConfig );
@@ -306,6 +314,42 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
             cullConfig.instanceCount          = (u32)_gpuScene.getSortedKeys().size(); // Drawable instances only (invalid bundles are not sorted)
 
             _passes.getPass<CullingPass>()->addToGraph( builder, cullConfig );
+        }
+
+        //----------------------------
+        // B.2 Particle Systems Update
+        //----------------------------
+        const auto& particleSystems = _gpuScene.particleSystems();
+        if ( !particleSystems.isEmpty() )
+        {
+            UpdateParticleSystemPass::Config particleConfig;
+            particleConfig.outVisibleCountsHandle = builder.import( "ParticleVisibleCountBuffer", currentFrameRes.particleVisibleCountBufferHandle );
+            particleConfig.inResetCountsSlice     = transientPayload.particleCountsResetSlice;
+            particleConfig.transientDescriptorSet = transientSetPtr;
+            particleConfig.systems                = &particleSystems;
+            particleConfig.deltaTime              = deltaTime;
+
+            for ( const GPUParticleSystem& system : particleSystems )
+            {
+                if ( system.bufferUAVHeapID == AXION_INVALID_U32 )
+                    continue;
+
+                const auto& systemBuffers = _res.particleBuffers[system.bufferSlot];
+                const auto  slot          = std::to_string( system.bufferSlot );
+                particleConfig.outParticleBufferHandles.push_back( builder.import( "ParticleDataBuffer_" + slot, systemBuffers.dataBufferHandle ) );
+                particleConfig.outParticleBufferHandles.push_back( builder.import( "ParticleVisibleListBuffer_" + slot, systemBuffers.visibleListBufferHandle ) );
+            }
+
+            _passes.getPass<UpdateParticleSystemPass>()->addToGraph( builder, particleConfig );
+
+            WriteParticleCommandsPass::Config commandsConfig;
+            commandsConfig.inVisibleCountsHandle   = particleConfig.outVisibleCountsHandle;
+            commandsConfig.outIndirectBufferHandle = indirectBufferHandle;
+            commandsConfig.transientDescriptorSet  = transientSetPtr;
+            commandsConfig.systemCount             = (u32)particleSystems.size();
+            commandsConfig.firstCommand            = (u32)( indirectCmdPayload.commandBufferSlice.size / sizeof( Graphics::RHI::DispatchMeshIndirectCommand ) );
+
+            _passes.getPass<WriteParticleCommandsPass>()->addToGraph( builder, commandsConfig );
         }
 
         //----------------------------
@@ -638,6 +682,33 @@ Rasterizer::TransientPayload Rasterizer::uploadTransientData( Graphics::BufferLi
             payload.texturesSlice.count = 0;
             if ( payload.texturesSlice.cpuAddress )
                 memset( payload.texturesSlice.cpuAddress, 0, payload.texturesSlice.size );
+        }
+    }
+
+    // =================================================================================
+    // 9. PARTICLE SYSTEMS (SSBO - Structured Buffer)
+    // =================================================================================
+    {
+        const auto& systems = _gpuScene.particleSystems();
+
+        if ( !systems.isEmpty() )
+        {
+            payload.particleSystemsSlice = currentSSBOAlloc.allocate<GPUParticleSystem>( systems.size() );
+
+            if ( payload.particleSystemsSlice.isValid() )
+                memcpy( payload.particleSystemsSlice.cpuAddress, systems.data(), payload.particleSystemsSlice.size );
+
+            payload.particleCountsResetSlice = currentSSBOAlloc.allocate<u32>( systems.size() );
+
+            if ( payload.particleCountsResetSlice.isValid() )
+                memset( payload.particleCountsResetSlice.cpuAddress, 0, payload.particleCountsResetSlice.size );
+        } else
+        {
+            // DUMMY
+            payload.particleSystemsSlice       = currentSSBOAlloc.allocate<GPUParticleSystem>( 1 );
+            payload.particleSystemsSlice.count = 0;
+            if ( payload.particleSystemsSlice.cpuAddress )
+                memset( payload.particleSystemsSlice.cpuAddress, 0, payload.particleSystemsSlice.size );
         }
     }
 

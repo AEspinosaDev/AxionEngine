@@ -237,3 +237,16 @@ public float3 evalEnviroment( EnvData env, float3 N ) {
     // }
 }
 
+// DispatchMesh grid of a particle system: ( meshlets, Y, Z ), with Y * Z covering its visible particles.
+// A single dimension wouldn't be enough: it is limited to 65535 groups, and the whole grid to 4.19 million.
+// Used by whoever writes the command and by the mesh shader, which needs Y to rebuild the particle index.
+public uint3 getParticleDispatchGrid( uint visibleCount, uint meshletCount ) {
+    if ( visibleCount == 0 || meshletCount == 0 )
+        return uint3( 0, 0, 0 );
+
+    const uint maxParticles = MESH_DISPATCH_MAX_GROUPS / meshletCount;
+    const uint count        = min( visibleCount, maxParticles );
+    const uint z            = ( count + MESH_DISPATCH_MAX_GROUPS_PER_DIMENSION - 1 ) / MESH_DISPATCH_MAX_GROUPS_PER_DIMENSION;
+    const uint y            = min( ( count + z - 1 ) / z, maxParticles / z );
+    return uint3( meshletCount, y, z );
+}

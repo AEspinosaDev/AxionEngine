@@ -1,3 +1,4 @@
+#include <Render/GPUScene.h>
 #include <Render/Rasterizer/RasterizerConfig.h>
 #include <Render/Rasterizer/RasterizerResources.h>
 
@@ -146,17 +147,31 @@ void createFrameResources( Graphics::IGPUResourcePool& r, const MemoryBudget& bu
                                                       .asSSBO()
                                                       .view( Graphics::BufferViewFlags::BufferViewUnorderedAccess | Graphics::BufferViewFlags::BufferViewShaderResource ) // Written by culling, read by the vis pass
                                                       .create();
+
+        // ----------------------- C. PER-FRAME PARTICLE SYSTEMS BUFFERS -------------------
+        res.frame[i].particleVisibleCountBufferHandle = r.buffer( "ParticleVisibleCountBuffer_" + std::to_string( i ) )
+                                                            .size( MAX_GPU_PARTICLE_SYSTEMS * sizeof( u32 ) )
+                                                            .stride( sizeof( u32 ) )
+                                                            .onGPU()
+                                                            .asSSBO()
+                                                            .view( Graphics::BufferViewFlags::BufferViewUnorderedAccess | Graphics::BufferViewFlags::BufferViewShaderResource )
+                                                            .create();
     }
 }
 
-Graphics::BufferHandle createParticleBuffer( Graphics::IGPUResourcePool& r, u32 slot, u32 particleCount ) {
-    return r.buffer( "ParticleBuffer_" + std::to_string( slot ) )
-        .size( (u64)particleCount * Config::PARTICLE_STATE_STRIDE )
-        .stride( Config::PARTICLE_STATE_STRIDE )
-        .onGPU()
-        .asSSBO()
-        .view( Graphics::BufferViewFlags::BufferViewUnorderedAccess | Graphics::BufferViewFlags::BufferViewShaderResource )
-        .create();
+ParticleSystemBuffers createParticleSystemBuffers( Graphics::IGPUResourcePool& r, u32 slot, u32 particleCount ) {
+    const auto createBuffer = [&]( const std::string& name, u32 stride ) {
+        return r.buffer( name + "_" + std::to_string( slot ) )
+            .size( (u64)particleCount * stride )
+            .stride( stride )
+            .onGPU()
+            .asSSBO()
+            .view( Graphics::BufferViewFlags::BufferViewUnorderedAccess | Graphics::BufferViewFlags::BufferViewShaderResource )
+            .create();
+    };
+
+    return { .dataBufferHandle        = createBuffer( "ParticleDataBuffer", Config::PARTICLE_DATA_STRIDE ),
+             .visibleListBufferHandle = createBuffer( "ParticleVisibleListBuffer", sizeof( u32 ) ) };
 }
 
 GlobalBufferHandles importGlobalBuffers( Graphics::RenderGraphBuilder& builder, const GPUResources& res ) {

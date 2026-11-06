@@ -90,10 +90,11 @@ struct GPUParticleSystem {
     u32 reset = 0; ///< First frame with a new buffer: the simulation starts from the seed.
     u32 faceCamera;
 
-    // Particle buffer (16 bytes)
-    u32 bufferUAVHeapID = AXION_INVALID_U32; ///< Written by the simulation. INVALID until the buffer exists.
-    u32 bufferSlot      = AXION_INVALID_U32; ///< Same index in GPUScene::particleBuffers() and GPUResources::particleBufferHandles.
-    u32 _pad[2];
+    // Particle buffers (16 bytes)
+    u32 bufferUAVHeapID      = AXION_INVALID_U32; ///< Written by the simulation. INVALID until the buffer exists.
+    u32 bufferSlot           = AXION_INVALID_U32; ///< Same index in GPUScene::particleBuffers() and GPUResources::particleBuffers.
+    u32 visibleListSRVHeapID = AXION_INVALID_U32; ///< Visible particles. Read by the drawing.
+    u32 visibleListUAVHeapID = AXION_INVALID_U32; ///< Visible particles. Written by the culling.
 
     // Total: 144 bytes. (Multiple of 4, OK for StructuredBuffer).
 };
@@ -168,13 +169,15 @@ struct GPUTexture {
 // Persistent side of a particle system: its GPU buffer outlives the per frame GPUParticleSystem.
 // CPU only: never uploaded, its heap IDs are copied to GPUParticleSystem every frame.
 struct GPUParticleBuffer {
-    u32  srvHeapID     = AXION_INVALID_U32;
-    u32  uavHeapID     = AXION_INVALID_U32;
-    u32  particleCount = 0;                 ///< Simulated particles the buffer holds
-    u32  lastFrameUsed = 0;
-    u32  ownerEntity   = AXION_INVALID_U32;
-    bool valid         = false;
-    bool needsReset    = false;             ///< The buffer was just created: nothing has initialized it yet
+    u32  srvHeapID            = AXION_INVALID_U32;
+    u32  uavHeapID            = AXION_INVALID_U32;
+    u32  visibleListSRVHeapID = AXION_INVALID_U32;
+    u32  visibleListUAVHeapID = AXION_INVALID_U32;
+    u32  particleCount        = 0;                 ///< Simulated particles the buffers hold
+    u32  lastFrameUsed        = 0;
+    u32  ownerEntity          = AXION_INVALID_U32;
+    bool valid                = false;
+    bool needsReset           = false;             ///< The buffers were just created: nothing has initialized them yet
 };
 
 // -----------------------------------------------------------------------------

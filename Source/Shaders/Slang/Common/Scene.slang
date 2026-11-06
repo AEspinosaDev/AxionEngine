@@ -74,12 +74,21 @@ public struct ParticleSystemData {
     public uint reset;
     public uint faceCamera;
 
-    public uint bufferUAVHeapID; // Written by the simulation
-    public uint bufferSlot;      // CPU bookkeeping, unused by shaders
-    public uint _pad[2];
+    public uint bufferUAVHeapID;      // Written by the simulation
+    public uint bufferSlot;           // CPU bookkeeping, unused by shaders
+    public uint visibleListSRVHeapID; // Visible particles. Read by the drawing
+    public uint visibleListUAVHeapID; // Visible particles. Written by the culling
 
     public float3 getExtent() { return extent_Size.xyz; }
     public float  getSize() { return extent_Size.w; }
+};
+
+// State of one simulated particle: element of a particle buffer. GPU only.
+// 32 bytes: must match Config::PARTICLE_DATA_STRIDE
+public struct ParticleData {
+    public float3 position;      // Entity space
+    public float  spin;          // Orientation (radians)
+    public float4 behaviorState; // Depends on the behavior
 };
 
 // ------------------------------------------------------------------

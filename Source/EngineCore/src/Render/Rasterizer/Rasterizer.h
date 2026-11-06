@@ -23,9 +23,11 @@
 #include <Render/GenericPasses/ToneMappingPass.hpp>
 // Rasterizer Passes
 #include <Render/Rasterizer/Passes/CullingPass.hpp>
+#include <Render/Rasterizer/Passes/UpdateParticleSystemPass.hpp>
 #include <Render/Rasterizer/Passes/UploadPass.hpp>
 #include <Render/Rasterizer/Passes/VisPass.hpp>
 #include <Render/Rasterizer/Passes/VisResolveNaivePass.hpp>
+#include <Render/Rasterizer/Passes/WriteParticleCommandsPass.hpp>
 
 AXION_NAMESPACE_BEGIN
 
@@ -70,6 +72,8 @@ private:
         Graphics::BufferSlice envsSlice;
         Graphics::BufferSlice redirectSlice;
         Graphics::BufferSlice texturesSlice;
+        Graphics::BufferSlice particleSystemsSlice;
+        Graphics::BufferSlice particleCountsResetSlice;
     };
 
     TransientPayload       uploadTransientData( Graphics::BufferLinearAllocator<>& currentUBOAlloc,

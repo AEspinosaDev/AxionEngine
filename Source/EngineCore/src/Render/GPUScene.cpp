@@ -164,14 +164,17 @@ void GPUScene::processParticles( const Scene::Scene& cpuScene, IMaterialLibrary&
         gpuSystem.update      = systemComp.isUpdating();
         gpuSystem.faceCamera  = systemComp.facesCamera();
 
-        const u32 bufferSlot = processParticleBuffer( entity, systemComp.getSimulatedCount() );
+        // Atomicity is not supported yet: every particle has its own state
+        const u32 bufferSlot = processParticleBuffer( entity, systemComp.getCount() );
         auto&     buffer     = _particleBufferCache.cache[bufferSlot];
 
-        gpuSystem.bufferSlot      = bufferSlot;
-        gpuSystem.bufferSRVHeapID = buffer.srvHeapID;
-        gpuSystem.bufferUAVHeapID = buffer.uavHeapID;
-        gpuSystem.reset           = buffer.needsReset;
-        buffer.needsReset         = false;
+        gpuSystem.bufferSlot           = bufferSlot;
+        gpuSystem.bufferSRVHeapID      = buffer.srvHeapID;
+        gpuSystem.bufferUAVHeapID      = buffer.uavHeapID;
+        gpuSystem.visibleListSRVHeapID = buffer.visibleListSRVHeapID;
+        gpuSystem.visibleListUAVHeapID = buffer.visibleListUAVHeapID;
+        gpuSystem.reset                = buffer.needsReset;
+        buffer.needsReset              = false;
 
         _particleSystems.pushBack( gpuSystem );
     }

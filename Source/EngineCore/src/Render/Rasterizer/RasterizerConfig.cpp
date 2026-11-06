@@ -9,9 +9,11 @@
 #include <Render/GenericPasses/ToneMappingPass.hpp>
 // Rasterizer Passes
 #include <Render/Rasterizer/Passes/CullingPass.hpp>
+#include <Render/Rasterizer/Passes/UpdateParticleSystemPass.hpp>
 #include <Render/Rasterizer/Passes/UploadPass.hpp>
 #include <Render/Rasterizer/Passes/VisPass.hpp>
 #include <Render/Rasterizer/Passes/VisResolveNaivePass.hpp>
+#include <Render/Rasterizer/Passes/WriteParticleCommandsPass.hpp>
 
 #ifdef AXION_TOOLS_BUILD
 #include <Render/ShaderCacheCompiler.h>
@@ -119,6 +121,8 @@ void registerPasses( PassManager& passes ) {
     passes.registerPass<UploadPass>();
     passes.registerPass<IndirectUploadPass>();
     passes.registerPass<CullingPass>();
+    passes.registerPass<UpdateParticleSystemPass>();
+    passes.registerPass<WriteParticleCommandsPass>();
     passes.registerPass<VisPass>();
     // TBD
     //  passes.registerPass<BinningPass>();

@@ -22,3 +22,11 @@ public SamplerState getSampler( uint idx ) {
     SamplerState.Handle h = SamplerState.Handle( uint2( idx, 0 ) );
     return *nonuniform( h );
 }
+public StructuredBuffer<T> getStructuredBuffer<T>( uint idx ) {
+    StructuredBuffer<T>.Handle h = StructuredBuffer<T>.Handle( uint2( idx, 0 ) );
+    return *nonuniform( h );
+}
+public RWStructuredBuffer<T> getRWStructuredBuffer<T>( uint idx ) {
+    RWStructuredBuffer<T>.Handle h = RWStructuredBuffer<T>.Handle( uint2( idx, 0 ) );
+    return *nonuniform( h );
+}
