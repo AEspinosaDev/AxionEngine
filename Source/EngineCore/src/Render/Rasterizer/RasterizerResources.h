@@ -85,6 +85,9 @@ struct GPUResources {
     Graphics::TextureHandle         fallbackTexture2DHandle;
     Graphics::SamplerHandle         fallbackSamplerHandle;
 
+    // Particle systems (bindless, heap IDs stored per GPUParticleSystem)
+    Vector<Graphics::BufferHandle> particleBufferHandles; ///< Indexed by GPUScene particle buffer slot
+
     SmallVector<FrameResources, 3> frame;
 };
 
@@ -94,6 +97,9 @@ void createPersistentResources( Graphics::IGPUResourcePool& r, const MemoryBudge
 u32 createGeometryPage( Graphics::IGPUResourcePool& r, const GeometryPageSizes& sizes, GPUResources& res );
 /// @brief Per frame in flight buffers (UBO / SSBO rings and indirect rendering)
 void createFrameResources( Graphics::IGPUResourcePool& r, const MemoryBudget& budget, u32 framesInFlight, GPUResources& res );
+
+/// @brief Creates the bindless buffer of a particle system: written by its simulation, read by its drawing
+Graphics::BufferHandle createParticleBuffer( Graphics::IGPUResourcePool& r, u32 slot, u32 particleCount );
 
 //-----------------------------------------------------------------------------
 // Render Graph Handles

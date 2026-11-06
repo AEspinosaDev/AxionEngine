@@ -51,6 +51,38 @@ public struct InstanceData {
 };
 
 // ------------------------------------------------------------------
+// PARTICLE SYSTEM DATA (Per-System)
+// ------------------------------------------------------------------
+public static const uint PARTICLE_BEHAVIOR_ORBITALS = 0;
+
+public struct ParticleSystemData {
+    public float4x4 modelMatrix;
+
+    public uint meshID;
+    public uint materialID;
+    public uint count;
+    public uint bufferSRVHeapID; // Read by the drawing
+
+    public float4 extent_Size; // .xyz = Extent, .w = Size
+    public float  speed;
+    public uint   atomicity;
+    public uint   behavior;
+    public uint   seed;
+
+    public uint visible;
+    public uint update;
+    public uint reset;
+    public uint faceCamera;
+
+    public uint bufferUAVHeapID; // Written by the simulation
+    public uint bufferSlot;      // CPU bookkeeping, unused by shaders
+    public uint _pad[2];
+
+    public float3 getExtent() { return extent_Size.xyz; }
+    public float  getSize() { return extent_Size.w; }
+};
+
+// ------------------------------------------------------------------
 // MESH DATA (Geometry Metadata)
 // ------------------------------------------------------------------
 public struct MeshData {

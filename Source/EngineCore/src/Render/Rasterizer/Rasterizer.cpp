@@ -240,6 +240,9 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                                                                      _settings.memory.device.minGeometryPageAlloc,
                                                                      _settings.memory.shared.maxUploadAllocPerFrame );
 
+    // Particle buffers: created before the next frame reads their heap IDs
+    _passes.getPass<UploadPass>()->reserveParticleBuffers( _gpuScene, _res, _rnd->resources() );
+
     // Upload CPU Coherent Data to GPU
     auto transientPayload   = uploadTransientData( currentFrameRes.uboAllocator,
                                                  currentFrameRes.ssboAllocator );

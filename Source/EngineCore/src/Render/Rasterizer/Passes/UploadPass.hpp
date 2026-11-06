@@ -79,6 +79,47 @@ public:
         return uploads;
     }
 
+    /// @brief CPU phase, like reserveMeshes: destroys the buffers the GC released and creates the pending ones.
+    /// There are no copies: a new buffer is initialized by the simulation, from the seed.
+    void reserveParticleBuffers( GPUScene& scene, Rasterizer::Resources::GPUResources& res, Graphics::IGPUResourcePool& r ) {
+
+        auto& buffers = scene.particleBuffers();
+        res.particleBufferHandles.resize( buffers.size() );
+
+        // Their lifetime is bound to the TTL, always bigger than the frames in flight: safe to destroy here
+        auto& releaseQueue = scene.pendingParticleBufferReleases();
+        while ( !releaseQueue.empty() )
+        {
+            const u32 slot = releaseQueue.front();
+            releaseQueue.pop();
+
+            r.destroyBuffer( res.particleBufferHandles[slot] );
+            res.particleBufferHandles[slot] = Graphics::BufferHandle();
+        }
+
+        auto& uploadQueue = scene.pendingParticleBufferUploads();
+        while ( !uploadQueue.empty() )
+        {
+            const PendingParticleBufferUpload entry = uploadQueue.front();
+            uploadQueue.pop();
+
+            const auto handle = Rasterizer::Resources::createParticleBuffer( r, entry.slot, entry.particleCount );
+            if ( !handle.isValid() )
+            {
+                AXION_LOG_ERROR( Logger::Module::Core, "Failed to create the buffer of a particle system ({} particles)", entry.particleCount );
+                continue;
+            }
+            res.particleBufferHandles[entry.slot] = handle;
+
+            auto* gpuBuffer = r.getBuffer( handle );
+
+            auto& buffer      = buffers[entry.slot];
+            buffer.srvHeapID  = gpuBuffer->getBindlessSRVIdx();
+            buffer.uavHeapID  = gpuBuffer->getBindlessUAVIdx();
+            buffer.needsReset = true;
+        }
+    }
+
     void addToGraph( Graphics::RenderGraphBuilder& builder, const Config& seedData ) {
         // Early Exit (mesh queues are already drained by reserveMeshes)
         if ( !seedData.gpuScene ||

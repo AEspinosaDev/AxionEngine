@@ -149,6 +149,16 @@ void createFrameResources( Graphics::IGPUResourcePool& r, const MemoryBudget& bu
     }
 }
 
+Graphics::BufferHandle createParticleBuffer( Graphics::IGPUResourcePool& r, u32 slot, u32 particleCount ) {
+    return r.buffer( "ParticleBuffer_" + std::to_string( slot ) )
+        .size( (u64)particleCount * Config::PARTICLE_STATE_STRIDE )
+        .stride( Config::PARTICLE_STATE_STRIDE )
+        .onGPU()
+        .asSSBO()
+        .view( Graphics::BufferViewFlags::BufferViewUnorderedAccess | Graphics::BufferViewFlags::BufferViewShaderResource )
+        .create();
+}
+
 GlobalBufferHandles importGlobalBuffers( Graphics::RenderGraphBuilder& builder, const GPUResources& res ) {
 
     GlobalBufferHandles handles;

@@ -99,6 +99,8 @@ constexpr u64 MAX_SAMPLER_VIEWS         = 512;
 constexpr u64 MAX_GLOBAL_UBO_BYTES     = 1024;
 constexpr u64 MAX_PUSH_CONSTANTS_BYTES = 128;
 
+constexpr u32 PARTICLE_STATE_STRIDE = 32; ///< Bytes per simulated particle in a particle buffer (must match the simulation shader)
+
 constexpr const char* SHADER_CACHE_NAME = "RasterizerShaders"; ///< Prefix of the rasterizer shader cache files
 
 //-----------------------------------------------------------------------------
