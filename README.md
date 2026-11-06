@@ -10,7 +10,7 @@
 
 <br>
 
-> 🚀 **Latest Update:** Mesh Shading support added to `AxionGFX`.
+> 🚀 **Latest Update:** Visibility Buffer and Particle System Added to `Core::Rasterizer`.
 
 <br>
 
