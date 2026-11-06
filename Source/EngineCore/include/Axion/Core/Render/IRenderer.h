@@ -20,7 +20,7 @@ struct CommonSettings {
     u32                     selectedDeviceID = UINT32_MAX;
 
 #ifdef AXION_DISTRIBUTION
-    RendererFlags flags = RendererEnableGPUCulling; ///< The debug layer needs the Windows Graphics Tools, which a clean machine doesn't have.
+    RendererFlags flags = RendererEnableGPUCulling | RendererUseShaderCache; ///< No shader compiler in distribution. The debug layer needs the Windows Graphics Tools, which a clean machine doesn't have.
 #else
     RendererFlags flags = RendererEnableDebug | RendererEnableGPUCulling;
 #endif

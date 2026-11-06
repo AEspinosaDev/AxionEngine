@@ -7,11 +7,12 @@ namespace Graphics {
 static const ShaderBundle INVALID_BUNDLE = {};
 
 /// @brief Handles a shader that can't be taken from the shader cache.
-/// Distribution builds don't ship shader sources, so there is no fallback. As logs are compiled out in Release, stderr is the only channel left.
+/// Distribution builds have no shader compiler, so there is no fallback: the application exits.
 static void reportShaderCacheFailure( StringView message ) {
 #ifdef AXION_DISTRIBUTION
-    fmt::println( stderr, "[AXION][FATAL] Shader cache: {}", message );
-    std::abort();
+    AXION_LOG_FATAL_ERROR( Logger::Module::GFX, "Shader cache: {}", message );
+    AXION_FATAL_ERROR_POPUP_WINDOW( "Shader cache: {}", message );
+    std::exit( EXIT_FAILURE );
 #else
     AXION_LOG_WARN( Logger::Module::GFX, "Shader cache: {}. Falling back to the shader compiler", message );
 #endif
@@ -22,7 +23,9 @@ ShaderRegistry::ShaderRegistry() : RendererSubsystem() {
 
 ShaderRegistry::~ShaderRegistry() {
     AXION_LOG_INFO( Logger::Module::GFX, "Destroying Renderer's Shader Registry" );
+#ifndef AXION_DISTRIBUTION
     _compiler.end();
+#endif
 }
 
 void ShaderRegistry::initialize( const SubsystemInitContext& ctx ) {
@@ -33,8 +36,10 @@ void ShaderRegistry::initialize( const SubsystemInitContext& ctx ) {
     {
         case API::DirectX12:
             _targetFormat = Shader::DXIL;
+#ifndef AXION_DISTRIBUTION
             if ( !_bindlessSupported )
                 _compilerSettings.dxilProfile = "sm_6_5"; // No ResourceDescriptorHeap (needs SM 6.6)
+#endif
             break;
         case API::Vulkan:
             _targetFormat = Shader::SPIR_V;
@@ -45,12 +50,14 @@ void ShaderRegistry::initialize( const SubsystemInitContext& ctx ) {
             break;
     }
 
+#ifndef AXION_DISTRIBUTION
     AXION_LOG_INFO( Logger::Module::GFX,
                     "Shader Registry Subsystem Initialized Succesfully | Bindless: {} | Profiles -> DXIL: {} SPIR-V: {} GLSL: {}",
                     _bindlessSupported,
                     _compilerSettings.dxilProfile,
                     _compilerSettings.spirvProfile,
                     _compilerSettings.glslProfile );
+#endif
 }
 
 ShaderHandle ShaderRegistry::registerShader( const ShaderDesc& desc ) {
@@ -143,6 +150,10 @@ const ShaderBundle& ShaderRegistry::compileShader( ShaderHandle handle ) {
         reportShaderCacheFailure( cacheError );
     }
 
+#ifdef AXION_DISTRIBUTION
+    reportShaderCacheFailure( fmt::format( "shader [{}] needs a shader cache: distribution builds have no shader compiler", record.desc.name ) );
+    record.state = ShaderState::Failed;
+#else
     AXION_LOG_INFO( Logger::Module::GFX, "Compiling Shader [{}] with path: {}", record.desc.name, record.desc.path );
 
     _compiler.begin( _compilerSettings );
@@ -155,6 +166,7 @@ const ShaderBundle& ShaderRegistry::compileShader( ShaderHandle handle ) {
         AXION_LOG_ERROR( Logger::Module::GFX, "Failed to compile shader  [{}]", record.desc.name );
         // Aquí podrías cargar un bytecode de "Error Shader" (rosa chillón) por defecto
     }
+#endif
 
     return record.bundle;
 }

@@ -3,7 +3,9 @@
 #include "Axion/Graphics/RHI/IPipeline.h"
 #include "RendererSubsystem.h"
 #include "ShaderCache.h"
+#ifndef AXION_DISTRIBUTION
 #include "ShaderCompiler.h"
+#endif
 
 AXION_NAMESPACE_BEGIN
 
@@ -51,11 +53,13 @@ private:
         bool         alive = false;
     };
 
+#ifndef AXION_DISTRIBUTION
     ShaderCompiler           _compiler;
-    ShaderCompiler::Settings _compilerSettings;                ///< The compiler only starts when a shader really has to be compiled
-    ShaderCache              _cache;                           ///< Precompiled shaders. compileShader() looks here first once loaded
-    Shader::NativeFormat     _targetFormat      = Shader::DXIL; ///< Native format of the active graphics API
-    bool                     _bindlessSupported = false;       ///< Device supports pure bindless
+    ShaderCompiler::Settings _compilerSettings; ///< The compiler only starts when a shader really has to be compiled
+#endif
+    ShaderCache          _cache;                       ///< Precompiled shaders. compileShader() looks here first once loaded
+    Shader::NativeFormat _targetFormat      = Shader::DXIL; ///< Native format of the active graphics API
+    bool                 _bindlessSupported = false;   ///< Device supports pure bindless
 #ifdef AXION_TOOLS_BUILD
     bool _offline = false; ///< No device: shaders are forced to _targetFormat
 #endif

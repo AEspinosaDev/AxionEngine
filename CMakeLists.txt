@@ -14,8 +14,10 @@ option(AXION_BUILD_GFX     "Enable building of the Graphics Module"    ON)
 option(AXION_BUILD_TESTS   "Enable building of the tests"              ON)
 option(AXION_BUILD_SAMPLES "Enable building of the samples"            ON)
 option(AXION_BUILD_TOOLS   "Enable building of the offline tools. Compiles the engine with AXION_TOOLS_BUILD" OFF)
-option(AXION_DISTRIBUTION  "Configure for distribution. Engine path macros become relative, no shader compiler fallback" OFF)
+option(AXION_DISTRIBUTION  "Configure for distribution. Engine path macros become relative, no shader compiler: shaders only come from the shader cache" OFF)
+# Graphic Platforms
 option(AXION_ENABLE_VULKAN "Compile the Vulkan backend (work in progress). Needs the Vulkan SDK" OFF)
+option(AXION_ENABLE_METAL  "Compile the Metal  backend (work in progress). Needs the Apple SDK" OFF)
 
 # Tools compile shaders from the engine sources: a distribution build doesn't have them
 if(AXION_BUILD_TOOLS AND AXION_DISTRIBUTION)
@@ -68,6 +70,7 @@ if(DOXYGEN_FOUND)
 endif()
 
 include(AddExecutable)
+include(AddDistribution)
 include(AddDependencies)
 
 # =========================================================================

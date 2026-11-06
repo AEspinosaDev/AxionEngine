@@ -1,5 +1,6 @@
 
 #include <Render/Rasterizer/Rasterizer.h>
+#include <cstdlib>
 
 AXION_NAMESPACE_BEGIN
 
@@ -10,6 +11,32 @@ RendererOwnerPtr createRasterizer( Platform::Window* wnd, const RasterizerSettin
 }
 } // namespace Core::Render
 namespace Core::Render::Rasterizer {
+
+/// @brief Ends the application naming every GPU feature the rasterizer needs and the device doesn't have.
+/// Otherwise they would only show up later as a generic pipeline creation failure.
+static void checkRequiredFeatures( const Graphics::RHI::IDevice& device ) {
+    struct RequiredFeature {
+        Graphics::RHI::FeatureType type;
+        const char*                name;
+    };
+    const RequiredFeature requiredFeatures[] = {
+        { Graphics::RHI::FeatureType::Meshlets, "Mesh shaders" },
+        { Graphics::RHI::FeatureType::HeapDirectlyIndexed, "Bindless resources (shader model 6.6 and resource binding tier 3)" },
+    };
+
+    std::string missing;
+    for ( const RequiredFeature& feature : requiredFeatures )
+    {
+        if ( !device.queryFeatureSupport( feature.type ) )
+            missing += fmt::format( "\n - {}", feature.name );
+    }
+    if ( missing.empty() )
+        return;
+
+    AXION_LOG_FATAL_ERROR( Logger::Module::Core, "This GPU doesn't support features the rasterizer needs:{}", missing );
+    AXION_FATAL_ERROR_POPUP_WINDOW( "This GPU doesn't support features the rasterizer needs:{}", missing );
+    std::exit( EXIT_FAILURE );
+}
 
 Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& settings )
     : _window( wnd )
@@ -66,6 +93,8 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
         .enableGui        = ( settings.common.flags & RendererEnableGUI ) != RendererNone };
 
     _rnd = Graphics::createRenderer( wnd->getNativeWindow(), rndStts );
+
+    checkRequiredFeatures( *_rnd->getDevice() );
 
     // Configure Material Library & Global Layout Contract
     _globalMtlLayoutHandle = Config::buildGlobalLayout( _rnd->pipelines() );

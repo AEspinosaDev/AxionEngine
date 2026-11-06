@@ -38,45 +38,48 @@ endif()
 # ----------------------------------------------------------------------------
 # Slang (Custom Prebuilt)
 # ----------------------------------------------------------------------------
-set(SLANG_VERSION "2025.24.2")
+# Distribution builds have no shader compiler: their shaders only come from the shader cache
+if(NOT AXION_DISTRIBUTION)
+    set(SLANG_VERSION "2025.24.2")
 
-if(WIN32)
-    set(SLANG_FILE "slang-${SLANG_VERSION}-windows-x86_64.zip")
-elseif(UNIX AND NOT APPLE)
-    set(SLANG_FILE "slang-${SLANG_VERSION}-linux-x86_64.zip")
-endif()
+    if(WIN32)
+        set(SLANG_FILE "slang-${SLANG_VERSION}-windows-x86_64.zip")
+    elseif(UNIX AND NOT APPLE)
+        set(SLANG_FILE "slang-${SLANG_VERSION}-linux-x86_64.zip")
+    endif()
 
-set(SLANG_URL "https://github.com/shader-slang/slang/releases/download/v${SLANG_VERSION}/${SLANG_FILE}")
+    set(SLANG_URL "https://github.com/shader-slang/slang/releases/download/v${SLANG_VERSION}/${SLANG_FILE}")
 
-message(STATUS "Downloading Slang ${SLANG_VERSION} from: ${SLANG_URL}")
+    message(STATUS "Downloading Slang ${SLANG_VERSION} from: ${SLANG_URL}")
 
-FetchContent_Declare(
-    slang_package
-    URL ${SLANG_URL}
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE 
-)
-# Unzip
-FetchContent_MakeAvailable(slang_package)
-
-set(SLANG_ROOT "${slang_package_SOURCE_DIR}")
-
-if(NOT TARGET Slang::Slang)
-    add_library(Slang::Slang SHARED IMPORTED GLOBAL)
-endif()
-
-if(WIN32)
-    set_target_properties(Slang::Slang PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${SLANG_ROOT}/include"
+    FetchContent_Declare(
+        slang_package
+        URL ${SLANG_URL}
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE 
     )
-    set_target_properties(Slang::Slang PROPERTIES
-        IMPORTED_IMPLIB "${SLANG_ROOT}/lib/slang.lib"
-    )
-    set(SLANG_BIN_DIR "${SLANG_ROOT}/bin" CACHE INTERNAL "Slang Binaries Folder")
-    set(SLANG_DLL_SOURCE "${SLANG_ROOT}/bin/slang.dll" CACHE INTERNAL "Path to slang.dll")
+    # Unzip
+    FetchContent_MakeAvailable(slang_package)
 
-    message(STATUS "Configuring Slang in: ${SLANG_ROOT}")
-else()
-    # (Soporte Linux comentado por ahora...)
+    set(SLANG_ROOT "${slang_package_SOURCE_DIR}")
+
+    if(NOT TARGET Slang::Slang)
+        add_library(Slang::Slang SHARED IMPORTED GLOBAL)
+    endif()
+
+    if(WIN32)
+        set_target_properties(Slang::Slang PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${SLANG_ROOT}/include"
+        )
+        set_target_properties(Slang::Slang PROPERTIES
+            IMPORTED_IMPLIB "${SLANG_ROOT}/lib/slang.lib"
+        )
+        set(SLANG_BIN_DIR "${SLANG_ROOT}/bin" CACHE INTERNAL "Slang Binaries Folder")
+        set(SLANG_DLL_SOURCE "${SLANG_ROOT}/bin/slang.dll" CACHE INTERNAL "Path to slang.dll")
+
+        message(STATUS "Configuring Slang in: ${SLANG_ROOT}")
+    else()
+        # (Soporte Linux comentado por ahora...)
+    endif()
 endif()
 
 

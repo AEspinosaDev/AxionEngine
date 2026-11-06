@@ -4,9 +4,9 @@
 # Helper Function: axion_setup_executable
 # -----------------------------------------------------------------------------
 # Purpose:
-#   1. Links the target with the Slang library automatically.
+#   1. Links the target with the Slang library automatically (not in distribution builds, they have no shader compiler).
 #   2. Organizes the output binaries into a clean structure (bin/Samples, bin/Editor, etc.).
-#   3. Automatically copies the required slang.dll to the output folder (Windows only).
+#   3. Automatically copies the required slang.dll to the output folder (Windows only, not in distribution builds).
 #
 # Usage:
 #   axion_setup_executable(MyTargetName "FolderName")
@@ -17,7 +17,9 @@ function(axion_setup_executable target_name folder_name)
         message(FATAL_ERROR "Target not found: ${target_name}")
     endif()
 
-    target_link_libraries(${target_name} PRIVATE Slang::Slang)
+    if(NOT AXION_DISTRIBUTION)
+        target_link_libraries(${target_name} PRIVATE Slang::Slang)
+    endif()
 
     # 1. Output Directory Configuration
     set_target_properties(${target_name} PROPERTIES
@@ -31,7 +33,7 @@ function(axion_setup_executable target_name folder_name)
     endforeach()
 
     # 2. Refined DLL Copy (Only copy what is strictly necessary)
-    if(WIN32)
+    if(WIN32 AND NOT AXION_DISTRIBUTION)
         # Define the specific list of DLLs you need. 
         # usually: slang.dll + slang-glslang.dll (for spirv) + slang-compiler.dll
         set(SLANG_DLLS_TO_COPY 

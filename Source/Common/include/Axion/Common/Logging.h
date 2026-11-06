@@ -95,6 +95,9 @@ public:
      */
     static void setLogLevel( Level level );
 
+    /** @brief Convert engine module to string. */
+    static const char* moduleToString( Module module );
+
 private:
     Logger()                           = default;
     ~Logger()                          = default;
@@ -121,9 +124,6 @@ private:
 
     /** @brief Reset ANSI color. */
     static const char* resetColor();
-
-    /** @brief Convert engine module to string. */
-    static const char* moduleToString( Module module );
 
 private:
     Level         _logLevel  = Level::Info;
@@ -195,4 +195,34 @@ AXION_NAMESPACE_END
 #define AXION_LOG_ASSERT( cond, module, msg, ... ) ( (void)0 )
 #define AXION_LOG_WARN_ONCE( ... ) ( (void)0 )
 
+#endif
+
+// -------------------------------------------------
+// Fatal errors: defined in every build configuration
+// -------------------------------------------------
+
+/**
+ * @brief Prints a fatal error straight to the console (stderr). For the few errors that must be seen in Release too.
+ * It doesn't go through Logger, so it works before Logger::init and ignores the log level and module filters.
+ * It doesn't end the application: that's up to the caller.
+ */
+#define AXION_LOG_FATAL_ERROR( module, fmt_str, ... )      \
+    fmt::println( stderr,                                  \
+                  "[AXION][FATAL][{}] {}",                 \
+                  Axion::Logger::moduleToString( module ), \
+                  fmt::format( fmt_str, ##__VA_ARGS__ ) )
+
+/**
+ * @brief Shows a fatal error in a dialog and waits until the user closes it.
+ * An application started with a double click closes its console on exit, so the console message alone would be lost.
+ * It doesn't end the application: that's up to the caller.
+ */
+#ifdef _WIN32
+#define AXION_FATAL_ERROR_POPUP_WINDOW( fmt_str, ... )            \
+    ::MessageBoxA( nullptr,                                       \
+                   fmt::format( fmt_str, ##__VA_ARGS__ ).c_str(), \
+                   "Axion Engine",                                \
+                   MB_OK | MB_ICONERROR )
+#else
+#define AXION_FATAL_ERROR_POPUP_WINDOW( ... ) ( (void)0 )
 #endif

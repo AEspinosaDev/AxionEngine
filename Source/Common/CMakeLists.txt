@@ -20,13 +20,13 @@ target_link_libraries(AxionCommon PUBLIC glm fmt::fmt)
 
 # RESOLVE RESOURCES & SHADER SOURCES PATH
 if(AXION_DISTRIBUTION)
-    # Relative to the working directory, expected to be the executable folder: <Dist>/bin-<platform>/
+    # Relative to the executable folder of a package: <Package>/bin/<platform>/ (see CMake/AddDistribution.cmake)
     target_compile_definitions(AxionCommon PUBLIC
         AXION_DISTRIBUTION
-        AXION_MESH_DIR="../Assets/Meshes"
-        AXION_TEXTURE_DIR="../Assets/Textures"
-        AXION_SHADER_DIR="../Shaders"
-        AXION_SHADER_CACHE_DIR="../ShaderCache"
+        AXION_MESH_DIR="../../assets/Meshes"
+        AXION_TEXTURE_DIR="../../assets/Textures"
+        AXION_SHADER_DIR="../../engine/shaders"
+        AXION_SHADER_CACHE_DIR="../../engine/shaders"
     )
 else()
     target_compile_definitions(AxionCommon PUBLIC

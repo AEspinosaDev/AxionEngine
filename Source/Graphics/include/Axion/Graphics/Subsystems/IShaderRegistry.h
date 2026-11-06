@@ -38,6 +38,7 @@ public:
     virtual std::optional<ShaderHandle> findShader( StringView name ) const = 0;
 
     /// @brief Triggers compilation for a specific shader if not already ready.
+    /// @note Distribution builds have no shader compiler: the shader must come from a loaded shader cache, otherwise the application exits with an error.
     /// @return The compiled bundle.
     virtual const ShaderBundle& compileShader( ShaderHandle handle ) = 0;
 
@@ -57,7 +58,7 @@ public:
 
     /// @brief Loads a precompiled shader cache for the graphics API of the device (see Tools/ShaderCacheBuilder).
     /// From then on, compileShader() takes the bytecode from the cache instead of invoking the compiler.
-    /// @note Failing to load it, or a shader that can't be resolved from it, aborts in distribution builds.
+    /// @note Failing to load it, or a shader that can't be resolved from it, exits with an error in distribution builds.
     /// Otherwise those shaders fall back to the compiler.
     /// @param directory Folder that holds the cache files.
     /// @param cacheName Prefix of the cache files (eg: "Rasterizer").

@@ -145,7 +145,7 @@
                 "AXION_DISTRIBUTION": "ON",
                 "AXION_BUILD_EDITOR": "OFF",
                 "AXION_BUILD_SAMPLES": "ON",
-                "AXION_BUILD_TESTS": "OFF"
+                "AXION_BUILD_TESTS": "ON"
             }
         }
     ],

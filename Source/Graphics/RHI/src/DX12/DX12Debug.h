@@ -28,22 +28,55 @@ inline std::string getLastDXGIMessage() {
     return ss.str();
 }
 
+/// @brief Returns the Windows description of an HRESULT. Empty if Windows doesn't know it.
+inline std::string getHResultMessage( HRESULT hr ) {
+    char*       buffer = nullptr;
+    const DWORD length = FormatMessageA( FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                                         nullptr,
+                                         (DWORD)hr,
+                                         0,
+                                         reinterpret_cast<char*>( &buffer ),
+                                         0,
+                                         nullptr );
+    if ( length == 0 )
+        return {};
+
+    std::string message( buffer, length );
+    LocalFree( buffer );
+
+    // The description ends with a line break
+    while ( !message.empty() && ( message.back() == '\n' || message.back() == '\r' ) )
+        message.pop_back();
+    return message;
+}
+
+/// @brief Describes a failed DirectX call: what failed, why and where.
+inline std::string describeFailure( HRESULT hr, const char* call, const char* file, int line ) {
+    std::string message = fmt::format( "DirectX12 call failed: {}\nError 0x{:08X}: {}\nAt {}:{}", call, (unsigned long)hr, getHResultMessage( hr ), file, line );
+
+    const std::string dxgiMessage = getLastDXGIMessage();
+    if ( !dxgiMessage.empty() )
+        message += fmt::format( "\nDXGI Layer: {}", dxgiMessage );
+    return message;
+}
+
 } // namespace Graphics::RHI::Debug
 
 AXION_NAMESPACE_END
 
-#define DX_CHECK( x )                                                      \
-    do                                                                     \
-    {                                                                      \
-        HRESULT hr__ = ( x );                                              \
-        if ( FAILED( hr__ ) )                                              \
-        {                                                                  \
-            std::string dxgiMsg = Axion::Graphics::RHI::Debug::getLastDXGIMessage(); \
-            AXION_LOG_ERROR( Axion::Logger::Module::RHI,                   \
-                             "DirectX12 error: 0x{:X} DXGI Layer: {}",     \
-                             hr__,                                         \
-                             dxgiMsg );                                    \
-            Axion::Logger::flush();                                        \
-            abort();                                                       \
-        }                                                                  \
+/// @brief Ends the application if a DirectX call fails, reporting it in every build configuration.
+/// AXION_LOG_ERROR is what keeps the error in the log file of a Debug build.
+#define DX_CHECK( x )                                                                                                 \
+    do                                                                                                                \
+    {                                                                                                                 \
+        HRESULT hr__ = ( x );                                                                                         \
+        if ( FAILED( hr__ ) )                                                                                         \
+        {                                                                                                             \
+            const std::string error__ = Axion::Graphics::RHI::Debug::describeFailure( hr__, #x, __FILE__, __LINE__ ); \
+            AXION_LOG_ERROR( Axion::Logger::Module::RHI, "{}", error__ );                                             \
+            AXION_LOG_FATAL_ERROR( Axion::Logger::Module::RHI, "{}", error__ );                                       \
+            Axion::Logger::flush();                                                                                   \
+            AXION_FATAL_ERROR_POPUP_WINDOW( "{}", error__ );                                                          \
+            abort();                                                                                                  \
+        }                                                                                                             \
     } while ( 0 )

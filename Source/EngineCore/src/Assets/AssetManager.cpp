@@ -291,6 +291,7 @@ MeshHandle AssetManager::importMesh( StringView name, StringView filepath, MeshI
     if ( !std::filesystem::exists( path ) )
     {
         AXION_LOG_ERROR( Logger::Module::Core, "File not found: {}", filepath );
+        AXION_LOG_FATAL_ERROR( Logger::Module::Core, "Mesh file not found: {}", filepath );
         return MeshHandle();
     }
 
@@ -316,12 +317,14 @@ MeshHandle AssetManager::importMesh( StringView name, StringView filepath, MeshI
     } else
     {
         AXION_LOG_ERROR( Logger::Module::Core, "Unsupported file format [{}] for file: {}", extension, filepath );
+        AXION_LOG_FATAL_ERROR( Logger::Module::Core, "Unsupported mesh file format [{}] for file: {}", extension, filepath );
         return MeshHandle();
     }
 
     if ( !success )
     {
         AXION_LOG_ERROR( Logger::Module::Core, "Failed to import mesh [{}] from [{}]", meshName, filepath );
+        AXION_LOG_FATAL_ERROR( Logger::Module::Core, "Failed to import mesh [{}] from [{}]", meshName, filepath );
         return MeshHandle();
     }
 
@@ -735,6 +738,7 @@ TextureHandle AssetManager::importTexture( StringView name, StringView filepath,
     if ( !std::filesystem::exists( filepath ) )
     {
         AXION_LOG_ERROR( Logger::Module::Core, "File not found: {}", filepath );
+        AXION_LOG_FATAL_ERROR( Logger::Module::Core, "Texture file not found: {}", filepath );
         return TextureHandle();
     }
 
@@ -742,6 +746,7 @@ TextureHandle AssetManager::importTexture( StringView name, StringView filepath,
     if ( !Loaders::loadImage( STLW::String( filepath ), imageData, flags ) )
     {
         AXION_LOG_ERROR( Logger::Module::Core, "Failed to import texture [{}] from [{}]", textureName, filepath );
+        AXION_LOG_FATAL_ERROR( Logger::Module::Core, "Failed to import texture [{}] from [{}]", textureName, filepath );
         return TextureHandle();
     }
 
