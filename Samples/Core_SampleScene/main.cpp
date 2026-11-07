@@ -25,12 +25,12 @@ int main( int argc, char* argv[] ) {
         Core::Render::RasterizerSettings rastDesc {};
         rastDesc.common.name             = "MyRasterizer";
         rastDesc.common.selectedDeviceID = 0;
-        rastDesc.common.flags |= Core::Render::RendererEnableFXAA;
+        rastDesc.common.flags |= Core::Render::RendererEnableTAA;
 
         // Precompiled shaders (see Tools/ShaderCacheBuilder). Distribution builds don't ship shader sources
 #ifdef AXION_DISTRIBUTION
+        rastDesc.common.flags |= Core::Render::RendererUseShaderCache;
 #endif
-rastDesc.common.flags |= Core::Render::RendererUseShaderCache;
         for ( int i = 1; i < argc; ++i )
         {
             if ( StringView( argv[i] ) == "--use-shader-cache" )
