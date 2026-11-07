@@ -2,6 +2,7 @@
 import MaterialCommon;
 import IMaterial;
 import VisObject;
+#include "Vis.slang" // computeBarycentrics, loadVisSurface
 
 // -----------------------------------------------------------
 // PASS I/O (Space 1)
@@ -15,59 +16,14 @@ struct ResolvePushConstant {
 };
 DECLARE_PUSH_CONSTANT( ResolvePushConstant, gPush );
 
-// -----------------------------------------------------------
-// Perspective-correct barycentrics of a NDC point inside a clip-space triangle
-float3 computeBarycentrics( float4 p0, float4 p1, float4 p2, float2 ndc ) {
-    float3 invW = rcp( float3( p0.w, p1.w, p2.w ) );
-    float2 ndc0 = p0.xy * invW.x;
-    float2 ndc1 = p1.xy * invW.y;
-    float2 ndc2 = p2.xy * invW.z;
-
-    float  invDet = rcp( determinant( float2x2( ndc2 - ndc1, ndc0 - ndc1 ) ) );
-    float3 ddx    = float3( ndc1.y - ndc2.y, ndc2.y - ndc0.y, ndc0.y - ndc1.y ) * invDet * invW;
-    float3 ddy    = float3( ndc2.x - ndc1.x, ndc0.x - ndc2.x, ndc1.x - ndc0.x ) * invDet * invW;
-
-    float2 delta      = ndc - ndc0;
-    float  interpInvW = invW.x + delta.x * dot( ddx, float3( 1.0 ) ) + delta.y * dot( ddy, float3( 1.0 ) );
-    float  interpW    = rcp( interpInvW );
-
-    return interpW * float3( invW.x + delta.x * ddx.x + delta.y * ddy.x,
-                             delta.x * ddx.y + delta.y * ddy.y,
-                             delta.x * ddx.z + delta.y * ddy.z );
-}
-
-// Surface of a pixel, seen through its owner. Specialized per owner at compile time: no more questions about what it is
-// False if the pixel belongs to another material bundle
-bool loadVisSurface<O : IVisObject>( O object, uint triangleID, float2 ndc, out SurfaceData surface, out uint materialID ) {
+/// @brief Surface of a pixel of this dispatch bundle. False if the pixel belongs to another material bundle
+bool loadOwnVisSurface<O : IVisObject>( O object, uint triangleID, float2 ndc, out SurfaceData surface, out uint materialID ) {
     surface    = {};
     materialID = object.getMaterialID();
     if ( getMaterialData( materialID ).psoBundleID != gPush.psoBundleID )
         return false;
 
-    MeshData mesh = getMeshData( object.getMeshID() );
-
-    uint meshletIndex, localTriangle;
-    unpackVisibilityTriangle( triangleID, meshletIndex, localTriangle );
-    Meshlet meshlet = getMeshlet( mesh, meshletIndex );
-    uint3   tri     = getMeshletTriangle( mesh, meshlet, localTriangle );
-
-    CanonVertex v0 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.x ), mesh );
-    CanonVertex v1 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.y ), mesh );
-    CanonVertex v2 = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, tri.z ), mesh );
-
-    // TODO: WPO is applied in the vis pass but not here (no material uses it yet)
-    float4 wp0 = object.placePosition( v0.position );
-    float4 wp1 = object.placePosition( v1.position );
-    float4 wp2 = object.placePosition( v2.position );
-
-    float3 bary = computeBarycentrics( mul( gFrame.viewProj, wp0 ), mul( gFrame.viewProj, wp1 ), mul( gFrame.viewProj, wp2 ), ndc );
-
-    float3 localNrm = v0.normal * bary.x + v1.normal * bary.y + v2.normal * bary.z;
-
-    surface.worldPos = wp0.xyz * bary.x + wp1.xyz * bary.y + wp2.xyz * bary.z;
-    surface.shNormal = normalize( object.placeNormal( localNrm ) );
-    surface.uv       = v0.uv * bary.x + v1.uv * bary.y + v2.uv * bary.z;
-    surface.V        = normalize( gFrame.getCameraPos() - surface.worldPos );
+    loadVisSurface( object, triangleID, ndc, surface, materialID );
     return true;
 }
 
@@ -101,9 +57,9 @@ void csResolve<T : IMaterial>( uint3 dispatchThreadID: SV_DispatchThreadID ) {
     uint        materialID;
     bool        ownPixel;
     if ( isVisParticle( instanceID ) )
-        ownPixel = loadVisSurface( VisParticle( instanceID ), triangleID, ndc, surface, materialID );
+        ownPixel = loadOwnVisSurface( VisParticle( instanceID ), triangleID, ndc, surface, materialID );
     else
-        ownPixel = loadVisSurface( VisInstance( instanceID - 1u ), triangleID, ndc, surface, materialID );
+        ownPixel = loadOwnVisSurface( VisInstance( instanceID - 1u ), triangleID, ndc, surface, materialID );
 
     if ( !ownPixel )
         return; // Pixel belongs to another material bundle

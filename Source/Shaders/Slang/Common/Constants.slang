@@ -27,3 +27,9 @@ public static const float INV_PI_OVER_4 = 1.0 / PI_OVER_4;
 // DispatchMesh limits (must match MAX_MESH_DISPATCH_GROUPS* in RasterizerConfig.h)
 public static const uint MESH_DISPATCH_MAX_GROUPS               = 1u << 22;
 public static const uint MESH_DISPATCH_MAX_GROUPS_PER_DIMENSION = 65535;
+
+// Material binning (must match RasterizerConfig.h)
+public static const uint BINNING_TILE_SIZE      = 8;
+public static const uint MAX_RESOLVE_BINS       = BINNING_TILE_SIZE * BINNING_TILE_SIZE; // One tile thread flushes each bin
+public static const uint RESOLVE_BIN_GROUP_SIZE = 64;
+public static const uint BIN_NONE               = 0xFF; // Pixel without bin (background) in the R8_UINT bin image

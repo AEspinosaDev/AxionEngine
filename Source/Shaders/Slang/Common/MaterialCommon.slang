@@ -137,6 +137,15 @@ public void unpackVisibilityParticle( uint packed, out uint systemIndex, out uin
     particleIndex = packed & VIS_PARTICLE_INDEX_MASK;
 }
 
+// Material binning: pixel coordinates in the bin list ( x | y << 16 )
+public uint packBinPixel( uint2 pixel ) {
+    return pixel.x | ( pixel.y << 16 );
+}
+
+public uint2 unpackBinPixel( uint packed ) {
+    return uint2( packed & 0xFFFF, packed >> 16 );
+}
+
 // -----------------------------------------------------------
 // CULLING
 // -----------------------------------------------------------

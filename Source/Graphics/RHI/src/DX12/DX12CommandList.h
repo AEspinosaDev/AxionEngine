@@ -27,7 +27,10 @@ public:
 
     void barrier( ITexture* texture, ResourceState newState ) override;
     void barrier( IBuffer* buffer, ResourceState newState ) override;
+    void barrierUAV( ITexture* texture ) override;
+    void barrierUAV( IBuffer* buffer ) override;
     void clearTexture( ITexture* texture, const ClearValue& clearValue, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
+    void clearBuffer( IBuffer* buffer, u32 value, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
     void copyBuffer( IBuffer* dst, IBuffer* src, u64 numBytes, u64 dstOffset = 0, u64 srcOffset = 0, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
     void copyTexture( ITexture* dst, ITexture* src, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) override;
 
@@ -64,6 +67,12 @@ public:
                               u32     maxDrawCount,
                               IBuffer* countBuffer       = nullptr,
                               u64    countBufferOffset = 0 ) override;
+
+    void dispatchIndirect( IBuffer* indirectBuffer,
+                           u64      bufferOffset,
+                           u32      maxDispatchCount,
+                           IBuffer* countBuffer       = nullptr,
+                           u64      countBufferOffset = 0 ) override;
 
     void dispatchMeshIndirect( IBuffer* indirectBuffer,
                                u64      bufferOffset,

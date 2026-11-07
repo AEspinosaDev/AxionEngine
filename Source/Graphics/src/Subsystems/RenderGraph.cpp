@@ -263,12 +263,16 @@ void RenderGraph::compile() {
                 _bufferCache.erase( it );
             } else
             {
-                res.physicalHandle = _pool->buffer( res.name )
-                                         .size( desc.size )
-                                         .usage( desc.usageFlags )
-                                         .view( desc.viewFlags )
-                                         .transient()
-                                         .create();
+                // Full description: structured views need the stride, raw views the flag
+                auto bufferBuilder = _pool->buffer( res.name );
+                bufferBuilder.size( desc.size )
+                    .stride( desc.stride )
+                    .usage( desc.usageFlags )
+                    .view( desc.viewFlags )
+                    .transient();
+                if ( desc.allowRawViews )
+                    bufferBuilder.asRaw();
+                res.physicalHandle = bufferBuilder.create();
             }
             res.internalState = _pool->getBuffer( std::get<BufferHandle>( res.physicalHandle ) )->getCurrentState();
         }

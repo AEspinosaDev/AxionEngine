@@ -12,6 +12,13 @@ public struct DrawIndexedIndirectCommand {
     uint _padding[2];
 };
 
+public struct DispatchIndirectCommand {
+    public uint baseInstanceID; ///< Root constant (first push constant field)
+    public uint threadGroupCountX;
+    public uint threadGroupCountY;
+    public uint threadGroupCountZ;
+};
+
 public struct DispatchMeshIndirectCommand {
     public uint baseInstanceID;    ///< Root constant (first push constant field)
     public uint threadGroupCountX; ///< Meshlets of the mesh

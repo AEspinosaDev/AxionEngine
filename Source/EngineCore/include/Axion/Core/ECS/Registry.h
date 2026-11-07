@@ -27,6 +27,11 @@ public:
         }
     }
 
+    EntityID setParent( EntityID child, EntityID parent ){
+          return ensurePool<EntityID>()->add( child, parent );
+
+    }
+
     // --- MUTABLE ACCESS ---
     template <typename T>
     T& addComponent( EntityID entity, T component ) {

@@ -411,26 +411,145 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         //----------------------------
         // D. Resolve Vis
         //----------------------------
-        VisResolvePass::Config resConfig;
-        resConfig.outColorHandle = builder.texture( "ColorRTO" )
-                                       .asStorage() // Compute UAV output only (an RT flag would require a clear before first use)
-                                       .format( Graphics::Format::RGBA16_FLOAT )
-                                       .extent( SCENE_RESOLUTION )
-                                       .create();
-        resConfig.inVisHandle           = visConfig.outVisHandle;
-        resConfig.inGlobalBufferHandles = upConfig.outGlobalBufferHandles;
-        resConfig.indirectData          = indirectCmdPayload; // One dispatch per material bundle
 
-        resConfig.inParticleBufferHandles = particleConfig.outParticleBufferHandles;
+        // Resolve output (binned: classify writes the background, each bin its own pixels)
+        Graphics::RGResourceHandle colorHandle = builder.texture( "ColorRTO" )
+                                                     .asStorage() // Compute UAV output only (an RT flag would require a clear before first use)
+                                                     .format( Graphics::Format::RGBA16_FLOAT )
+                                                     .extent( SCENE_RESOLUTION )
+                                                     .create();
 
-        resConfig.ioSetId = (u32)Config::LayoutSetType::PassBound;
+        if ( _settings.common.flags & RendererUseNaiveResolve )
+        {
+            // Naive: one full screen dispatch per material bundle, every one filtering its own pixels (comparison)
+            VisResolvePass::Config naiveConfig;
+            naiveConfig.inGlobalBufferHandles   = upConfig.outGlobalBufferHandles;
+            naiveConfig.inParticleBufferHandles = particleConfig.outParticleBufferHandles;
+            naiveConfig.inVisHandle             = visConfig.outVisHandle;
+            naiveConfig.outColorHandle          = colorHandle;
+            naiveConfig.indirectData            = indirectCmdPayload; // One dispatch per material bundle
 
-        resConfig.materialPassSlot = (u32)Config::MaterialPassType::VisibilityResolve;
-        resConfig.matLib           = &_mtlLib;
+            naiveConfig.ioSetId          = (u32)Config::LayoutSetType::PassBound;
+            naiveConfig.materialPassSlot = (u32)Config::MaterialPassType::VisibilityResolveNaive;
+            naiveConfig.matLib           = &_mtlLib;
 
-        resConfig.transientDescriptorSet = transientSetPtr;
+            naiveConfig.transientDescriptorSet = transientSetPtr;
 
-        _passes.getPass<VisResolvePass>()->addToGraph( builder, resConfig );
+            _passes.getPass<VisResolvePass>()->addToGraph( builder, naiveConfig );
+        } else
+        {
+            // After the particle batches: their bundles need a bin too
+            auto binningPayload = uploadBinningData( currentFrameRes.ssboAllocator, indirectCmdPayload );
+
+            // Bin of every pixel (BIN_NONE background): classify -> scatter
+            Graphics::RGResourceHandle binImageHandle = builder.texture( "BinRTO" )
+                                                            .asStorage()
+                                                            .format( Graphics::Format::R8_UINT )
+                                                            .extent( SCENE_RESOLUTION )
+                                                            .create();
+
+            // Pixels per bin: clear -> classify (atomics) -> prefix / resolve (tail of the last group)
+            Graphics::RGResourceHandle binCountHandle = builder.buffer( "BinCountBuffer" )
+                                                            .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage ) // Cleared through a copy
+                                                            .view( Graphics::BufferViewFlags::BufferViewUnorderedAccess | Graphics::BufferViewFlags::BufferViewShaderResource )
+                                                            .size( Config::MAX_RESOLVE_BINS * sizeof( u32 ) )
+                                                            .stride( sizeof( u32 ) )
+                                                            .onGPU()
+                                                            .create();
+
+            // First slot of each bin in the pixel list: prefix -> scatter / resolve
+            Graphics::RGResourceHandle binOffsetHandle = builder.buffer( "BinOffsetBuffer" )
+                                                             .usage( Graphics::BufferUsage::Storage )
+                                                             .view( Graphics::BufferViewFlags::BufferViewUnorderedAccess | Graphics::BufferViewFlags::BufferViewShaderResource )
+                                                             .size( Config::MAX_RESOLVE_BINS * sizeof( u32 ) )
+                                                             .stride( sizeof( u32 ) )
+                                                             .onGPU()
+                                                             .create();
+
+            // Reserved slots of each bin, relative to its offset: clear -> scatter (per tile reservations)
+            Graphics::RGResourceHandle binCursorHandle = builder.buffer( "BinCursorBuffer" )
+                                                             .usage( Graphics::BufferUsage::TransferDst | Graphics::BufferUsage::Storage ) // Cleared through a copy
+                                                             .view( Graphics::BufferViewFlags::BufferViewUnorderedAccess )
+                                                             .size( Config::MAX_RESOLVE_BINS * sizeof( u32 ) )
+                                                             .stride( sizeof( u32 ) )
+                                                             .onGPU()
+                                                             .create();
+
+            // Resolve dispatch args { binID (root constant), groups, 1, 1 }: prefix -> resolve
+            Graphics::RGResourceHandle binArgsHandle = builder.buffer( "BinDispatchArgsBuffer" )
+                                                           .size( Config::MAX_RESOLVE_BINS * sizeof( Graphics::RHI::DispatchIndirectCommand ) )
+                                                           .stride( sizeof( Graphics::RHI::DispatchIndirectCommand ) )
+                                                           .onGPU()
+                                                           .asSSBO()
+                                                           .asIndirect()
+                                                           .create();
+
+            // Packed pixel coordinates ( x | y << 16 ) grouped by bin: scatter -> resolve. Every pixel lands in one bin at most: W x H slots
+            Graphics::RGResourceHandle pixelListHandle = builder.buffer( "BinPixelListBuffer" )
+                                                             .usage( Graphics::BufferUsage::Storage )
+                                                             .view( Graphics::BufferViewFlags::BufferViewUnorderedAccess | Graphics::BufferViewFlags::BufferViewShaderResource )
+                                                             .size( SCENE_RESOLUTION.width * SCENE_RESOLUTION.height * sizeof( u32 ) )
+                                                             .stride( sizeof( u32 ) )
+                                                             .onGPU()
+                                                             .create();
+
+            // D.0 Clear: bin counts and cursors to zero
+            BinClearPass::Config clearConfig;
+            clearConfig.outBinCountHandle  = binCountHandle;
+            clearConfig.outBinCursorHandle = binCursorHandle;
+
+            _passes.getPass<BinClearPass>()->addToGraph( builder, clearConfig );
+
+            // D.1 Classify: pixel -> bin (background resolved here) + tile histogram -> bin counts
+            BinClassifyPass::Config classifyConfig;
+            classifyConfig.inVisHandle            = visConfig.outVisHandle;
+            classifyConfig.inBundleToBinSlice     = binningPayload.bundleToBinSlice;
+            classifyConfig.outBinImageHandle      = binImageHandle;
+            classifyConfig.outBinCountHandle      = clearConfig.outBinCountHandle;
+            classifyConfig.outColorHandle         = colorHandle;
+            classifyConfig.transientDescriptorSet = transientSetPtr;
+
+            _passes.getPass<BinClassifyPass>()->addToGraph( builder, classifyConfig );
+
+            // D.2 Prefix: bin offsets (exclusive scan) and resolve dispatch args
+            BinPrefixPass::Config prefixConfig;
+            prefixConfig.inBinCountHandle       = classifyConfig.outBinCountHandle;
+            prefixConfig.outBinOffsetHandle     = binOffsetHandle;
+            prefixConfig.outDispatchArgsHandle  = binArgsHandle;
+            prefixConfig.transientDescriptorSet = transientSetPtr;
+            prefixConfig.binCount               = (u32)binningPayload.binBundles.size();
+
+            _passes.getPass<BinPrefixPass>()->addToGraph( builder, prefixConfig );
+
+            // D.3 Scatter: per tile reservation in each bin -> pixel list grouped by bin
+            BinScatterPass::Config scatterConfig;
+            scatterConfig.inBinImageHandle       = classifyConfig.outBinImageHandle;
+            scatterConfig.inBinOffsetHandle      = prefixConfig.outBinOffsetHandle;
+            scatterConfig.inOutBinCursorHandle   = clearConfig.outBinCursorHandle;
+            scatterConfig.outPixelListHandle     = pixelListHandle;
+            scatterConfig.transientDescriptorSet = transientSetPtr;
+
+            _passes.getPass<BinScatterPass>()->addToGraph( builder, scatterConfig );
+
+            // D.4 Resolve: one indirect dispatch per bin, with its resolve PSO
+            VisResolveBinnedPass::Config resConfig;
+            resConfig.inGlobalBufferHandles   = upConfig.outGlobalBufferHandles;
+            resConfig.inParticleBufferHandles = particleConfig.outParticleBufferHandles;
+            resConfig.inVisHandle             = visConfig.outVisHandle;
+            resConfig.inPixelListHandle       = scatterConfig.outPixelListHandle;
+            resConfig.inBinOffsetHandle       = prefixConfig.outBinOffsetHandle;
+            resConfig.inBinCountHandle        = prefixConfig.inBinCountHandle;
+            resConfig.inDispatchArgsHandle    = prefixConfig.outDispatchArgsHandle;
+            resConfig.outColorHandle          = classifyConfig.outColorHandle;
+            resConfig.binBundles              = binningPayload.binBundles;
+
+            resConfig.materialPassSlot = (u32)Config::MaterialPassType::VisibilityResolve;
+            resConfig.matLib           = &_mtlLib;
+
+            resConfig.transientDescriptorSet = transientSetPtr;
+
+            _passes.getPass<VisResolveBinnedPass>()->addToGraph( builder, resConfig );
+        }
 
         //----------------------------
         // E. ToneMapping
@@ -439,7 +558,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         float                   ev100          = cameraEntity.getComponent<Scene::CameraComponent>().getEV100();
         float                   exposureFactor = 1.0f / ( 1.2f * std::pow( 2.0f, ev100 ) );
         tmConfig.exposure                      = exposureFactor;
-        tmConfig.inputHandle                   = resConfig.outColorHandle;
+        tmConfig.inputHandle                   = colorHandle;
         tmConfig.outputHandle                  = builder.texture( "ToneMappedRTO" )
                                     .format( _settings.common.backbufferFormat )
                                     .extent( SCENE_RESOLUTION )
@@ -882,6 +1001,57 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
     payload.commandBufferSlice      = cmdAlloc;
     payload.commandBufferSlice.size = cmdWriteIdx * RHI_CMD_SIZE;
     payload.batchMapSlice           = cmdMapAlloc;
+
+    return payload;
+}
+
+Rasterizer::BinningPayload Rasterizer::uploadBinningData( Graphics::BufferLinearAllocator<>& currentSSBOAlloc,
+                                                          const IndirectCommandPayload&      indirectData ) {
+    BinningPayload payload;
+
+    // psoBundleID -> bin, for every bundle of the library. The ones not drawn this frame keep BIN_NONE
+    const u32 bundleCount    = std::max<u32>( (u32)_mtlLib.getPipelineBundleCount(), 1 );
+    payload.bundleToBinSlice = currentSSBOAlloc.allocate<u32>( bundleCount );
+    if ( !payload.bundleToBinSlice.isValid() )
+        return payload;
+
+    auto* bundleToBin = (u32*)payload.bundleToBinSlice.cpuAddress;
+    std::fill_n( bundleToBin, bundleCount, Config::BIN_NONE );
+
+    const u32                                                       resolveSlot = (u32)Config::MaterialPassType::VisibilityResolve;
+    SmallVector<Graphics::PipelineHandle, Config::MAX_RESOLVE_BINS> binPipelines;
+
+    // One bin per resolve PSO: the bundles of an archetype share it (their render state only matters to the raster)
+    auto addBundle = [&]( u32 psoBundleID ) {
+        if ( psoBundleID >= bundleCount || bundleToBin[psoBundleID] != Config::BIN_NONE )
+            return;
+
+        Graphics::PipelineHandle psoHandle = _mtlLib.getPipelineHandle( psoBundleID, resolveSlot );
+        if ( !psoHandle.isValid() )
+            return;
+
+        u32 bin = 0;
+        while ( bin < (u32)binPipelines.size() && binPipelines[bin] != psoHandle )
+            ++bin;
+
+        if ( bin == (u32)binPipelines.size() )
+        {
+            if ( bin == Config::MAX_RESOLVE_BINS )
+            {
+                AXION_LOG_WARN_ONCE( Logger::Module::Core, "Rasterizer: more than {} resolve PSOs in a frame, the rest are not resolved", Config::MAX_RESOLVE_BINS );
+                return;
+            }
+            binPipelines.pushBack( psoHandle );
+            payload.binBundles.pushBack( psoBundleID );
+        }
+
+        bundleToBin[psoBundleID] = bin;
+    };
+
+    for ( const auto& batch : indirectData.batches )
+        addBundle( batch.psoBundleID );
+    for ( const auto& batch : indirectData.particleBatches )
+        addBundle( batch.psoBundleID );
 
     return payload;
 }

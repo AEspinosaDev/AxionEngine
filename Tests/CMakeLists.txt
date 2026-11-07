@@ -19,6 +19,7 @@ if(NOT AXION_DISTRIBUTION) # Compiles its own shaders at runtime: distribution b
 endif()
 add_subdirectory(Func/Core_Stress)
 add_subdirectory(Func/Core_GUI)
+add_subdirectory(Func/Core_MaterialBinning)
 
 # UNIT TESTS
 

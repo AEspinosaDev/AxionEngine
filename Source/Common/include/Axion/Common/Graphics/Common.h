@@ -243,6 +243,36 @@ constexpr size_t getFormatBytes( Format format ) {
     }
 }
 
+/// @brief True for UINT / SINT formats (no float conversion, eg: UAV clears need the integer version).
+constexpr bool isIntegerFormat( Format format ) {
+    switch ( format )
+    {
+        case Format::R8_UINT:
+        case Format::R8_SINT:
+        case Format::RG8_UINT:
+        case Format::RG8_SINT:
+        case Format::R16_UINT:
+        case Format::R16_SINT:
+        case Format::RGBA8_UINT:
+        case Format::RGBA8_SINT:
+        case Format::RG16_UINT:
+        case Format::RG16_SINT:
+        case Format::R32_UINT:
+        case Format::R32_SINT:
+        case Format::RGBA16_UINT:
+        case Format::RGBA16_SINT:
+        case Format::RG32_UINT:
+        case Format::RG32_SINT:
+        case Format::RGB32_UINT:
+        case Format::RGB32_SINT:
+        case Format::RGBA32_UINT:
+        case Format::RGBA32_SINT:
+            return true;
+        default:
+            return false;
+    }
+}
+
 enum class TextureDimension : byte
 {
     Unknown,

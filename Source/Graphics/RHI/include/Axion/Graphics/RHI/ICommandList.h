@@ -59,13 +59,29 @@ public:
     /// Ignored automatically if the buffer is on an Upload Heap.
     virtual void barrier( IBuffer* buffer, ResourceState newState ) = 0;
 
+    /// @brief Waits for the previous UAV accesses of a texture before the next ones. No state change.
+    virtual void barrierUAV( ITexture* texture ) = 0;
+
+    /// @brief Waits for the previous UAV accesses of a buffer before the next ones. No state change.
+    /// Ignored automatically if the buffer is on an Upload Heap.
+    virtual void barrierUAV( IBuffer* buffer ) = 0;
+
     // -------------------------------------------------------------------------
     // TRANSFER OPERATIONS
     // -------------------------------------------------------------------------
 
     /// @brief Clears a texture with a specific value.
-    /// @param barrierPolicy If Auto, handles transition to RenderTarget/UnorderedAccess/DepthWrite automatically.
+    /// Storage textures (no RT/DS view) are cleared as UAV: they need the UnorderedAccess state. Integer formats take the color truncated.
+    /// @param barrierPolicy If Auto, handles transition to RenderTarget/UnorderedAccess/DepthWrite automatically,
+    /// plus a UAV barrier after a UAV clear (it isn't ordered with the next UAV accesses).
     virtual void clearTexture( ITexture* texture, const ClearValue& clearValue, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) = 0;
+
+    /// @brief Fills a buffer with a 32-bit value on the GPU (UAV clear). The buffer needs a UAV view and the UnorderedAccess state.
+    /// D3D12 rejects it on structured views, and every buffer UAV of the DX12 backend is structured today:
+    /// zero those with uploadBuffer instead.
+    /// @param barrierPolicy If Auto, transitions it to UnorderedAccess before and inserts a UAV barrier after
+    /// (the clear isn't ordered with the next UAV accesses). With None both are up to the caller.
+    virtual void clearBuffer( IBuffer* buffer, u32 value, BarrierPolicy barrierPolicy = BarrierPolicy::Auto ) = 0;
 
     /// @brief Copies data from one buffer to another (GPU to GPU).
     /// @param barrierPolicy If Auto, injects CopyDest/CopySource barriers. Use None for batching.
@@ -144,11 +160,21 @@ public:
     virtual void bindVertexBuffer( u32 slot, IBuffer* buffer ) = 0;
     virtual void bindIndexBuffer( IBuffer* buffer )            = 0;
 
+    // -------------------------------------------------------------------------
+    // INDIRECT DISPATCHES
+    // -------------------------------------------------------------------------
+
     virtual void drawIndexedIndirect( IBuffer* indirectBuffer,
                                       u64      bufferOffset,
                                       u32      maxDrawCount,
                                       IBuffer* countBuffer       = nullptr,
                                       u64      countBufferOffset = 0 ) = 0;
+
+    virtual void dispatchIndirect( IBuffer* indirectBuffer,
+                                   u64      bufferOffset,
+                                   u32      maxDispatchCount,
+                                   IBuffer* countBuffer       = nullptr,
+                                   u64      countBufferOffset = 0 ) = 0;
 
     virtual void dispatchMeshIndirect( IBuffer* indirectBuffer,
                                        u64      bufferOffset,

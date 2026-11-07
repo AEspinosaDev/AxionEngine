@@ -1,74 +1,74 @@
-// Test.slang / Unlit.slang
-#include "MaterialCommon.slang" 
+// Materials/Unlit.slang
+import MaterialCommon;
+import IMaterial;
 
-struct UnlitMaterialPayload 
-{
+// Must match UnlitMaterial::GPUPayload
+struct UnlitPayload {
+    // Chunk 0
     float3 color;
     float  emissivePower;
-    uint   textureIndex;
-    float  overrideStrength;
 
-    static UnlitMaterialPayload load(uint bufferOffset) 
-    {
-        UnlitMaterialPayload p;
+    // Chunk 1
+    uint  colorTexIndex;
+    float overrideStrength;
 
-        float4 chunk0 = asfloat(getMaterialBuffer().Load4(bufferOffset));
-        float4 chunk1 = asfloat(getMaterialBuffer().Load4(bufferOffset + 16));
+    static UnlitPayload load( uint bufferOffset ) {
+        UnlitPayload p;
 
-        p.color            = chunk0.xyz;
-        p.emissivePower    = chunk0.w;
-        
-        uint4 rawChunk1 = getMaterialBuffer().Load4(bufferOffset + 16);
-        p.textureIndex     = rawChunk1.x;
-        p.overrideStrength = asfloat(rawChunk1.y); 
+        ByteAddressBuffer materials = getMaterialBuffer();
+        float4            c0        = asfloat( materials.Load4( bufferOffset ) );
+        uint4             c1        = materials.Load4( bufferOffset + 16 );
+
+        p.color            = c0.xyz;
+        p.emissivePower    = c0.w;
+        p.colorTexIndex    = c1.x;
+        p.overrideStrength = asfloat( c1.y );
 
         return p;
     }
 };
 
-struct VSInput {
-    uint vertexID : SV_VertexID;
-    uint instanceID : SV_InstanceID;
+/// @brief Flat color without lighting. A texture replaces the color by overrideStrength
+public struct UnlitMaterial : IMaterial {
+    UnlitPayload payload;
+
+    [mutating]
+    public void init( uint materialID ) {
+        MaterialData header = getMaterialData( materialID );
+        payload             = UnlitPayload.load( header.bufferOffset );
+    }
+
+    public float3 computeWPO( SurfaceData surface ) {
+        return float3( 0.0 );
+    }
+
+    public float3 evalColor( SurfaceData surface ) {
+        float3 color = payload.color;
+
+        if ( payload.colorTexIndex != INVALID_TEX_ID )
+        {
+            // TODO: SampleGrad with analytic UV derivatives (no implicit derivatives in the compute resolve)
+            float3 texColor = getMaterialTexture2D( payload.colorTexIndex ).SampleLevel( getDefaultSampler(), surface.uv, 0 ).rgb;
+            color           = lerp( color, texColor, payload.overrideStrength );
+        }
+
+        return color * payload.emissivePower;
+    }
+
+    public float evalOpacity( SurfaceData surface ) {
+        if ( payload.colorTexIndex != INVALID_TEX_ID )
+            return getMaterialTexture2D( payload.colorTexIndex ).Sample( getDefaultSampler(), surface.uv ).a; // Pixel shader: implicit derivatives OK
+        return 1.0;
+    }
+
+    public float3 sampleDirection( SurfaceData surface, float2 rnd, out float3 L, out float pdf ) {
+        // TBD
+        L   = surface.shNormal;
+        pdf = 0.0;
+        return float3( 0.0 );
+    }
+    public float evalPdf( SurfaceData surface, float3 L ) {
+        // TBD
+        return 0.0;
+    }
 };
-
-struct VSOutput {
-    float4 position : SV_Position;
-    float2               uv : TEXCOORD0;
-    nointerpolation uint materialID : DATA0;
-};
-
-// -----------------------------------------------------------
-// SHADERS
-// -----------------------------------------------------------
-
-[shader("vertex")]
-VSOutput vsForward(VSInput input) 
-{
-    InstanceData instance = getInstanceData(input.instanceID);
-    MeshData mesh = getMeshData(instance.meshID);
-
-    // Vertex fetch
-    CanonVertex v        = CanonVertex.fromIndex( input.vertexID, mesh );
-    float3      localPos = v.position;
-    float2      uv       = v.uv;
-
-    VSOutput output;
-    float4 worldPos = mul(instance.modelMatrix, float4(localPos, 1.0));
-    output.position = mul(gFrame.viewProj, worldPos);
-    output.uv         = uv;
-    output.materialID = instance.materialID;
-
-    return output;
-}
-
-[shader("fragment")]
-float4 psForward(VSOutput input) : SV_Target 
-{
-    MaterialData materialHeader = getMaterialData(input.materialID);
-
-    UnlitMaterialPayload mat = UnlitMaterialPayload.load(materialHeader.bufferOffset);
-
-    float3 finalColor = mat.color;
-
-    return float4(finalColor, 1.0);
-}

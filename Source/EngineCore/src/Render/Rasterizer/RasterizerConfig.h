@@ -16,11 +16,12 @@ namespace Config {
 //-----------------------------------------------------------------------------
 enum class MaterialPassType : u32
 {
-    Visibility         = 0,
-    VisibilityParticle = 1,
-    VisibilityResolve  = 2,
-    // Shadow             = 3,
-    // ForwardTransparent = 4,
+    Visibility             = 0,
+    VisibilityParticle     = 1,
+    VisibilityResolve      = 2, ///< Binned: one indirect dispatch per resolve bin
+    VisibilityResolveNaive = 3, ///< One full screen dispatch per material bundle (RendererUseNaiveResolve)
+    // Shadow             = 4,
+    // ForwardTransparent = 5,
 
     Count
 };
@@ -92,8 +93,16 @@ AXION_STATIC_ASSERT( GEOMETRY_BUDGET_VERTICES_PCT + GEOMETRY_BUDGET_INDICES_PCT 
 // Mesh shading dispatch limits (D3D12: groups per grid dimension and total groups per DispatchMesh)
 constexpr u32 MAX_MESH_DISPATCH_GROUPS_PER_DIMENSION = 65535;
 constexpr u32 MAX_MESH_DISPATCH_GROUPS               = 1u << 22;
+
 // Meshlets culled per amplification group in the vis pass (must match AS_GROUP_SIZE in VisPass.slang)
 constexpr u32 VIS_AMPLIFICATION_GROUP_SIZE = 32;
+
+// Material binning: one bin per resolve PSO of the frame. One tile thread flushes each bin of the tile histogram
+constexpr u32 BINNING_TILE_SIZE      = 8; ///< Must match BINNING_TILE_SIZE in Constants.slang
+constexpr u32 MAX_RESOLVE_BINS       = BINNING_TILE_SIZE * BINNING_TILE_SIZE;
+constexpr u32 RESOLVE_BIN_GROUP_SIZE = 64;   ///< Pixels of the bin list per resolve group (must match Constants.slang)
+constexpr u32 BIN_NONE               = 0xFF; ///< Pixel or bundle without bin: background, or no resolve PSO (must match Constants.slang)
+AXION_STATIC_ASSERT( MAX_RESOLVE_BINS < BIN_NONE, "Bins live in a R8_UINT image where BIN_NONE marks the background" );
 
 constexpr u64 MAX_SHADER_RESOURCE_VIEWS = 16384;
 constexpr u64 MAX_SAMPLER_VIEWS         = 512;

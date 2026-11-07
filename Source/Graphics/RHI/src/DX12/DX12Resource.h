@@ -40,6 +40,8 @@ public:
     D3D12_CPU_DESCRIPTOR_HANDLE getRTV() const { return _rtvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getDSV() const { return _dsvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getUAV() const { return _uavHandle; }
+    /// @brief UAV in the shader-visible global heap. ClearUnorderedAccessView* needs it together with the CPU one.
+    D3D12_GPU_DESCRIPTOR_HANDLE getGPUUAV() const { return _gpuHeapSRV->getGPU( (u32)_bindlessUAV.offset ); }
 
 private:
     void createViews( DX12Device::Context& ctx, bool useDescriptionParams );
@@ -93,6 +95,8 @@ public:
     D3D12_CPU_DESCRIPTOR_HANDLE getSRV() const { return _srvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getCBV() const { return _cbvHandle; }
     D3D12_CPU_DESCRIPTOR_HANDLE getUAV() const { return _uavHandle; }
+    /// @brief UAV in the shader-visible global heap. ClearUnorderedAccessView* needs it together with the CPU one.
+    D3D12_GPU_DESCRIPTOR_HANDLE getGPUUAV() const { return _gpuHeapSRV->getGPU( (u32)_bindlessUAV.offset ); }
     D3D12_VERTEX_BUFFER_VIEW    getVBV() const;
     D3D12_INDEX_BUFFER_VIEW     getIBV() const;
 

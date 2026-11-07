@@ -126,6 +126,19 @@ void DX12CommandList::barrier( IBuffer* buffer, ResourceState newState ) {
     tracker.setState( newState );
 }
 
+void DX12CommandList::barrierUAV( ITexture* texture ) {
+    auto barrier = CD3DX12_RESOURCE_BARRIER::UAV( texture->getNativeObject( ObjectTypes::DX12_Resource ) );
+    _cmdList->ResourceBarrier( 1, &barrier );
+}
+
+void DX12CommandList::barrierUAV( IBuffer* buffer ) {
+    if ( buffer->getDescription().memoryType == MemoryUsage::CPUVisible )
+        return;
+
+    auto barrier = CD3DX12_RESOURCE_BARRIER::UAV( buffer->getNativeObject( ObjectTypes::DX12_Resource ) );
+    _cmdList->ResourceBarrier( 1, &barrier );
+}
+
 void DX12CommandList::clearTexture( ITexture* texture, const ClearValue& clearValue, BarrierPolicy barrierPolicy ) {
     auto*              dxTex       = static_cast<DX12Texture*>( texture );
     const TextureDesc& desc        = dxTex->getDescription();
@@ -162,17 +175,48 @@ void DX12CommandList::clearTexture( ITexture* texture, const ClearValue& clearVa
     {
         if ( useBarriers )
             barrier( texture, ResourceState::UnorderedAccess );
-        float vals[4] = { clearValue.color.x, clearValue.color.y, clearValue.color.z, clearValue.color.w };
-        // _cmdList->ClearUnorderedAccessViewFloat(
-        //     dxTex->getGPUUAV(), // GPU Ptr
-        //     dxTex->getCPUUAV(), // CPU Ptr
-        //     dxTex->getNativeObject(ObjectTypes::DX12_Resource),
-        //     vals,
-        //     0,
-        //     nullptr
-        // );
+
+        AXION_LOG_ASSERT( dxTex->getCurrentState() == ResourceState::UnorderedAccess, Logger::Module::RHI, "clearTexture: UAV clear of texture [{}] needs the UnorderedAccess state", desc.debugName );
+
+        if ( isIntegerFormat( desc.format ) )
+        {
+            // ClearValue holds floats: integer formats take them truncated
+            const UINT vals[4] = { (UINT)(INT)clearValue.color.x, (UINT)(INT)clearValue.color.y, (UINT)(INT)clearValue.color.z, (UINT)(INT)clearValue.color.w };
+            _cmdList->ClearUnorderedAccessViewUint( dxTex->getGPUUAV(), dxTex->getUAV(), texture->getNativeObject( ObjectTypes::DX12_Resource ), vals, 0, nullptr );
+        } else
+        {
+            const float vals[4] = { clearValue.color.x, clearValue.color.y, clearValue.color.z, clearValue.color.w };
+            _cmdList->ClearUnorderedAccessViewFloat( dxTex->getGPUUAV(), dxTex->getUAV(), texture->getNativeObject( ObjectTypes::DX12_Resource ), vals, 0, nullptr );
+        }
+
+        // The clear isn't ordered with the next UAV accesses
+        if ( useBarriers )
+            barrierUAV( texture );
         return;
     }
+}
+
+void DX12CommandList::clearBuffer( IBuffer* buffer, u32 value, BarrierPolicy barrierPolicy ) {
+    auto*             dxBuffer    = static_cast<DX12Buffer*>( buffer );
+    const BufferDesc& desc        = dxBuffer->getDescription();
+    const bool        useBarriers = barrierPolicy != BarrierPolicy::None;
+
+    AXION_LOG_ASSERT( ( desc.viewFlags & BufferViewUnorderedAccess ) != BufferViewNone, Logger::Module::RHI, "clearBuffer: buffer [{}] has no UAV view", desc.debugName );
+    // createViews always builds a structured UAV (stride): D3D12 can't clear those (CLEARUNORDEREDACCESSVIEW_INCOMPATIBLE_WITH_STRUCTURED_BUFFERS)
+    AXION_LOG_ASSERT( desc.stride == 0, Logger::Module::RHI, "clearBuffer: buffer [{}] has a structured UAV view, D3D12 can't clear it. Use uploadBuffer", desc.debugName );
+
+    if ( useBarriers )
+        barrier( buffer, ResourceState::UnorderedAccess );
+
+    AXION_LOG_ASSERT( dxBuffer->getCurrentState() == ResourceState::UnorderedAccess, Logger::Module::RHI, "clearBuffer: buffer [{}] needs the UnorderedAccess state", desc.debugName );
+
+    // Raw or structured views only use the first value
+    const UINT vals[4] = { value, value, value, value };
+    _cmdList->ClearUnorderedAccessViewUint( dxBuffer->getGPUUAV(), dxBuffer->getUAV(), buffer->getNativeObject( ObjectTypes::DX12_Resource ), vals, 0, nullptr );
+
+    // The clear isn't ordered with the next UAV accesses
+    if ( useBarriers )
+        barrierUAV( buffer );
 }
 
 void DX12CommandList::copyBuffer( IBuffer* dst, IBuffer* src, u64 numBytes, u64 dstOffset, u64 srcOffset, BarrierPolicy barrierPolicy ) {
@@ -780,6 +824,26 @@ void DX12CommandList::drawIndexedIndirect( IBuffer* indirectBuffer, u64 bufferOf
     _cmdList->ExecuteIndirect(
         dxLayout->getIndirectCommandSignature(),
         maxDrawCount,
+        indirectBuffer->getNativeObject( ObjectTypes::DX12_Resource ),
+        bufferOffset,
+        dxCountResource,
+        countBufferOffset );
+}
+
+void DX12CommandList::dispatchIndirect( IBuffer* indirectBuffer, u64 bufferOffset, u32 maxDispatchCount, IBuffer* countBuffer, u64 countBufferOffset ) {
+    AXION_LOG_ASSERT( indirectBuffer, Logger::Module::RHI, "Indirect command buffer cannot be null" );
+    AXION_LOG_ASSERT( maxDispatchCount > 0, Logger::Module::RHI, "Max dispatch count must be > 0" );
+    AXION_LOG_ASSERT( _bindPoint == PipelineBindPoint::Compute, Logger::Module::RHI, "DispatchIndirect called without Compute Pipeline" );
+
+    auto*                   dxLayout  = static_cast<DX12PipelineLayout*>( _currentLayout );
+    ID3D12CommandSignature* signature = dxLayout->getDispatchIndirectSignature();
+    AXION_LOG_ASSERT( signature, Logger::Module::RHI, "DispatchIndirect: layout without indirect signature (indirect rendering disabled)" );
+
+    ID3D12Resource* dxCountResource = countBuffer ? countBuffer->getNativeObject( ObjectTypes::DX12_Resource ) : nullptr;
+
+    _cmdList->ExecuteIndirect(
+        signature,
+        maxDispatchCount,
         indirectBuffer->getNativeObject( ObjectTypes::DX12_Resource ),
         bufferOffset,
         dxCountResource,

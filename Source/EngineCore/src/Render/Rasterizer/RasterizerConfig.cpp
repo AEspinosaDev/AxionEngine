@@ -8,10 +8,15 @@
 #include <Render/GenericPasses/IndirectUploadPass.hpp>
 #include <Render/GenericPasses/ToneMappingPass.hpp>
 // Rasterizer Passes
+#include <Render/Rasterizer/Passes/BinClassifyPass.hpp>
+#include <Render/Rasterizer/Passes/BinClearPass.hpp>
+#include <Render/Rasterizer/Passes/BinPrefixPass.hpp>
+#include <Render/Rasterizer/Passes/BinScatterPass.hpp>
 #include <Render/Rasterizer/Passes/CullingPass.hpp>
 #include <Render/Rasterizer/Passes/UpdateParticleSystemPass.hpp>
 #include <Render/Rasterizer/Passes/UploadPass.hpp>
 #include <Render/Rasterizer/Passes/VisPass.hpp>
+#include <Render/Rasterizer/Passes/VisResolveBinnedPass.hpp>
 #include <Render/Rasterizer/Passes/VisResolveNaivePass.hpp>
 #include <Render/Rasterizer/Passes/WriteParticleCommandsPass.hpp>
 
@@ -19,7 +24,9 @@
 #include <Render/ShaderCacheCompiler.h>
 // AXION_REGISTER_MATERIAL lives in the headers: the archetypes included here are the ones that get cooked.
 // Add a material here once its shader implements IMaterial
+#include <Axion/Core/Assets/Materials/PhongMaterial.h>
 #include <Axion/Core/Assets/Materials/StandardPBRMaterial.h>
+#include <Axion/Core/Assets/Materials/UnlitMaterial.h>
 #endif
 
 AXION_NAMESPACE_BEGIN
@@ -102,9 +109,26 @@ void matLibConfig( Graphics::PipelineLayoutHandle globalLayoutHandle, Rasterizer
         .defaultState = {},
         .overrideMask = StateOverrideFlags::CullMode } ); // Topology is defined by the mesh shader output
 
-    // Resolve pass
+    // Resolve pass (binned)
     matLibDesc.passProfiles.pushBack( MaterialPassProfile {
         .name          = "VisibilityResolve",
+        .layoutHandle  = globalLayoutHandle,
+        .bindPointType = Graphics::RHI::PipelineBindPoint::Compute,
+        // Pass shader
+        .shaderPath          = AXION_SHADER_DIR "/Slang/MaterialPasses/VisResolveBinnedPass.slang",
+        .includePaths        = includePaths,
+        .entryPoints         = { { "csResolve", Axion::Graphics::ShaderType::Compute } },
+        .needsSpecialization = true,
+        // Pass fmts
+        .renderTargetFormats = { Graphics::Format::RGBA16_FLOAT },
+        .depthTargetFormat   = settings.depthFormat,
+        // Pass state
+        .defaultState = {},
+        .overrideMask = StateOverrideFlags::All } );
+
+    // Resolve pass (naive): kept to compare with the binned one through RendererUseNaiveResolve
+    matLibDesc.passProfiles.pushBack( MaterialPassProfile {
+        .name          = "VisibilityResolveNaive",
         .layoutHandle  = globalLayoutHandle,
         .bindPointType = Graphics::RHI::PipelineBindPoint::Compute,
         // Pass shader
@@ -143,9 +167,12 @@ void registerPasses( PassManager& passes ) {
     passes.registerPass<UpdateParticleSystemPass>();
     passes.registerPass<WriteParticleCommandsPass>();
     passes.registerPass<VisPass>();
-    // TBD
-    //  passes.registerPass<BinningPass>();
-    passes.registerPass<VisResolvePass>();
+    passes.registerPass<BinClearPass>();
+    passes.registerPass<BinClassifyPass>();
+    passes.registerPass<BinPrefixPass>();
+    passes.registerPass<BinScatterPass>();
+    passes.registerPass<VisResolveBinnedPass>();
+    passes.registerPass<VisResolvePass>(); // Naive, for comparison (RendererUseNaiveResolve)
     passes.registerPass<ToneMappingPass>();
     passes.registerPass<FXAAPass>();
 }

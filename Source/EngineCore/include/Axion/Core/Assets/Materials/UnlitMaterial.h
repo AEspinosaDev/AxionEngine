@@ -67,10 +67,8 @@ public:
         tempPacket.emissivePower    = _emissivePower;
         tempPacket.overrideStrength = _textureOverrideStrength;
 
-        if ( _colorTextureHandle.isValid() && resolver )
-            tempPacket.textureIndex = resolver( _colorTextureHandle );
-        // else
-        tempPacket.textureIndex = 0;
+        // The resolver gives AXION_INVALID_U32 to invalid handles: the shader keeps the flat color then
+        tempPacket.textureIndex = resolver ? resolver( _colorTextureHandle ) : AXION_INVALID_U32;
 
         tempPacket.padding[0] = 0.0f;
         tempPacket.padding[1] = 0.0f;

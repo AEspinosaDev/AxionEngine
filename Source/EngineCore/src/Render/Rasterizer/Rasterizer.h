@@ -22,10 +22,15 @@
 #include <Render/GenericPasses/IndirectUploadPass.hpp>
 #include <Render/GenericPasses/ToneMappingPass.hpp>
 // Rasterizer Passes
+#include <Render/Rasterizer/Passes/BinClassifyPass.hpp>
+#include <Render/Rasterizer/Passes/BinClearPass.hpp>
+#include <Render/Rasterizer/Passes/BinPrefixPass.hpp>
+#include <Render/Rasterizer/Passes/BinScatterPass.hpp>
 #include <Render/Rasterizer/Passes/CullingPass.hpp>
 #include <Render/Rasterizer/Passes/UpdateParticleSystemPass.hpp>
 #include <Render/Rasterizer/Passes/UploadPass.hpp>
 #include <Render/Rasterizer/Passes/VisPass.hpp>
+#include <Render/Rasterizer/Passes/VisResolveBinnedPass.hpp>
 #include <Render/Rasterizer/Passes/VisResolveNaivePass.hpp>
 #include <Render/Rasterizer/Passes/WriteParticleCommandsPass.hpp>
 
@@ -80,6 +85,15 @@ private:
                                                 Graphics::BufferLinearAllocator<>& currentSSBOAlloc );
     IndirectCommandPayload uploadIndirectCommandData( Graphics::BufferLinearAllocator<>& currentSSBOAlloc,
                                                       Graphics::BufferLinearAllocator<>& currentIndirectAlloc );
+
+    /// @brief Resolve bins of the frame: one per resolve PSO used by the drawn bundles (instances and particles)
+    struct BinningPayload {
+        Graphics::BufferSlice                      bundleToBinSlice; ///< psoBundleID -> bin (BIN_NONE if not drawn), read by the classify pass
+        SmallVector<u32, Config::MAX_RESOLVE_BINS> binBundles;       ///< bin -> a psoBundleID of it, to bind its resolve PSO
+    };
+
+    BinningPayload uploadBinningData( Graphics::BufferLinearAllocator<>& currentSSBOAlloc,
+                                      const IndirectCommandPayload&      indirectData );
 
     Platform::Window*  _window = nullptr;
     RasterizerSettings _settings;
