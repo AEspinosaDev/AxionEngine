@@ -14,10 +14,12 @@
 
 <br>
 
-<img width="75%" alt="Screenshot (253)" src="https://github.com/user-attachments/assets/6ae452b5-773d-42bf-a478-3de6bc0cd6f8" />
+
+<img width="75%" alt="image" src="https://github.com/user-attachments/assets/cf0c6d82-7a13-4f09-8099-e6cc1d670085" />
 <img width="75%" alt="image" src="https://github.com/user-attachments/assets/0abed45a-cfde-492f-afca-3f412a55e80e" />
 <img width="75%" alt="image" src="https://github.com/user-attachments/assets/288db67b-0e75-4d13-8195-c854f1783ee1" />
 <img width="75%" alt="image" src="https://github.com/user-attachments/assets/26607d84-45ec-45a6-a8fc-5b3b2ac7817d" />
+
 
 
 <p><i> Top: Raster / Center: Real-Time Path-Tracing / Bottom: Custom Assets </i></p>
