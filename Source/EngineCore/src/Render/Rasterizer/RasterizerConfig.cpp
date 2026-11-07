@@ -5,6 +5,7 @@
 
 // Generic Passes
 #include <Render/GenericPasses/FXAAPass.hpp>
+#include <Render/GenericPasses/TAAPass.hpp>
 #include <Render/GenericPasses/IndirectUploadPass.hpp>
 #include <Render/GenericPasses/ToneMappingPass.hpp>
 // Rasterizer Passes
@@ -175,6 +176,7 @@ void registerPasses( PassManager& passes ) {
     passes.registerPass<VisResolvePass>(); // Naive, for comparison (RendererUseNaiveResolve)
     passes.registerPass<ToneMappingPass>();
     passes.registerPass<FXAAPass>();
+    passes.registerPass<TAAPass>();
 }
 
 // void createDefaultResources( Renderer* rnd, GPUResources& outRes ) {

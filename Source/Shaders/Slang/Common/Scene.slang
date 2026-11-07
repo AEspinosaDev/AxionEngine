@@ -6,6 +6,8 @@
 public struct FrameData {
     // --- Raw Data ---
     public float4x4 viewProj;
+    public float4x4 jitteredViewProj;
+    public float4x4 prevViewProj;
     public float4x4 invProj;
     public float4x4 invView;
 
@@ -43,6 +45,7 @@ public struct FrameData {
 // ------------------------------------------------------------------
 public struct InstanceData {
     public float4x4 modelMatrix;
+    public float4x4 prevModelMatrix;
     public float4x4 normalMatrix;
     public uint     meshID;
     public uint     materialID;

@@ -9,6 +9,8 @@ public interface IVisObject
 
     // Mesh vertex -> world
     float4 placePosition( float3 position );
+    /// @brief Mesh vertex -> world in the previous frame (velocity)
+    float4 placePrevPosition( float3 position );
     float3 placeNormal( float3 normal );
 };
 
@@ -24,6 +26,9 @@ public struct VisInstance : IVisObject {
 
     public float4 placePosition( float3 position ) {
         return mul( instance.modelMatrix, float4( position, 1.0 ) );
+    }
+    public float4 placePrevPosition( float3 position ) {
+        return mul( instance.prevModelMatrix, float4( position, 1.0 ) );
     }
     public float3 placeNormal( float3 normal ) {
         return mul( (float3x3)instance.modelMatrix, normal );
@@ -54,6 +59,10 @@ public struct VisParticle : IVisObject {
 
     public float4 placePosition( float3 position ) {
         return mul( system.modelMatrix, float4( particle.position + rotate( position * system.getSize() * particle.scale ), 1.0 ) );
+    }
+    /// @brief TODO: no previous state of the particles or of the system yet: camera motion only
+    public float4 placePrevPosition( float3 position ) {
+        return placePosition( position );
     }
     public float3 placeNormal( float3 normal ) {
         return mul( (float3x3)system.modelMatrix, rotate( normal ) );

@@ -12,14 +12,15 @@ namespace Core::Render {
 // They are cleared and rebuilt every Update(). Designed for linear GPU access (StructuredBuffers).
 
 struct GPUInstance {
-    Math::Mat4 modelMatrix;  // 64 bytes
-    Math::Mat4 normalMatrix; // 64 bytes
-    u32        meshID;       // 4 bytes
-    u32        materialID;   // 4 bytes
-    u32        active;       // 4 bytes
-    u32        raytraced;    // 4 bytes
+    Math::Mat4 modelMatrix;     // 64 bytes
+    Math::Mat4 prevModelMatrix; // 64 bytes
+    Math::Mat4 normalMatrix;    // 64 bytes
+    u32        meshID;          // 4 bytes
+    u32        materialID;      // 4 bytes
+    u32        active;          // 4 bytes
+    u32        raytraced;       // 4 bytes
 
-    // Total: 144 bytes. (Multiple of 4, OK for StructuredBuffer).
+    // Total: 208 bytes. (Multiple of 4, OK for StructuredBuffer).
 };
 
 struct GPUEnvironment {
@@ -35,6 +36,8 @@ struct GPUEnvironment {
 
 struct GPUFrame {
     Math::Mat4 viewProj;
+    Math::Mat4 jitteredViewProj;
+    Math::Mat4 prevViewProj;
     Math::Mat4 invProj;
     Math::Mat4 invView;
     Math::Vec4 camPos_Time;  // Packed: x,y,z = camPos | w = time
@@ -164,9 +167,9 @@ struct GPUMaterial {
 
 struct GPUTexture {
     u32 heapID = AXION_INVALID_U32; ///< Bindless index in the device global heap. Filled by the renderer once uploaded.
-                                       ///< Uploaded as gTextures (payloads store the cache slot): keep 16 B layout
+                                    ///< Uploaded as gTextures (payloads store the cache slot): keep 16 B layout
     u32 valid;
-    u32 refCount = 0; //No lastFrameUsed here, only owner marterial ref count. As textures are dependent to materials to exist
+    u32 refCount = 0; // No lastFrameUsed here, only owner marterial ref count. As textures are dependent to materials to exist
     u32 originalAssetID;
 };
 
@@ -177,12 +180,12 @@ struct GPUParticleBuffer {
     u32  uavHeapID            = AXION_INVALID_U32;
     u32  visibleListSRVHeapID = AXION_INVALID_U32;
     u32  visibleListUAVHeapID = AXION_INVALID_U32;
-    u32  particleCount        = 0;                 ///< Simulated particles the buffers hold
+    u32  particleCount        = 0; ///< Simulated particles the buffers hold
     u32  lastFrameUsed        = 0;
     u32  ownerEntity          = AXION_INVALID_U32;
-    u32  seedingVersion       = 0;                 ///< Version of the settings the particles were seeded with
+    u32  seedingVersion       = 0; ///< Version of the settings the particles were seeded with
     bool valid                = false;
-    bool needsReset           = false;             ///< The buffers were just created, or the seeding settings changed
+    bool needsReset           = false; ///< The buffers were just created, or the seeding settings changed
 };
 
 // -----------------------------------------------------------------------------
@@ -237,7 +240,7 @@ struct PendingTextureUpload {
 
 // Order: "Please create the GPU buffer of this slot and tell me its heap IDs"
 struct PendingParticleBufferUpload {
-    u32 slot;          // Destination Slot in _particleBufferCache
+    u32 slot; // Destination Slot in _particleBufferCache
     u32 particleCount;
 };
 

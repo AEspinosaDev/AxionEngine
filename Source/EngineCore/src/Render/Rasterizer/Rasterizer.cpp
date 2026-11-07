@@ -75,22 +75,22 @@ Rasterizer::Rasterizer( Platform::Window* wnd, const RasterizerSettings& setting
     };
 
     Graphics::RendererSettings rndStts = {
-        .gfxApi           = settings.common.gfxApi,
-        .bufferingType    = settings.common.bufferingType,
-        .debugMode        = ( settings.common.flags & RendererEnableDebug ) != RendererNone,
-        .presentMode      = wnd->getSettings().flags & Platform::WindowVSync ? Graphics::PresentMode::Vsync : Graphics::PresentMode::Immediate,
-        .backbufferFormat = settings.common.backbufferFormat,
-        .memory           = lowLevelMemoryBudget,
-        .descriptorBudget = descBudget,
-        .maxSBTAlloc      = settings.memory.shared.maxExecutableAlloc,
-        .maxStagingAlloc  = settings.memory.shared.maxUploadAllocPerFrame,
-        .maxScratchAlloc  = settings.memory.shared.maxUploadAllocPerFrame,
-        .RDGmaxAlloc      = KBYTES( 1024 ),
-        .GCMode           = settings.common.GCMode,
-        .autoSync         = true,
+        .gfxApi            = settings.common.gfxApi,
+        .bufferingType     = settings.common.bufferingType,
+        .debugMode         = ( settings.common.flags & RendererEnableDebug ) != RendererNone,
+        .presentMode       = wnd->getSettings().flags & Platform::WindowVSync ? Graphics::PresentMode::Vsync : Graphics::PresentMode::Immediate,
+        .backbufferFormat  = settings.common.backbufferFormat,
+        .memory            = lowLevelMemoryBudget,
+        .descriptorBudget  = descBudget,
+        .maxSBTAlloc       = settings.memory.shared.maxExecutableAlloc,
+        .maxStagingAlloc   = settings.memory.shared.maxUploadAllocPerFrame,
+        .maxScratchAlloc   = settings.memory.shared.maxUploadAllocPerFrame,
+        .RDGmaxAlloc       = KBYTES( 1024 ),
+        .GCMode            = settings.common.GCMode,
+        .autoSync          = true,
         .enableTimeQueries = ( settings.common.flags & RendererEnableGPUTimeQueries ) != RendererNone,
-        .selectedDeviceID = settings.common.selectedDeviceID,
-        .enableGui        = ( settings.common.flags & RendererEnableGUI ) != RendererNone };
+        .selectedDeviceID  = settings.common.selectedDeviceID,
+        .enableGui         = ( settings.common.flags & RendererEnableGUI ) != RendererNone };
 
     _rnd = Graphics::createRenderer( wnd->getNativeWindow(), rndStts );
 
@@ -208,6 +208,8 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
     GPUSceneUpdateFlags updateFlags = GPUSceneSortInstances;
     if ( _settings.common.gfxApi == Graphics::API::DirectX12 )
         updateFlags |= GPUSceneTransposeMatrices;
+    if ( _settings.common.flags & RendererEnableTAA )
+        updateFlags |= GPUSceneEnableCameraJitter;
 
     _gpuScene.update( scene,
                       cameraEntity,
@@ -217,7 +219,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                       updateFlags );
 
     // Bindless defaults read by shaders through gFrame
-    _gpuScene.frame().fallbackTex2DID = _rnd->resources().getTexture( _res.fallbackTexture2DHandle )->getBindlessSRVIdx();
+    _gpuScene.frame().fallbackTex2DID  = _rnd->resources().getTexture( _res.fallbackTexture2DHandle )->getBindlessSRVIdx();
     _gpuScene.frame().linearSamplerID  = _rnd->resources().getSampler( _res.fallbackSamplerHandle )->getBindlessIdx();
     _gpuScene.frame().materialBufferID = _rnd->resources().getBuffer( _res.mtlBufferHandle )->getBindlessSRVIdx();
 
@@ -245,12 +247,11 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
 
     // Upload CPU Coherent Data to GPU
     auto transientPayload   = uploadTransientData( currentFrameRes.uboAllocator,
-                                                 currentFrameRes.ssboAllocator );
+                                                   currentFrameRes.ssboAllocator );
     auto indirectCmdPayload = uploadIndirectCommandData( currentFrameRes.ssboAllocator,
                                                          currentFrameRes.indirectAllocator );
 
     _rnd->render( [&]( Axion::Graphics::RenderGraphBuilder& builder ) {
-
         const Extent3D SCENE_RESOLUTION  = _window->getSettings().size.to3D();
         const Extent3D SCREEN_RESOLUTION = _window->getSettings().size.to3D();
 
@@ -259,7 +260,7 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         //----------------------------
         // 0. Allocate Frame Descriptor Set
         //----------------------------
-        Graphics::RHI::IDescriptorSet* transientSetPtr = builder.allocateDescriptorSet(_rnd->pipelines().getLayout( _globalMtlLayoutHandle ), (u32)Config::LayoutSetType::FrameBound );
+        Graphics::RHI::IDescriptorSet* transientSetPtr = builder.allocateDescriptorSet( _rnd->pipelines().getLayout( _globalMtlLayoutHandle ), (u32)Config::LayoutSetType::FrameBound );
 
         auto frameSRV = []( Config::FrameSRV s ) { return Config::REG_FRAME_SRV_BASE + (u32)s; };
 
@@ -374,25 +375,25 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         //----------------------------
 
         VisPass::Config visConfig;
-        visConfig.outVisHandle = builder.texture( "VisRTO" )
-                                     .asRenderTarget()
-                                     .format( Graphics::Format::RG32_UINT )
-                                     .extent( SCENE_RESOLUTION )
-                                     .create();
+        visConfig.outVisHandle      = builder.texture( "VisRTO" )
+                                          .asRenderTarget()
+                                          .format( Graphics::Format::RG32_UINT )
+                                          .extent( SCENE_RESOLUTION )
+                                          .create();
         visConfig.outVelocityHandle = builder.texture( "VelocityRTO" )
                                           .asRenderTarget()
                                           .format( Graphics::Format::RG16_FLOAT )
                                           .extent( SCENE_RESOLUTION )
                                           .create();
-        visConfig.outDepthHandle = builder.texture( "DepthRTO" )
-                                       .asDepthStencil()
-                                       .format( Graphics::Format::D32 )
-                                       .extent( SCENE_RESOLUTION )
-                                       .create();
+        visConfig.outDepthHandle    = builder.texture( "DepthRTO" )
+                                          .asDepthStencil()
+                                          .format( Graphics::Format::D32 )
+                                          .extent( SCENE_RESOLUTION )
+                                          .create();
 
-        visConfig.inGlobalBufferHandles = upConfig.outGlobalBufferHandles;
-        visConfig.matLib                = &_mtlLib;
-        visConfig.materialPassSlot = (u32)Config::MaterialPassType::Visibility;
+        visConfig.inGlobalBufferHandles    = upConfig.outGlobalBufferHandles;
+        visConfig.matLib                   = &_mtlLib;
+        visConfig.materialPassSlot         = (u32)Config::MaterialPassType::Visibility;
         visConfig.particleMaterialPassSlot = (u32)Config::MaterialPassType::VisibilityParticle;
 
         visConfig.indirectData                 = indirectCmdPayload;
@@ -551,15 +552,57 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
             _passes.getPass<VisResolveBinnedPass>()->addToGraph( builder, resConfig );
         }
 
+        // Camera exposure: shared by the TAA and tonemapping
+        const float ev100          = cameraEntity.getComponent<Scene::CameraComponent>().getEV100();
+        const float exposureFactor = 1.0f / ( 1.2f * std::pow( 2.0f, ev100 ) );
+
+        Graphics::RGResourceHandle currentHDRInput = colorHandle;
+
+        //----------------------------
+        // F. TAA (Optional). HDR, before the tonemapping
+        //----------------------------
+
+        if ( _settings.common.flags & RendererEnableTAA )
+        {
+            if ( _taa.extent != SCENE_RESOLUTION.to2D() )
+                _taa.valid = false;
+
+            // Ping-pong
+            Graphics::RGResourceHandle taaHandles[2];
+            for ( u32 i = 0; i < 2; ++i )
+                taaHandles[i] = builder.texture( "TAA_RTO_" + std::to_string( i ) )
+                                    .format( Graphics::Format::RGBA16_FLOAT )
+                                    .extent( SCENE_RESOLUTION )
+                                    .asStorage()
+                                    .create();
+
+            TAAPass::Config taaConfig;
+            taaConfig.inputCurrent        = colorHandle;
+            taaConfig.inputVelocity       = visConfig.outVelocityHandle;
+
+            taaConfig.inputHistory        = taaHandles[_taa.writeIndex ^ 1u]; // Written last frame
+            taaConfig.outputHandle        = taaHandles[_taa.writeIndex];
+
+            taaConfig.linearSamplerHandle = _res.linearClampSamplerHandle;
+            taaConfig.exposure            = exposureFactor;
+            taaConfig.resetHistory        = !_taa.valid;
+
+            _passes.getPass<TAAPass>()->addToGraph( builder, taaConfig );
+
+            currentHDRInput = taaConfig.outputHandle;
+            _taa.writeIndex ^= 1u;
+            _taa.extent = SCENE_RESOLUTION.to2D();
+            _taa.valid  = true;
+        } else
+            _taa.valid = false; // Re-enabled later: the history would be stale
+
         //----------------------------
         // E. ToneMapping
         //----------------------------
         ToneMappingPass::Config tmConfig;
-        float                   ev100          = cameraEntity.getComponent<Scene::CameraComponent>().getEV100();
-        float                   exposureFactor = 1.0f / ( 1.2f * std::pow( 2.0f, ev100 ) );
-        tmConfig.exposure                      = exposureFactor;
-        tmConfig.inputHandle                   = colorHandle;
-        tmConfig.outputHandle                  = builder.texture( "ToneMappedRTO" )
+        tmConfig.exposure     = exposureFactor;
+        tmConfig.inputHandle  = currentHDRInput;
+        tmConfig.outputHandle = builder.texture( "ToneMappedRTO" )
                                     .format( _settings.common.backbufferFormat )
                                     .extent( SCENE_RESOLUTION )
                                     .asStorage()
@@ -576,12 +619,12 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
         if ( _settings.common.flags & RendererEnableFXAA )
         {
             FXAAPass::Config fxaaConfig;
-            fxaaConfig.inputHandle  = tmConfig.outputHandle;
-            fxaaConfig.outputHandle = builder.texture( "FxaaRTO" )
-                                          .format( _settings.common.backbufferFormat )
-                                          .extent( SCENE_RESOLUTION )
-                                          .asStorage()
-                                          .create();
+            fxaaConfig.inputHandle         = tmConfig.outputHandle;
+            fxaaConfig.outputHandle        = builder.texture( "FXAA_RTO" )
+                                                 .format( _settings.common.backbufferFormat )
+                                                 .extent( SCENE_RESOLUTION )
+                                                 .asStorage()
+                                                 .create();
             fxaaConfig.linearSamplerHandle = _res.fallbackSamplerHandle;
 
             _passes.getPass<FXAAPass>()->addToGraph( builder, fxaaConfig );
@@ -916,7 +959,7 @@ IndirectCommandPayload Rasterizer::uploadIndirectCommandData(
 
     u32*                  indirectCmdMapPtr = nullptr;
     Graphics::BufferSlice cmdMapAlloc {};
-    const bool useGPUCulling = _settings.common.flags & RendererEnableGPUCulling;
+    const bool            useGPUCulling = _settings.common.flags & RendererEnableGPUCulling;
     if ( useGPUCulling )
     {
         cmdMapAlloc       = currentSSBOAlloc.allocate<u32>( sortedKeys.size() );

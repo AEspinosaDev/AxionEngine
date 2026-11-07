@@ -364,6 +364,20 @@ inline Vec3 kelvinToRGB( float k ) {
     return linearColor;
 }
 
+inline float halton(int index, int base) {
+    float f = 1.0f;
+    float r = 0.0f;
+    int current = index;
+    
+    while (current > 0) {
+        f = f / base;
+        r = r + f * (current % base);
+        current = current / base;
+    }
+    
+    return r;
+}
+
 } // namespace Math
 
 AXION_NAMESPACE_END

@@ -177,7 +177,7 @@ int main() {
         Core::Render::RasterizerSettings rastDesc {};
         rastDesc.common.name             = "MyRasterizer";
         rastDesc.common.selectedDeviceID = 0;
-        rastDesc.common.flags |= Core::Render::RendererEnableGUI | Core::Render::RendererEnableFXAA;
+        rastDesc.common.flags |= Core::Render::RendererEnableGUI | Core::Render::RendererEnableTAA;
 
         auto rasterizer = Core::Render::createRasterizer( &wnd, rastDesc );
         rasterizer->compileShaders();

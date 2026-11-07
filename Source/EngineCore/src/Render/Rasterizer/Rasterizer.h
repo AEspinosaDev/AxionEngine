@@ -18,6 +18,7 @@
 #include <Render/PassManager.h>
 
 // Generic Passes
+#include <Render/GenericPasses/TAAPass.hpp>
 #include <Render/GenericPasses/FXAAPass.hpp>
 #include <Render/GenericPasses/IndirectUploadPass.hpp>
 #include <Render/GenericPasses/ToneMappingPass.hpp>
@@ -115,6 +116,14 @@ private:
     // Graphics & GPU Resources Logic and Handles
     GPUScene                _gpuScene;
     Resources::GPUResources _res;
+
+    /// @brief CPU side of the TAA ping-pong. The two history textures are RDG transients: the cache key includes the name,
+    /// so each one gets its physical texture back every frame (a new size gets new ones, the RDG GC frees the old)
+    struct TAAState {
+        Extent2D extent {};
+        u32      writeIndex = 0;     ///< History texture written this frame. The other one is read
+        bool     valid      = false; ///< False -> the next resolve outputs the current frame (first frame, resize, TAA re-enabled)
+    } _taa;
 
     Graphics::RendererOwnerPtr _rnd = nullptr;
 

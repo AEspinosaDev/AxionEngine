@@ -17,11 +17,12 @@ namespace Core::Render {
 // Flags to control the data transformation pipeline during the update.
 enum GPUSceneUpdateFlags : u32
 {
-    GPUSceneNone              = 1 << 0,
-    GPUSceneForceRaytrace     = 1 << 1, // Force all objects to be marked for Raytracing AS
-    GPUSceneTransposeMatrices = 1 << 2, // Required for DX12 (Row-Major vs Col-Major mismatch)
-    GPUSceneForgetCache       = 1 << 3, // Force a full cache rebuild (useful for level reload)
-    GPUSceneSortInstances     = 1 << 4, // Instances will be sorted by material archetype, primitive and distance if needed. Particle systems, by material bundle
+    GPUSceneNone               = 0, // Must be 0: the flags are tested as ( flags & X ) != GPUSceneNone
+    GPUSceneForceRaytrace      = 1 << 1, // Force all objects to be marked for Raytracing AS
+    GPUSceneTransposeMatrices  = 1 << 2, // Required for DX12 (Row-Major vs Col-Major mismatch)
+    GPUSceneForgetCache        = 1 << 3, // Force a full cache rebuild (useful for level reload)
+    GPUSceneSortInstances      = 1 << 4, // Instances will be sorted by material archetype, primitive and distance if needed. Particle systems, by material bundle
+    GPUSceneEnableCameraJitter = 1 << 5  // Enable camera Jitter for temporal filtering
 };
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( GPUSceneUpdateFlags );
@@ -121,10 +122,14 @@ private:
     u32 processParticleBuffer( ECS::EntityID entity, u32 particleCount );
 
     void processLights( const Scene::Scene& cpuScene );
-    void processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose );
+    void processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose, bool jitter );
     void processEnvironments( const Scene::Scene& cpuScene );
 
     void runGC();
+
+    /// @brief Velocity: world matrix of the entity in the previous frame, and stores the current one for the next.
+    /// @return The current matrix if the entity was not processed in the previous frame (new or hidden): no velocity
+    Math::Mat4 exchangePrevWorldMatrix( ECS::EntityID entity, const Math::Mat4& world );
 
     AXION_FORCE_INLINE u64 makeSortKey( u32 psoBundleID, u32 meshID ) {
         // [Bundle 24b] [Unused 8b] [Mesh 32b]
@@ -169,10 +174,18 @@ private:
     STLW::Queue<PendingParticleBufferUpload> _pendingParticleBufferUploads;
     STLW::Queue<u32>                         _pendingParticleBufferReleases;
 
+    struct PrevWorldMatrix {
+        Math::Mat4 matrix = Math::Mat4( 1.0f );
+        u32        frame  = AXION_INVALID_U32;
+    };
+    STLW::Vector<PrevWorldMatrix> _prevWorldMatrices; 
+
     // -- State --
-    bool  _forceRaytrace     = false;
-    float _accumulatedTime   = 0.0f;
-    u32   _currentFrameIndex = 0;
+    bool       _forceRaytrace     = false;
+    float      _accumulatedTime   = 0.0f;
+    u32        _currentFrameIndex = 0;
+    Math::Mat4 _prevViewProj      = Math::MTX::identity(); ///< Unjittered view-projection of the previous frame
+    bool       _hasPrevViewProj   = false;                 ///< False on the first frame: previous = current (no velocity)
 
     u32 _resourceTTL = (u32)Graphics::GCMode::AvgMemory;
 };

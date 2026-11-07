@@ -26,8 +26,10 @@ struct PSOutput {
 
 // Mesh shader vertex (vertex pulling through the meshlet vertex list), placed in the world by its owner
 VisVertex buildVisVertex<T : IMaterial, O : IVisObject>( O object, MeshData mesh, Meshlet meshlet, uint vertexIndex ) {
-    CanonVertex v        = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, vertexIndex ), mesh );
-    float4      worldPos = object.placePosition( v.position );
+
+    CanonVertex v            = CanonVertex.fromIndex( getMeshletVertexIndex( mesh, meshlet, vertexIndex ), mesh );
+    float4      worldPos     = object.placePosition( v.position );
+    float4      prevWorldPos = object.placePrevPosition( v.position );
 
     // WPO
     T material;
@@ -36,15 +38,15 @@ VisVertex buildVisVertex<T : IMaterial, O : IVisObject>( O object, MeshData mesh
     surface.worldPos = worldPos.xyz;
     surface.shNormal = normalize( object.placeNormal( v.normal ) );
     surface.uv       = v.uv;
-    worldPos.xyz += material.computeWPO( surface );
-
-    float4 clipPos = mul( gFrame.viewProj, worldPos );
+    const float3 wpo = material.computeWPO( surface );
+    worldPos.xyz += wpo;
+    prevWorldPos.xyz += wpo; // Same offset: no fake velocity. TODO: an animated WPO needs the previous time
 
     VisVertex output;
-    output.position   = clipPos;
+    output.position   = mul( gFrame.jitteredViewProj, worldPos ); // Rasterized with the TAA jitter
     output.uv         = v.uv;
-    output.currentPos = clipPos;
-    output.prevPos    = clipPos; // Velocity TBD: prevModelMatrix / prevViewProj
+    output.currentPos = mul( gFrame.viewProj, worldPos );         // Velocity without jitter
+    output.prevPos    = mul( gFrame.prevViewProj, prevWorldPos );
     return output;
 }
 
@@ -80,8 +82,8 @@ PSOutput psVis<T : IMaterial>( VisVertex input, VisPrimitive prim ) {
     // 2. VELOCITY BUFFER (Target 1)
     float2 currentNDC = input.currentPos.xy / input.currentPos.w;
     float2 prevNDC    = input.prevPos.xy / input.prevPos.w;
-    // TODO: Check if I need to normalize these
-    output.velocity = currentNDC - prevNDC;
+
+    output.velocity = ( currentNDC - prevNDC ) * float2( 0.5, -0.5 );
 
     return output;
 }
@@ -131,7 +133,9 @@ void loadVisSurface<O : IVisObject>( O object, uint triangleID, float2 ndc, out 
     float4 wp1 = object.placePosition( v1.position );
     float4 wp2 = object.placePosition( v2.position );
 
-    float3 bary = computeBarycentrics( mul( gFrame.viewProj, wp0 ), mul( gFrame.viewProj, wp1 ), mul( gFrame.viewProj, wp2 ), ndc );
+    // The pixel was rasterized with the jittered matrix: the same one here, or the barycentrics shift by the jitter
+    const float4x4 viewProj = gFrame.jitteredViewProj;
+    float3         bary     = computeBarycentrics( mul( viewProj, wp0 ), mul( viewProj, wp1 ), mul( viewProj, wp2 ), ndc );
 
     float3 localNrm = v0.normal * bary.x + v1.normal * bary.y + v2.normal * bary.z;
 

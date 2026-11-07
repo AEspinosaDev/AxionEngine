@@ -14,6 +14,7 @@ void GPUScene::update( const Scene::Scene& cpuScene,
     bool transposeMatrices = ( flags & GPUSceneTransposeMatrices ) != GPUSceneNone;
     bool forceRaytrace     = ( flags & GPUSceneForceRaytrace ) != GPUSceneNone;
     bool sortInstances     = ( flags & GPUSceneSortInstances ) != GPUSceneNone;
+    bool jitterCamera      = ( flags & GPUSceneEnableCameraJitter ) != GPUSceneNone;
 
     reset( deltaTime );
 
@@ -21,7 +22,7 @@ void GPUScene::update( const Scene::Scene& cpuScene,
     processParticles( cpuScene, mtlLib, sortInstances, transposeMatrices );
     processLights( cpuScene );
     processEnvironments( cpuScene );
-    processFrame( cameraEntity, resolution, transposeMatrices );
+    processFrame( cameraEntity, resolution, transposeMatrices, jitterCamera );
 
     runGC();
 }
@@ -73,10 +74,14 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, IMaterialLibrary&
 
         // --- INSTANCE DATA ---
         GPUInstance instance;
-        instance.modelMatrix = transComp.getMatrix();
+        instance.modelMatrix     = transComp.getMatrix();
+        instance.prevModelMatrix = exchangePrevWorldMatrix( entity, instance.modelMatrix );
 
         if ( transpose )
-            instance.modelMatrix = Math::MTX::transpose( instance.modelMatrix );
+        {
+            instance.modelMatrix     = Math::MTX::transpose( instance.modelMatrix );
+            instance.prevModelMatrix = Math::MTX::transpose( instance.prevModelMatrix );
+        }
 
         instance.meshID     = gpuMeshID;
         instance.materialID = gpuMaterialID;
@@ -109,6 +114,21 @@ void GPUScene::processInstances( const Scene::Scene& cpuScene, IMaterialLibrary&
     {
         std::sort( _sortedKeys.begin(), _sortedKeys.end(), []( const SortKey& a, const SortKey& b ) { return a.key < b.key; } );
     }
+}
+
+Math::Mat4 GPUScene::exchangePrevWorldMatrix( ECS::EntityID entity, const Math::Mat4& world ) {
+    if ( entity >= _prevWorldMatrices.size() )
+        _prevWorldMatrices.resize( (size_t)entity + 1 );
+
+    PrevWorldMatrix& prev = _prevWorldMatrices[entity];
+
+    // Only a matrix stored in the previous frame is a valid origin for the motion
+    const bool       seenLastFrame = prev.frame != AXION_INVALID_U32 && prev.frame + 1 == _currentFrameIndex;
+    const Math::Mat4 result        = seenLastFrame ? prev.matrix : world;
+
+    prev.matrix = world;
+    prev.frame  = _currentFrameIndex;
+    return result;
 }
 
 #pragma region Particles
@@ -163,9 +183,9 @@ void GPUScene::processParticles( const Scene::Scene& cpuScene, IMaterialLibrary&
 
         gpuSystem.sizeVariation = systemComp.getSizeVariation();
 
-        gpuSystem.visible     = systemComp.isVisible();
-        gpuSystem.update      = systemComp.isUpdating();
-        gpuSystem.faceCamera  = systemComp.facesCamera();
+        gpuSystem.visible    = systemComp.isVisible();
+        gpuSystem.update     = systemComp.isUpdating();
+        gpuSystem.faceCamera = systemComp.facesCamera();
 
         // Atomicity is not supported yet: every particle has its own state
         const u32 bufferSlot = processParticleBuffer( entity, systemComp.getCount() );
@@ -292,10 +312,10 @@ u32 GPUScene::processMesh( const Axion::Core::Assets::AssetManager* assets, cons
             gpuMesh.bsphere          = Math::Vec4( cpuMesh->getBoundingSphere().center, cpuMesh->getBoundingSphere().radius );
             gpuMesh.needsAS          = 1;
 
-            const auto* meshletData      = cpuMesh->getMeshletData();
+            const auto* meshletData = cpuMesh->getMeshletData();
             if ( !meshletData )
                 AXION_LOG_ERROR( Logger::Module::Core, "Mesh [{}] has no meshlets (disableMeshlets / non indexed triangle list): mesh shading passes will skip it", cpuMesh->getName() );
-            gpuMesh.meshletCount        = meshletData ? (u32)meshletData->meshlets.size() : 0;
+            gpuMesh.meshletCount         = meshletData ? (u32)meshletData->meshlets.size() : 0;
             gpuMesh.meshletVertexCount   = meshletData ? (u32)meshletData->vertexIndices.size() : 0;
             gpuMesh.meshletPrimitiveSize = meshletData ? (u32)meshletData->primitiveIndices.size() : 0;
 
@@ -359,7 +379,7 @@ u32 GPUScene::processMaterial( const Axion::Core::Assets::AssetManager*   assets
 
         _materialCache.cache[gpuCacheIndex].originalAssetID = cpuAssetID;
         _materialCache.cache[gpuCacheIndex].valid           = true;
-        _materialCache.cache[gpuCacheIndex].bufferOffset    = AXION_INVALID_U32; 
+        _materialCache.cache[gpuCacheIndex].bufferOffset    = AXION_INVALID_U32;
     }
 
     if ( isDirty )
@@ -508,7 +528,7 @@ void GPUScene::processLights( const Scene::Scene& cpuScene ) {
 #pragma region Frame
 #pragma endregion
 
-void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose ) {
+void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose, bool jitter ) {
     if ( cameraEntity && cameraEntity.hasComponent<Scene::CameraComponent>() &&
          cameraEntity.hasComponent<Scene::TransformComponent>() )
     {
@@ -517,23 +537,50 @@ void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolu
         const auto& camComp   = cameraEntity.getComponent<Scene::CameraComponent>();
         const auto& transComp = cameraEntity.getComponent<Scene::TransformComponent>();
 
-        auto proj  = camComp.getProjection( resolution );
-        auto model = transComp.getMatrix();
+        auto proj       = camComp.getProjection( resolution );
+        auto jitterProj = proj;
+        if ( jitter )
+        {
+            auto getProjectionJitter = []( u32 frameIndex, u32 screenWidth, u32 screenHeight ) {
+                const int index = (int)( frameIndex % 16 ) + 1;
 
-        auto viewMat  = Math::MTX::inverse( model );
-        auto viewProj = proj * viewMat;
+                const float jitterX = Math::halton( index, 2 ) - 0.5f;
+                const float jitterY = Math::halton( index, 3 ) - 0.5f;
+
+                return Math::Vec2( jitterX * 2.0f / (float)screenWidth, jitterY * 2.0f / (float)screenHeight );
+            };
+
+            const Math::Vec2 jitterNDC = getProjectionJitter( _currentFrameIndex, resolution.width, resolution.height );
+            jitterProj = Math::MTX::translate( Math::Mat4( 1.0f ), Math::Vec3( jitterNDC.x, jitterNDC.y, 0.0f ) ) * proj;
+        }
+
+        // View
+        auto model   = transComp.getMatrix();
+        auto viewMat = Math::MTX::inverse( model );
+
+        auto viewProj       = proj * viewMat;
+        auto jitterViewProj = jitterProj * viewMat;
+        auto prevViewProj   = _hasPrevViewProj ? _prevViewProj : viewProj;
 
         if ( transpose )
         {
-            _frame.viewProj = Math::MTX::transpose( viewProj );
-            _frame.invView  = Math::MTX::transpose( viewMat );
-            _frame.invProj  = Math::MTX::transpose( Math::MTX::inverse( proj ) );
+            _frame.viewProj         = Math::MTX::transpose( viewProj );
+            _frame.jitteredViewProj = Math::MTX::transpose( jitterViewProj );
+            _frame.prevViewProj     = Math::MTX::transpose( prevViewProj );
+            _frame.invView          = Math::MTX::transpose( viewMat );
+            _frame.invProj          = Math::MTX::transpose( Math::MTX::inverse( proj ) );
         } else
         {
-            _frame.viewProj = viewProj;
-            _frame.invView  = viewMat;
-            _frame.invProj  = Math::MTX::inverse( proj );
+            _frame.viewProj         = viewProj;
+            _frame.jitteredViewProj = jitterViewProj;
+            _frame.prevViewProj     = prevViewProj;
+            _frame.invView          = viewMat;
+            _frame.invProj          = Math::MTX::inverse( proj );
         }
+
+        // Previous of the next frame
+        _prevViewProj    = viewProj;
+        _hasPrevViewProj = true;
 
         _frame.camPos_Time = Math::Vec4(
             transComp.getTranslation().x,
@@ -680,7 +727,7 @@ void GPUScene::runGC() {
                         gpuTex.valid           = false;
                         gpuTex.refCount        = 0;
                         gpuTex.originalAssetID = 0;
-                        gpuTex.heapID       = AXION_INVALID_U32;
+                        gpuTex.heapID          = AXION_INVALID_U32;
 
                         AXION_LOG_INFO( Logger::Module::Core, "GC: Recycled texture slot {}", textureGpuHandle );
                     }

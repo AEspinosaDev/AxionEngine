@@ -27,7 +27,7 @@ VSOutput vsForward( VSInput input ) {
 
     VSOutput output;
     float4   worldPos = mul( instance.modelMatrix, float4( localPos, 1.0 ) );
-    output.position   = mul( gFrame.viewProj, worldPos );
+    output.position   = mul( gFrame.jitteredViewProj, worldPos ); // Same raster as the vis pass (TAA jitter)
     output.uv         = uv;
 
     return output;

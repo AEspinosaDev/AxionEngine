@@ -39,6 +39,10 @@ void createPersistentResources( Graphics::IGPUResourcePool& r, const MemoryBudge
                                       .create();
 
     res.fallbackSamplerHandle = r.sampler( "FallbackSampler" ).create();
+
+    res.linearClampSamplerHandle = r.sampler( "LinearClampSampler" )
+                                       .address( Graphics::AddressMode::Clamp )
+                                       .create();
 }
 
 u32 createGeometryPage( Graphics::IGPUResourcePool& r, const GeometryPageSizes& sizes, GPUResources& res ) {

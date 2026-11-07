@@ -93,6 +93,7 @@ struct GPUResources {
     Vector<Graphics::TextureHandle> materialTextureHandles; ///< Indexed by GPUScene texture slot
     Graphics::TextureHandle         fallbackTexture2DHandle;
     Graphics::SamplerHandle         fallbackSamplerHandle;
+    Graphics::SamplerHandle         linearClampSamplerHandle; ///< Screen space resampling (TAA history): no wrapping at the borders
 
     // Particle systems
     Vector<ParticleSystemBuffers> particleBuffers; ///< Indexed by GPUScene particle buffer slot
