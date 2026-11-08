@@ -1,8 +1,10 @@
-// TAA resolve: HDR in, HDR out (the output is the history of the next frame).
-// Working space: exposed + reversible tonemap + YCoCg. Current frame neighborhood -> variance box (Salvi) intersected with its min / max.
-// History: reprojected with the dilated velocity, Catmull-Rom fetch, clipped towards the box center (Playdead).
+// ============================================================================
+// EPIC's BRIAN KARIS inspired TAA implementation
+// ------------------------------------------------------------------------------
+
 #include "Defines.slang" // PUSH_CONSTANT / SPACE_* / DECLARE_* macros
 import Bindless;
+#include "Tonemappers.slang"
 
 DECLARE_TEXTURE( Texture2D<float4>, gCurrImg,  0 ); ///< HDR, jittered
 DECLARE_TEXTURE( Texture2D<float4>, gPrevImg,  1 ); ///< HDR, TAA output of the previous frame
@@ -12,7 +14,7 @@ DECLARE_RW_TEXTURE( RWTexture2D<float4>, gOutput, 0 );
 
 public struct PushConstant {
     float2 inverseTexSize;
-    uint   samplerID;    ///< Bindless linear CLAMP sampler (the Catmull-Rom taps reach outside the screen)
+    uint   samplerID;    ///< Bindless linear CLAMP sampler 
     float  exposure;     ///< Same factor as the tonemapper
     uint   resetHistory; ///< 1 -> output = current frame
 };
@@ -24,37 +26,8 @@ static const float MOTION_ALPHA   = 0.25; ///< Current frame weight at MOTION_PI
 static const float MOTION_PIXELS  = 8.0;  ///< Speed (pixels / frame) that reaches MOTION_ALPHA
 static const float VARIANCE_GAMMA = 1.0;  ///< Box half size in standard deviations
 
-float luma( float3 c ) {
-    return dot( c, float3( 0.2126, 0.7152, 0.0722 ) );
-}
 
-/// @brief Reversible tonemap (Karis): blending here weights every sample by 1 / (1 + luma), no flickering fireflies
-float3 tonemap( float3 c ) {
-    return c * rcp( 1.0 + luma( c ) );
-}
-float3 inverseTonemap( float3 c ) {
-    return c * rcp( max( 1.0 - luma( c ), 1e-5 ) );
-}
-
-float3 rgbToYCoCg( float3 c ) {
-    return float3( 0.25 * c.r + 0.5 * c.g + 0.25 * c.b,
-                   0.5 * c.r - 0.5 * c.b,
-                   -0.25 * c.r + 0.5 * c.g - 0.25 * c.b );
-}
-float3 yCoCgToRgb( float3 c ) {
-    return float3( c.x + c.y - c.z, c.x + c.z, c.x - c.y - c.z );
-}
-
-/// @brief HDR -> working space (exposed, tonemapped, YCoCg)
-float3 toWorking( float3 hdr ) {
-    return rgbToYCoCg( tonemap( hdr * gPush.exposure ) );
-}
-/// @brief Working space -> HDR
-float3 fromWorking( float3 w ) {
-    return inverseTonemap( yCoCgToRgb( w ) ) / gPush.exposure;
-}
-
-/// @brief Catmull-Rom history fetch in 5 bilinear taps (the 4 corners are dropped, their weight is tiny)
+/// Catmull-Rom history fetch in 5 bilinear taps (the 4 corners are dropped, their weight is tiny)
 float3 sampleHistoryCatmullRom( SamplerState linearClamp, float2 uv ) {
     const float2 texSize  = rcp( gPush.inverseTexSize );
     const float2 position = uv * texSize;
@@ -81,7 +54,6 @@ float3 sampleHistoryCatmullRom( SamplerState linearClamp, float2 uv ) {
     return max( result / weight, float3( 0.0 ) ); // Catmull-Rom overshoots below zero
 }
 
-/// @brief Clips the history towards the box center (keeps the hue better than a per channel clamp)
 float3 clipToBox( float3 history, float3 boxMin, float3 boxMax ) {
     const float3 center  = 0.5 * ( boxMax + boxMin );
     const float3 extents = 0.5 * ( boxMax - boxMin ) + 1e-5;
@@ -108,7 +80,7 @@ void computeMain( uint3 dispatchThreadId : SV_DispatchThreadID ) {
         return;
     }
 
-    // 1. Neighborhood (3x3): moments for the variance box + longest velocity (edges take the motion of the moving object)
+    // Neighborhood (3x3): moments for the variance box + longest velocity (edges take the motion of the moving object)
     const int2 maxPixel = int2( width, height ) - 1;
 
     float3 current       = float3( 0.0 );
@@ -150,7 +122,7 @@ void computeMain( uint3 dispatchThreadId : SV_DispatchThreadID ) {
     boxMin             = max( boxMin, mean - VARIANCE_GAMMA * sigma );
     boxMax             = min( boxMax, mean + VARIANCE_GAMMA * sigma );
 
-    // 2. Reprojection. Off-screen in the previous frame -> no history
+    // Reprojection. 
     const float2 uv        = ( float2( pixel ) + 0.5 ) * gPush.inverseTexSize;
     const float2 historyUV = uv - velocity;
     if ( any( historyUV < 0.0 ) || any( historyUV > 1.0 ) )
@@ -165,7 +137,7 @@ void computeMain( uint3 dispatchThreadId : SV_DispatchThreadID ) {
 
     const float3 history = clipToBox( toWorking( historyHDR ), boxMin, boxMax );
 
-    // 3. Blend: more weight to the current frame when moving (less ghosting and blur)
+   
     const float speed = length( velocity * rcp( gPush.inverseTexSize ) ); // Pixels / frame
     const float alpha = lerp( BASE_ALPHA, MOTION_ALPHA, saturate( speed / MOTION_PIXELS ) );
 
