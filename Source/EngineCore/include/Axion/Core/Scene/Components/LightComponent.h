@@ -15,6 +15,7 @@ public:
         Spot        = 2,
         Area        = 3
     };
+   
     LightComponent()                        = default;
     LightComponent( const LightComponent& ) = default;
     LightComponent( const Math::Vec3& color, float intensity, Type type = Type::Point )
@@ -34,6 +35,8 @@ public:
     float             getInnerAngle() const { return _innerAngle; }
     float             getOuterAngle() const { return _outerAngle; }
     const Math::Vec2& getAreaSize() const { return _areaSize; }
+    float             getShadowDistance() const { return _shadowDistance; }
+    float             getCascadeSplitLambda() const { return _cascadeSplitLambda; }
 
     void setType( Type type ) { _type = type; }
     void setActive( bool active ) { _active = active; }
@@ -46,6 +49,8 @@ public:
     void setInnerAngle( float innerAngle ) { _innerAngle = innerAngle; }
     void setOuterAngle( float outerAngle ) { _outerAngle = outerAngle; }
     void setAreaSize( const Math::Vec2& areaSize ) { _areaSize = areaSize; }
+    void setShadowDistance( float shadowDistance ) { _shadowDistance = shadowDistance; }
+    void setCascadeSplitLambda( float cascadeSplitLambda ) { _cascadeSplitLambda = cascadeSplitLambda; }
 
 private:
     Type _type        = Type::Point;
@@ -63,6 +68,10 @@ private:
     float _outerAngle = 45.0f;
 
     Math::Vec2 _areaSize = { 1.0f, 1.0f };
+
+    // Cascaded shadows (only directional lights)
+    float _shadowDistance     = 100.0f; 
+    float _cascadeSplitLambda = 0.75f;  
 
     // Assets::MeshHandle _geometryLight;
     // Assets::TextureHandle _iesProfile;

@@ -17,12 +17,20 @@ namespace Core::Render {
 // Flags to control the data transformation pipeline during the update.
 enum GPUSceneUpdateFlags : u32
 {
-    GPUSceneNone               = 0, // Must be 0: the flags are tested as ( flags & X ) != GPUSceneNone
+    GPUSceneNone               = 0,      // Must be 0: the flags are tested as ( flags & X ) != GPUSceneNone
     GPUSceneForceRaytrace      = 1 << 1, // Force all objects to be marked for Raytracing AS
     GPUSceneTransposeMatrices  = 1 << 2, // Required for DX12 (Row-Major vs Col-Major mismatch)
     GPUSceneForgetCache        = 1 << 3, // Force a full cache rebuild (useful for level reload)
     GPUSceneSortInstances      = 1 << 4, // Instances will be sorted by material archetype, primitive and distance if needed. Particle systems, by material bundle
-    GPUSceneEnableCameraJitter = 1 << 5  // Enable camera Jitter for temporal filtering
+    GPUSceneEnableCameraJitter = 1 << 5,
+    GPUSceneProcessShadowMaps  = 1 << 6,
+    // Enable camera Jitter for temporal filtering
+};
+
+struct GPUSceneShadowMapSettings {
+    u32 maxCascades;
+    u32 cascadedSMRes;
+    u32 shadowAtlasRes;
 };
 
 AXION_ENUM_CLASS_FLAG_OPERATORS( GPUSceneUpdateFlags );
@@ -51,6 +59,8 @@ public:
     Vector<GPULight>&          lights() { return _lights; }
     Vector<GPUEnvironment>&    environments() { return _environments; }
     Vector<GPUParticleSystem>& particleSystems() { return _particleSystems; }
+    Vector<GPUShadow>&         shadows() { return _shadows; }
+    Vector<GPUShadowView>&     shadowViews() { return _shadowViews; }
 
     // Persistent cache access (Used to bind SRVs for geometry)
     STLW::Vector<GPUMesh>& meshes() { return _meshCache.cache; }
@@ -60,6 +70,8 @@ public:
     STLW::Vector<GPUTexture>& textures() { return _textureCache.cache; }
     // Persistent cache access (Used to create and release the particle buffers)
     STLW::Vector<GPUParticleBuffer>& particleBuffers() { return _particleBufferCache.cache; }
+    // Persistent cache access (Used to create and release the CSMs)
+    STLW::Vector<GPUCascadedSM>& csms() { return _csmCache.cache; }
 
     // Command Queues consumption
     STLW::Queue<PendingMeshUpload>&           pendingMeshUploads() { return _pendingMeshUploads; }
@@ -70,6 +82,8 @@ public:
     STLW::Queue<u32>&                         pendingTextureReleases() { return _pendingTextureReleases; }
     STLW::Queue<PendingParticleBufferUpload>& pendingParticleBufferUploads() { return _pendingParticleBufferUploads; }
     STLW::Queue<u32>&                         pendingParticleBufferReleases() { return _pendingParticleBufferReleases; }
+    STLW::Queue<PendingCSMUpload>&            pendingCSMUploads() { return _pendingCSMUploads; }
+    STLW::Queue<u32>&                         pendingCSMReleases() { return _pendingCSMReleases; }
 
     struct SortKey {
         u64 key;
@@ -93,12 +107,13 @@ public:
      * @param cameraEntity The point of view for this render pass (Culling/ViewProj).
      * @param flags Modifiers for the update pipeline (e.g., DX12 Transpose).
      */
-    void update( const Scene::Scene& cpuScene,
-                 Scene::Entity&      cameraEntity,
-                 IMaterialLibrary&   mtlLib,
-                 const Extent2D&     resolution,
-                 float               deltaTime,
-                 GPUSceneUpdateFlags flags = GPUSceneNone );
+    void update( const Scene::Scene&       cpuScene,
+                 Scene::Entity&            cameraEntity,
+                 IMaterialLibrary&         mtlLib,
+                 const Extent2D&           resolution,
+                 float                     deltaTime,
+                 GPUSceneShadowMapSettings smSettings,
+                 GPUSceneUpdateFlags       flags = GPUSceneNone );
 
     void setGCMode( Graphics::GCMode mode ) { _resourceTTL = (u32)mode; }
 
@@ -120,8 +135,15 @@ private:
     u32  processTexture( const Axion::Core::Assets::AssetManager* assets, const Axion::Core::Assets::TextureHandle& cpuHandle, u32 materialGpuCacheIndex );
 
     u32 processParticleBuffer( ECS::EntityID entity, u32 particleCount );
+    u32 processCSM( ECS::EntityID entity, u32 shadowRes );
 
-    void processLights( const Scene::Scene& cpuScene );
+    void processLights( const Scene::Scene&              cpuScene,
+                        Scene::Entity&                   cameraEntity,
+                        const Extent2D&                  resolution,
+                        const GPUSceneShadowMapSettings& smSeetings,
+                        bool                             transpose,
+                        bool                             processShadows );
+
     void processFrame( Scene::Entity& cameraEntity, const Extent2D& resolution, bool transpose, bool jitter );
     void processEnvironments( const Scene::Scene& cpuScene );
 
@@ -142,6 +164,8 @@ private:
     Vector<GPULight>          _lights;
     Vector<GPUEnvironment>    _environments;
     Vector<GPUParticleSystem> _particleSystems;
+    Vector<GPUShadow>         _shadows;
+    Vector<GPUShadowView>     _shadowViews;
 
     Vector<SortKey> _sortedKeys;
 
@@ -155,10 +179,12 @@ private:
         // O(1) Look-Up Table mapping [CPU_AssetID] -> [GPU_CacheSlot]
         STLW::Vector<int> assetToCacheLUT;
     };
+
     GPUCache<GPUMesh>           _meshCache;
     GPUCache<GPUMaterial>       _materialCache;
     GPUCache<GPUTexture>        _textureCache;
     GPUCache<GPUParticleBuffer> _particleBufferCache; ///< Its LUT is indexed by entity
+    GPUCache<GPUCascadedSM>     _csmCache;            ///< Its LUT is indexed by entity
 
     // More material related
     constexpr static u64                               MAX_STACK_TEXTURES = 6ull;
@@ -173,12 +199,15 @@ private:
     STLW::Queue<u32>                         _pendingTextureReleases;
     STLW::Queue<PendingParticleBufferUpload> _pendingParticleBufferUploads;
     STLW::Queue<u32>                         _pendingParticleBufferReleases;
+    STLW::Queue<PendingCSMUpload>            _pendingCSMUploads;
+    STLW::Queue<u32>                         _pendingCSMReleases;
 
+    // Prev states
     struct PrevWorldMatrix {
         Math::Mat4 matrix = Math::Mat4( 1.0f );
         u32        frame  = AXION_INVALID_U32;
     };
-    STLW::Vector<PrevWorldMatrix> _prevWorldMatrices; 
+    STLW::Vector<PrevWorldMatrix> _prevWorldMatrices;
 
     // -- State --
     bool       _forceRaytrace     = false;

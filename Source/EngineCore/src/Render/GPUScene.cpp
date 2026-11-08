@@ -1,26 +1,29 @@
 #include "GPUScene.h"
+#include <cmath>
 
 AXION_NAMESPACE_BEGIN
 
 namespace Core::Render {
 
-void GPUScene::update( const Scene::Scene& cpuScene,
-                       Scene::Entity&      cameraEntity,
-                       IMaterialLibrary&   mtlLib,
-                       const Extent2D&     resolution,
-                       float               deltaTime,
-                       GPUSceneUpdateFlags flags ) {
+void GPUScene::update( const Scene::Scene&       cpuScene,
+                       Scene::Entity&            cameraEntity,
+                       IMaterialLibrary&         mtlLib,
+                       const Extent2D&           resolution,
+                       float                     deltaTime,
+                       GPUSceneShadowMapSettings smSettings,
+                       GPUSceneUpdateFlags       flags ) {
 
     bool transposeMatrices = ( flags & GPUSceneTransposeMatrices ) != GPUSceneNone;
     bool forceRaytrace     = ( flags & GPUSceneForceRaytrace ) != GPUSceneNone;
     bool sortInstances     = ( flags & GPUSceneSortInstances ) != GPUSceneNone;
     bool jitterCamera      = ( flags & GPUSceneEnableCameraJitter ) != GPUSceneNone;
+    bool processShadows    = ( flags & GPUSceneProcessShadowMaps ) != GPUSceneNone;
 
     reset( deltaTime );
 
     processInstances( cpuScene, mtlLib, sortInstances, transposeMatrices, forceRaytrace );
     processParticles( cpuScene, mtlLib, sortInstances, transposeMatrices );
-    processLights( cpuScene );
+    processLights( cpuScene, cameraEntity, resolution, smSettings, transposeMatrices, processShadows );
     processEnvironments( cpuScene );
     processFrame( cameraEntity, resolution, transposeMatrices, jitterCamera );
 
@@ -34,6 +37,8 @@ void GPUScene::reset( float dt ) {
     _lights.clear();
     _environments.clear();
     _particleSystems.clear();
+    _shadows.clear();
+    _shadowViews.clear();
     _sortedKeys.clear();
 }
 
@@ -254,6 +259,49 @@ u32 GPUScene::processParticleBuffer( ECS::EntityID entity, u32 particleCount ) {
     }
 
     _particleBufferCache.cache[slot].lastFrameUsed = _currentFrameIndex;
+    return slot;
+}
+
+#pragma endregion
+#pragma region Shadow
+
+u32 GPUScene::processCSM( ECS::EntityID entity, u32 shadowRes ) {
+
+    if ( entity >= _csmCache.assetToCacheLUT.size() )
+        _csmCache.assetToCacheLUT.resize( entity + 1, -1 );
+
+    int cachedIndex = _csmCache.assetToCacheLUT[entity];
+
+    // Another res needs another buffer. The old one may be in use by frames in flight:
+    // nobody refreshes it anymore, so the GC frees it once it is safe
+    if ( cachedIndex != -1 && _csmCache.cache[cachedIndex].res != shadowRes )
+        cachedIndex = -1;
+
+    u32 slot = (u32)cachedIndex;
+    if ( cachedIndex == -1 )
+    {
+        if ( !_csmCache.freeIndexQueue.empty() )
+        {
+            slot = (u32)_csmCache.freeIndexQueue.front();
+            _csmCache.freeIndexQueue.pop();
+        } else
+        {
+            slot = (u32)_csmCache.cache.size();
+            _csmCache.cache.emplace_back();
+        }
+
+        _csmCache.assetToCacheLUT[entity] = (int)slot;
+
+        GPUCascadedSM& csm = _csmCache.cache[slot];
+        csm                = {};
+        csm.ownerEntity    = entity;
+        csm.res            = shadowRes;
+        csm.valid          = true;
+
+        _pendingCSMUploads.push( { slot, shadowRes } );
+    }
+
+    _csmCache.cache[slot].lastFrameUsed = _currentFrameIndex;
     return slot;
 }
 
@@ -485,8 +533,21 @@ u32 GPUScene::processTexture( const Axion::Core::Assets::AssetManager*  assets,
 #pragma endregion
 #pragma region Lights
 
-void GPUScene::processLights( const Scene::Scene& cpuScene ) {
-    _lights.reserve( cpuScene.getRegistry().view<Scene::LightComponent>().size() );
+void GPUScene::processLights( const Scene::Scene&              cpuScene,
+                              Scene::Entity&                   cameraEntity,
+                              const Extent2D&                  resolution,
+                              const GPUSceneShadowMapSettings& smSettings,
+                              bool                             transpose,
+                              bool                             processShadows ) {
+    auto lightCount = cpuScene.getRegistry().view<Scene::LightComponent>().size();
+    _lights.reserve( lightCount );
+    _shadows.reserve( lightCount );
+    _shadowViews.reserve( lightCount * 6 );
+
+    // The cascades are fitted to the camera frustum: without a camera, no light gets a CSM
+    const bool hasCamera = cameraEntity && cameraEntity.hasComponent<Scene::CameraComponent>() &&
+                           cameraEntity.hasComponent<Scene::TransformComponent>();
+
     auto lightView = cpuScene.getRegistry().multiView<const Scene::LightComponent, const Scene::TransformComponent>();
 
     for ( ECS::EntityID entity : lightView )
@@ -502,9 +563,84 @@ void GPUScene::processLights( const Scene::Scene& cpuScene ) {
         light.pos_Intensity = Math::Vec4( transComp.getTranslation(), lightComp.getIntensity() );
         light.dir_Type      = Math::Vec4( transComp.forward(), (float)lightComp.getType() );
 
+        u32 shadowIndex = AXION_INVALID_U32;
+        if ( processShadows )
+        {
+            // Process shadow (CSM: directional lights only, other types will go to the shadow atlas)
+            //----------------------------------------------------------------------------------------
+            if ( lightComp.castsShadows() && lightComp.getType() == Scene::LightComponent::Type::Directional && hasCamera )
+            {
+                // Process persistent CSM data
+                const u32 csmSlot = processCSM( entity, smSettings.cascadedSMRes ); 
+                const u32 csmRes  = _csmCache.cache[csmSlot].res;
+
+                const auto& camComp     = cameraEntity.getComponent<Scene::CameraComponent>();
+                const auto& camTrans    = cameraEntity.getComponent<Scene::TransformComponent>();
+                const float aspect      = resolution.height > 0 ? (float)resolution.width / (float)resolution.height : 1.0f;
+                const bool  perspective = camComp.getProjectionType() == Scene::CameraComponent::ProjectionType::Perspective;
+
+                // Unjittered camera: the TAA jitter must not move the cascades.
+                // The log splits need a near plane > 0 (an ortho camera may have 0)
+                const float shadowNear = Math::max( camComp.getNearPlane(), 1e-3f );
+                const float shadowFar  = Math::max( Math::min( camComp.getFarPlane(), lightComp.getShadowDistance() ), shadowNear * 2.0f );
+                const auto  lightDir   = Math::normalize( transComp.forward() );
+
+                auto createCascadeViewProj = []( const Math::Vec3& dir, const Math::BoundingSphere& sphere, u32 mapRes ) {
+                    // Rotation only: it changes only when the light rotates, so the snapping grid stays fixed in the world
+                    const Math::Vec3 up        = std::abs( dir.y ) > 0.99f ? Math::Vec3( 0.0f, 0.0f, 1.0f ) : Math::Vec3( 0.0f, 1.0f, 0.0f );
+                    const Math::Mat4 lightView = Math::MTX::lookAt( Math::Vec3( 0.0f ), dir, up );
+
+                    Math::Vec3 center = Math::Vec3( lightView * Math::Vec4( sphere.center, 1.0f ) );
+
+                    const float texelSize = 2.0f * sphere.radius / (float)mapRes;
+                    center.x              = std::floor( center.x / texelSize ) * texelSize;
+                    center.y              = std::floor( center.y / texelSize ) * texelSize;
+
+                    // The light view looks down -Z: the sphere covers the view distances [-center.z - r, -center.z + r].
+                    // Casters between the light and the box fall in front of the near plane: the shadow pass must disable depth clip (pancaking) to keep them
+                    const Math::Mat4 proj = Math::MTX::ortho( center.x - sphere.radius, center.x + sphere.radius, center.y - sphere.radius, center.y + sphere.radius, -center.z - sphere.radius, -center.z + sphere.radius );
+                    return proj * lightView;
+                };
+
+                GPUShadow shadow {};
+                shadow.mapSRVHeapID = _csmCache.cache[csmSlot].srvHeapID; // INVALID until its texture exists (next frame): skip the shadow then
+                shadow.firstView    = (u32)_shadowViews.size();
+                shadow.viewCount    = smSettings.maxCascades;
+                shadow.splitsFar    = Math::Vec4( 0.0f );
+
+                float sliceNear = shadowNear;
+                for ( u32 cascade = 0; cascade < smSettings.maxCascades; ++cascade )
+                {
+                    const float sliceFar = Math::computeCascadeSplit( cascade, smSettings.maxCascades, shadowNear, shadowFar, lightComp.getCascadeSplitLambda() );
+
+                    const Math::BoundingSphere sphere =
+                        perspective ? Math::computePerspectiveSliceSphere( camTrans.getTranslation(), camTrans.forward(), Math::radians( camComp.getFOV() ), aspect, sliceNear, sliceFar )
+                                    : Math::computeOrthoSliceSphere( camTrans.getTranslation(), camTrans.forward(), camComp.getOrthoSize(), aspect, sliceNear, sliceFar );
+
+                    const Math::Mat4 viewProj = createCascadeViewProj( lightDir, sphere, csmRes );
+
+                    GPUShadowView view;
+                    view.viewProj = transpose ? Math::MTX::transpose( viewProj ) : viewProj;
+                    view.params   = Math::Vec4( 2.0f * sphere.radius / (float)csmRes, // Texel world size
+                                                (float)cascade,                       // Slice
+                                                0.0f,
+                                                0.0f );
+                    _shadowViews.pushBack( view );
+
+                    shadow.splitsFar[cascade] = sliceFar;
+                    sliceNear                 = sliceFar;
+                }
+
+                shadowIndex = (u32)_shadows.size();
+                _shadows.pushBack( shadow );
+            }
+
+            // TBD: Normal shadow map in shadow atlas
+        }
+
         light.settings = { Math::radians( lightComp.getInnerAngle() * 0.5f ),
                            Math::radians( lightComp.getOuterAngle() * 0.5f ),
-                           0.0f,
+                           shadowIndex == AXION_INVALID_U32 ? -1.0f : (float)shadowIndex,
                            lightComp.isActive() ? 1.0f : 0.0f };
 
         Math::Vec3 finalColor = lightComp.getColor();
@@ -551,7 +687,7 @@ void GPUScene::processFrame( Scene::Entity& cameraEntity, const Extent2D& resolu
             };
 
             const Math::Vec2 jitterNDC = getProjectionJitter( _currentFrameIndex, resolution.width, resolution.height );
-            jitterProj = Math::MTX::translate( Math::Mat4( 1.0f ), Math::Vec3( jitterNDC.x, jitterNDC.y, 0.0f ) ) * proj;
+            jitterProj                 = Math::MTX::translate( Math::Mat4( 1.0f ), Math::Vec3( jitterNDC.x, jitterNDC.y, 0.0f ) ) * proj;
         }
 
         // View
@@ -767,6 +903,24 @@ void GPUScene::runGC() {
 
         _particleBufferCache.freeIndexQueue.push( i );
         buffer.valid = false;
+    }
+
+    for ( u64 i = 0; i < _csmCache.cache.size(); ++i )
+    {
+        auto& csm = _csmCache.cache[i];
+        if ( !csm.valid || _currentFrameIndex - csm.lastFrameUsed <= _resourceTTL )
+            continue;
+
+        _pendingCSMReleases.push( (u32)i );
+
+        // The entity may own a newer CSM already (its resolution changed)
+        auto& lut = _csmCache.assetToCacheLUT;
+        if ( csm.ownerEntity < lut.size() && lut[csm.ownerEntity] == (int)i )
+            lut[csm.ownerEntity] = -1;
+
+        _csmCache.freeIndexQueue.push( i );
+        csm.valid     = false;
+        csm.srvHeapID = AXION_INVALID_U32;
     }
 }
 

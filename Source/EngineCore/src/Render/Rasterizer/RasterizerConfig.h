@@ -40,7 +40,7 @@ enum class LayoutSetType : u32
 AXION_STATIC_ASSERT( (u32)LayoutSetType::PassBound == Graphics::PassIO::SET_INDEX, "Pass I/O set must match Graphics::PassIO (DECLARE_* macros)" );
 
 //-----------------------------------------------------------------------------
-// Rasterizer Layout Register Map 
+// Rasterizer Layout Register Map
 //                                  Must match GlobalLayouts.slang !!
 //-----------------------------------------------------------------------------
 
@@ -65,8 +65,8 @@ constexpr u32 REG_FRAME_SRV_COUNT = (u32)FrameSRV::Count;
 
 // Space 1: Pass I/O (declared by each pass shader with DECLARE_* macros). Register map owned by Graphics::PassIO
 constexpr u32 REG_PASS_SLOT_COUNT      = Graphics::PassIO::SLOT_COUNT;
-constexpr u32 REG_PASS_SRV_IMAGE_BASE  = Graphics::PassIO::texture( 0 );  // t0 - t7
-constexpr u32 REG_PASS_SRV_BUFFER_BASE = Graphics::PassIO::buffer( 0 );   // t8 - t15
+constexpr u32 REG_PASS_SRV_IMAGE_BASE  = Graphics::PassIO::texture( 0 );   // t0 - t7
+constexpr u32 REG_PASS_SRV_BUFFER_BASE = Graphics::PassIO::buffer( 0 );    // t8 - t15
 constexpr u32 REG_PASS_UAV_IMAGE_BASE  = Graphics::PassIO::rwTexture( 0 ); // u0 - u7
 constexpr u32 REG_PASS_UAV_BUFFER_BASE = Graphics::PassIO::rwBuffer( 0 );  // u8 - u15
 
@@ -111,6 +111,7 @@ constexpr u64 MAX_GLOBAL_UBO_BYTES     = 1024;
 constexpr u64 MAX_PUSH_CONSTANTS_BYTES = 128;
 
 constexpr u32 PARTICLE_DATA_STRIDE = 48; ///< Bytes per simulated particle in a particle buffer (must match the simulation shader)
+constexpr u32 CSM_MAX_SLICES       = 4;
 
 constexpr const char* SHADER_CACHE_NAME = "RasterizerShaders"; ///< Prefix of the rasterizer shader cache files
 

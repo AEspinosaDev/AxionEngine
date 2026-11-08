@@ -27,6 +27,14 @@ enum RendererFlags : u32
     RendererUseNaiveResolve      = 1 << 12, ///< One full screen resolve dispatch per material bundle instead of the binned resolve (comparison)
 };
 
+enum class ShadowQuality : u32
+{
+    Low      = 512,
+    Medium   = 1024,
+    High     = 2048,
+    VeryHigh = 4096,
+};
+
 AXION_ENUM_CLASS_FLAG_OPERATORS( RendererFlags );
 
 /**

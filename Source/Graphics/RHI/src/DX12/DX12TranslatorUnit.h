@@ -185,6 +185,41 @@ constexpr DXGI_FORMAT get( Format formatType ) {
     }
 }
 
+constexpr DXGI_FORMAT getResourceFormatWithDepthConversion( Format formatType, bool sampled ) {
+    if ( !sampled )
+        return get( formatType );
+
+    switch ( formatType )
+    {
+        case Format::D16:
+            return DXGI_FORMAT_R16_TYPELESS;
+        case Format::D24S8:
+            return DXGI_FORMAT_R24G8_TYPELESS;
+        case Format::D32:
+            return DXGI_FORMAT_R32_TYPELESS;
+        case Format::D32S8:
+            return DXGI_FORMAT_R32G8X24_TYPELESS;
+        default:
+            return get( formatType );
+    }
+}
+
+constexpr DXGI_FORMAT getSRVFormatWithDepthConversion( Format formatType ) {
+    switch ( formatType )
+    {
+        case Format::D16:
+            return DXGI_FORMAT_R16_UNORM;
+        case Format::D24S8:
+            return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+        case Format::D32:
+            return DXGI_FORMAT_R32_FLOAT;
+        case Format::D32S8:
+            return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+        default:
+            return get( formatType );
+    }
+}
+
 constexpr D3D12_COMMAND_LIST_TYPE get( QueueType type ) {
     switch ( type )
     {

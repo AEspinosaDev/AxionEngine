@@ -12,6 +12,9 @@ class IRasterizer : public IRenderer
 public:
     struct Settings {
         Graphics::Format depthFormat   = Graphics::Format::D32;
+        Graphics::Format shadowFormat  = Graphics::Format::D16;
+        ShadowQuality    CSMQuality    = ShadowQuality::Medium;
+        ShadowQuality    shadowQuality = ShadowQuality::Medium;
 
         CommonSettings common {};
         MemoryBudget   memory {};

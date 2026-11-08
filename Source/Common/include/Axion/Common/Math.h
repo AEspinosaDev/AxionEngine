@@ -374,8 +374,41 @@ inline float halton(int index, int base) {
         r = r + f * (current % base);
         current = current / base;
     }
-    
+
     return r;
+}
+
+// --- Cascaded Shadow Maps ---
+
+inline float computeCascadeSplit( u32 index, u32 count, float nearPlane, float farPlane, float lambda ) {
+    const float t           = (float)( index + 1 ) / (float)count;
+    const float uniform     = nearPlane + ( farPlane - nearPlane ) * t;
+    const float logarithmic = nearPlane * pow( farPlane / nearPlane, t );
+    return lerp( uniform, logarithmic, lambda );
+}
+
+inline BoundingSphere computePerspectiveSliceSphere( const Vec3& eye, const Vec3& forward, float fovY, float aspect, float sliceNear, float sliceFar ) {
+    // Squared tangent of the half diagonal: at distance d, the slice corners lie on a ring of radius d * k
+    const float tanY = tan( fovY * 0.5f );
+    const float k2   = tanY * tanY * ( 1.0f + aspect * aspect );
+
+    // Center on the view axis, at the same distance from both corner rings.
+    // When it falls beyond the far ring, the far ring alone bounds the slice
+    const float centerDist = min( 0.5f * ( sliceNear + sliceFar ) * ( 1.0f + k2 ), sliceFar );
+
+    BoundingSphere sphere;
+    sphere.center = eye + forward * centerDist;
+    sphere.radius = sqrt( sqr( sliceFar - centerDist ) + sqr( sliceFar ) * k2 );
+    return sphere;
+}
+
+inline BoundingSphere computeOrthoSliceSphere( const Vec3& eye, const Vec3& forward, float halfHeight, float aspect, float sliceNear, float sliceFar ) {
+    const float halfWidth = halfHeight * aspect;
+
+    BoundingSphere sphere;
+    sphere.center = eye + forward * ( 0.5f * ( sliceNear + sliceFar ) );
+    sphere.radius = sqrt( sqr( halfWidth ) + sqr( halfHeight ) + sqr( 0.5f * ( sliceFar - sliceNear ) ) );
+    return sphere;
 }
 
 } // namespace Math

@@ -1,10 +1,21 @@
 #pragma once
+#include <Axion/Common/Containers/STLWrapper/Vector.h>
 #include <Axion/Common/Containers/SmallVector.h>
 #include <Axion/Common/Containers/Vector.h>
 #include <Axion/Core/Render/Common.h>
 #include <Axion/Graphics/Subsystems/IRenderGraph.h>
 
+#include <memory>
+
 AXION_NAMESPACE_BEGIN
+
+namespace Core::Assets {
+struct GeometryData;
+}
+
+namespace Core::Render {
+class GPUScene;
+}
 
 namespace Core::Render::Rasterizer {
 namespace Resources {
@@ -98,6 +109,9 @@ struct GPUResources {
     // Particle systems
     Vector<ParticleSystemBuffers> particleBuffers; ///< Indexed by GPUScene particle buffer slot
 
+    // Cascaded Shadow Maps
+    SmallVector<Graphics::TextureHandle, 3> csmTextureHandles; ///< Indexed by GPUScene CSM slot
+
     SmallVector<FrameResources, 3> frame;
 };
 
@@ -110,6 +124,37 @@ void createFrameResources( Graphics::IGPUResourcePool& r, const MemoryBudget& bu
 
 /// @brief Creates the bindless buffers of a particle system. A handle is invalid if its creation failed
 ParticleSystemBuffers createParticleSystemBuffers( Graphics::IGPUResourcePool& r, u32 slot, u32 particleCount );
+
+//-----------------------------------------------------------------------------
+// Residency (CPU phase, before the frame data upload: the GPUScene caches get their heap IDs before being uploaded)
+//-----------------------------------------------------------------------------
+
+/// @brief A mesh already placed in a geometry page by reserveMeshes(), waiting for its copies (UploadPass)
+struct MeshUpload {
+    std::shared_ptr<Assets::GeometryData> geometryData;
+
+    Graphics::BufferSlice vertexSlice;
+    Graphics::BufferSlice indexSlice;
+    Graphics::BufferSlice meshletSlice;
+    Graphics::BufferSlice meshletVertexSlice;
+    Graphics::BufferSlice meshletPrimitiveSlice;
+};
+
+/// @brief GPUMesh gets its heap IDs & offsets the same frame its copies are recorded.
+/// Releases the GC'd meshes, then places the pending ones in the first page with room. When none has it, a new page is created:
+/// standard size, or dedicated (sized for the mesh) if the mesh doesn't fit a standard one
+STLW::Vector<MeshUpload> reserveMeshes( GPUScene&                   scene,
+                                        GPUResources&               res,
+                                        Graphics::IGPUResourcePool& r,
+                                        u64                         pageSize,
+                                        u64                         maxAllocationSize );
+
+/// @brief Like reserveMeshes: destroys the buffers the GC released and creates the pending ones.
+/// There are no copies: new buffers are initialized by the simulation, from the seed.
+void reserveParticleBuffers( GPUScene& scene, GPUResources& res, Graphics::IGPUResourcePool& r );
+
+/// @brief Like reserveParticleBuffers, for the CSM texture arrays
+void reserveCSMs( GPUScene& scene, GPUResources& res, Graphics::IGPUResourcePool& r, Graphics::Format smFormat );
 
 //-----------------------------------------------------------------------------
 // Render Graph Handles

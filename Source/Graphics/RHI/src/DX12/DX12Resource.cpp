@@ -23,7 +23,7 @@ DX12Texture::DX12Texture( const TextureDesc& desc, DX12Device::Context& ctx, con
     dx12Desc.Height              = desc.size.height;
     dx12Desc.MipLevels           = static_cast<UINT16>( desc.mipLevels );
     dx12Desc.DepthOrArraySize    = ( desc.dimension == TextureDimension::Texture3D ) ? (u16)desc.size.depth : (u16)desc.arraySize;
-    dx12Desc.Format              = DX12Translator::get( desc.format );
+    dx12Desc.Format              = DX12Translator::getResourceFormatWithDepthConversion( desc.format, static_cast<bool>( desc.viewFlags & TextureViewShaderResource ) ); // Typeless if sampled depth
     dx12Desc.SampleDesc.Count    = 1;
     dx12Desc.Flags               = D3D12_RESOURCE_FLAG_NONE;
 
@@ -73,7 +73,7 @@ DX12Texture::DX12Texture( const TextureDesc& desc, DX12Device::Context& ctx, con
                              ( dx12Desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL );
     if ( canHaveClearValue )
     {
-        clearVal.Format = dx12Desc.Format;
+        clearVal.Format = DX12Translator::get( desc.format ); // Never typeless: the format of the view that clears
         if ( desc.viewFlags & TextureViewDepthStencil )
         {
             clearVal.DepthStencil.Depth   = desc.clearValue.depth;
@@ -134,7 +134,7 @@ void DX12Texture::createViews( DX12Device::Context& ctx, bool useDescriptionPara
     {
         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
         srvDesc.Shader4ComponentMapping         = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srvDesc.Format                          = DX12Translator::get( _desc.format );
+        srvDesc.Format                          = DX12Translator::getSRVFormatWithDepthConversion( _desc.format ); 
         srvDesc.ViewDimension                   = DX12Translator::getSRVDimension( _desc.dimension ); // helper
         switch ( srvDesc.ViewDimension )
         {

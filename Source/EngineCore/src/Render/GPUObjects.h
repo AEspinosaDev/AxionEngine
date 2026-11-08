@@ -59,12 +59,28 @@ struct GPULight {
     Math::Vec4 pos_Intensity; // Packed: xyz = Position, w = Intensity
     Math::Vec4 col_Radius;    // Packed: xyz = Color, w = Radius
     Math::Vec4 dir_Type;      // Packed: xyz = Direction/Normal, w = Area
+
     // x = Spot Inner Angle Cosine
     // y = Spot Outer Angle Cosine
-    // z = ShadowMap Index (or Area Light Width)
+    // z = GPU Shadow Index (-1 = no shadow)
     // w = Active flag (or Area Light Height)
     Math::Vec4 settings;
     // Total: 64 bytes. (Multiple of 4, OK for StructuredBuffer).
+};
+
+// Shadow
+struct GPUShadow {
+    u32 mapSRVHeapID; // Texture2DArray (later: atlas)
+    u32 firstView;    // Into gShadowViews
+    u32 viewCount;    // Slices
+    u32 pad;
+
+    Math::Vec4 splitsFar; // View-space far of each cascade (cascade selection in the resolve)
+};
+
+struct GPUShadowView {
+    Math::Mat4 viewProj;
+    Math::Vec4 params; ///< x = texel world size (normal offset), y = slice
 };
 
 // Limits of a particle identifier in the visibility buffer: 1 bit flag | 8 bits system | 23 bits particle
@@ -188,6 +204,17 @@ struct GPUParticleBuffer {
     bool needsReset           = false; ///< The buffers were just created, or the seeding settings changed
 };
 
+// Cascaded Shadow Map
+struct GPUCascadedSM {
+    u32 srvHeapID = AXION_INVALID_U32; // Depth formats have no UAV
+    u32 res;                           // Base Resolution
+
+    u32  lastFrameUsed = 0;
+    u32  ownerEntity   = AXION_INVALID_U32;
+    bool valid         = false;
+    u32  pad;
+};
+
 // -----------------------------------------------------------------------------
 // MESSAGE QUEUES (RHI COMMANDS)
 // -----------------------------------------------------------------------------
@@ -242,6 +269,12 @@ struct PendingTextureUpload {
 struct PendingParticleBufferUpload {
     u32 slot; // Destination Slot in _particleBufferCache
     u32 particleCount;
+};
+
+//
+struct PendingCSMUpload {
+    u32 slot; // Destination Slot in _csmCache
+    u32 shadowRes;
 };
 
 } // namespace Core::Render

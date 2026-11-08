@@ -205,17 +205,23 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
     }
 
     // Scene Update
-    GPUSceneUpdateFlags updateFlags = GPUSceneSortInstances;
+    GPUSceneUpdateFlags updateFlags = GPUSceneSortInstances | GPUSceneProcessShadowMaps;
     if ( _settings.common.gfxApi == Graphics::API::DirectX12 )
         updateFlags |= GPUSceneTransposeMatrices;
     if ( _settings.common.flags & RendererEnableTAA )
         updateFlags |= GPUSceneEnableCameraJitter;
+
+    GPUSceneShadowMapSettings SMSettings {
+        .maxCascades    = Config::CSM_MAX_SLICES,
+        .cascadedSMRes  = (u32)_settings.CSMQuality,
+        .shadowAtlasRes = (u32)_settings.shadowQuality * 4 };
 
     _gpuScene.update( scene,
                       cameraEntity,
                       _mtlLib,
                       _window->getSize(),
                       deltaTime,
+                      SMSettings,
                       updateFlags );
 
     // Bindless defaults read by shaders through gFrame
@@ -236,14 +242,16 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
     currentFrameRes.indirectAllocator.reset();
 
     // Geometry residency: pending meshes are placed in the geometry pages before GPUMesh is uploaded (heap IDs & offsets valid this frame)
-    auto meshUploads = _passes.getPass<UploadPass>()->reserveMeshes( _gpuScene,
-                                                                     _res,
-                                                                     _rnd->resources(),
-                                                                     _settings.memory.device.minGeometryPageAlloc,
-                                                                     _settings.memory.shared.maxUploadAllocPerFrame );
+    auto meshUploads = Resources::reserveMeshes( _gpuScene,
+                                                 _res,
+                                                 _rnd->resources(),
+                                                 _settings.memory.device.minGeometryPageAlloc,
+                                                 _settings.memory.shared.maxUploadAllocPerFrame );
 
     // Particle buffers: created before the next frame reads their heap IDs
-    _passes.getPass<UploadPass>()->reserveParticleBuffers( _gpuScene, _res, _rnd->resources() );
+    Resources::reserveParticleBuffers( _gpuScene, _res, _rnd->resources() );
+    // Reserve CSMs
+    Resources::reserveCSMs( _gpuScene, _res, _rnd->resources(), _settings.shadowFormat );
 
     // Upload CPU Coherent Data to GPU
     auto transientPayload   = uploadTransientData( currentFrameRes.uboAllocator,
@@ -577,11 +585,11 @@ void Rasterizer::render( const Scene::Scene& scene, Scene::Entity& cameraEntity,
                                     .create();
 
             TAAPass::Config taaConfig;
-            taaConfig.inputCurrent        = colorHandle;
-            taaConfig.inputVelocity       = visConfig.outVelocityHandle;
+            taaConfig.inputCurrent  = colorHandle;
+            taaConfig.inputVelocity = visConfig.outVelocityHandle;
 
-            taaConfig.inputHistory        = taaHandles[_taa.writeIndex ^ 1u]; // Written last frame
-            taaConfig.outputHandle        = taaHandles[_taa.writeIndex];
+            taaConfig.inputHistory = taaHandles[_taa.writeIndex ^ 1u]; // Written last frame
+            taaConfig.outputHandle = taaHandles[_taa.writeIndex];
 
             taaConfig.linearSamplerHandle = _res.linearClampSamplerHandle;
             taaConfig.exposure            = exposureFactor;
